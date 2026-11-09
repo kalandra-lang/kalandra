@@ -6,6 +6,7 @@
 #include "RecordStorage.h"
 #include "RecursiveAdmission.h"
 #include "kalandra/Continuation.h"
+#include "kalandra/StandardLibrary.h"
 #include "kalandra/StringLiteral.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
@@ -928,6 +929,15 @@ private:
         exports_.emplace(key, ExportBinding{true, output_.records.size()});
       TypedRecord header{label, record.name, {}};
       header.error = record.error;
+      const auto origin = syntax_.source->partIndex(record.name.begin);
+      if (origin < syntax_.standardModules.size()) {
+        if (syntax_.standardModules[origin] == StandardModule::Process && label == "ExitStatus")
+          header.standard = StandardRecord::ExitStatus;
+        if (syntax_.standardModules[origin] == StandardModule::Io && label == "IoError")
+          header.standard = StandardRecord::IoError;
+        if (syntax_.standardModules[origin] == StandardModule::Io && label == "Line")
+          header.standard = StandardRecord::Line;
+      }
       output_.records.push_back(std::move(header));
       recordDeclarations_.push_back(declaration);
       recordStates_.push_back(State::Unseen);
@@ -1363,6 +1373,85 @@ private:
         {*statement.binding, symbol.definition.value_or(symbol.declaration), symbol.type, {}});
     return found->second;
   }
+  bool standardFormat(FunctionId id) const {
+    if (id >= syntax_.functions.size())
+      return false;
+    const auto &function = syntax_.functions[id];
+    return function.moduleIndex < syntax_.standardModules.size() &&
+           syntax_.standardModules[function.moduleIndex] == StandardModule::Format &&
+           name(function.name) == "format";
+  }
+  std::optional<ConsoleAction> standardConsole(FunctionId id) const {
+    if (id >= syntax_.functions.size())
+      return {};
+    const auto &fn = syntax_.functions[id];
+    if (fn.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[fn.moduleIndex] != StandardModule::Io)
+      return {};
+    const auto label = name(fn.name);
+    if (label == "print")
+      return ConsoleAction::Print;
+    if (label == "println")
+      return ConsoleAction::Println;
+    if (label == "eprint")
+      return ConsoleAction::Eprint;
+    if (label == "eprintln")
+      return ConsoleAction::Eprintln;
+    if (label == "readLine")
+      return ConsoleAction::ReadLine;
+    return {};
+  }
+  std::optional<ValueId> consoleBody(Frame &frame, FunctionId id, ConsoleAction action) {
+    const auto &fn = output_.functions[id];
+    const auto parameter = fn.parameters.at(0);
+    auto input = add(frame, output_.symbols[parameter].type, fn.declaration, SymbolRead{parameter});
+    if (!input)
+      return {};
+    return add(frame, *fn.declaredResult, fn.declaration, ConsoleOperation{action, *input});
+  }
+  std::optional<ValueId> formatCall(Frame &frame, SourceSpan span,
+                                    const std::vector<ExprId> &arguments) {
+    if (arguments.empty()) {
+      error("S080", "format requires a literal template", span);
+      return {};
+    }
+    const auto &syntax = syntax_.expressions[arguments.front()];
+    const auto *literal = std::get_if<StringExpr>(&syntax.value);
+    if (!literal) {
+      error("S080", "format template must be a String literal", syntax.span);
+      return {};
+    }
+    const auto source = syntax_.source->slice(literal->literal);
+    const auto decoded =
+        source.size() <= limits_.maxLiteralBytes ? decodeStringLiteral(source) : std::nullopt;
+    if (!decoded) {
+      error("S069", "invalid or oversized UTF-8 String literal or escape", syntax.span);
+      return {};
+    }
+    auto parts = parseFormatTemplate(*decoded, arguments.size() - 1);
+    if (!parts) {
+      error("S080", std::string(parts.error().message), syntax.span);
+      return {};
+    }
+    std::vector<ValueId> values;
+    for (std::size_t i = 1; i < arguments.size(); ++i) {
+      auto value = expression(frame, arguments[i]);
+      if (!value)
+        return {};
+      const auto &type = node(*value).type;
+      if (type.tensor || type.array || type.task || type.fallible || type.device ||
+          (type.builtin != BuiltinValue::Numeric && type.builtin != BuiltinValue::Bool &&
+           type.builtin != BuiltinValue::String)) {
+        error("S080", "format arguments require completed String, numeric or bool values",
+              syntax_.expressions[arguments[i]].span);
+        return {};
+      }
+      values.push_back(*value);
+    }
+    ValueType result;
+    result.builtin = BuiltinValue::String;
+    return add(frame, result, span, FormatOperation{std::move(*parts), std::move(values)});
+  }
   bool analyzeFunction(FunctionId id) {
     if (states_[id] == State::Complete)
       return true;
@@ -1398,8 +1487,15 @@ private:
     std::unordered_set<std::string> parameters;
     for (auto parameter : output_.functions[id].parameters)
       parameters.insert(output_.symbols[parameter].name);
-    auto result = functionSuite(frame, body, output_.functions[id].declaredResult, statements,
-                                syntax_.functions[id].span, parameters);
+    output_.functions[id].compileTimeOnly = standardFormat(id);
+    auto result = standardFormat(id) ? add(frame, *output_.functions[id].declaredResult,
+                                           syntax_.functions[id].span, StringLiteral{std::string{}})
+                  : standardConsole(id)
+                      ? consoleBody(frame, id, *standardConsole(id))
+                      : functionSuite(frame, body, output_.functions[id].declaredResult, statements,
+                                      syntax_.functions[id].span, parameters);
+    if ((standardFormat(id) || standardConsole(id)) && result)
+      statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);
     if (!result)
       success = false;
@@ -2140,6 +2236,10 @@ private:
     }
     if (auto found = functions_.find(functionKey(frame, identifier)); found != functions_.end()) {
       const auto id = found->second;
+      if (standardFormat(id)) {
+        error("S080", "format is a compile-time call form, not a function value", read.name);
+        return {};
+      }
       if (!analyzeFunction(id))
         return {};
       const auto &target = output_.functions[id];
@@ -5416,6 +5516,13 @@ private:
       return {};
     }
     const auto id = found->second;
+    if (standardFormat(id)) {
+      if (spawned || selection) {
+        error("S080", "format cannot be a spawn entry; wrap it in a function", span);
+        return {};
+      }
+      return formatCall(frame, span, arguments);
+    }
     if (!signatures_[id])
       return {};
     const bool signatureQuery = queryingSignature(span);

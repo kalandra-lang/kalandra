@@ -3,6 +3,7 @@
 #include "ArrayReferences.h"
 #include "BoundedEntry.h"
 #include "CollectionMetadata.h"
+#include "FormatKind.h"
 #include "IntegerRanges.h"
 #include "LeafEntry.h"
 #include "LocalStorage.h"
@@ -391,6 +392,10 @@ public:
       for (const auto &[name, signature] : std::vector<std::pair<std::string, FunctionType>>{
                {"kalandra_string_literal",
                 builder_.getFunctionType({ptr, ptr, builder_.getI64Type()}, {})},
+               {"kalandra_format_scalar",
+                builder_.getFunctionType({ptr, builder_.getI32Type(), builder_.getI64Type()}, {})},
+               {"kalandra_format_join",
+                builder_.getFunctionType({ptr, ptr, builder_.getI64Type()}, {})},
                {"kalandra_string_validate", builder_.getFunctionType({ptr}, {})},
                {"kalandra_string_array_validate", builder_.getFunctionType({ptr}, {})},
                {"kalandra_string_slice",
@@ -444,6 +449,9 @@ public:
         }
       }
     }
+    for (FunctionId id = 0; id < input_.functions.size(); ++id)
+      if (input_.functions[id].compileTimeOnly)
+        reachable[id] = false;
     functions_.resize(input_.functions.size());
     for (FunctionId id = 0; id < input_.functions.size(); ++id) {
       if (!reachable[id])
@@ -602,6 +610,26 @@ private:
     auto one = arith::ConstantIntOp::create(builder_, loc, 1, 8);
     guard(loc, compare(loc, arith::CmpIPredicate::ule, cell, one), 3);
     return arith::TruncIOp::create(builder_, loc, builder_.getI1Type(), cell);
+  }
+  Value stringLiteral(Location loc, const std::string &text, Value slot = {}) {
+    LLVM::GlobalOp global;
+    {
+      OpBuilder::InsertionGuard guard(builder_);
+      builder_.setInsertionPointToStart(module_->getBody());
+      const auto bytes = text.empty() ? std::string(1, '\0') : text;
+      auto storage = LLVM::LLVMArrayType::get(builder_.getI8Type(), bytes.size());
+      global = LLVM::GlobalOp::create(builder_, loc, storage, true, LLVM::Linkage::Internal,
+                                      "kalandra_string_" + std::to_string(nextStringLiteral_++),
+                                      builder_.getStringAttr(bytes));
+    }
+    ValueType value;
+    value.builtin = BuiltinValue::String;
+    if (!slot)
+      slot = descriptorSlot(loc, type(value));
+    auto address = LLVM::AddressOfOp::create(builder_, loc, global);
+    func::CallOp::create(builder_, loc, "kalandra_string_literal", TypeRange{},
+                         ValueRange{slot, address, integer(loc, text.size())});
+    return LLVM::LoadOp::create(builder_, loc, type(value), slot);
   }
   Type type(const ValueType &value) {
     if (value.builtin == BuiltinValue::Function && !value.tensor) {
@@ -2849,22 +2877,60 @@ private:
                                  ValueRange{output, left, right});
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, StringLiteral>) {
-            LLVM::GlobalOp global;
-            {
-              OpBuilder::InsertionGuard guard(builder_);
-              builder_.setInsertionPointToStart(module_->getBody());
-              const auto bytes = operation.value.empty() ? std::string(1, '\0') : operation.value;
-              auto storage = LLVM::LLVMArrayType::get(builder_.getI8Type(), bytes.size());
-              global =
-                  LLVM::GlobalOp::create(builder_, loc, storage, true, LLVM::Linkage::Internal,
-                                         "kalandra_string_" + std::to_string(nextStringLiteral_++),
-                                         builder_.getStringAttr(bytes));
+            return stringLiteral(loc, operation.value);
+          } else if constexpr (std::is_same_v<T, ConsoleOperation>) {
+            throw LoweringFailure{"console I/O requires host continuation lowering"};
+          } else if constexpr (std::is_same_v<T, FormatOperation>) {
+            // Evaluate every source argument once, left to right, BEFORE any
+            // formatting allocations. This preserves ordinary call fault order.
+            std::vector<Value> arguments;
+            for (auto argument : operation.arguments)
+              arguments.push_back(expression(frame, argument));
+            const auto stringType = type(node.type);
+            auto scratch = descriptorSlot(loc, stringType);
+            auto output = descriptorSlot(loc, stringType);
+            if (operation.parts.empty())
+              return LLVM::ZeroOp::create(builder_, loc, stringType);
+            if (operation.parts.size() > std::uint64_t(INT64_MAX) / runtime::formatDescriptorBytes)
+              throw LoweringFailure{"format descriptor table exceeds the native size domain"};
+            auto ptr = LLVM::LLVMPointerType::get(builder_.getContext());
+            auto table =
+                func::CallOp::create(builder_, loc, "kalandra_record_alloc", TypeRange{ptr},
+                                     ValueRange{integer(loc, operation.parts.size() *
+                                                                 runtime::formatDescriptorBytes)})
+                    .getResult(0);
+            std::size_t next = 0, index = 0;
+            for (const auto &part : operation.parts) {
+              Value value;
+              if (!part.argument)
+                value = stringLiteral(loc, part.text, scratch);
+              else {
+                const auto &input = input_.expressions[operation.arguments[next]].type;
+                value = arguments[next++];
+                if (input.builtin != BuiltinValue::String) {
+                  auto kind = formatScalarKind(input);
+                  if (!kind)
+                    throw LoweringFailure{"unsupported formatting argument"};
+                  if (input.builtin == BuiltinValue::Numeric && !isInteger(input.element))
+                    value = arith::BitcastOp::create(
+                        builder_, loc,
+                        builder_.getIntegerType(describeNumeric(input.element)->bits), value);
+                  if (cast<IntegerType>(value.getType()).getWidth() < 64)
+                    value = arith::ExtUIOp::create(builder_, loc, builder_.getI64Type(), value);
+                  auto tag = arith::ConstantIntOp::create(builder_, loc,
+                                                          static_cast<std::uint32_t>(*kind), 32);
+                  func::CallOp::create(builder_, loc, "kalandra_format_scalar", TypeRange{},
+                                       ValueRange{scratch, tag, value});
+                  value = LLVM::LoadOp::create(builder_, loc, stringType, scratch);
+                }
+              }
+              auto address = LLVM::GEPOp::create(builder_, loc, ptr, stringType, table,
+                                                 ValueRange{integer(loc, index++)});
+              LLVM::StoreOp::create(builder_, loc, value, address);
             }
-            auto address = LLVM::AddressOfOp::create(builder_, loc, global);
-            auto slot = descriptorSlot(loc, type(node.type));
-            func::CallOp::create(builder_, loc, "kalandra_string_literal", TypeRange{},
-                                 ValueRange{slot, address, integer(loc, operation.value.size())});
-            return LLVM::LoadOp::create(builder_, loc, type(node.type), slot);
+            func::CallOp::create(builder_, loc, "kalandra_format_join", TypeRange{},
+                                 ValueRange{output, table, integer(loc, operation.parts.size())});
+            return LLVM::LoadOp::create(builder_, loc, stringType, output);
           } else if constexpr (std::is_same_v<T, BoolLiteral>) {
             return arith::ConstantIntOp::create(builder_, loc, operation.value, 1);
           } else if constexpr (std::is_same_v<T, RecordValue>) {
@@ -4305,6 +4371,10 @@ std::expected<BackendOutput, std::string>
 lowerNative(const TypedModule &input, std::optional<std::string> testEntry,
             const std::vector<std::string> &exports, ArithmeticMode arithmetic,
             bool deferCallFinalization, CpuTarget target) {
+  for (const auto &fn : input.functions)
+    if (fn.compileTimeOnly && ((testEntry && *testEntry == fn.name) ||
+                               std::ranges::find(exports, fn.name) != exports.end()))
+      return std::unexpected("compile-time helpers cannot be exported as runtime functions");
   if (target.triple.empty() && target.dataLayout.empty())
     target = {KALANDRA_NATIVE_CPU_TARGET_TRIPLE, nativeCpuDataLayout};
   target.triple = llvm::Triple::normalize(target.triple);

@@ -1,5 +1,5 @@
 foreach(target IN ITEMS kalandra-native-runtime kalandra-native-runtime-sanitized kalandra-native-runtime-thread-sanitized kalandra-task-core-optimized)
-  target_sources(${target} PRIVATE runtime/Format.cpp)
+  target_sources(${target} PRIVATE runtime/Format.cpp runtime/Console.cpp)
 endforeach()
 if(BUILD_TESTING)
   foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
@@ -10,6 +10,22 @@ if(BUILD_TESTING)
       set(runtime kalandra-native-runtime-thread-sanitized)
     endif()
     add_executable(kalandra-format-tests-${variant} tests/FormatTests.cpp)
+    add_executable(kalandra-console-tests-${variant} tests/ConsoleRuntimeTests.cpp)
+    target_link_libraries(kalandra-console-tests-${variant} PRIVATE ${runtime})
+    target_compile_options(kalandra-console-tests-${variant} PRIVATE -Wall -Wextra -Werror)
+    if(variant STREQUAL "optimized")
+      target_compile_options(kalandra-console-tests-${variant} PRIVATE -O2)
+    elseif(variant STREQUAL "sanitized")
+      target_compile_options(kalandra-console-tests-${variant} PRIVATE -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      target_link_options(kalandra-console-tests-${variant} PRIVATE -fsanitize=address,undefined -fno-sanitize-recover=all)
+    elseif(variant STREQUAL "thread-sanitized")
+      target_compile_options(kalandra-console-tests-${variant} PRIVATE -O1 -g -fsanitize=thread)
+      target_link_options(kalandra-console-tests-${variant} PRIVATE -fsanitize=thread)
+    endif()
+    add_test(NAME native-console-runtime-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ConsoleRuntimeTests.py"
+        --driver "$<TARGET_FILE:kalandra-console-tests-${variant}>")
+    set_tests_properties(native-console-runtime-${variant} PROPERTIES TIMEOUT 120 LABELS "feature-io")
     target_include_directories(kalandra-format-tests-${variant} PRIVATE include)
     target_link_libraries(kalandra-format-tests-${variant} PRIVATE ${runtime})
     target_compile_options(kalandra-format-tests-${variant} PRIVATE -Wall -Wextra -Werror)
@@ -24,5 +40,39 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME native-format-application-${variant} COMMAND kalandra-format-tests-${variant})
     set_tests_properties(native-format-application-${variant} PROPERTIES TIMEOUT 60 LABELS "feature-io")
+  endforeach()
+endif()
+
+if(BUILD_TESTING)
+  add_executable(kalandra-standard-library-tests tests/StandardLibraryTests.cpp)
+  target_include_directories(kalandra-standard-library-tests PRIVATE include)
+  target_link_libraries(kalandra-standard-library-tests PRIVATE kalandra-syntax)
+  target_compile_options(kalandra-standard-library-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME native-standard-library-modules
+    COMMAND kalandra-standard-library-tests "${CMAKE_CURRENT_BINARY_DIR}/standard-library-modules")
+  set_tests_properties(native-standard-library-modules PROPERTIES TIMEOUT 30 LABELS "feature-io")
+endif()
+
+if(BUILD_TESTING)
+  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+    set(runtime kalandra-native-runtime)
+    if(variant STREQUAL "sanitized")
+      set(runtime kalandra-native-runtime-sanitized)
+    elseif(variant STREQUAL "thread-sanitized")
+      set(runtime kalandra-native-runtime-thread-sanitized)
+    endif()
+    add_test(NAME native-format-source-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/FormatSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>"
+        --output "${CMAKE_CURRENT_BINARY_DIR}/format-source-${variant}"
+        --clang "${CMAKE_CXX_COMPILER}" --runtime "$<TARGET_FILE:${runtime}>"
+        --variant "${variant}")
+    set_tests_properties(native-format-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io")
+    add_test(NAME native-console-source-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ConsoleSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>"
+        --output "${CMAKE_CURRENT_BINARY_DIR}/console-source-${variant}"
+        --variant "${variant}")
+    set_tests_properties(native-console-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io")
   endforeach()
 endif()

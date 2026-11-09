@@ -248,6 +248,18 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       return failure;
   }
   for (const auto &expression : module.expressions) {
+    const auto compileTimeTarget = [&](FunctionId id) {
+      return id < module.functions.size() && module.functions[id].compileTimeOnly;
+    };
+    if (const auto *call = std::get_if<FunctionCall>(&expression.operation);
+        call && compileTimeTarget(call->function))
+      return "compile-time helper used as a runtime call";
+    if (const auto *reference = std::get_if<FunctionReference>(&expression.operation);
+        reference && compileTimeTarget(reference->function))
+      return "compile-time helper used as a runtime function value";
+    if (const auto *map = std::get_if<ArrayMap>(&expression.operation);
+        map && compileTimeTarget(map->function))
+      return "compile-time helper used as a runtime callback";
     if (auto failure = error(expression.type))
       return failure;
     if (const auto *range = std::get_if<IntegerRangeOperation>(&expression.operation)) {
@@ -683,6 +695,55 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           (query->kind != StringQueryKind::Length && query->kind != StringQueryKind::ByteLength))
         return "String query requires a completed CPU String and scalar int64 result";
     }
+    if (const auto *console = std::get_if<ConsoleOperation>(&expression.operation)) {
+      const auto &r = expression.type;
+      if (target != NumericTarget::Cpu || r.tensor || r.array || r.task || r.device ||
+          !r.fallible || !r.errorRecord || *r.errorRecord >= module.records.size() ||
+          module.records[*r.errorRecord].standard != StandardRecord::IoError ||
+          console->input >= module.expressions.size())
+        return "console I/O requires host execution and its declared IoError channel";
+      const bool read = console->action == ConsoleAction::ReadLine;
+      if (console->action != ConsoleAction::Print && console->action != ConsoleAction::Println &&
+          console->action != ConsoleAction::Eprint && console->action != ConsoleAction::Eprintln &&
+          !read)
+        return "invalid console operation";
+      const auto &input = module.expressions[console->input].type;
+      if (input.tensor || input.array || input.task || input.fallible || input.device ||
+          (read ? input.builtin != BuiltinValue::Numeric || input.element != NumericType::UInt64
+                : input.builtin != BuiltinValue::String))
+        return "console I/O requires a completed String or u64 line limit";
+      if (read ? r.builtin != BuiltinValue::Record || !r.record ||
+                     *r.record >= module.records.size() ||
+                     module.records[*r.record].standard != StandardRecord::Line
+               : r.builtin != BuiltinValue::Unit)
+        return "invalid console I/O result type";
+    }
+    if (const auto *format = std::get_if<FormatOperation>(&expression.operation)) {
+      if (target != NumericTarget::Cpu || expression.type.builtin != BuiltinValue::String ||
+          expression.type.tensor || expression.type.array || expression.type.task ||
+          expression.type.fallible || expression.type.device)
+        return "String formatting requires a completed CPU String result";
+      std::size_t fields = 0;
+      for (const auto &part : format->parts) {
+        if (part.argument) {
+          ++fields;
+          if (!part.text.empty())
+            return "format argument part contains literal bytes";
+        } else if (!validUtf8(part.text))
+          return "format contains invalid UTF-8 literal bytes";
+      }
+      if (fields != format->arguments.size())
+        return "format argument count differs from its template";
+      for (auto input : format->arguments) {
+        if (input >= module.expressions.size())
+          return "format references invalid input";
+        const auto &type = module.expressions[input].type;
+        if (type.tensor || type.array || type.task || type.fallible || type.device ||
+            (type.builtin != BuiltinValue::String && type.builtin != BuiltinValue::Numeric &&
+             type.builtin != BuiltinValue::Bool))
+          return "format arguments require completed CPU String, numeric or bool values";
+      }
+    }
     if (const auto *concat = std::get_if<StringConcat>(&expression.operation)) {
       const auto string = [&](ValueId id) {
         return id < module.expressions.size() &&
@@ -1097,7 +1158,31 @@ std::string dumpTypedIR(const TypedModule &module) {
               out << (operation.kind == StringQueryKind::Length ? "string.length checked %"
                                                                 : "string.byte_length checked %")
                   << operation.input;
-            else if constexpr (std::is_same_v<T, StringConcat>)
+            else if constexpr (std::is_same_v<T, ConsoleOperation>) {
+              out << "console."
+                  << (operation.action == ConsoleAction::ReadLine  ? "readLine"
+                      : operation.action == ConsoleAction::Print   ? "print"
+                      : operation.action == ConsoleAction::Println ? "println"
+                      : operation.action == ConsoleAction::Eprint  ? "eprint"
+                                                                   : "eprintln")
+                  << " ";
+              value(operation.input);
+            } else if constexpr (std::is_same_v<T, FormatOperation>) {
+              out << "string.format parts=[";
+              for (const auto &part : operation.parts) {
+                if (part.argument)
+                  out << "{}";
+                else {
+                  out << "0x";
+                  for (unsigned char byte : part.text)
+                    out << std::hex << std::setw(2) << std::setfill('0') << unsigned(byte);
+                  out << std::dec;
+                }
+                out << ';';
+              }
+              out << "] ";
+              arguments(operation.arguments);
+            } else if constexpr (std::is_same_v<T, StringConcat>)
               out << "string.concat %" << operation.left << " %" << operation.right;
             else if constexpr (std::is_same_v<T, StringLiteral>) {
               out << "string.utf8 0x";

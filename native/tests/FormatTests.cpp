@@ -1,12 +1,13 @@
-#include "kalandra/FormatTemplate.h"
 #include "../runtime/Format.h"
+#include "kalandra/FormatTemplate.h"
 #include <atomic>
 #include <bit>
 #include <charconv>
+#include <cstring>
 #include <iostream>
 #include <limits>
-#include <tuple>
 #include <stdexcept>
+#include <tuple>
 using namespace kalandra;
 using namespace kalandra::runtime;
 static void require(bool condition, const char *message) {
@@ -78,6 +79,90 @@ int main() {
       require(ctx.status() ? !out.data : validateString(ctx, out), "failed format published backing");
       ctx.settle();
       require(!ctx.live() && ctx.allocations() == ctx.releases(), "format allocation failure leaked");
+    }
+    // Exercise the private descriptor-table boundary, not just source strings.
+    const auto balanced = [](Invocation &ctx) {
+      ctx.settle();
+      require(!ctx.live() && ctx.allocations() == ctx.releases(), "join backing leaked");
+    };
+    for (unsigned alias = 0; alias < 4; ++alias) {
+      Invocation ctx;
+      auto *parts =
+          static_cast<StringDescriptor *>(ctx.allocateRecord(3 * sizeof(StringDescriptor)));
+      require(parts, "join table allocation failed");
+      for (unsigned i = 0; i < 3; ++i)
+        parts[i] = {};
+      kalandra_string_literal_v1(&ctx, &parts[0], "α", 2);
+      kalandra_string_literal_v1(&ctx, &parts[2], "\0é", 3);
+      StringDescriptor separate;
+      auto *out = alias < 3 ? parts + alias : &separate;
+      kalandra_format_join_v1(&ctx, out, parts, 3);
+      require(!ctx.status() && validateString(ctx, *out) && out->byteLength == 5 &&
+                  std::memcmp(out->data, "α\0é", 5) == 0,
+              "join text/alias mismatch");
+      balanced(ctx);
+    }
+    for (unsigned mode = 0; mode < 6; ++mode) {
+      Invocation ctx;
+      StringDescriptor local;
+      auto *parts = static_cast<StringDescriptor *>(ctx.allocateRecord(sizeof(StringDescriptor)));
+      require(parts, "join table allocation failed");
+      *parts = {};
+      StringDescriptor out;
+      const StringDescriptor *table = parts;
+      std::uint64_t count = 1;
+      if (mode == 0)
+        table = nullptr;
+      if (mode == 1)
+        table = &local; // A readable descriptor is not an owned table.
+      if (mode == 2)
+        table = reinterpret_cast<StringDescriptor *>(reinterpret_cast<char *>(parts) + 1);
+      if (mode == 3)
+        count = 2; // Owned table, insufficient capacity.
+      if (mode == 4)
+        count = UINT64_MAX;
+      if (mode == 5)
+        *parts = {parts, reinterpret_cast<const char *>(parts), -1};
+      kalandra_format_join_v1(&ctx, &out, table, count);
+      require(ctx.status() == 3 && !out.data, "malformed join descriptor accepted");
+      balanced(ctx);
+    }
+    for (unsigned failure = 1; failure < 15; ++failure) {
+      Invocation ctx;
+      ctx.failAllocationAt(failure);
+      StringDescriptor out;
+      auto *parts =
+          static_cast<StringDescriptor *>(ctx.allocateRecord(2 * sizeof(StringDescriptor)));
+      if (parts) {
+        parts[0] = {};
+        parts[1] = {};
+        kalandra_string_literal_v1(&ctx, &parts[0], "one", 3);
+        kalandra_string_literal_v1(&ctx, &parts[1], "two", 3);
+        kalandra_format_join_v1(&ctx, &out, parts, 2);
+      }
+      require(ctx.status() ? !out.data
+                           : validateString(ctx, out) && out.byteLength == 6 &&
+                                 std::memcmp(out.data, "onetwo", 6) == 0,
+              "failed join published backing");
+      balanced(ctx);
+    }
+    {
+      Invocation ctx;
+      StringDescriptor out;
+      kalandra_format_join_v1(&ctx, &out, nullptr, 0);
+      require(!ctx.status() && validateString(ctx, out) && !ctx.allocations(),
+              "empty join allocated");
+      std::atomic<bool> stop{true};
+      ctx.bindCancellation(&stop);
+      kalandra_format_join_v1(&ctx, &out, nullptr, UINT64_MAX);
+      require(!out.data && !ctx.allocations(), "cancelled join accessed invalid table");
+      balanced(ctx);
+      Invocation fault;
+      fault.fault(7);
+      fault.bindCancellation(&stop);
+      kalandra_format_join_v1(&fault, &out, nullptr, UINT64_MAX);
+      require(fault.status() == 7 && !out.data, "join changed known fault precedence");
+      balanced(fault);
     }
     std::atomic<bool> cancelled{true};
     Invocation ctx; StringDescriptor out;

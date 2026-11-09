@@ -1,4 +1,5 @@
 #include "CollectionMetadata.h"
+#include "ConsoleLowering.h"
 #include "ErrorFamilies.h"
 #include "NativeCallFoundation.h"
 #include "NativeLayout.h"
@@ -51,7 +52,8 @@ class Emitter {
   std::map<std::size_t, Function *> recordRetainers;
   std::vector<std::size_t> pendingRecordRetainers;
   std::vector<llvm::StructType *> frames, packets;
-  std::vector<std::map<std::size_t, std::size_t>> observationFields, recursiveResultFields;
+  std::vector<std::map<std::size_t, std::size_t>> observationFields, recursiveResultFields,
+      consoleFields;
   std::vector<std::optional<std::size_t>> arenaFields;
   std::vector<std::optional<std::size_t>> scopeWriteFields, scopeReturnFields;
   std::vector<std::size_t> scopeWriteCapacity;
@@ -59,6 +61,7 @@ class Emitter {
   std::vector<llvm::GlobalVariable *> scopeTables;
   std::vector<Function *> frameDestroyers;
   std::vector<llvm::GlobalVariable *> entries;
+  std::map<Function *, Value *> consoleScratch;
   Function *destroy;
   std::vector<Function *> synchronousEntries;
   std::vector<ValueType> functionSignatures;
@@ -111,6 +114,14 @@ public:
             observationFields.back()[instruction.target] = fields.size();
             fields.push_back(valueType(child.slots[child.result]));
           }
+        }
+      consoleFields.emplace_back();
+      for (std::size_t n = 0; n < plan.code.size(); ++n)
+        if (plan.code[n].code == Code::Kernel &&
+            std::holds_alternative<ConsoleOperation>(
+                planner.input.expressions[plan.code[n].source].operation)) {
+          consoleFields.back()[n] = fields.size();
+          fields.push_back(pointer);
         }
       recursiveResultFields.emplace_back();
       for (std::size_t n = 0; n < plan.code.size(); ++n)
@@ -2027,6 +2038,21 @@ private:
         break;
       }
       case Code::Kernel: {
+        if (const auto *console = std::get_if<ConsoleOperation>(
+                &planner.input.expressions[instruction.source].operation)) {
+          auto *&scratch = consoleScratch[resume];
+          if (!scratch) {
+            llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+            scratch = entry.CreateAlloca(consoleResultType(*taskTypes, context), nullptr,
+                                         "console.result");
+          }
+          emitConsoleOperation(
+              builder, module, planner.input, *taskTypes, *console, type, valueType(type),
+              payload(instruction.args.at(0)), slot(instruction.output), scratch,
+              builder.CreateStructGEP(frameType, frame, consoleFields.at(id).at(n)), ctx, task, pc,
+              n, next, leave, abort);
+          break;
+        }
         // A shape refinement on a result must preserve an error without reading
         // its absent tensor payload. Only the success path enters the kernel.
         if (std::holds_alternative<ShapeCheck>(

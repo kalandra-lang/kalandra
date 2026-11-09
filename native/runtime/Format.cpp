@@ -1,8 +1,12 @@
 #include "Format.h"
+#include <algorithm>
 #include <bit>
 #include <charconv>
+#include <cstring>
 #include <string_view>
 
+static_assert(sizeof(kalandra::runtime::StringDescriptor) ==
+              kalandra::runtime::formatDescriptorBytes);
 namespace {
 template <class T>
 std::string_view convert(char (&buffer)[128], T value) noexcept {
@@ -60,4 +64,75 @@ extern "C" void kalandra_format_scalar_v1(kalandra::runtime::Invocation *context
     return;
   }
   kalandra_string_literal_v1(context, output, text.data(), text.size());
+}
+
+extern "C" void kalandra_format_join_v1(kalandra::runtime::Invocation *context,
+                                        kalandra::runtime::StringDescriptor *output,
+                                        const kalandra::runtime::StringDescriptor *pieces,
+                                        std::uint64_t count) noexcept {
+  using kalandra::runtime::StringDescriptor;
+  if (context->poll() != 0 || !context->usable() || !count) {
+    *output = {};
+    return;
+  }
+  if (!pieces || count > std::uint64_t(INT64_MAX) / sizeof(StringDescriptor) ||
+      reinterpret_cast<std::uintptr_t>(pieces) % alignof(StringDescriptor)) {
+    *output = {};
+    context->fault(3);
+    return;
+  }
+  auto table = context->lease(pieces);
+  if (!table || table->bytes().size() < count * sizeof(StringDescriptor)) {
+    *output = {};
+    context->fault(3);
+    return;
+  }
+  std::optional<std::uint64_t> alias;
+  StringDescriptor saved;
+  for (std::uint64_t i = 0; i < count; ++i) {
+    if ((i & 255) == 0 && context->poll() != 0) {
+      *output = {};
+      return;
+    }
+    if (output == pieces + i) {
+      alias = i;
+      saved = pieces[i];
+      break;
+    }
+  }
+  *output = {};
+  const auto at = [&](std::uint64_t i) { return alias == i ? saved : pieces[i]; };
+  std::uint64_t length = 0;
+  for (std::uint64_t i = 0; i < count; ++i) {
+    const auto part = at(i);
+    if (!kalandra::runtime::validateString(*context, part))
+      return;
+    const auto sum = kalandra::runtime::combinedStringBytes(length, part.byteLength);
+    if (!sum) {
+      context->fault(2);
+      return;
+    }
+    length = *sum;
+  }
+  if (!length)
+    return;
+  auto *data = static_cast<char *>(context->allocateRecord(length));
+  if (!data)
+    return;
+  std::uint64_t offset = 0;
+  for (std::uint64_t i = 0; i < count; ++i) {
+    if (context->poll() != 0)
+      return;
+    const auto part = at(i);
+    for (std::uint64_t next = 0; next < std::uint64_t(part.byteLength);) {
+      if (context->poll() != 0)
+        return;
+      const auto bytes = std::min<std::uint64_t>(1024, part.byteLength - next);
+      std::memcpy(data + offset, part.data + next, bytes);
+      offset += bytes;
+      next += bytes;
+    }
+  }
+  if (context->poll() == 0)
+    *output = {data, data, static_cast<std::int64_t>(length)};
 }

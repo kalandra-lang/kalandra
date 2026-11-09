@@ -55,6 +55,7 @@ public:
     cancellation_ = token;
     if (pollMode_ < 2) pollMode_ = token ? 1 : 0;
   }
+  bool cancellable() const noexcept { return cancellation_ != nullptr; }
   // Private scheduler capability; never grants interruption of foreign frames.
   void allowNativeInterrupts(bool available) noexcept {
     flags_ = available ? flags_ | NativeInterrupts : flags_ & ~NativeInterrupts;

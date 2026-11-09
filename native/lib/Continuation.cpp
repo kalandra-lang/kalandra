@@ -25,7 +25,7 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           auto values = op.arguments;
           values.insert(values.begin(), op.callee);
           return values;
-        } else if constexpr (std::is_same_v<T, FunctionCall>)
+        } else if constexpr (std::is_same_v<T, FunctionCall> || std::is_same_v<T, FormatOperation>)
           return op.arguments;
         else if constexpr (std::is_same_v<T, RecordValue>) {
           std::vector<ValueId> values;
@@ -171,6 +171,13 @@ public:
       for (auto parameter : input.functions[id].parameters)
         parameters.push_back(slot(plan, input.symbols[parameter].type));
       plan.parameters = parameters;
+      if (input.functions[id].compileTimeOnly) {
+        // Keep function ordinals/frame metadata stable, but never turn a
+        // compile-time declaration placeholder into an executable kernel.
+        plan.result = slot(plan, input.functions[id].resultType);
+        plan.code.push_back({Code::InvalidCallable, 0, {}});
+        continue;
+      }
       std::set<FunctionId> stack;
       plan.result = function(plan, id, parameters, stack);
       plan.code.push_back({Code::Return, 0, {plan.result}});
@@ -333,6 +340,9 @@ private:
               argument = importValue(argument);
           } else if constexpr (std::is_same_v<T, FunctionCall>) {
             op.function = importFunction(op.function);
+            for (auto &argument : op.arguments)
+              argument = importValue(argument);
+          } else if constexpr (std::is_same_v<T, FormatOperation>) {
             for (auto &argument : op.arguments)
               argument = importValue(argument);
           } else if constexpr (std::is_same_v<T, ArrayMap>) {
@@ -531,6 +541,8 @@ private:
     if (auto *call = std::get_if<FunctionCall>(&op)) {
       call->function = called;
       call->arguments = reads;
+    } else if (auto *format = std::get_if<FormatOperation>(&op)) {
+      format->arguments = reads;
     } else if (auto *reference = std::get_if<FunctionReference>(&op)) {
       reference->function = referenced;
       reference->captures = reads;
@@ -1317,6 +1329,10 @@ private:
       auto subject = expression(plan, field->subject, env, stack);
       plan.code.push_back(
           {Code::Field, output, {subject}, static_cast<std::size_t>(field->field), 0, 0, id});
+    } else if (const auto *console = std::get_if<ConsoleOperation>(&node.operation)) {
+      auto input = expression(plan, console->input, env, stack);
+      // Host runtime operation; no pure/native numerical kernel is generated.
+      plan.code.push_back({Code::Kernel, output, {input}, 0, 0, 0, id});
     } else if (const auto *failure = std::get_if<FailOperation>(&node.operation)) {
       auto error = expression(plan, failure->error, env, stack);
       const auto index = plan.code.size();
@@ -1500,7 +1516,8 @@ std::vector<bool> coordinatingFunctions(const TypedModule &input) {
         callers.at(map->function).push_back(id);
       const auto *task = std::get_if<TaskOperation>(&op);
       const auto *map = std::get_if<ArrayMap>(&op);
-      if ((map && map->parallel) || (task && task->prefix != TaskPrefix::Try) ||
+      if (std::holds_alternative<ConsoleOperation>(op) || (map && map->parallel) ||
+          (task && task->prefix != TaskPrefix::Try) ||
           std::holds_alternative<ParallelOperation>(op) ||
           std::holds_alternative<DeviceSelection>(op) || std::holds_alternative<Transfer>(op))
         result[id] = true;

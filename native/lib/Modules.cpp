@@ -1,3 +1,4 @@
+#include "kalandra/StandardLibrary.h"
 #include "kalandra/Syntax.h"
 #include <algorithm>
 #include <filesystem>
@@ -10,7 +11,7 @@ bool packageName(std::string_view name) {
   const auto letter = [](char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
   };
-  if (name.empty() || !letter(name.front()))
+  if (name.empty() || name == "std" || !letter(name.front()))
     return false;
   return std::ranges::all_of(
       name, [&](char c) { return letter(c) || (c >= '0' && c <= '9') || c == '-'; });
@@ -29,6 +30,8 @@ std::filesystem::path overlayPath(const std::filesystem::path &path, std::error_
 } // namespace
 std::expected<ModulePackage, std::string> parseModulePackage(std::string_view value) {
   const auto equal = value.find('=');
+  if (value.substr(0, equal) == "std")
+    return std::unexpected("std is reserved for standard module imports");
   if (equal == std::string_view::npos || !packageName(value.substr(0, equal)) ||
       !packageEntry(value.substr(equal + 1)))
     return std::unexpected(
@@ -45,6 +48,7 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
     std::vector<std::size_t> targets;
     bool complete = false;
     std::size_t height = 0;
+    std::optional<StandardModule> standard;
   };
   std::vector<File> files;
   std::unordered_map<std::string, std::size_t> known;
@@ -192,10 +196,11 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
         return std::move(*failure);
   }
   std::function<std::optional<std::size_t>(fs::path, std::size_t, std::size_t,
-                                           std::shared_ptr<const SourceFile>, SourceSpan)>
+                                           std::shared_ptr<const SourceFile>, SourceSpan,
+                                           std::optional<StandardModule>)>
       visit = [&](fs::path requested, std::size_t owner, std::size_t depth,
-                  std::shared_ptr<const SourceFile> parent,
-                  SourceSpan span) -> std::optional<std::size_t> {
+                  std::shared_ptr<const SourceFile> parent, SourceSpan span,
+                  std::optional<StandardModule> standard) -> std::optional<std::size_t> {
     if (requested.extension() != ".k") {
       fail(std::move(parent), span, "M001", "source files must use the .k extension");
       return {};
@@ -203,13 +208,14 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
     std::error_code error;
     // Weak canonicalization preserves identities for buffers not yet on disk.
     // Ordinary disk loads retain strict canonicalization and missing-file errors.
-    auto canonical =
-        overlays.empty() ? fs::canonical(requested, error) : overlayPath(requested, error);
+    auto canonical = standard ? requested
+                              : (overlays.empty() ? fs::canonical(requested, error)
+                                                  : overlayPath(requested, error));
     if (error) {
       fail(std::move(parent), span, "M002", "cannot open module '" + requested.string() + "'");
       return {};
     }
-    if (!graph.empty() && owner != 0) {
+    if (!standard && !graph.empty() && owner != 0) {
       const auto relative = canonical.lexically_relative(scopes[owner].root);
       if (relative.empty() || *relative.begin() == ".." || relative.has_root_path()) {
         fail(std::move(parent), span, "M007",
@@ -218,7 +224,7 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
       }
     }
     const auto physical = canonical.string();
-    const auto key = std::to_string(owner) + ":" + physical;
+    const auto key = (standard ? std::string("standard:") : std::to_string(owner) + ":") + physical;
     if (auto found = known.find(key); found != known.end()) {
       if (!files[found->second].complete) {
         fail(std::move(parent), span, "M003", "module import cycle reaches '" + physical + "'");
@@ -239,8 +245,10 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
     }
     const auto maximum = syntaxLimits.maxSourceBytes - bytes - 1;
     auto replacement = replacements.find(physical);
-    auto source =
-        replacement == replacements.end()
+    std::expected<std::shared_ptr<const SourceFile>, std::string> source =
+        standard ? std::make_shared<const SourceFile>(physical,
+                                                      std::string(standardModuleSource(*standard)))
+        : replacement == replacements.end()
             ? loadSource(physical, maximum)
             : std::expected<std::shared_ptr<const SourceFile>, std::string>(replacement->second);
     if (source && (*source)->text().size() > maximum)
@@ -258,18 +266,27 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
     bytes += (*source)->text().size() + 1;
     const auto id = files.size();
     known.emplace(key, id);
-    files.push_back({*source, {}, false});
+    files.push_back({*source, {}, false, 0, standard});
     for (const auto &import : parsed.module.imports) {
       const auto quoted = (*source)->slice(import.path);
       const std::string specifier(quoted.substr(1, quoted.size() - 2));
       fs::path requested;
       auto targetOwner = owner;
+      std::optional<StandardModule> targetStandard;
       if (specifier.find_first_of("\\\r\n") != std::string::npos ||
           specifier.find('\0') != std::string::npos) {
         fail(*source, import.path, "M001", "module specifiers cannot contain escapes");
         return {};
       }
-      if (specifier.starts_with("./") || specifier.starts_with("../")) {
+      if (specifier == "std" || specifier.starts_with("std/")) {
+        targetStandard = standardModule(specifier);
+        if (!targetStandard) {
+          fail(*source, import.path, "M008", "unknown standard module '" + specifier + "'");
+          return {};
+        }
+        requested = fs::path(standardModulePath(*targetStandard));
+        targetOwner = 0;
+      } else if (specifier.starts_with("./") || specifier.starts_with("../")) {
         if (!specifier.ends_with(".k")) {
           fail(*source, import.path, "M001", "relative module paths require an explicit .k file");
           return {};
@@ -293,7 +310,7 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
         requested = entry->second.first;
         targetOwner = entry->second.second;
       }
-      auto target = visit(requested, targetOwner, depth + 1, *source, import.path);
+      auto target = visit(requested, targetOwner, depth + 1, *source, import.path, targetStandard);
       if (!target)
         return {};
       files[id].targets.push_back(*target);
@@ -302,7 +319,7 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
     files[id].complete = true;
     return id;
   };
-  if (!visit(fs::path(path), 0, 0, root, {}))
+  if (!visit(fs::path(path), 0, 0, root, {}, {}))
     return std::move(*failure);
   if (files.size() == 1) {
     // Preserve the existing single-file source and byte offsets.
@@ -319,6 +336,8 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
   auto source = std::make_shared<const SourceFile>(files[0].source->path(), std::move(text),
                                                    std::move(parts));
   auto result = parse(source, syntaxLimits);
+  for (const auto &file : files)
+    result.module.standardModules.push_back(file.standard);
   if (!result.ok() && !result.module.editorOnly)
     return result;
   for (auto &function : result.module.functions)
