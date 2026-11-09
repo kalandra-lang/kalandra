@@ -27,7 +27,11 @@ legacy=a.output/'legacy';shutil.copytree(bundle,legacy,dirs_exist_ok=True)
 plain=a.output/'legacy-post.metal';plain.write_text(post.split('\ninline float kalandra_fused_post',1)[0])
 lock=json.loads((root/'native/metal-proof/toolchain.json').read_text())
 metal=['xcrun','--toolchain',lock['metalToolchain'],'--sdk','macosx','metal']
-run([*metal,'-mmacosx-version-min=26.0','-std=macos-metal2.2','-fno-fast-math','-ffp-contract=off','-c',plain,'-o',a.output/'legacy-post.air'])
+def metal_language(text):
+ # Entry availability is the compatibility dimension; retain the source's
+ # required dialect just as production Build.cpp does for Steel helpers.
+ return '-std='+('metal3.2' if 'KALANDRA_STEEL_UPSTREAM' in text else lock['strictMetalLanguageVersion'])
+run([*metal,'-mmacosx-version-min=26.0',metal_language(plain.read_text()),'-fno-fast-math','-ffp-contract=off','-c',plain,'-o',a.output/'legacy-post.air'])
 run([*metal,a.output/'legacy-post.air','-o',legacy/'kernel0-post.metallib'])
 # Simulate a pre-grouping bundle with all four earlier fused entries intact.
 old_bundle=a.output/'old-bundle';shutil.copytree(bundle,old_bundle,dirs_exist_ok=True)
@@ -39,7 +43,7 @@ for file,prefix in [('kernel0','kalandra_matmul_hardware_'),('kernel0-post','kal
    depth+=(text[end]=='{')-(text[end]=='}');end+=1
   text=text[:start]+text[end:]
  source=a.output/(file+'-old.metal');source.write_text(text)
- run([*metal,'-mmacosx-version-min=26.0','-std=macos-metal2.2','-fno-fast-math','-ffp-contract=off','-c',source,'-o',a.output/(file+'-old.air')])
+ run([*metal,'-mmacosx-version-min=26.0',metal_language(text),'-fno-fast-math','-ffp-contract=off','-c',source,'-o',a.output/(file+'-old.air')])
  run([*metal,a.output/(file+'-old.air'),*([bundle/'kernel0-rows2.air',bundle/'kernel0-quad.air'] if file=='kernel0' else []),'-o',old_bundle/(file+'.metallib')])
 mixed=a.output/'mixed-bundle';shutil.copytree(bundle,mixed,dirs_exist_ok=True)
 shutil.copy2(old_bundle/'kernel0-post.metallib',mixed/'kernel0-post.metallib')
@@ -59,7 +63,7 @@ for label,biases,scaled,fused in [('matrix-only',0,False,True),('two-scalars',1,
  parameters=['a:'+tensor,'b:'+tensor]+[f'c{i}:'+tensor for i in range(biases)]+(['scale:f32','offset:f32'] if scaled else [])
  expression='matmul(a,b)'+''.join(f'+c{i}' for i in range(biases))
  if scaled:expression='('+expression+')*scale+offset'
- source='fn project('+','.join(parameters)+')->f32:\n  reduceSum(relu('+expression+'))\nfn main()->f32 ! TaskError:\n  try parallel:\n    a:Tensor[f32,2,3]=tensor([[1,1,1],[1,1,1]])\n    b:Tensor[f32,3,2]=tensor([[1,1],[1,1],[1,1]])\n    gpu=devices.gpu()\n    da=try await transfer(a,gpu)\n    db=try await transfer(b,gpu)\n'
+ source='fn project('+','.join(parameters)+')->f32:\n  return reduceSum(relu('+expression+'))\nfn main()->f32 ! TaskError:\n  return try parallel:\n    a:Tensor[f32,2,3]=tensor([[1,1,1],[1,1,1]])\n    b:Tensor[f32,3,2]=tensor([[1,1],[1,1],[1,1]])\n    gpu=devices.gpu()\n    da=try await transfer(a,gpu)\n    db=try await transfer(b,gpu)\n'
  if biases:source+='    bias:Tensor[f32,2,2]=tensor([[1,1],[1,1]])\n    dc=try await transfer(bias,gpu)\n'
  args=['da','db']+['dc']*biases+(['2','1'] if scaled else [])
  source+='    try await spawn project('+','.join(args)+') on gpu\n'

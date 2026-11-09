@@ -57,9 +57,9 @@ assert 'kalandra_matmul_fused_' not in (fallback / 'kernel0.metal').read_text()
 indirect_source = args.output / 'indirect.k'
 tensor = 'Tensor[f32,?,?]'
 parameters = [f'c{i}:'+tensor for i in range(31)]
-indirect_source.write_text('fn combine('+','.join(parameters)+')->'+tensor+':\n  '+
+indirect_source.write_text('fn combine('+','.join(parameters)+')->'+tensor+':\n  return '+
     '+'.join(f'c{i}' for i in range(31))+'\nfn main()->'+tensor+' ! TaskError:\n'
-    '  try parallel:\n    x:Tensor[f32,2,2]=tensor([[1,1],[1,1]])\n'
+    '  return try parallel:\n    x:Tensor[f32,2,2]=tensor([[1,1],[1,1]])\n'
     '    gpu=devices.gpu()\n    a=try await transfer(x,gpu)\n'
     '    value=try await spawn combine('+','.join(['a']*31)+') on gpu\n'
     '    try await transfer(value,devices.cpu())\n')

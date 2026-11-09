@@ -255,7 +255,7 @@ class Builder {
     input = force(input);
     if (operation.kind != TensorTransformKind::Transpose &&
         (arithmetic_ == ArithmeticMode::Software || original.type.element != NumericType::Float32))
-      reject(original.span, "GPU row math requires hardware float32; no software transcendental "
+      reject(original.span, "GPU row math requires hardware f32; no software transcendental "
                             "fallback is implemented");
     NumericShader shader{original.type.element, {}, {0}};
     shader.transform = operation.kind;
