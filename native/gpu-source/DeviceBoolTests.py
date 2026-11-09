@@ -61,7 +61,7 @@ for label,value,expected in [('positive','f64(7)',True),('negative','f64(-7)',Fa
     policy='hardware'
     if a.backend=='metal':
         rejected=subprocess.run([str(a.compiler),str(source),'--target','metal','--arithmetic','hardware',*flags,'-o',str(a.root/('double-rejected-'+label))],capture_output=True,text=True,timeout=120)
-        assert rejected.returncode and 'Metal has no hardware float64 arithmetic' in rejected.stderr,rejected
+        assert rejected.returncode and 'Metal has no hardware f64 arithmetic' in rejected.stderr,rejected
         policy='hardware-with-software-fallback'
     bundle=a.root/('float64-'+label)
     run([a.compiler,source,'--target',a.backend,'--arithmetic',policy,*flags,'-o',bundle])

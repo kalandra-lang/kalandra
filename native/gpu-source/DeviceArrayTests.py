@@ -127,7 +127,7 @@ fn main()->i64 ! TaskError:
     rejected = subprocess.run([str(a.compiler), str(policy_source), '--target', 'metal',
                                '--arithmetic', 'hardware', *flags, '-o', str(a.root/'callback-policy')],
                               capture_output=True, text=True, timeout=180)
-    assert rejected.returncode and 'Metal has no hardware float64 arithmetic' in rejected.stderr, rejected
+    assert rejected.returncode and 'Metal has no hardware f64 arithmetic' in rejected.stderr, rejected
     run([a.compiler, policy_source, '--target', 'metal', '--arithmetic',
          'hardware-with-software-fallback', *flags, '-o', a.root/'callback-policy'])
     if not a.compile_only:

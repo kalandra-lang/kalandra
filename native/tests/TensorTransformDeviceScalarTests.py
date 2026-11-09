@@ -50,4 +50,4 @@ for name,flag in variants:
 for numeric,mode in [('f64','hardware'),('f32','software')]:
     path=args.output/f'rejected-{numeric}-{mode}.k';path.write_text((valid.replace('reduceSum(x*x)+0.00001','0.00001')+gpu).replace('f32',numeric))
     result=run([args.compiler,path,'--target','metal','--arithmetic',mode,'-O2','-o',args.output/'rejected'],False)
-    assert 'error[G001]' in result.stderr and ('f32' in result.stderr or 'no hardware float64 arithmetic' in result.stderr),result.stderr
+    assert 'error[G001]' in result.stderr and ('f32' in result.stderr or 'no hardware f64 arithmetic' in result.stderr),result.stderr
