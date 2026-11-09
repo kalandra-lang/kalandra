@@ -41,7 +41,6 @@ fn work(n:i64)->i64:
   while true:
     values=[i,n]
     i=values[0]+1
-  return i
 ''',
     'fault': fault_cases()['bounds-before-rhs'][0],
 }
@@ -59,7 +58,6 @@ sources.update({
   while true:
     local=[i,values[0]]
     i=local[0]+1
-  return i
 ''',
     'fault-entry': '''fn work(values:[i64],n:i64)->i64:
   return values[2]+1/(n-n)
@@ -81,7 +79,6 @@ if a.results_only:
   while true:
     local=[i,values[0]]
     i=local[0]+1
-  return [i]
 """,
       'fault-result': """fn work(values:[i64],n:i64)->[i64]:
   return [values[2],1/(n-n)]

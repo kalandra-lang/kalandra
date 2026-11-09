@@ -73,9 +73,12 @@ fn main()->{typ} ! TaskError:
                 frame = (words-2)//2
             elif words in (3, 4):
                 constants[signature[1]] = file
-        assert control and typ in constants and 'i64' in constants, (typ, constants, control)
+        # Kernel resource labels retain their storage spellings; source and
+        # raw-driver arguments use the canonical language primitive names.
+        storage = {'i': 'int', 'u': 'uint', 'f': 'float'}[typ[0]] + typ[1:]
+        assert control and storage in constants and 'int64' in constants, (typ, constants, control)
         extension = {'metal': '.metallib', 'vulkan': '.spv', 'cuda': '.ptx'}[a.backend]
-        files = [constants[typ].with_suffix(extension), constants['i64'].with_suffix(extension),
+        files = [constants[storage].with_suffix(extension), constants['int64'].with_suffix(extension),
                  control.with_suffix(extension)]
         output = run([driver, typ, frame, *files])
         assert 'PASS: 320 raw-bit source sorts' in output, output
