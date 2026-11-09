@@ -30,6 +30,44 @@ cmake --build --preset native --parallel 2
 ctest --preset native
 ```
 
+For iterative changes, inspect and run a focused test family instead of repeating
+full qualification. Reconfigure an existing build once to refresh its labels:
+
+```sh
+cmake --preset native
+python3 scripts/test-native.py --feature frontend --list
+python3 scripts/test-native.py --feature frontend
+python3 scripts/test-native.py --feature control --feature tasks --variant sanitized
+python3 scripts/test-native.py --feature control --match 'return|loop' --list
+```
+
+Use `--build-dir build/your-build` for another configured tree and `--config Debug`
+for a multi-configuration generator. Build the relevant
+test executables before running them. `--list` shows the exact selection;
+`--report selection.json` saves commands and test properties, and `--junit
+results.xml` saves execution results. An empty selection is an error. Repeated
+features are a union; variant and name filters further restrict that union.
+
+Families are `frontend`, `tooling`, `control`, `tasks`, `numerics`, `gpu`,
+`packaging`, `runtime` and `full`. They classify test names, not source dependency
+closures. A frontend change may also require control, task, numeric or device
+regressions. An omitted variant includes all variants. `default` means no named
+build variant; it does not mean debug. Inspect with `--list` before narrowing.
+
+The runner defaults to the complete registered corpus when no filter is supplied
+and preserves serial CTest execution. Several legacy tests share generated output
+paths; increasing global CTest concurrency requires a separate isolation audit.
+Existing GPU locks and all test commands, assertions, sanitizer modes and timeout
+limits are retained. Keep performance measurements isolated from builds and tests.
+
+Windows GPU package CI separately schedules at most two independent compile-only
+suites at a time, each in its own output tree. Resource-removal probes run only
+after every compiler process has finished. Both standalone and bundled packages
+still run the complete original corpus. Per-suite commands, timings, outcomes and
+logs are retained, including failures. Full platform and cross-target qualification
+remains the final PR gate; focused local runs do not replace it.
+
+
 CMake 3.28+, Ninja, toml++ 3.4.0 and the pinned
 [LLVM/MLIR/Clang toolchain](toolchain-proof/toolchain.json) are required. Metal builds
 also require the pinned [Apple toolchain](metal-proof/toolchain.json). Follow the

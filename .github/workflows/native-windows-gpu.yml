@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
+      - name: Verify targeted CTest selection and unchanged contracts
+        run: python3 native/tests/TestWorkflowTests.py
       - name: Verify portable resource admission guards
         run: python3 -m unittest discover -s native/gpu-runtime/qualification -p 'test_*.py'
       - name: Provision isolated device compiler inputs
@@ -66,6 +68,12 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.msvc }}
+      - name: Verify bounded scheduling and targeted selection on Windows
+        run: |
+          python -m unittest discover -s native/gpu-runtime/qualification -p 'test_compile_jobs.py'
+          if ($LASTEXITCODE -ne 0) { throw 'Compile scheduling regression failed' }
+          python native/tests/TestWorkflowTests.py
+          if ($LASTEXITCODE -ne 0) { throw 'CTest selection regression failed' }
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/kalandra-llvm/installation
@@ -171,7 +179,7 @@ jobs:
       - name: Qualify relocated Windows packages
         run: |
           foreach ($backend in @('cuda', 'vulkan')) {
-            python native/gpu-runtime/qualification/windows_installed.py --backend $backend --archive "build/windows-gpu/native-$backend-standalone/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/installed-$backend" --arch ${{ matrix.arch }}
+            python native/gpu-runtime/qualification/windows_installed.py --backend $backend --archive "build/windows-gpu/native-$backend-standalone/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/installed-$backend" --arch ${{ matrix.arch }} --jobs 2
             if ($LASTEXITCODE -ne 0) { throw "$backend installed package failed" }
           }
       - name: Preserve native validator diagnostics on failure
@@ -188,6 +196,8 @@ jobs:
         with:
           name: windows-gpu-package-diagnostics-${{ matrix.arch }}
           path: |
+            build/installed-*/compile-jobs.json
+            build/installed-*/compile-logs/*.log
             build/installed-*/applications/results.json
             build/installed-*/applications/**/*-build.log
           if-no-files-found: ignore
@@ -208,6 +218,8 @@ jobs:
             build/windows-gpu/native-cuda-standalone/*.tar.gz*
             build/windows-gpu/native-vulkan-standalone/*.tar.gz*
             build/installed-*/qualification.json
+            build/installed-*/compile-jobs.json
+            build/installed-*/compile-logs/*.log
           if-no-files-found: error
           retention-days: 7
 
@@ -290,14 +302,17 @@ jobs:
       - name: Qualify relocated Windows GPU compilers with five bundled CPU targets
         run: |
           foreach ($backend in @('cuda', 'vulkan')) {
-            python native/gpu-runtime/qualification/windows_installed.py --backend $backend --bundled-targets --archive "bundled-assets/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/combined-$backend" --arch ${{ matrix.arch }}
+            python native/gpu-runtime/qualification/windows_installed.py --backend $backend --bundled-targets --archive "bundled-assets/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/combined-$backend" --arch ${{ matrix.arch }} --jobs 2
             if ($LASTEXITCODE -ne 0) { throw "$backend combined package qualification failed" }
           }
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: native-windows-gpu-bundled-packages-${{ matrix.arch }}
           path: |
             bundled-assets/*.tar.gz*
             build/combined-*/qualification.json
+            build/combined-*/compile-jobs.json
+            build/combined-*/compile-logs/*.log
           if-no-files-found: error
           retention-days: 7
