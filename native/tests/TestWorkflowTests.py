@@ -23,7 +23,7 @@ set_tests_properties(frontend-syntax PROPERTIES LABELS existing TIMEOUT 12 RESOU
 add_test(NAME native-loop-debug COMMAND "${CMAKE_COMMAND}" -E true)
 add_subdirectory(child)
 if(LABEL_TESTS)
-  include("'''+str(REPO/'native/cmake/TestWorkflow.cmake')+'''")
+  include("'''+(REPO/'native/cmake/TestWorkflow.cmake').as_posix()+'''")
   kalandra_label_tests("${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
 ''')
