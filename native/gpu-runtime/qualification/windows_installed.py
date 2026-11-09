@@ -14,11 +14,14 @@ p.add_argument('--archive', type=Path, required=True)
 p.add_argument('--root', type=Path, required=True)
 p.add_argument('--arch', choices=('x86_64', 'arm64'), required=True)
 p.add_argument('--bundled-targets', action='store_true')
+p.add_argument('--jobs', type=int, choices=(1, 2), default=1,
+               help='Concurrent isolated compile suites; resource-removal probes remain serial')
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(repo/'native/packaging'))
 from BundlePE import audit, imports
 from VersionCheck import verify_package_version
+from CompileJobs import compile_plan, run_compile_jobs
 
 
 def digest(path):
@@ -73,44 +76,12 @@ source = root/'cpu.k'
 source.write_text('fn main()->i32:\n  return 42\n')
 run([compiler, source, '-o', root/'cpu.exe'])
 assert subprocess.check_output([root/'cpu.exe'], text=True, timeout=30) == '42\n'
+compile_report = run_compile_jobs(compile_plan(a.backend, repo, compiler, root), root, a.jobs)
 if a.backend == 'cuda':
-    run([sys.executable, repo/'native/cuda-source/qualification/applications.py', '--build', root,
-         '--compiler', compiler, '--output', root/'applications', '--compile-only'])
     assert len(list((root/'applications').rglob('program.exe'))) == 51
-    run([compiler, '--target', 'cuda', '--arithmetic', 'software',
-         repo/'native/metal-source/indirect-arguments.k', '-O2', '-o', root/'wide-arguments'])
     probe = root/'applications/hardware/f32/program.exe'
 else:
-    run([sys.executable, repo/'native/vulkan/qualification/public_cli.py', '--compiler', compiler,
-         '--output', root/'applications', '--compile-only'])
-    run([sys.executable, repo/'native/vulkan/qualification/shared_capabilities.py', '--backend', 'vulkan',
-         '--compiler', compiler, '--output', root/'shared-capabilities', '--compile-only'])
     probe = root/'applications/matrix-hardware/program.exe'
-# Link actual array-valued host continuations using only relocated package data.
-run([sys.executable, repo/'native/gpu-source/HostArrayTests.py', '--compiler', compiler,
-     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
-     '--root', root/'host-arrays'])
-run([sys.executable, repo/'native/gpu-source/ScalarControlTests.py', '--compiler', compiler,
-     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
-     '--root', root/'scalar-control'])
-run([sys.executable, repo/'native/gpu-source/DeviceArrayTests.py', '--compiler', compiler,
-     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
-     '--root', root/'device-arrays'])
-run([sys.executable, repo/'native/gpu-source/DeviceArrayEntryTests.py', '--compiler', compiler,
-     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
-     '--root', root/'device-array-entry'])
-run([sys.executable, repo/'native/gpu-source/DeviceArrayResultTests.py', '--compiler', compiler,
-     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
-     '--root', root/'device-array-results'])
-run([sys.executable, repo/'native/gpu-source/DeviceArrayMainTests.py', '--compiler', compiler,
-     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
-     '--root', root/'device-array-main'])
-run([sys.executable, repo/'native/gpu-source/HostAggregateTests.py', '--compiler', compiler,
-     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
-     '--root', root/'host-aggregates'])
-run([sys.executable, repo/'native/gpu-source/DeviceBoolTests.py', '--compiler', compiler,
-     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
-     '--root', root/'device-bool'])
 for application in root.rglob('program.exe'):
     # Real GPU programs must not statically depend on either driver or an SDK DLL.
     dependencies = [name.lower() for name in imports(application)]
@@ -158,6 +129,7 @@ for index, (relative, fixture) in enumerate(checks):
     finally:
         saved.rename(owned)
 report = {'backend': a.backend, 'architecture': a.arch, 'archiveSHA256': digest(archive),
+          'compileSuites': len(compile_report['suites']), 'compileJobs': a.jobs,
           'installedCompiler': True, 'cpuExecution': True, 'bundledTargets': a.bundled_targets, 'gpuSourceBuilds': len(list((root/'applications').rglob('program.exe'))),
           'missingResourceChecks': [relative for relative, _ in checks], 'missingSystemDriverTested': absent,
           'gpuExecution': False, 'performanceQualified': False}

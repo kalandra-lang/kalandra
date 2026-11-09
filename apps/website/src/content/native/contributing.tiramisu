@@ -25,6 +25,22 @@ h2 { "Choose useful tests" }
 
 Add a regression reproducer for a bug fix. For a language feature, cover accepted programs, rejected programs, result values and failure behavior. Use debug and optimized modes when lowering is affected. GPU changes need numerical checks on supported hardware; a successful host build alone does not verify GPU execution. Use the repository's sanitizer configurations for relevant ownership or concurrency changes.
 
+h2 { "Run focused compiler tests" }
+
+For an iterative change, configure your build to refresh its test labels, then inspect the relevant family before running it. Build the required test executables first.
+
+codeblock { language = bash, """cmake --preset native
+python3 scripts/test-native.py --feature frontend --list
+python3 scripts/test-native.py --feature frontend
+python3 scripts/test-native.py --feature control --feature tasks --variant sanitized
+""" }
+
+Use --build-dir for another configured build tree. Available families are frontend, tooling, control, tasks, numerics, gpu, packaging, runtime and full. Repeated features select their union. A variant filter restricts that selection; omitting it includes every variant. Use --match to narrow test names further, --report to save the selected commands and --junit to save execution results. Empty selections fail instead of reporting success.
+
+These labels classify test families; they do not automatically determine every consequence of a source change. Include neighboring regressions, sanitizer coverage and applicable GPU checks. The unfiltered runner executes the full registered corpus. Focused runs shorten development feedback; full platform and package qualification remains necessary before merging.
+
+CTest execution stays serial because some suites share generated output paths. Windows package CI can run independent compile-only suites concurrently with bounded workers and separate output directories. Physical GPU tests retain their resource locks. Run performance measurements separately from builds and correctness tests.
+
 h2 { "Contribute documentation" }
 
 Author public pages in apps/website/src/content/native as .tiramisu files. Use the tutorial for guided learning, the language reference for constructs, the library reference for callable built-ins, and HOWTO guides for specific tasks. Keep examples complete or name the companion files they require. Mark intentionally rejected examples explicitly. Write for a reader learning or using Kalandra. Explain behavior directly, name prerequisites, give expected results and link to detailed rules. Avoid branch status, internal progress reports or planning notes in user guides; use GitHub issues and pull requests for those. Keep historical changes in release notes.
