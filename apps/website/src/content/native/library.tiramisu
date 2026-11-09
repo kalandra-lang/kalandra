@@ -18,15 +18,13 @@ list {
   link { url = "/docs/collection-functions#copy", "copy — create independent array storage" },
   link { url = "/docs/task-functions#devicescpu", "devices.cpu — select the host device" },
   link { url = "/docs/task-functions#devicesgpu", "devices.gpu — select a GPU" },
-  link { url = "/docs/numeric-functions#float", "float — convert a scalar or tensor to float" },
-  link { url = "/docs/numeric-functions#float32", "float32 — convert a scalar or tensor to float32" },
-  link { url = "/docs/numeric-functions#float64", "float64 — convert a scalar or tensor to float64" },
+  link { url = "/docs/numeric-functions#f32", "f32 — convert a scalar or tensor to f32" },
+  link { url = "/docs/numeric-functions#f64", "f64 — convert a scalar or tensor to f64" },
   link { url = "/docs/collection-functions#generate", "generate — construct an array by index" },
-  link { url = "/docs/numeric-functions#int", "int — convert a scalar or tensor to int" },
-  link { url = "/docs/numeric-functions#int16", "int16 — convert a scalar or tensor to int16" },
-  link { url = "/docs/numeric-functions#int32", "int32 — convert a scalar or tensor to int32" },
-  link { url = "/docs/numeric-functions#int64", "int64 — convert a scalar or tensor to int64" },
-  link { url = "/docs/numeric-functions#int8", "int8 — convert a scalar or tensor to int8" },
+  link { url = "/docs/numeric-functions#i64", "i64 — convert a scalar or tensor to i64" },
+  link { url = "/docs/numeric-functions#i16", "i16 — convert a scalar or tensor to i16" },
+  link { url = "/docs/numeric-functions#i32", "i32 — convert a scalar or tensor to i32" },
+  link { url = "/docs/numeric-functions#i8", "i8 — convert a scalar or tensor to i8" },
   link { url = "/docs/collection-functions#length", "length — count array elements or Unicode scalars" },
   link { url = "/docs/collection-functions#map", "map — transform an array sequentially" },
   link { url = "/docs/tensor-functions#matmul", "matmul — multiply two matrices" },
@@ -44,18 +42,17 @@ list {
   link { url = "/docs/collection-functions#tensor", "tensor — construct a numeric tensor" },
   link { url = "/docs/task-functions#transfer", "transfer — transfer a tensor between devices" },
   link { url = "/docs/tensor-functions#transpose", "transpose — swap matrix axes" },
-  link { url = "/docs/numeric-functions#uint", "uint — convert a scalar or tensor to uint" },
-  link { url = "/docs/numeric-functions#uint16", "uint16 — convert a scalar or tensor to uint16" },
-  link { url = "/docs/numeric-functions#uint32", "uint32 — convert a scalar or tensor to uint32" },
-  link { url = "/docs/numeric-functions#uint64", "uint64 — convert a scalar or tensor to uint64" },
-  link { url = "/docs/numeric-functions#uint8", "uint8 — convert a scalar or tensor to uint8" }
+  link { url = "/docs/numeric-functions#u64", "u64 — convert a scalar or tensor to u64" },
+  link { url = "/docs/numeric-functions#u16", "u16 — convert a scalar or tensor to u16" },
+  link { url = "/docs/numeric-functions#u32", "u32 — convert a scalar or tensor to u32" },
+  link { url = "/docs/numeric-functions#u8", "u8 — convert a scalar or tensor to u8" }
 }
 
 h2 { "How to read the reference" }
 
 Each entry gives the call signature, accepted inputs, result, execution location and possible failures. Multiple signatures under one name describe different accepted forms of the same call.
 
-T and U stand for supported element types; F stands for a floating type. M, K and N stand for tensor dimensions. A signature using these letters explains a family of calls; it is not a generic declaration to paste into your program. For example, T in map may be int when mapping an [int] array.
+T and U stand for supported element types; F stands for a floating type. M, K and N stand for tensor dimensions. A signature using these letters explains a family of calls; it is not a generic declaration to paste into your program. For example, T in map may be i64 when mapping an [i64] array.
 
 Inputs described as completed values are ordinary values, not pending tasks; await a task before passing its result. A resident GPU tensor must be used on its device or transferred to the CPU before a host-only operation.
 

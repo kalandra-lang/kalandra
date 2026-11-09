@@ -18,22 +18,22 @@ def executable(name): return a.output/(name+('.exe' if windows else ''))
 def runtime_file(name):
     return a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+name+('.lib' if windows else '.a'))
 local=a.output/'local-closure.k'
-local.write_text('''fn make(offset:int)->fn(int)->int:
-  fn(value:int): (value*13+offset)%1000003
-fn walk(f:fn(int)->int,value:int,rounds:int)->int:
-  if rounds==0:value
+local.write_text('''fn make(offset:i64)->fn(i64)->i64:
+  return fn(value:i64): return (value*13+offset)%1000003
+fn walk(f:fn(i64)->i64,value:i64,rounds:i64)->i64:
+  return if rounds==0:value
   else:walk(f,f(value),rounds-1)
-fn probe(seed:int,rounds:int)->int:
-  walk(make(seed+7),seed,rounds)
-fn main()->int:
-  probe(17,16)
+fn probe(seed:i64,rounds:i64)->i64:
+  return walk(make(seed+7),seed,rounds)
+fn main()->i64:
+  return probe(17,16)
 ''')
 spin=a.output/'spin.k'
-spin.write_text('''fn spin(values:[int],done:Bool)->int:
-  if done:values[0]
+spin.write_text('''fn spin(values:[i64],done:bool)->i64:
+  return if done:values[0]
   else:spin(values,done)
-fn main()->int:
-  spin([42],true)
+fn main()->i64:
+  return spin([42],true)
 ''')
 def run(args):
     result=subprocess.run(list(map(str,args)),text=True,capture_output=True,timeout=180,
@@ -113,13 +113,13 @@ for mode,extra,flags,runtime in [
     run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
          *flags,root/'native/tests/ArrayTailSpinTests.cpp',spin_ir,runtime_file(runtime),'-o',spin_binary])
     run([spin_binary])
-    for numeric in ('float32','float64'):
+    for numeric in ('f32','f64'):
         floating=a.output/(mode+'-'+numeric+'-bits.k')
-        floating.write_text(f'''fn walk(values:[{numeric}],rounds:int)->{numeric}:
-  if rounds==0:values[0]
-  else:walk(map(values,fn(value:{numeric}): -value),rounds-1)
+        floating.write_text(f'''fn walk(values:[{numeric}],rounds:i64)->{numeric}:
+  return if rounds==0:values[0]
+  else:walk(map(values,fn(value:{numeric}): return -value),rounds-1)
 fn main()->{numeric}:
-  walk([{numeric}(1)],1)
+  return walk([{numeric}(1)],1)
 ''')
         for policy in (('hardware','software') if mode=='optimized' else ('hardware',)):
             ir=a.output/(mode+'-'+numeric+'-'+policy+'-bits.ll')
@@ -127,15 +127,15 @@ fn main()->{numeric}:
                  '-o',executable(mode+'-'+numeric+'-'+policy+'-bits-cli'),*extra])
             binary=executable(mode+'-'+numeric+'-'+policy+'-bits-runtime')
             run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
-                 *flags,*(['-DFLOAT32'] if numeric=='float32' else []),
+                 *flags,*(['-DFLOAT32'] if numeric=='f32' else []),
                  root/'native/tests/ArrayTailFloatTests.cpp',ir,runtime_file(runtime),'-o',binary])
             run([binary])
     boolean=a.output/(mode+'-array-bool.k')
-    boolean.write_text('''fn walk(values:[int],rounds:int)->Bool:
-  if rounds==0:values[0]==23
-  else:walk(map(values,fn(value:int): value+1),rounds-1)
-fn main()->Bool:
-  if walk([3],20):
+    boolean.write_text('''fn walk(values:[i64],rounds:i64)->bool:
+  return if rounds==0:values[0]==23
+  else:walk(map(values,fn(value:i64): return value+1),rounds-1)
+fn main()->bool:
+  return if walk([3],20):
     if walk([23],0):
       if walk([3],0):false
       else:true
@@ -145,17 +145,17 @@ fn main()->Bool:
     binary=executable(mode+'-array-bool')
     run([a.compiler,boolean,'-o',binary,*extra])
     assert run([binary])=='true\n'
-    for numeric in ('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64'):
+    for numeric in ('i8','u8','i16','u16','i32','u32','i64','u64','f32','f64'):
         typed=a.output/(mode+'-'+numeric+'.k')
-        typed.write_text(f'''fn walk(values:[{numeric}],rounds:int)->{numeric}:
-  if rounds==0:values[0]
-  else:walk(map(values,fn(value:{numeric}): value+{numeric}(1)),rounds-1)
+        typed.write_text(f'''fn walk(values:[{numeric}],rounds:i64)->{numeric}:
+  return if rounds==0:values[0]
+  else:walk(map(values,fn(value:{numeric}): return value+{numeric}(1)),rounds-1)
 fn main()->{numeric}:
   original=[{numeric}(3),{numeric}(4)]
   result=walk(original,20)
-  result+original[0]
+  return result+original[0]
 ''')
-        for policy in (('hardware','software') if numeric.startswith('float') else ('hardware',)):
+        for policy in (('hardware','software') if numeric.startswith('f') else ('hardware',)):
             binary=executable(mode+'-'+numeric+'-'+policy)
             run([a.compiler,typed,'--arithmetic',policy,'-o',binary,*extra])
             assert run([binary])=='26\n'
@@ -163,9 +163,9 @@ fn main()->{numeric}:
 # This source-valid body exceeds the native subgraph's conservative physical
 # frame admission. It must retain the pre-existing continuation implementation.
 source=a.output/'large-helper.k'
-lines=['fn large(x:int)->int:','  value0=0']
+lines=['fn large(x:i64)->i64:','  value0=0']
 lines += [f'  value{i}=value{i-1}+x/(x+{i})' for i in range(1,241)]
-lines += ['  value240','fn main()->int ! TaskError:','  try parallel:',
+lines += ['  return value240','fn main()->i64 ! TaskError:','  return try parallel:',
           '    try await spawn large(1)']
 source.write_text('\n'.join(lines)+'\n')
 binary=executable('large-helper')

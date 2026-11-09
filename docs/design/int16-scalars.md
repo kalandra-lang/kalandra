@@ -3,11 +3,11 @@
 The native CPU scalar subset now supports `int16` (−32768 through 32767) and `uint16` (0 through 65535). They remain distinct types; `int` and `uint` still mean int64 and uint64.
 
 ```kalandra
-fn increment(value: uint16) -> uint16:
-  value + 1
+fn increment(value: u16) -> u16:
+  return value + 1
 
-fn main() -> uint16 ! TaskError:
-  try parallel:
+fn main() -> u16 ! TaskError:
+  return try parallel:
     try await spawn increment(41)
 ```
 

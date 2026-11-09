@@ -13,11 +13,11 @@ static CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
-    for (auto source : {"int32", "uint32", "int64", "uint64", "float32", "float64"})
-      for (auto destination : {"int32", "uint32", "int64", "uint64", "float32", "float64"}) {
+    for (auto source : {"i32", "u32", "i64", "u64", "f32", "f64"})
+      for (auto destination : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
         auto typed = analyze("fn convert(value:" + std::string(source) + ")->" + destination +
-                             ":\n  " + destination + "(value)\nfn mapped(input:[" + source +
-                             "]):\n  input -> map(convert)\nfn main()->int64:\n  0\n");
+                             ":\n  return " + destination + "(value)\nfn mapped(input:[" + source +
+                             "]):\n  return input -> map(convert)\nfn main()->i64:\n  return 0\n");
         require(typed.ok(), "map type-pair rejected");
         auto &fn = typed.module->functions[1];
         const auto &node = typed.module->expressions[fn.result];
@@ -33,20 +33,20 @@ int main() {
 #endif
       }
     for (auto body : {"map([1,2,3],twice)", "[1,2,3] -> map(twice)", "map([],twice)"}) {
-      auto typed = analyze(std::string("fn twice(value:int)->int:\n  value*2\nfn mapped():\n  ") +
-                           body + "\nfn main()->int:\n  0\n");
+      auto typed = analyze(std::string("fn twice(value:i64)->i64:\n  return value*2\nfn mapped():\n  return ") +
+                           body + "\nfn main()->i64:\n  return 0\n");
       require(typed.ok(), "map call/pipeline/contextual empty rejected");
       require(dumpTypedIR(*typed.module).find("array.map sequential") != std::string::npos,
               "map missing from typed IR");
     }
-    for (auto source : {"int32", "uint32", "int64", "uint64", "float32", "float64"})
-      for (auto destination : {"int32", "uint32", "int64", "uint64", "float32", "float64"}) {
+    for (auto source : {"i32", "u32", "i64", "u64", "f32", "f64"})
+      for (auto destination : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
         auto typed = analyze("fn mapped(input:[" + std::string(source) +
-                             "]):\n  "
-                             "input -> map(fn(value): " +
+                             "]):\n  return "
+                             "input -> map(fn(value): return " +
                              destination +
                              "(value))\n"
-                             "fn main()->int:\n  0\n");
+                             "fn main()->i64:\n  return 0\n");
         require(typed.ok(), "anonymous map numeric pair rejected");
         require(bool(continuation::plan(*typed.module)), "anonymous map planning failed");
 #ifndef KALANDRA_MAP_FRONTEND_ONLY
@@ -54,23 +54,23 @@ int main() {
 #endif
       }
     for (auto text :
-         {"fn main():\n  map([],fn(value:int)->float: float(value))\n",
-          "fn main():\n  map([1,2],fn(value): value*2)\n",
-          "fn main():\n  offset=10\n  map([1,2],fn(value): value+offset)\n",
-          "fn main():\n  value=true\n  map([1,2],fn(value): value*2)\n",
-          "fn choose(value:int,flag:Bool)->int:\n  if flag: value\n  else: -value\n"
-          "fn main():\n  flag=true\n  map([1,2],fn(value): choose(value,flag))\n",
-          "fn main():\n  bias:Tensor[int,2]=tensor([3,4])\n  map([1,2],fn(value): "
+         {"fn main():\n  return map([],fn(value:i64)->f64: return f64(value))\n",
+          "fn main():\n  return map([1,2],fn(value): return value*2)\n",
+          "fn main():\n  offset=10\n  return map([1,2],fn(value): return value+offset)\n",
+          "fn main():\n  value=true\n  return map([1,2],fn(value): return value*2)\n",
+          "fn choose(value:i64,flag:bool)->i64:\n  return if flag: value\n  else: -value\n"
+          "fn main():\n  flag=true\n  return map([1,2],fn(value): return choose(value,flag))\n",
+          "fn main():\n  bias:Tensor[i64,2]=tensor([3,4])\n  return map([1,2],fn(value): return "
           "value+reduceSum(bias))\n",
-          "fn keep(values:[int],value:int)->int:\n  value\n"
-          "fn main():\n  offset=10\n  extra=[1,2]\n  map([3,4],fn(x): keep(map(extra,fn(y): "
-          "y+x+offset),x))\n",
-          "fn identity(value:int)->int:\n  value\nfn main() ! TaskError:\n  try parallel:\n"
-          "    pending=spawn identity(1)\n    result=map([1,2],fn(value): value*2)\n"
+          "fn keep(values:[i64],value:i64)->i64:\n  return value\n"
+          "fn main():\n  offset=10\n  extra=[1,2]\n  return map([3,4],fn(x): return keep(map(extra,fn(y): "
+          "return y+x+offset),x))\n",
+          "fn identity(value:i64)->i64:\n  return value\nfn main() ! TaskError:\n  return try parallel:\n"
+          "    pending=spawn identity(1)\n    result=map([1,2],fn(value): return value*2)\n"
           "    try await pending\n"}) {
       auto fixture = std::string(text);
       fixture.replace(fixture.find("fn main()"), 9, "fn example()");
-      fixture += "fn main()->int:\n  0\n";
+      fixture += "fn main()->i64:\n  return 0\n";
       auto typed = analyze(fixture);
       require(typed.ok(), std::string("valid closure rejected: ") + text);
       require(bool(continuation::plan(*typed.module)), "closure captures/helper import failed");
@@ -81,35 +81,35 @@ int main() {
 #endif
     }
     for (auto body :
-         {"map([1],fn(): 1)", "map([1],fn(x,y): x+y)", "map([],fn(x): x)", "map([1],fn(x:Bool): 1)",
+         {"map([1],fn(): 1)", "map([1],fn(x,y): x+y)", "map([],fn(x): x)", "map([1],fn(x:bool): 1)",
           "map([1],fn(x): [x])", "map([1],fn(x): missing+x)", "callback=fn(x): x\n  0",
           "map([1],fn(x): try x)", "map([1],fn(x): spawn identity(x))"})
       require(
-          !analyze("fn identity(x:int)->int:\n  x\nfn main():\n  " + std::string(body) + "\n").ok(),
+          !analyze("fn identity(x:i64)->i64:\n  return x\nfn main():\n  return " + std::string(body) + "\n").ok(),
           "invalid anonymous callback accepted");
-    require(!analyze("fn identity(x:int)->int:\n  x\nfn main() ! TaskError:\n  try parallel:\n"
-                     "    pending=spawn identity(1)\n    map([1],fn(x): pending)\n")
+    require(!analyze("fn identity(x:i64)->i64:\n  return x\nfn main() ! TaskError:\n  return try parallel:\n"
+                     "    pending=spawn identity(1)\n    map([1],fn(x): return pending)\n")
                  .ok(),
             "pending task captured by closure");
-    require(!analyze("fn identity(x:int)->int:\n  x\nfn helper(x:int)->int ! TaskError:\n"
-                     "  try parallel:\n    try await spawn identity(x)\n"
-                     "fn main():\n  map([1],fn(x): helper(x) catch fn(error): x)\n")
+    require(!analyze("fn identity(x:i64)->i64:\n  return x\nfn helper(x:i64)->i64 ! TaskError:\n"
+                     "  return try parallel:\n    try await spawn identity(x)\n"
+                     "fn main():\n  return map([1],fn(x): return helper(x) catch fn(error): return x)\n")
                  .ok(),
             "transitively resumable anonymous callback admitted");
-    require(!analyze("fn identity(x:int)->int:\n  x\nfn helper(x:int)->int ! TaskError:\n"
-                     "  try parallel:\n    try await spawn identity(x)\n"
-                     "fn main():\n  pending=helper(1)\n  map([1],fn(x): pending)\n")
+    require(!analyze("fn identity(x:i64)->i64:\n  return x\nfn helper(x:i64)->i64 ! TaskError:\n"
+                     "  return try parallel:\n    try await spawn identity(x)\n"
+                     "fn main():\n  pending=helper(1)\n  return map([1],fn(x): return pending)\n")
                  .ok(),
             "unhandled fallible value captured");
-    auto repeated = analyze("fn mapped(values:[int],offset:int):\n"
-                            "  map(values,fn(x): x+offset+offset)\nfn main()->int:\n  0\n");
+    auto repeated = analyze("fn mapped(values:[i64],offset:i64):\n"
+                            "  return map(values,fn(x): return x+offset+offset)\nfn main()->i64:\n  return 0\n");
     require(repeated.ok(), "repeated capture rejected");
     require(std::get<ArrayMap>(
                 repeated.module->expressions[repeated.module->functions[0].result].operation)
                     .captures.size() == 1,
             "one lexical binding captured multiple times");
-    auto captured = analyze("fn mapped(input:[int],offset:int):\n  map(input,fn(x): x+offset)\n"
-                            "fn main()->int:\n  0\n");
+    auto captured = analyze("fn mapped(input:[i64],offset:i64):\n  return map(input,fn(x): return x+offset)\n"
+                            "fn main()->i64:\n  return 0\n");
     require(captured.ok(), "capture fixture failed");
     auto &captureMap = std::get<ArrayMap>(
         captured.module->expressions[captured.module->functions[0].result].operation);
@@ -131,26 +131,26 @@ int main() {
       require(!lowerNative(forged), "forged capture metadata admitted");
     }
 #endif
-    const std::string prelude = "fn twice(value:int)->int:\n  value*2\n";
+    const std::string prelude = "fn twice(value:i64)->i64:\n  return value*2\n";
     for (auto body : {"map([1,2])", "map([1,2],twice,twice)", "map(tensor([1,2]),twice)",
                       "map([1.0,2.0],twice)", "map([1,2],int64)", "map([1,2],missing)",
                       "callback=1\n  map([1,2],callback)", "map([1,2],twice(2))"})
-      require(!analyze(prelude + "fn main():\n  " + body + "\n").ok(), "invalid map accepted");
+      require(!analyze(prelude + "fn main():\n  return " + body + "\n").ok(), "invalid map accepted");
     for (auto callback :
-         {"fn transform()->int:\n  1\n", "fn transform(a:int,b:int)->int:\n  a+b\n",
-          "fn transform(a:[int])->int:\n  1\n", "fn transform(a:int)->[int]:\n  [a]\n",
-          "fn transform(a:Bool)->Bool:\n  a\n", "fn transform(a:int)->int ! TaskError:\n  a\n"})
-      require(!analyze(std::string(callback) + "fn mapped():\n  map([1,2],transform)\n").ok(),
+         {"fn transform()->i64:\n  return 1\n", "fn transform(a:i64,b:i64)->i64:\n  return a+b\n",
+          "fn transform(a:[i64])->i64:\n  return 1\n", "fn transform(a:i64)->[i64]:\n  return [a]\n",
+          "fn transform(a:bool)->bool:\n  return a\n", "fn transform(a:i64)->i64 ! TaskError:\n  return a\n"})
+      require(!analyze(std::string(callback) + "fn mapped():\n  return map([1,2],transform)\n").ok(),
               "unsupported callback signature accepted");
-    auto effect = analyze("fn identity(value:int)->int:\n  value\nfn helper(value:int)->int ! "
-                          "TaskError:\n  try parallel:\n    try await spawn identity(value)\nfn "
-                          "transform(value:int)->int:\n  attempted=helper(value)\n  attempted "
-                          "catch fn(error): value\nfn mapped():\n  map([1,2],transform)\n");
+    auto effect = analyze("fn identity(value:i64)->i64:\n  return value\nfn helper(value:i64)->i64 ! "
+                          "TaskError:\n  return try parallel:\n    try await spawn identity(value)\nfn "
+                          "transform(value:i64)->i64:\n  attempted=helper(value)\n  return attempted "
+                          "catch fn(error): return value\nfn mapped():\n  return map([1,2],transform)\n");
     require(!effect.ok(), "transitively resumable callback admitted");
     auto helpers =
-        analyze("fn multiply(value:int)->int:\n  value*2\nfn transform(value:int)->int:\n  if "
-                "value<0:\n    -value\n  else:\n    multiply(value)\nfn run(values:[int]):\n  "
-                "map(values,transform)\nfn main()->int ! TaskError:\n  try parallel:\n    "
+        analyze("fn multiply(value:i64)->i64:\n  return value*2\nfn transform(value:i64)->i64:\n  return if "
+                "value<0:\n    -value\n  else:\n    multiply(value)\nfn run(values:[i64]):\n  return "
+                "map(values,transform)\nfn main()->i64 ! TaskError:\n  return try parallel:\n    "
                 "work=spawn run([1,2,3])\n    result=try await work\n    7\n");
     require(helpers.ok(), "callback helper graph rejected");
     auto plan = continuation::plan(*helpers.module);
@@ -158,7 +158,7 @@ int main() {
 #ifndef KALANDRA_MAP_FRONTEND_ONLY
     require(bool(lowerNative(*helpers.module)), "worker callback helper graph lowering failed");
     auto basic =
-        analyze(prelude + "fn mapped(input:[int]):\n  map(input,twice)\nfn main()->int:\n  0\n");
+        analyze(prelude + "fn mapped(input:[i64]):\n  return map(input,twice)\nfn main()->i64:\n  return 0\n");
     for (unsigned surface = 0; surface < 5; ++surface) {
       auto forged = *basic.module;
       auto &node = forged.expressions[forged.functions[1].result];

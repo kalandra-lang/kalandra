@@ -67,7 +67,7 @@ int main() {
                       "element bits or descriptor addressing changed");
             } else {
               ++faults;
-              require(context.line() == 2 && context.column() == 3 &&
+              require(context.line() == 2 && context.column() == 10 &&
                           std::bit_cast<Raw>(output) == 0,
                       "bounds fault location or result changed");
             }

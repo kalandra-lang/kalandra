@@ -100,28 +100,28 @@ if (!installed)
   throw new Error("VSIX was not installed in the isolated extension directory");
 await writeFile(
   path.join(workspace, "library.k"),
-  "export fn double(value:int)->int:\n  value*2\n",
+  "export fn double(value:i64)->i64:\n  return value*2\n",
 );
 await writeFile(
   path.join(workspace, "main.k"),
-  'from "./library.k" import double\nfn main()->int:\n  answer=double(21)\n  answer\n',
+  "from \"./library.k\" import double\nfn main()->i64:\n  answer=double(21)\n  return answer\n",
 );
-await writeFile(path.join(workspace, "completion.k"), "fn main():\n  0\n");
+await writeFile(path.join(workspace, "completion.k"), "fn main():\n  return 0\n");
 await writeFile(
   path.join(workspace, "completion-library.k"),
-  "export type Box:\n  value:int\n  other:int\n" +
-    "export enum Choice:\n  Some:\n    value:int\n    count:int\n  Other\n" +
-    "export fn make()->fn(int,int)->int:\n  fn(a:int,b:int):a+b\n" +
+  "export type Box:\n  value:i64\n  other:i64\n" +
+    "export enum Choice:\n  Some:\n    value:i64\n    count:i64\n  Other\n" +
+    "export fn make()->fn(i64,i64)->i64:\n  return fn(a:i64,b:i64):return a+b\n" +
     "export error ParseError:\n  Invalid\n" +
     "export type Problem = ParseError | TaskError\n",
 );
 await writeFile(
   path.join(workspace, "caller.k"),
-  'from "./library.k" import double\nfn caller()->int:\n  double(7)\n',
+  "from \"./library.k\" import double\nfn caller()->i64:\n  return double(7)\n",
 );
 await writeFile(
   path.join(other, "outsider.k"),
-  'from "../workspace/library.k" import double\nfn outside()->int:\n  double(5)\n',
+  "from \"../workspace/library.k\" import double\nfn outside()->i64:\n  return double(5)\n",
 );
 await writeFile(
   path.join(workspace, "kalandra.toml"),

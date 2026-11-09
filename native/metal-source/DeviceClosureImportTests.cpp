@@ -12,12 +12,12 @@ static void require(bool ok, const char *message) {
 int main() {
   try {
     auto checked = check(parse(std::make_shared<SourceFile>("device-import.k", R"k(
-fn make(offset:int)->fn(int)->int:
-  fn(value:int):value+offset
-fn invoke(callback:fn(int)->int,n:int)->int:
-  callback(n)
-fn main()->int:
-  invoke(make(7),5)
+fn make(offset:i64)->fn(i64)->i64:
+  return fn(value:i64):return value+offset
+fn invoke(callback:fn(i64)->i64,n:i64)->i64:
+  return callback(n)
+fn main()->i64:
+  return invoke(make(7),5)
 )k")));
     require(checked.ok(), "imported closure fixture rejected");
     const auto &input = *checked.module;

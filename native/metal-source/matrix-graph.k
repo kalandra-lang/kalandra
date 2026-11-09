@@ -1,16 +1,16 @@
-fn multiply(a: Tensor[float32, ?, ?], b: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  matmul(a, b)
+fn multiply(a: Tensor[f32, ?, ?], b: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return matmul(a, b)
 
-fn project(input: Tensor[float32, ?, ?], weights: Tensor[float32, ?, ?], projection: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
+fn project(input: Tensor[f32, ?, ?], weights: Tensor[f32, ?, ?], projection: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
   hidden = multiply(input, weights)
-  multiply(hidden, projection)
+  return multiply(hidden, projection)
 
-fn main() -> Tensor[float32, ?, ?] ! TaskError:
-  try parallel:
+fn main() -> Tensor[f32, ?, ?] ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    input: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
-    weights: Tensor[float32, 3, 2] = tensor([[1, 2], [3, 4], [5, 6]])
-    projection: Tensor[float32, 2, 2] = tensor([[1, 2], [3, 4]])
+    input: Tensor[f32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+    weights: Tensor[f32, 3, 2] = tensor([[1, 2], [3, 4], [5, 6]])
+    projection: Tensor[f32, 2, 2] = tensor([[1, 2], [3, 4]])
     a = try await transfer(input, gpu)
     b = try await transfer(weights, gpu)
     c = try await transfer(projection, gpu)

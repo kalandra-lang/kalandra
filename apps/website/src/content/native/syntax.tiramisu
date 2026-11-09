@@ -1,56 +1,56 @@
 meta { title = "Syntax and values", description = "Source files, indentation, bindings, calls and function results.", order = 1, group = "Language reference" }
 
-Source files use the .k extension. Indentation defines a block of statements and expressions. Use spaces consistently; the formatter uses two spaces per level. A colon introduces a function or control-flow body. The final expression supplies a function's result. if, while and for support value-producing forms as well as statements; a loop expression can collect values with yield, or select a single result with else and break value.
+Source files use the .k extension. Indentation defines a block of statements and expressions. Use spaces consistently; the formatter uses two spaces per level. A colon introduces a function or control-flow body. Use return to produce a function result. if, while and for support value-producing forms as well as statements; a loop expression can collect values with yield, or select a single result with else and break value.
 
 h2 { "Bindings and results" }
 
-codeblock { language = kalandra, """fn main() -> int:
+codeblock { language = kalandra, """fn main() -> i64:
   width = 6
-  height: int = 7
+  height: i64 = 7
   area = width * height
-  area
+  return area
 """ }
 
-This program returns 42. Numeric and Bool scalar bindings can be reassigned while preserving their type. An annotation such as height: int declares the expected type; otherwise the checker infers a type. A bare whole-number literal normally infers int, while a decimal or exponent literal normally infers float. An expected type can give a literal a narrower numeric type.
+This program returns 42. Numeric and bool scalar bindings can be reassigned while preserving their type. An annotation such as height: i64 declares the expected type; otherwise the checker infers a type. A bare whole-number literal normally infers i64, while a decimal or exponent literal normally infers f64. An expected type can give a literal a narrower numeric type.
 
 h2 { "Comments and multiline expressions" }
 
 Use # for line comments. Blank lines and comment-only lines do not change block structure. Parentheses and collection delimiters permit multiline expressions:
 
-codeblock { language = kalandra, """fn main() -> int:
-  # The final expression is the result.
+codeblock { language = kalandra, """fn main() -> i64:
+  # Return the computed result.
   total = (
     20 +
     22
   )
-  total
+  return total
 """ }
 
 This program also returns 42. Identifiers use ASCII letters and underscores, followed by letters, digits or underscores. String literals and comments can contain Unicode. Tabs outside comments and strings are diagnosed.
 
 h2 { "Calls and pipelines" }
 
-codeblock { language = kalandra, """fn add(left: int, right: int) -> int:
-  left + right
+codeblock { language = kalandra, """fn add(left: i64, right: i64) -> i64:
+  return left + right
 
-fn main() -> int:
-  40 -> add(2)
+fn main() -> i64:
+  return 40 -> add(2)
 """ }
 
 The program returns 42. The pipeline inserts its left value as the first argument. Here the final line is equivalent to add(40, 2). Use parentheses when a larger expression needs to be one argument.
 
 h2 { "Reassign a local scalar" }
 
-Reuse = to update a numeric or Bool binding while preserving its type. A scalar function parameter is a private value; rebinding it cannot change the caller's binding. Assignments in a statement branch or loop update an existing scalar name; a new name introduced inside that body stays local to it. CPU functions also support replacing numeric and Bool array bindings. String, record and function-array bindings, records, function values and tensors cannot be reassigned.
+Reuse = to update a numeric or bool binding while preserving its type. A scalar function parameter is a private value; rebinding it cannot change the caller's binding. Assignments in a statement branch or loop update an existing scalar name; a new name introduced inside that body stays local to it. CPU functions also support replacing numeric and bool array bindings. String, record and function-array bindings, records, function values and tensors cannot be reassigned.
 
-codeblock { language = kalandra, """fn double(value: int) -> int:
+codeblock { language = kalandra, """fn double(value: i64) -> i64:
   value = value * 2
-  value
+  return value
 
-fn main() -> int:
+fn main() -> i64:
   amount = 10
   amount = double(amount)
-  amount
+  return amount
 """ }
 
 This returns 20. double changes its private parameter; main changes amount only when it assigns the returned value.

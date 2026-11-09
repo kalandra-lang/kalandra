@@ -3,13 +3,13 @@
 `[Bool]` is a homogeneous immutable array of Boolean values. Nonempty literals infer their element type; empty literals need an annotation or callback context.
 
 ```kalandra
-fn positive(value: int) -> Bool:
-  value > 0
+fn positive(value: i64) -> bool:
+  return value > 0
 
-fn main() -> [Bool] ! TaskError:
+fn main() -> [bool] ! TaskError:
   flags = try parallel:
     try await spawn map([-1, 0, 2], positive)
-  flags -> map(fn(flag): not flag)
+  return flags -> map(fn(flag): return not flag)
 ```
 
 This returns `[true, true, false]`. `map(flags, fn(flag): not flag)` is equivalent to the pipeline form. A map is sequential; spawning it sends the whole map to a CPU worker.

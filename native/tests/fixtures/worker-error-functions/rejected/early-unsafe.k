@@ -1,17 +1,17 @@
 type Outcome:
-  error:fn(int)->int
+  error:fn(i64)->i64
 error E:
   Retry:
-    callback:fn(int)->int
-fn unsafe(error:fn(int)->int)->fn(int)->int:
+    callback:fn(i64)->i64
+fn unsafe(error:fn(i64)->i64)->fn(i64)->i64:
   outcome=Outcome {error:error}
-  fn(value:int):
-    outcome.error(value)
-fn worker(error:fn(int)->int,flag:Bool)->int ! E:
+  return fn(value:i64):
+    return outcome.error(value)
+fn worker(error:fn(i64)->i64,flag:bool)->i64 ! E:
   if flag:fail E.Retry {callback:unsafe(error)}
-  42
-fn submit(error:fn(int)->int)->int ! (E | TaskError):
-  try parallel:
+  return 42
+fn submit(error:fn(i64)->i64)->i64 ! (E | TaskError):
+  return try parallel:
     try await spawn worker(error,true)
-fn main()->int:
-  42
+fn main()->i64:
+  return 42

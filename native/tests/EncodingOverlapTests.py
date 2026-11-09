@@ -17,12 +17,12 @@ def run(command):
  assert not any(x in result.stderr for x in ('AddressSanitizer','ThreadSanitizer','runtime error:')),result.stderr
  return result.stdout+result.stderr
 model=out/'model.k'
-model.write_text((root/'native/benchmarks/TransformerBlock.k').read_text().split('fn main(')[0]+'''fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+model.write_text((root/'native/benchmarks/TransformerBlock.k').read_text().split('fn main(')[0]+'''fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    x:Tensor[float32,2,2]=tensor([[1,0],[0,1]])
-    up:Tensor[float32,2,8]=tensor([[1,0,1,0,1,0,1,0],[0,1,0,1,0,1,0,1]])
-    down:Tensor[float32,8,2]=tensor([[1,0],[0,1],[1,0],[0,1],[1,0],[0,1],[1,0],[0,1]])
+    x:Tensor[f32,2,2]=tensor([[1,0],[0,1]])
+    up:Tensor[f32,2,8]=tensor([[1,0,1,0,1,0,1,0],[0,1,0,1,0,1,0,1]])
+    down:Tensor[f32,8,2]=tensor([[1,0],[0,1],[1,0],[0,1],[1,0],[0,1],[1,0],[0,1]])
     a=try await transfer(x,gpu)
     b=try await transfer(up,gpu)
     c=try await transfer(down,gpu)

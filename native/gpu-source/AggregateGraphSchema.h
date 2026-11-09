@@ -1,8 +1,8 @@
 #pragma once
-#include "AggregateProjection.h"
-#include "AggregateNativeLayout.h"
 #include "../runtime/DeviceGraphWire.h"
 #include "../runtime/NumericStorage.h"
+#include "AggregateNativeLayout.h"
+#include "AggregateProjection.h"
 #include <tuple>
 
 namespace kalandra {
@@ -26,9 +26,8 @@ struct AggregateGraphSchema {
 // argument order, including repeated nominal types and nullable arrays.
 inline bool appendAggregateCaptureJoin(AggregateGraphSchema &schema, std::size_t &budget) {
   if (schema.captureJoin || schema.roots.size() < 2 ||
-      std::ranges::any_of(schema.roots, [&](auto root) {
-        return !root || root > schema.layouts.size();
-      }) ||
+      std::ranges::any_of(schema.roots,
+                          [&](auto root) { return !root || root > schema.layouts.size(); }) ||
       !consumeAggregateProjectionWork(budget, schema.roots.size()))
     return false;
   AggregateGraphSchema::Layout join;
@@ -58,12 +57,12 @@ planAggregateGraphSchema(const TypedModule &input, std::span<const ValueType> ro
     return reject(canonical.error());
 
   AggregateGraphSchema plan;
-  using Key =
-      std::tuple<BuiltinValue, NumericType, std::optional<std::size_t>, bool, std::optional<std::size_t>>;
+  using Key = std::tuple<BuiltinValue, NumericType, std::optional<std::size_t>, bool,
+                         std::optional<std::size_t>>;
   std::map<Key, std::size_t> ids;
   const auto schedule = [&](const ValueType &type) {
-    const Key key{type.builtin, type.builtin == BuiltinValue::Numeric ? type.element
-                                                                    : NumericType::UInt8,
+    const Key key{type.builtin,
+                  type.builtin == BuiltinValue::Numeric ? type.element : NumericType::UInt8,
                   type.record, type.array,
                   deviceTensorValue(type) ? std::optional{type.shape.size()} : std::nullopt};
     auto [found, inserted] = ids.try_emplace(key, plan.layouts.size() + 1);
@@ -72,7 +71,7 @@ planAggregateGraphSchema(const TypedModule &input, std::span<const ValueType> ro
     return found->second;
   };
   const auto scalarRule = [](const ValueType &type) {
-    if (type.builtin == BuiltinValue::Bool)
+    if (isBooleanStorage(type))
       return runtime::DeviceGraphCell{1};
     const auto bits = describeNumeric(type.element)->bits;
     return runtime::DeviceGraphCell{bits == 64 ? UINT64_MAX : (UINT64_C(1) << bits) - 1};
@@ -96,13 +95,12 @@ planAggregateGraphSchema(const TypedModule &input, std::span<const ValueType> ro
     if (deviceScalarValue(type) || deviceFlatArrayValue(type)) {
       if (!consumeAggregateProjectionWork(budget, 1))
         return reject("GPU graph schema exceeds configured work budget");
-      const auto bytes = type.builtin == BuiltinValue::Bool
-                             ? 1 : describeNumeric(type.element)->bits / 8;
+      const auto bytes = isBooleanStorage(type) ? 1 : describeNumeric(type.element)->bits / 8;
       plan.layouts[layout].nativeStride = bytes;
       plan.layouts[layout].nativeAlignment =
-          type.builtin == BuiltinValue::Bool ? 1 : *runtime::numericAlignment(type.element);
-      plan.layouts[layout].cells.push_back({scalarRule(type), {}, 0,
-                                           static_cast<std::uint64_t>(bytes)});
+          isBooleanStorage(type) ? 1 : *runtime::numericAlignment(type.element);
+      plan.layouts[layout].cells.push_back(
+          {scalarRule(type), {}, 0, static_cast<std::uint64_t>(bytes)});
       continue;
     }
     const auto element = type.array ? recordArrayElement(type) : type;
@@ -111,8 +109,8 @@ planAggregateGraphSchema(const TypedModule &input, std::span<const ValueType> ro
     const auto stride = canonical->at(*element.record).words;
     if (!consumeAggregateProjectionWork(budget, stride))
       return reject("GPU graph schema exceeds configured work budget");
-    auto projection = projectDeviceAggregateOccurrences(input, std::span(&element, 1),
-                                                         *canonical, budget);
+    auto projection =
+        projectDeviceAggregateOccurrences(input, std::span(&element, 1), *canonical, budget);
     if (!projection)
       return reject(projection.error());
     std::vector<AggregateGraphSchema::Cell> cells(stride);

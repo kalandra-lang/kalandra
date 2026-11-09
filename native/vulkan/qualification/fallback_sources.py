@@ -20,13 +20,13 @@ for operation,expression in [('add','a+b'),('sub','a-b'),('mul','a*b'),('div','a
     for mode in ('hardware','software','hardware-with-software-fallback'):
         output=a.output/(operation+'-'+mode);output.mkdir(exist_ok=True)
         source=output/'source.k'
-        source.write_text(f'''fn work(a:Tensor[float64,?],b:Tensor[float64,?])->Tensor[float64,?]:
-  {expression}
-fn main()->Tensor[float64,?] ! TaskError:
-  try parallel:
+        source.write_text(f'''fn work(a:Tensor[f64,?],b:Tensor[f64,?])->Tensor[f64,?]:
+  return {expression}
+fn main()->Tensor[f64,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    a:Tensor[float64,3]=tensor([1,2,3])
-    b:Tensor[float64,3]=tensor([4,5,6])
+    a:Tensor[f64,3]=tensor([1,2,3])
+    b:Tensor[f64,3]=tensor([4,5,6])
     x=try await transfer(a,gpu)
     y=try await transfer(b,gpu)
     pending=spawn work(x,y) on gpu

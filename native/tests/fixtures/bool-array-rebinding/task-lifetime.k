@@ -1,11 +1,11 @@
 type LoopResult:
-  value:int
-fn read(values:[Bool])->int:
-  if length(values)==2:7
+  value:i64
+fn read(values:[bool])->i64:
+  return if length(values)==2:7
   else:
     if values[0]:1
     else:4
-fn probe(n:int,faultAt:int)->LoopResult ! TaskError:
+fn probe(n:i64,faultAt:i64)->LoopResult ! TaskError:
   values=[true,true]
   saved=values
   i=0
@@ -21,6 +21,6 @@ fn probe(n:int,faultAt:int)->LoopResult ! TaskError:
       zero=0
       total=total+1/zero
     i=i+1
-  LoopResult {value:read(saved)+total+read(values)+length(values)}
-fn main()->int:
-  0
+  return LoopResult {value:read(saved)+total+read(values)+length(values)}
+fn main()->i64:
+  return 0

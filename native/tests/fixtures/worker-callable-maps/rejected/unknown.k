@@ -1,6 +1,6 @@
-fn consume(callback:fn(int)->int)->int ! TaskError:
-  try parallel:
+fn consume(callback:fn(i64)->i64)->i64 ! TaskError:
+  return try parallel:
     values=try await spawn map([42],callback)
     values[0]
-fn main()->int:
-  42
+fn main()->i64:
+  return 42

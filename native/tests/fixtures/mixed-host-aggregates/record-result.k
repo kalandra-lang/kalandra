@@ -1,20 +1,20 @@
 type Batch:
-  captured:[int]
-  left:[int]
-  right:[int]
-  independent:[int]
+  captured:[i64]
+  left:[i64]
+  right:[i64]
+  independent:[i64]
 enum Result:
   Empty
   Ready:
     batch:Batch
-fn collect(values:[int],enabled:Bool)->Result:
-  if enabled:
+fn collect(values:[i64],enabled:bool)->Result:
+  return if enabled:
     fresh=copy(values)
     Result.Ready {batch:Batch {captured:values,left:fresh,right:fresh,independent:copy(values)}}
   else:Result.Empty
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   values=[2,3]
-  try parallel:
+  return try parallel:
     result=try await spawn collect(values,true) on devices.gpu()
     empty=try await spawn collect(values,false) on devices.gpu()
     values[0]=9

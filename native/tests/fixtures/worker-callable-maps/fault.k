@@ -1,13 +1,13 @@
-fn divide(value:int)->int:
-  1/value
-fn run()->int ! TaskError:
+fn divide(value:i64)->i64:
+  return 1/value
+fn run()->i64 ! TaskError:
   f=divide
-  try parallel:
+  return try parallel:
     values=try await spawn map([0],f)
     values[0]
-fn main()->int:
-  run() catch fn(error):
-    match error:
+fn main()->i64:
+  return run() catch fn(error):
+    return match error:
       TaskError.Fault {kind}:
         match kind:
           FaultKind.Arithmetic:42

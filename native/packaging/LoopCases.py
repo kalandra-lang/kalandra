@@ -1,6 +1,6 @@
 """Shared executable contracts for statement/expression loops and lexical exits."""
 CASES = {
-    'while-break': ('''fn main()->int:
+    'while-break': ('''fn main()->i64:
   i=0
   result=while i<10:
     i=i+1
@@ -10,31 +10,31 @@ CASES = {
       break i*10
   else:
     7
-  result+i
+  return result+i
 ''', '44'),
     'while-zero': ('''fn main()->String:
-  while false:
+  return while false:
     break "wrong"
   else:
     "zero"
 ''', 'zero'),
-    'while-exhaustion': ('''fn main()->int:
+    'while-exhaustion': ('''fn main()->i64:
   i=0
-  while i<4:
+  return while i<4:
     i=i+1
     continue
   else:
     i*10
 ''', '40'),
-    'while-lazy-else': ('''fn zero()->int:
-  0
-fn main()->int:
-  while true:
+    'while-lazy-else': ('''fn zero()->i64:
+  return 0
+fn main()->i64:
+  return while true:
     break 42
   else:
     1/zero()
 ''', '42'),
-    'for-exits': ('''fn main()->int:
+    'for-exits': ('''fn main()->i64:
   total=0
   for i in range(10):
     if i==2:
@@ -47,42 +47,42 @@ fn main()->int:
       break value
   else:
     0
-  total+found
+  return total+found
 ''', '15'),
-    'descending': ('''fn main()->int:
+    'descending': ('''fn main()->i64:
   total=0
   for i in range(5,-2,-2):
     total=total+i
-  total
+  return total
 ''', '8'),
     # INT64_MAX - 1 plus two overflows on the first advance.
-    'range-positive-overflow': ('''fn main()->int:
+    'range-positive-overflow': ('''fn main()->i64:
   count=0
   for i in range(9223372036854775806,9223372036854775807,2):
     count=count+1
-  count
+  return count
 ''', '1'),
-    'range-negative-overflow': ('''fn main()->int:
+    'range-negative-overflow': ('''fn main()->i64:
   count=0
   for i in range(-9223372036854775806,-9223372036854775808,-3):
     count=count+1
-  count
+  return count
 ''', '1'),
-    'range-minimum-step': ('''fn main()->int:
+    'range-minimum-step': ('''fn main()->i64:
   count=0
   for i in range(9223372036854775807,-9223372036854775808,-9223372036854775808):
     count=count+1
-  count
+  return count
 ''', '2'),
-    'range-direction-empty': ('''fn main()->int:
+    'range-direction-empty': ('''fn main()->i64:
   total=0
   for i in range(5,0):
     total=total+1
   for j in range(0,5,-1):
     total=total+1
-  total
+  return total
 ''', '0'),
-    'nearest-loop': ('''fn main()->int:
+    'nearest-loop': ('''fn main()->i64:
   total=0
   for i in range(3):
     for j in range(10):
@@ -90,83 +90,83 @@ fn main()->int:
         break
       total=total+1
     total=total+10
-  total
+  return total
 ''', '36'),
-    'iterator-scope': ('''fn main()->int:
+    'iterator-scope': ('''fn main()->i64:
   i=42
   total=0
   for i in range(3):
     total=total+i
     i=100
-  i+total
+  return i+total
 ''', '45'),
-    'array-once': ('''fn main()->int:
+    'array-once': ('''fn main()->i64:
   values=[1,2,3]
   total=0
   for value in values:
     values=[9]
     total=total+value
-  total+values[0]
+  return total+values[0]
 ''', '15'),
-    'array-alias-result': ('''fn main()->int:
+    'array-alias-result': ('''fn main()->i64:
   values=[1,2]
   found=for item in [3,4]:
     break values
   else:
     [0]
   found[0]=9
-  values[0]*10+length(found)
+  return values[0]*10+length(found)
 ''', '92'),
-    'array-empty-result': ('''fn main()->[int]:
-  for value in [int(1)]:
+    'array-empty-result': ('''fn main()->[i64]:
+  return for value in [i64(1)]:
     break [value,value+1]
   else:
     []
 ''', '[1, 2]'),
-    'bool-array': ('''fn main()->int:
+    'bool-array': ('''fn main()->i64:
   count=0
   for flag in [true,false,true]:
     if not flag:
       continue
     count=count+1
-  count
+  return count
 ''', '2'),
     'owned-string-result': ('''fn main()->String:
-  for text in ["a"+"b","unused"]:
+  return for text in ["a"+"b","unused"]:
     break text+"!"
   else:
     "empty"
 ''', 'ab!'),
     'record-result': ('''type Box:
   text:String
-  values:[int]
-fn main()->int:
+  values:[i64]
+fn main()->i64:
   result=while true:
     break Box {text:"a"+"b",values:[7,8]}
   else:
     Box {text:"",values:[]}
-  length(result.text)+result.values[0]
+  return length(result.text)+result.values[0]
 ''', '9'),
-    'callable-result': ('''fn main()->int:
+    'callable-result': ('''fn main()->i64:
   offset=40
   callback=for value in [2]:
-    break fn(x:int):x+offset+value
+    break fn(x:i64):return x+offset+value
   else:
-    fn(x:int):x
-  callback(0)
+    fn(x:i64):return x
+  return callback(0)
 ''', '42'),
-    'callback-loop': ('''fn main()->[int]:
-  generate(4,fn(index):
-    for candidate in range(10):
+    'callback-loop': ('''fn main()->[i64]:
+  return generate(4,fn(index):
+    return for candidate in range(10):
       if candidate==index:
         break candidate*2
     else:
       -1
   )
 ''', '[0, 2, 4, 6]'),
-    'group-exit': ('''fn identity(value:int)->int:
-  value
-fn main()->int ! TaskError:
+    'group-exit': ('''fn identity(value:i64)->i64:
+  return value
+fn main()->i64 ! TaskError:
   total=0
   for i in range(50):
     try parallel:
@@ -176,43 +176,43 @@ fn main()->int ! TaskError:
       if i<49:
         continue
       break
-  total
+  return total
 ''', '1225'),
-    'range-evaluation-once': ('''fn next(mut state:[int])->int:
+    'range-evaluation-once': ('''fn next(mut state:[i64])->i64:
   state[0]=state[0]+1
-  state[0]
-fn main()->int:
+  return state[0]
+fn main()->i64:
   state=[0]
   total=0
   for value in range(next(state),next(state),next(state)):
     total=total+value
-  state[0]*10+total
+  return state[0]*10+total
 ''', '31'),
-    'empty-array-else': ('''fn main()->int:
-  values:[int]=[]
-  for value in values:
+    'empty-array-else': ('''fn main()->i64:
+  values:[i64]=[]
+  return for value in values:
     break value
   else:
     42
 ''', '42'),
-    'normal-effects-once': ('''fn main()->int:
+    'normal-effects-once': ('''fn main()->i64:
   counter=0
   result=while false:
     break 42
   else:
     counter=counter+1
     7
-  result+counter
+  return result+counter
 ''', '8'),
-    'tensor-result': ('''fn main()->Tensor[int,?]:
-  for value in [1]:
+    'tensor-result': ('''fn main()->Tensor[i64,?]:
+  return for value in [1]:
     break tensor([value,value+1])
   else:
     tensor([0])
 ''', 'tensor([1, 2], [2])'),
 
-    'recursive-loop-function': ('''fn walk(n:int)->int:
-  if n==0:
+    'recursive-loop-function': ('''fn walk(n:i64)->i64:
+  return if n==0:
     0
   else:
     value=for index in range(1):
@@ -220,38 +220,38 @@ fn main()->int:
     else:
       0
     walk(n-1)+value
-fn main()->int:
-  walk(200)
+fn main()->i64:
+  return walk(200)
 ''', '20100'),
 
     'expected-error-break': ('''error Stop:
   Done
-fn read()->int ! Stop:
+fn read()->i64 ! Stop:
   fail Stop.Done
-fn work()->int ! Stop:
-  while true:
+fn work()->i64 ! Stop:
+  return while true:
     break read()
   else:
     7
-fn main()->int:
-  work() catch fn(error):42
+fn main()->i64:
+  return work() catch fn(error):return 42
 ''', '42'),
 
-    'literal-loop-result': ('''fn main()->int:
-  while true:
+    'literal-loop-result': ('''fn main()->i64:
+  return while true:
     break 42
   else:
     0
 ''', '42'),
 
-    'rank-zero-result': ('''fn main()->Tensor[int]:
-  while true:
+    'rank-zero-result': ('''fn main()->Tensor[i64]:
+  return while true:
     break tensor(2)
   else:
     tensor(0)
 ''', 'tensor([2], [])'),
-    'rank-eight-result': ('''fn main()->Tensor[int,1,1,1,1,1,1,1,?]:
-  while true:
+    'rank-eight-result': ('''fn main()->Tensor[i64,1,1,1,1,1,1,1,?]:
+  return while true:
     break tensor([[[[[[[[1,2]]]]]]]])
   else:
     tensor([[[[[[[[0]]]]]]]])
@@ -261,30 +261,30 @@ fn main()->int:
 
 CASES.update({
     'record-items': ('''type Box:
-  value:int
-fn main()->int:
+  value:i64
+fn main()->i64:
   total=0
   for box in [Box {value:3},Box {value:7}]:
     total=total+box.value
-  total
+  return total
 ''', '10'),
-    'function-items': ('''fn twice(x:int)->int:
-  x*2
-fn main()->int:
+    'function-items': ('''fn twice(x:i64)->i64:
+  return x*2
+fn main()->i64:
   total=0
-  for callback in [twice,fn(x:int):x+1]:
+  for callback in [twice,fn(x:i64):return x+1]:
     total=total+callback(3)
-  total
+  return total
 ''', '10'),
-    'live-array': ('''fn main()->int:
+    'live-array': ('''fn main()->i64:
   values=[1,2,3]
   total=0
   for item in values:
     values[2]=9
     total=total+item
-  total
+  return total
 ''', '12'),
-    'statement-else': ('''fn main()->int:
+    'statement-else': ('''fn main()->i64:
   total=0
   for i in range(3):
     total=total+i
@@ -294,60 +294,60 @@ fn main()->int:
     total=total+1
   else:
     total=total+20
-  total
+  return total
 ''', '35'),
-    'boolean-loop-result': ('''fn main()->Bool:
-  while true:
+    'boolean-loop-result': ('''fn main()->bool:
+  return while true:
     break true
   else:
     false
 ''', 'true'),
 })
 
-for _numeric in ('int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'int64', 'uint64', 'float32', 'float64'):
+for _numeric in ('i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64', 'f32', 'f64'):
     CASES['array-element-' + _numeric] = (f'''fn main()->{_numeric}:
   total:{_numeric}=0
   for value in [{_numeric}(1),{_numeric}(2),{_numeric}(3)]:
     if value=={_numeric}(2):
       continue
     total=total+value
-  total
+  return total
 ''', '4')
 
 
 REJECTED = {
-    'break-outside': 'fn main()->int:\n  break\n  0\n',
-    'continue-outside': 'fn main()->int:\n  continue\n  0\n',
-    'continue-value': 'fn main()->int:\n  while true:\n    continue 1\n  0\n',
-    'break-without-result': 'fn main()->int:\n  while true:\n    break\n  else:\n    0\n',
-    'break-statement-value': 'fn main()->int:\n  while true:\n    break 1\n  0\n',
-    'no-normal-result': 'fn main()->int:\n  result=while false:\n    break 1\n  result\n',
-    'different-results': 'fn main()->int:\n  result=while true:\n    break true\n  else:\n    1\n  0\n',
-    'lambda-boundary': 'fn main()->int:\n  while true:\n    f=fn()->int:\n      break\n      0\n    break\n  0\n',
-    'iteration-name-leak': 'fn main()->int:\n  for i in range(3):\n    i+1\n  i\n',
-    'pending-break': 'fn work()->int:\n  1\nfn main()->int ! TaskError:\n  try parallel:\n    while true:\n      pending=spawn work()\n      break\n    0\n',
-    'pending-continue': 'fn work()->int:\n  1\nfn main()->int ! TaskError:\n  try parallel:\n    for i in range(3):\n      pending=spawn work()\n      continue\n    0\n',
-    'unreachable-await': 'fn work(values:[int])->int:\n  values[0]\nfn main()->int ! TaskError:\n  values=[1]\n  try parallel:\n    task=spawn work(values)\n    while true:\n      break\n      try await task\n    values[0]=2\n    try await task\n',
-    'active-reader': 'fn work(values:[int])->int:\n  values[0]\nfn main()->int ! TaskError:\n  values=[1]\n  try parallel:\n    task=spawn work(values)\n    for i in range(3):\n      if i==1:\n        break\n    values[0]=2\n    try await task\n',
-    'range-type': 'fn main()->int:\n  for i in range(1.5):\n    i+1\n  0\n',
-    'range-arity': 'fn main()->int:\n  for i in range():\n    i+1\n  0\n',
-    'readonly-break-result': 'fn edit(input:[int])->int:\n  result=for i in range(1):\n    break input\n  else:\n    [0]\n  result[0]=1\n  result[0]\nfn main()->int:\n  edit([0])\n',
-    'readonly-break-binding': 'fn edit(input:[int])->int:\n  local=[0]\n  for i in range(3):\n    local=input\n    break\n  local[0]=1\n  local[0]\nfn main()->int:\n  edit([0])\n',
+    'break-outside': 'fn main()->i64:\n  break\n  return 0\n',
+    'continue-outside': 'fn main()->i64:\n  continue\n  return 0\n',
+    'continue-value': 'fn main()->i64:\n  while true:\n    continue 1\n  0\n',
+    'break-without-result': 'fn main()->i64:\n  return while true:\n    break\n  else:\n    0\n',
+    'break-statement-value': 'fn main()->i64:\n  while true:\n    break 1\n  return 0\n',
+    'no-normal-result': 'fn main()->i64:\n  result=while false:\n    break 1\n  result\n',
+    'different-results': 'fn main()->i64:\n  result=while true:\n    break true\n  else:\n    1\n  return 0\n',
+    'lambda-boundary': 'fn main()->i64:\n  while true:\n    f=fn()->i64:\n      break\n      return 0\n    break\n  return 0\n',
+    'iteration-name-leak': 'fn main()->i64:\n  for i in range(3):\n    i+1\n  return i\n',
+    'pending-break': 'fn work()->i64:\n  return 1\nfn main()->i64 ! TaskError:\n  return try parallel:\n    while true:\n      pending=spawn work()\n      break\n    0\n',
+    'pending-continue': 'fn work()->i64:\n  return 1\nfn main()->i64 ! TaskError:\n  return try parallel:\n    for i in range(3):\n      pending=spawn work()\n      continue\n    0\n',
+    'unreachable-await': 'fn work(values:[i64])->i64:\n  return values[0]\nfn main()->i64 ! TaskError:\n  values=[1]\n  return try parallel:\n    task=spawn work(values)\n    while true:\n      break\n      try await task\n    values[0]=2\n    try await task\n',
+    'active-reader': 'fn work(values:[i64])->i64:\n  return values[0]\nfn main()->i64 ! TaskError:\n  values=[1]\n  return try parallel:\n    task=spawn work(values)\n    for i in range(3):\n      if i==1:\n        break\n    values[0]=2\n    try await task\n',
+    'range-type': 'fn main()->i64:\n  for i in range(1.5):\n    i+1\n  return 0\n',
+    'range-arity': 'fn main()->i64:\n  for i in range():\n    i+1\n  return 0\n',
+    'readonly-break-result': 'fn edit(input:[i64])->i64:\n  result=for i in range(1):\n    break input\n  else:\n    [0]\n  result[0]=1\n  return result[0]\nfn main()->i64:\n  return edit([0])\n',
+    'readonly-break-binding': 'fn edit(input:[i64])->i64:\n  local=[0]\n  for i in range(3):\n    local=input\n    break\n  local[0]=1\n  return local[0]\nfn main()->i64:\n  return edit([0])\n',
 
 }
 
 # Eager yield collections are also portable and cross-target contracts.
 CASES.update({
-    'yield-nested': ('''fn main()->[int]:
+    'yield-nested': ('''fn main()->[i64]:
   results=for row in range(4):
     for value in range(row):
       if value%2==0:
         yield row*10+value
-  results
+  return results
 ''', '[10, 20, 30, 32]'),
-    'yield-while': ('''fn main()->[int]:
+    'yield-while': ('''fn main()->[i64]:
   i=0
-  while i<6:
+  return while i<6:
     i=i+1
     if i==2:
       continue
@@ -356,25 +356,25 @@ CASES.update({
       break
     yield i*10
 ''', '[1, 10, 3, 30, 4]'),
-    'yield-empty': ('''fn main()->[float32]:
-  for i in range(0):
+    'yield-empty': ('''fn main()->[f32]:
+  return for i in range(0):
     yield 1
 ''', '[]'),
-    'yield-filter-empty': ('''fn main()->[int]:
-  for i in range(5):
+    'yield-filter-empty': ('''fn main()->[i64]:
+  return for i in range(5):
     if i<0:
       yield i
 ''', '[]'),
-    'yield-nested-exit': ('''fn main()->[int]:
-  for i in range(3):
+    'yield-nested-exit': ('''fn main()->[i64]:
+  return for i in range(3):
     for j in range(4):
       if j==2:
         break
       yield i*10+j
     yield 99
 ''', '[0, 1, 99, 10, 11, 99, 20, 21, 99]'),
-    'yield-independent': ('''fn main()->[int]:
-  for i in range(3):
+    'yield-independent': ('''fn main()->[i64]:
+  return for i in range(3):
     inner=for j in range(i):
       yield j
     yield length(inner)
@@ -382,225 +382,225 @@ CASES.update({
     'yield-string': ('''fn main()->String:
   words=for i in range(40):
     yield "été λ"+"!"
-  words[39]
+  return words[39]
 ''', 'été λ!'),
     'yield-record': ('''type Box:
-  value:int
+  value:i64
   text:String
-fn main()->int:
+fn main()->i64:
   boxes=for i in range(40):
     yield Box {value:i,text:"hello"+"!"}
-  boxes[39].value+length(boxes[0].text)
+  return boxes[39].value+length(boxes[0].text)
 ''', '45'),
-    'yield-functions': ('''fn main()->int:
+    'yield-functions': ('''fn main()->i64:
   callbacks=for i in range(20):
-    yield fn(x:int):x+i
-  callbacks[0](1)+callbacks[19](1)
+    yield fn(x:i64):return x+i
+  return callbacks[0](1)+callbacks[19](1)
 ''', '21'),
-    'yield-bool': ('''fn main()->int:
+    'yield-bool': ('''fn main()->i64:
   flags=for i in range(40):
     yield i%2==0
   flags[0]=false
-  if flags[0] or flags[39]:0
+  return if flags[0] or flags[39]:0
   else:length(flags)
 ''', '40'),
-    'yield-mutable-result': ('''fn main()->[int]:
+    'yield-mutable-result': ('''fn main()->[i64]:
   values=for i in range(20):
     yield i
   values[19]=42
-  slice(values,17,20)
+  return slice(values,17,20)
 ''', '[17, 18, 42]'),
-    'yield-range-evaluated-once': ('''fn main()->int:
+    'yield-range-evaluated-once': ('''fn main()->i64:
   n=3
   values=for i in range(n):
     n=0
     yield i
-  length(values)+n
+  return length(values)+n
 ''', '3'),
-    'yield-grow': ('''fn main()->int:
+    'yield-grow': ('''fn main()->i64:
   values=for i in range(1025):
     yield i
-  values[1024]+length(values)
+  return values[1024]+length(values)
 ''', '2049'),
-    'yield-lambda-local': ('''fn main()->int:
+    'yield-lambda-local': ('''fn main()->i64:
   results=for i in range(3):
-    callback=fn(n:int)->[int]:
-      for j in range(n):
+    callback=fn(n:i64)->[i64]:
+      return for j in range(n):
         yield j
     yield length(callback(i))
-  results[2]
+  return results[2]
 ''', '2'),
-    'yield-task': ('''fn identity(x:int)->int:
-  x
-fn main()->int ! TaskError:
-  try parallel:
+    'yield-task': ('''fn identity(x:i64)->i64:
+  return x
+fn main()->i64 ! TaskError:
+  return try parallel:
     values=for i in range(4):
       child=spawn identity(i)
       yield try await child
     length(values)+values[3]
 ''', '7'),
     'yield-record-alias': ('''type Box:
-  values:[int]
-fn main()->int:
+  values:[i64]
+fn main()->i64:
   source=[1]
   boxes=for i in range(20):
     yield Box {values:source}
   source[0]=7
-  boxes[19].values[0]
+  return boxes[19].values[0]
 ''', '7'),
-    'yield-int8': ('''fn main()->int8:
-  values:[int8]=for i in range(3):
-    yield int8(i+1)
-  total:int8=0
+    'yield-int8': ('''fn main()->i8:
+  values:[i8]=for i in range(3):
+    yield i8(i+1)
+  total:i8=0
   for value in values:
     total=total+value
-  total
+  return total
 ''', '6'),
-    'yield-uint8': ('''fn main()->uint8:
-  values:[uint8]=for i in range(3):
-    yield uint8(i+1)
-  total:uint8=0
+    'yield-uint8': ('''fn main()->u8:
+  values:[u8]=for i in range(3):
+    yield u8(i+1)
+  total:u8=0
   for value in values:
     total=total+value
-  total
+  return total
 ''', '6'),
-    'yield-int16': ('''fn main()->int16:
-  values:[int16]=for i in range(3):
-    yield int16(i+1)
-  total:int16=0
+    'yield-int16': ('''fn main()->i16:
+  values:[i16]=for i in range(3):
+    yield i16(i+1)
+  total:i16=0
   for value in values:
     total=total+value
-  total
+  return total
 ''', '6'),
-    'yield-uint16': ('''fn main()->uint16:
-  values:[uint16]=for i in range(3):
-    yield uint16(i+1)
-  total:uint16=0
+    'yield-uint16': ('''fn main()->u16:
+  values:[u16]=for i in range(3):
+    yield u16(i+1)
+  total:u16=0
   for value in values:
     total=total+value
-  total
+  return total
 ''', '6'),
-    'yield-int32': ('''fn main()->int32:
-  values:[int32]=for i in range(3):
-    yield int32(i+1)
-  total:int32=0
+    'yield-int32': ('''fn main()->i32:
+  values:[i32]=for i in range(3):
+    yield i32(i+1)
+  total:i32=0
   for value in values:
     total=total+value
-  total
+  return total
 ''', '6'),
-    'yield-uint32': ('''fn main()->uint32:
-  values:[uint32]=for i in range(3):
-    yield uint32(i+1)
-  total:uint32=0
+    'yield-uint32': ('''fn main()->u32:
+  values:[u32]=for i in range(3):
+    yield u32(i+1)
+  total:u32=0
   for value in values:
     total=total+value
-  total
+  return total
 ''', '6'),
-    'yield-int64': ('''fn main()->int64:
-  values:[int64]=for i in range(3):
-    yield int64(i+1)
-  total:int64=0
+    'yield-int64': ('''fn main()->i64:
+  values:[i64]=for i in range(3):
+    yield i64(i+1)
+  total:i64=0
   for value in values:
     total=total+value
-  total
+  return total
 ''', '6'),
-    'yield-uint64': ('''fn main()->uint64:
-  values:[uint64]=for i in range(3):
-    yield uint64(i+1)
-  total:uint64=0
+    'yield-uint64': ('''fn main()->u64:
+  values:[u64]=for i in range(3):
+    yield u64(i+1)
+  total:u64=0
   for value in values:
     total=total+value
-  total
+  return total
 ''', '6'),
-    'yield-float32': ('''fn main()->float32:
-  values:[float32]=for i in range(3):
-    yield float32(i+1)
-  total:float32=0
+    'yield-float32': ('''fn main()->f32:
+  values:[f32]=for i in range(3):
+    yield f32(i+1)
+  total:f32=0
   for value in values:
     total=total+value
-  total
+  return total
 ''', '6'),
-    'yield-float64': ('''fn main()->float64:
-  values:[float64]=for i in range(3):
-    yield float64(i+1)
-  total:float64=0
+    'yield-float64': ('''fn main()->f64:
+  values:[f64]=for i in range(3):
+    yield f64(i+1)
+  total:f64=0
   for value in values:
     total=total+value
-  total
+  return total
 ''', '6'),
 })
 
 REJECTED.update({
-    'yield-outside': '''fn main()->int:
+    'yield-outside': '''fn main()->i64:
   yield 1
-  0
+  return 0
 ''',
-    'yield-mixed-types': '''fn main()->[int]:
-  for i in range(3):
+    'yield-mixed-types': '''fn main()->[i64]:
+  return for i in range(3):
     yield i
     yield true
 ''',
-    'yield-break-value': '''fn main()->[int]:
-  for i in range(3):
+    'yield-break-value': '''fn main()->[i64]:
+  return for i in range(3):
     yield i
     break 9
 ''',
-    'yield-else-result': '''fn main()->[int]:
+    'yield-else-result': '''fn main()->[i64]:
   for i in range(3):
     yield i
   else:
     [0]
 ''',
-    'yield-array-element': '''fn main()->int:
+    'yield-array-element': '''fn main()->i64:
   values=for i in range(3):
     yield [i]
-  0
+  return 0
 ''',
-    'yield-tensor-element': '''fn main()->int:
+    'yield-tensor-element': '''fn main()->i64:
   values=for i in range(3):
     yield tensor([i])
-  0
+  return 0
 ''',
-    'yield-pending': '''fn work()->int:
-  1
-fn main()->int ! TaskError:
-  try parallel:
+    'yield-pending': '''fn work()->i64:
+  return 1
+fn main()->i64 ! TaskError:
+  return try parallel:
     values=for i in range(3):
       pending=spawn work()
       yield i
     length(values)
 ''',
-    'yield-task-value': '''fn work()->int:
-  1
-fn main()->int ! TaskError:
-  try parallel:
+    'yield-task-value': '''fn work()->i64:
+  return 1
+fn main()->i64 ! TaskError:
+  return try parallel:
     values=for i in range(3):
       yield spawn work()
     length(values)
 ''',
-    'yield-function-boundary': '''fn main()->[int]:
-  for i in range(3):
-    callback=fn()->int:
+    'yield-function-boundary': '''fn main()->[i64]:
+  return for i in range(3):
+    callback=fn()->i64:
       yield i
-      0
+      return 0
     yield callback()
 ''',
     'yield-readonly-record': '''type Box:
-  values:[int]
-fn edit(input:[int])->int:
+  values:[i64]
+fn edit(input:[i64])->i64:
   boxes=for i in range(1):
     yield Box {values:input}
   boxes[0].values[0]=7
-  0
-fn main()->int:
-  edit([1])
+  return 0
+fn main()->i64:
+  return edit([1])
 ''',
     'yield-active-reader': '''type Box:
-  values:[int]
-fn read(boxes:[Box])->int:
-  boxes[0].values[0]
-fn main()->int ! TaskError:
-  try parallel:
+  values:[i64]
+fn read(boxes:[Box])->i64:
+  return boxes[0].values[0]
+fn main()->i64 ! TaskError:
+  return try parallel:
     source=[1]
     boxes=for i in range(1):
       yield Box {values:source}
@@ -613,37 +613,37 @@ fn main()->int ! TaskError:
 CASES.update({
     'yield-expected-error': ('''error Stop:
   Done
-fn work()->[int] ! Stop:
-  for i in range(20):
+fn work()->[i64] ! Stop:
+  return for i in range(20):
     if i==17:
       fail Stop.Done
     yield i
-fn main()->int:
-  values=work() catch fn(error):[42]
-  values[0]
+fn main()->i64:
+  values=work() catch fn(error):return [42]
+  return values[0]
 ''', '42'),
-    'yield-task-functions': ('''fn read(callbacks:[fn(int)->int])->int:
-  callbacks[0](2)+callbacks[19](2)
-fn main()->int ! TaskError:
+    'yield-task-functions': ('''fn read(callbacks:[fn(i64)->i64])->i64:
+  return callbacks[0](2)+callbacks[19](2)
+fn main()->i64 ! TaskError:
   callbacks=for i in range(20):
-    yield fn(x:int):x+i
-  try parallel:
+    yield fn(x:i64):return x+i
+  return try parallel:
     child=spawn read(callbacks)
     try await child
 ''', '23'),
 })
 
-CASES['yield-helper-caller'] = ('''fn values()->[int]:
-  for i in range(5):
+CASES['yield-helper-caller'] = ('''fn values()->[i64]:
+  return for i in range(5):
     yield i
-fn main()->int:
+fn main()->i64:
   a=values()
-  a[4]+length(a)
+  return a[4]+length(a)
 ''', '9')
 
-CASES['yield-group-recovery'] = ('''fn divide(value:int)->int:
-  6/value
-fn main()->int ! TaskError:
+CASES['yield-group-recovery'] = ('''fn divide(value:i64)->i64:
+  return 6/value
+fn main()->i64 ! TaskError:
   total=0
   for round in range(5):
     value=parallel:
@@ -651,34 +651,34 @@ fn main()->int ! TaskError:
         child=spawn divide(2-i)
         yield try await child
       length(values)
-    recovered=value catch fn(error):7
+    recovered=value catch fn(error):return 7
     total=total+recovered
-  total
+  return total
 ''', '35')
 
-CASES['yield-nested-recovery'] = ('''fn divide(value:int)->int:
-  6/value
-fn main()->[int] ! TaskError:
-  for row in range(3):
+CASES['yield-nested-recovery'] = ('''fn divide(value:i64)->i64:
+  return 6/value
+fn main()->[i64] ! TaskError:
+  return for row in range(3):
     outcome=parallel:
       values=for i in range(3):
         child=spawn divide(2-i)
         yield try await child
       length(values)
-    value=outcome catch fn(error):7
+    value=outcome catch fn(error):return 7
     yield value
 ''', '[7, 7, 7]')
 
 CASES['yield-union-primary-recovery'] = ('''error Stop:
   Done
-fn checked(value:int)->int ! Stop:
-  if value<0:
+fn checked(value:i64)->i64 ! Stop:
+  return if value<0:
     fail Stop.Done
   else:
     value
-fn divide(value:int)->int:
-  6/value
-fn main()->int ! TaskError:
+fn divide(value:i64)->i64:
+  return 6/value
+fn main()->i64 ! TaskError:
   total=0
   for round in range(5):
     value=parallel:
@@ -688,9 +688,9 @@ fn main()->int ! TaskError:
         yield try await child
       length(values)
     recovered=value catch fn(error):
-      match error:
+      return match error:
         TaskError.Fault:7
         _:100
     total=total+recovered
-  total
+  return total
 ''', '35')

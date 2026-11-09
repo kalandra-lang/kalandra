@@ -13,15 +13,15 @@ static CheckResult analyze(const std::string &source) {
 int main() {
   try {
     for (const auto *source :
-         {"fn main()->[String]:\n  []\n", "fn main():\n  [\"é\",\"\",\"👩\\0\"]\n",
-          "fn append(x:String)->String:\n  x+\"!\"\nfn main()->[String]:\n  map([],append)\n",
-          "fn main():\n  map([1,2],fn(x):\"a\")\n",
-          "fn main():\n  values=[\"a\",\"b\"]\n  map([0,1],fn(i):values[i])\n",
-          "fn main():\n  map([\"é\",\"a\"],fn(text):length(text))\n",
-          "type Row:\n  text:String\nfn main():\n  map([Row {text:\"a\"}],fn(row):row.text)\n",
-          "fn work(values:[String])->[String] ! TaskError:\n  try parallel:\n    work=spawn "
-          "map(values,fn(text):text+\"!\")\n    first=try await work\n    again=try await work\n   "
-          " again\nfn main()->[String] ! TaskError:\n  try work([\"é\"])\n"}) {
+         {"fn main()->[String]:\n  return []\n", "fn main():\n  return [\"é\",\"\",\"👩\\0\"]\n",
+          "fn append(x:String)->String:\n  return x+\"!\"\nfn main()->[String]:\n  return map([],append)\n",
+          "fn main():\n  return map([1,2],fn(x):return \"a\")\n",
+          "fn main():\n  values=[\"a\",\"b\"]\n  return map([0,1],fn(i):return values[i])\n",
+          "fn main():\n  return map([\"é\",\"a\"],fn(text):return length(text))\n",
+          "type Row:\n  text:String\nfn main():\n  return map([Row {text:\"a\"}],fn(row):return row.text)\n",
+          "fn work(values:[String])->[String] ! TaskError:\n  return try parallel:\n    work=spawn "
+          "map(values,fn(text):return text+\"!\")\n    first=try await work\n    again=try await work\n   "
+          " again\nfn main()->[String] ! TaskError:\n  return try work([\"é\"])\n"}) {
       auto result = analyze(source);
       if (!result.ok())
         for (const auto &d : result.diagnostics)
@@ -38,14 +38,14 @@ int main() {
 #endif
     }
     for (const auto *source :
-         {"fn main():\n  []\n", "fn main():\n  [\"a\",1]\n", "fn main()->[String]:\n  [true]\n",
-          "fn main():\n  [[\"a\"]]\n", "fn main():\n  tensor([\"a\"])\n",
-          "fn main():\n  map([\"a\"],fn(x):[x])\n", "fn main():\n  [\"a\"]+\"b\"\n",
-          "fn main():\n  [\"a\"]==[\"a\"]\n", "fn main():\n  byteLength([\"a\"])\n",
-          "fn main():\n  slice([\"a\"],0,2)\n", "fn main():\n  [\"a\"][1]\n"})
+         {"fn main():\n  return []\n", "fn main():\n  return [\"a\",1]\n", "fn main()->[String]:\n  return [true]\n",
+          "fn main():\n  return [[\"a\"]]\n", "fn main():\n  return tensor([\"a\"])\n",
+          "fn main():\n  return map([\"a\"],fn(x):return [x])\n", "fn main():\n  return [\"a\"]+\"b\"\n",
+          "fn main():\n  return [\"a\"]==[\"a\"]\n", "fn main():\n  return byteLength([\"a\"])\n",
+          "fn main():\n  return slice([\"a\"],0,2)\n", "fn main():\n  return [\"a\"][1]\n"})
       require(!analyze(source).ok(), "invalid String array admitted");
     for (unsigned mode = 0; mode < 7; ++mode) {
-      auto value = analyze("fn main():\n  [\"a\"]\n");
+      auto value = analyze("fn main():\n  return [\"a\"]\n");
       for (auto &e : value.module->expressions)
         if (std::holds_alternative<TensorLiteral>(e.operation)) {
           if (mode == 0)

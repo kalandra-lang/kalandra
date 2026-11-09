@@ -23,41 +23,28 @@ def run(command, expected=None, env=None):
         assert result.stdout == expected, (command, result.stdout, expected)
 
 def bits(name, width, value):
-    if name.startswith("float"):
+    if name.startswith("f"):
         return int.from_bytes(struct.pack("<f" if width == 32 else "<d", value), "little")
     return value & ((1 << width) - 1)
 
 programs = 0
-for name, width in (("int8", 8), ("uint8", 8), ("int16", 16), ("uint16", 16),
-                    ("int32", 32), ("uint32", 32), ("int64", 64), ("uint64", 64),
-                    ("float32", 32), ("float64", 64)):
-    gpu = "fn total(values:Tensor[float32,?])->float32:\n  reduceSum(values)\n"
-    scalar = (f"fn increment(value:{name})->{name}:\n  value+1\n" + gpu +
-              f"fn coordinate(value:{name})->{name} ! TaskError:\n  try parallel:\n"
-              "    work=spawn increment(value)\n    gpu=devices.gpu()\n"
-              "    values:Tensor[float32,1]=tensor([1])\n"
-              "    resident=try await transfer(values,gpu)\n"
-              "    extra=try await spawn total(resident) on gpu\n"
-              f"    result=try await work\n    result+{name}(extra)\n")
-    spawned = scalar + (f"fn main()->{name} ! TaskError:\n  try parallel:\n"
-                        "    work=spawn coordinate(6)\n    try await work\n")
-    if name.startswith("float"):
+for name, width in (("i8", 8), ("u8", 8), ("i16", 16), ("u16", 16),
+                    ("i32", 32), ("u32", 32), ("i64", 64), ("u64", 64),
+                    ("f32", 32), ("f64", 64)):
+    gpu = 'fn total(values:Tensor[f32,?])->f32:\n  return reduceSum(values)\n'
+    scalar = (f'fn increment(value:{name})->{name}:\n  return value+1\n' + gpu +
+              f'fn coordinate(value:{name})->{name} ! TaskError:\n  return try parallel:\n    work=spawn increment(value)\n    gpu=devices.gpu()\n    values:Tensor[f32,1]=tensor([1])\n    resident=try await transfer(values,gpu)\n    extra=try await spawn total(resident) on gpu\n    result=try await work\n    result+{name}(extra)\n')
+    spawned = scalar + (f'fn main()->{name} ! TaskError:\n  return try parallel:\n    work=spawn coordinate(6)\n    try await work\n')
+    if name.startswith("f"):
         boundary = 1 << (24 if width == 32 else 53)
         expected_boundary = boundary
     else:
-        expected_boundary = (1 << (width if name.startswith("uint") else width - 1)) - 1
+        expected_boundary = (1 << (width if name.startswith("u") else width - 1)) - 1
         boundary = expected_boundary - 1
     exact = scalar.replace("tensor([1])", "tensor([0])") + (
-        f"fn main()->{name} ! TaskError:\n  try coordinate({boundary})\n")
-    tensor = (f"fn increment(values:Tensor[{name},?])->Tensor[{name},?]:\n  values+1\n" + gpu +
-              f"fn main()->Tensor[{name},?] ! TaskError:\n  try parallel:\n"
-              f"    values:Tensor[{name},3]=tensor([1,2,3])\n"
-              "    work=spawn increment(values)\n    result=try await work\n    gpu=devices.gpu()\n"
-              "    resident=try await transfer(result,gpu)\n"
-              "    returned=try await transfer(resident,devices.cpu())\n"
-              "    zero:Tensor[float32,1]=tensor([0])\n"
-              "    z=try await transfer(zero,gpu)\n    amount=try await spawn total(z) on gpu\n"
-              f"    returned+{name}(amount)\n")
+        f'fn main()->{name} ! TaskError:\n  return try coordinate({boundary})\n')
+    tensor = (f'fn increment(values:Tensor[{name},?])->Tensor[{name},?]:\n  return values+1\n' + gpu +
+              f'fn main()->Tensor[{name},?] ! TaskError:\n  return try parallel:\n    values:Tensor[{name},3]=tensor([1,2,3])\n    work=spawn increment(values)\n    result=try await work\n    gpu=devices.gpu()\n    resident=try await transfer(result,gpu)\n    returned=try await transfer(resident,devices.cpu())\n    zero:Tensor[f32,1]=tensor([0])\n    z=try await transfer(zero,gpu)\n    amount=try await spawn total(z) on gpu\n    returned+{name}(amount)\n')
     expected = {
         "spawned": f"{bits(name,width,8):0{width//4}x}\n",
         "boundary": f"{bits(name,width,expected_boundary):0{width//4}x}\n",

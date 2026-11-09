@@ -16,7 +16,13 @@ p.add_argument('--variant', choices=('debug', 'optimized', 'sanitized', 'thread-
 p.add_argument('--root', type=Path, required=True)
 p.add_argument('--compile-only', action='store_true')
 p.add_argument('--case', action='append', default=[], help='Run named discovery cases; omit for the full qualification corpus')
+p.add_argument('--shard-index', type=int, default=0, help='Zero-based deterministic qualification batch')
+p.add_argument('--shard-count', type=int, default=1, help='Number of disjoint qualification batches')
 a = p.parse_args()
+if a.shard_count < 1 or not 0 <= a.shard_index < a.shard_count:
+    p.error('shard count must be positive and index must be within the count')
+if a.case and a.shard_count != 1:
+    p.error('explicit cases and qualification sharding cannot be combined')
 a.compiler = a.compiler.resolve()
 a.root = a.root.resolve()
 a.root.mkdir(parents=True, exist_ok=True)
@@ -28,51 +34,51 @@ def run(command, env=None):
     assert r.returncode == 0, (command, r.returncode, r.stdout, r.stderr)
     assert not any(s in r.stderr for s in ('AddressSanitizer', 'ThreadSanitizer', 'runtime error:')), r.stderr
     return r.stdout.strip()
-work = 'fn work(n:int)->int:\n  total=0\n  for i in range(n):\n    total=total+i\n  total\n'
+work = 'fn work(n:i64)->i64:\n  total=0\n  for i in range(n):\n    total=total+i\n  return total\n'
 cases = {}
-for typ in ('int8','int16','int32','int64','uint8','uint16','uint32','uint64','float32','float64','Bool'):
-    if typ == 'Bool':
+for typ in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64','bool'):
+    if typ == 'bool':
         fields = 'Batch {value:true,values:[true,false,true]}'
-        score = '  if batch.value and batch.values[0] and not batch.values[1]:6\n  else:0\n'
+        score = '  return if batch.value and batch.values[0] and not batch.values[1]:6\n  else:0\n'
     else:
         fields = 'Batch {value:2,values:[1,2,3]}'
-        score = '  int(batch.value)+int(batch.values[0])+int(batch.values[2])\n'
-    helper = f'type Batch:\n  value:{typ}\n  values:[{typ}]\nfn make()->Batch:\n  {fields}\nfn score(batch:Batch)->int:\n' + score
+        score = '  return i64(batch.value)+i64(batch.values[0])+i64(batch.values[2])\n'
+    helper = f'type Batch:\n  value:{typ}\n  values:[{typ}]\nfn make()->Batch:\n  return {fields}\nfn score(batch:Batch)->i64:\n' + score
     for child in (False, True):
         setup = '    batch=try await spawn make() on devices.cpu()\n' if child else '    batch=make()\n'
-        cases[('child-' if child else 'direct-')+typ] = (helper+work+'fn main()->int ! TaskError:\n  try parallel:\n'+setup+'    try await spawn work(score(batch)) on devices.gpu()\n',15)
-    cases['entry-'+typ] = (helper+'''fn device(batch:Batch)->int:
+        cases[('child-' if child else 'direct-')+typ] = (helper+work+'fn main()->i64 ! TaskError:\n  return try parallel:\n'+setup+'    try await spawn work(score(batch)) on devices.gpu()\n',15)
+    cases['entry-'+typ] = (helper+'''fn device(batch:Batch)->i64:
   total=0
   for i in range(score(batch)):
     total=total+i
-  total
-fn main()->int ! TaskError:
+  return total
+fn main()->i64 ! TaskError:
   batch=make()
-  try parallel:
+  return try parallel:
     try await spawn device(batch) on devices.gpu()
 ''',15)
-common = 'type Batch:\n  values:[int]\n  enabled:Bool\nfn make(n:int)->Batch:\n  Batch {values:[n,n+1],enabled:true}\nfn score(batch:Batch)->int:\n  if batch.enabled:batch.values[0]+batch.values[1]\n  else:0\n'
-cases['retained-through-replacement'] = (common+work+'''fn main()->int ! TaskError:
+common = 'type Batch:\n  values:[i64]\n  enabled:bool\nfn make(n:i64)->Batch:\n  return Batch {values:[n,n+1],enabled:true}\nfn score(batch:Batch)->i64:\n  return if batch.enabled:batch.values[0]+batch.values[1]\n  else:0\n'
+cases['retained-through-replacement'] = (common+work+'''fn main()->i64 ! TaskError:
   saved=make(7)
   for i in range(1000):
     temporary=make(i)
-  try parallel:
+  return try parallel:
     try await spawn work(score(saved)) on devices.gpu()
 ''',105)
-cases['record-update-shared-array'] = (common+work+'''fn main()->int ! TaskError:
+cases['record-update-shared-array'] = (common+work+'''fn main()->i64 ! TaskError:
   original=make(1)
   updated=original with {enabled:false}
   original.values[0]=7
-  try parallel:
+  return try parallel:
     try await spawn work(updated.values[0]+updated.values[1]) on devices.gpu()
 ''',36)
 cases['helper-record-capture-result'] = (common+work+'''fn remote(batch:Batch)->Batch ! TaskError:
-  try parallel:
+  return try parallel:
     n=try await spawn work(score(batch)) on devices.gpu()
     make(n)
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   batch=make(1)
-  try parallel:
+  return try parallel:
     copied=try await spawn remote(batch) on devices.cpu()
     copied.values[0]+copied.values[1]
 ''',7)
@@ -80,16 +86,16 @@ enum = '''enum Choice:
   Empty
   Some:
     batch:Batch
-fn pick(n:int)->Choice:
-  if n==0:Choice.Empty
+fn pick(n:i64)->Choice:
+  return if n==0:Choice.Empty
   else:Choice.Some {batch:make(n)}
-fn scoreChoice(value:Choice)->int:
-  match value:
+fn scoreChoice(value:Choice)->i64:
+  return match value:
     Choice.Empty:4
     Choice.Some {batch}:score(batch)
 '''
-cases['repeated-record-entry'] = (common+'''fn main()->int ! TaskError:
-  try parallel:
+cases['repeated-record-entry'] = (common+'''fn main()->i64 ! TaskError:
+  return try parallel:
     first=spawn score(make(2)) on devices.gpu()
     second=spawn score(make(9)) on devices.gpu()
     left=try await first
@@ -97,106 +103,106 @@ cases['repeated-record-entry'] = (common+'''fn main()->int ! TaskError:
     left*100+right
 ''',519)
 for n, score in [(0,4),(3,7)]:
-    cases['enum-child-'+str(n)] = (common+enum+work+f'''fn main()->int ! TaskError:
-  try parallel:
+    cases['enum-child-'+str(n)] = (common+enum+work+f'''fn main()->i64 ! TaskError:
+  return try parallel:
     choice=try await spawn pick({n}) on devices.cpu()
     n=match choice:
       Choice.Empty:4
       Choice.Some {{batch}}:score(batch)
     try await spawn work(n) on devices.gpu()
 ''',score*(score-1)//2)
-cases['failed-enum-result-recovery'] = (common+enum+work+'''fn broken(n:int)->int:
-  1/n
-fn remote(n:int)->Choice ! TaskError:
-  try parallel:
+cases['failed-enum-result-recovery'] = (common+enum+work+'''fn broken(n:i64)->i64:
+  return 1/n
+fn remote(n:i64)->Choice ! TaskError:
+  return try parallel:
     done=try await spawn broken(n) on devices.gpu()
     pick(done)
-fn main()->int ! TaskError:
-  try parallel:
+fn main()->i64 ! TaskError:
+  return try parallel:
     outcome=parallel:
       choice=try await spawn remote(0) on devices.cpu()
       choice
     recovered=outcome catch fn(error):
-      Choice.Some {batch:make(2)}
+      return Choice.Some {batch:make(2)}
     try await spawn work(scoreChoice(recovered)) on devices.gpu()
 ''',10)
 cases['recursive-native-projection-identity'] = (work+'''enum List:
   End
   Next:
-    value:int
+    value:i64
     tail:List
-fn makeList(n:int)->List:
-  if n==0:List.End
+fn makeList(n:i64)->List:
+  return if n==0:List.End
   else:List.Next {value:n,tail:makeList(n-1)}
-fn sumList(list:List)->int:
-  match list:
+fn sumList(list:List)->i64:
+  return match list:
     List.End:0
     List.Next {value,tail}:value+sumList(tail)
 fn forwardList(list:List)->List:
-  list
-fn main()->int ! TaskError:
+  return list
+fn main()->i64 ! TaskError:
   original=makeList(20)
   updated=List.Next {value:2,tail:original}
-  try parallel:
+  return try parallel:
     kept=try await spawn forwardList(updated) on devices.cpu()
     try await spawn work(sumList(kept)) on devices.gpu()
 ''',22366)
 cases['native-owned-string-field'] = (work+'''type Message:
   text:String
 fn makeMessage()->Message:
-  Message {text:"Kalandra"}
-fn scoreMessage(message:Message)->int:
-  length(message.text)
-fn main()->int ! TaskError:
-  try parallel:
+  return Message {text:"Kalandra"}
+fn scoreMessage(message:Message)->i64:
+  return length(message.text)
+fn main()->i64 ! TaskError:
+  return try parallel:
     message=try await spawn makeMessage() on devices.cpu()
     try await spawn work(scoreMessage(message)) on devices.gpu()
 ''',28)
 cases['native-owned-record-array-field'] = (work+'''type Row:
-  values:[int]
+  values:[i64]
 type Batch:
   rows:[Row]
 fn makeBatch()->Batch:
-  Batch {rows:[Row {values:[1,2]},Row {values:[3,4]}]}
-fn scoreBatch(batch:Batch)->int:
-  batch.rows[0].values[0]+batch.rows[1].values[1]
-fn main()->int ! TaskError:
-  try parallel:
+  return Batch {rows:[Row {values:[1,2]},Row {values:[3,4]}]}
+fn scoreBatch(batch:Batch)->i64:
+  return batch.rows[0].values[0]+batch.rows[1].values[1]
+fn main()->i64 ! TaskError:
+  return try parallel:
     batch=try await spawn makeBatch() on devices.cpu()
     try await spawn work(scoreBatch(batch)) on devices.gpu()
 ''',10)
-cases['device-array-result-native-record-field'] = (common+'''fn squares(values:[int])->[int]:
-  generate(length(values),fn(i):values[i]*values[i])
-fn main()->int ! TaskError:
+cases['device-array-result-native-record-field'] = (common+'''fn squares(values:[i64])->[i64]:
+  return generate(length(values),fn(i):return values[i]*values[i])
+fn main()->i64 ! TaskError:
   original=make(2)
-  try parallel:
+  return try parallel:
     values=try await spawn squares(original.values) on devices.gpu()
     wrapped=Batch {values:values,enabled:true}
     score(wrapped)
 ''',13)
 cases['native-record-result-retains-original-alias'] = (common+work+'''fn forward(batch:Batch)->Batch:
-  batch
-fn main()->int ! TaskError:
+  return batch
+fn main()->i64 ! TaskError:
   original=make(1)
-  try parallel:
+  return try parallel:
     alias=try await spawn forward(original) on devices.cpu()
     original.values[0]=9
     try await spawn work(alias.values[0]+alias.values[1]) on devices.gpu()
 ''',55)
-cases['independent-copy-mutation-while-record-read-locked'] = (common+work+'''fn main()->int ! TaskError:
+cases['independent-copy-mutation-while-record-read-locked'] = (common+work+'''fn main()->i64 ! TaskError:
   original=make(1)
   fresh=copy(original.values)
-  try parallel:
+  return try parallel:
     pending=spawn score(original) on devices.cpu()
     fresh[0]=9
     n=try await pending
     try await spawn work(n+fresh[0]) on devices.gpu()
 ''',66)
-cases['entry-returned-field-retains-original-alias'] = (common+'''fn device(batch:Batch)->[int]:
-  batch.values
-fn main()->int ! TaskError:
+cases['entry-returned-field-retains-original-alias'] = (common+'''fn device(batch:Batch)->[i64]:
+  return batch.values
+fn main()->i64 ! TaskError:
   original=make(2)
-  try parallel:
+  return try parallel:
     alias=try await spawn device(original) on devices.gpu()
     original.values[0]=9
     alias[0]+alias[1]
@@ -204,13 +210,13 @@ fn main()->int ! TaskError:
 nested = '''enum Inner:
   Empty
   Data:
-    values:[int]
+    values:[i64]
 enum Outer:
   Empty
   Data:
     inner:Inner
-fn device(value:Outer)->int:
-  match value:
+fn device(value:Outer)->i64:
+  return match value:
     Outer.Empty:7
     Outer.Data {inner}:
       match inner:
@@ -220,43 +226,43 @@ fn device(value:Outer)->int:
 for name,value,expected in [('outer-empty','Outer.Empty',7),
                             ('inner-empty','Outer.Data {inner:Inner.Empty}',11),
                             ('inner-data','Outer.Data {inner:Inner.Data {values:[2,3]}}',5)]:
-    cases['entry-'+name] = (nested+f'''fn main()->int ! TaskError:
+    cases['entry-'+name] = (nested+f'''fn main()->i64 ! TaskError:
   original={value}
-  try parallel:
+  return try parallel:
     try await spawn device(original) on devices.gpu()
 ''',expected)
 cases['entry-repeated-nested-alias-and-scalar'] = (common+'''type Pair:
   left:Batch
   right:Batch
-fn device(value:Pair,values:[int],scale:int)->int:
+fn device(value:Pair,values:[i64],scale:i64)->i64:
   total=0
   for n in value.left.values:
     total=total+n
-  total+value.right.values[0]+values[1]+scale
-fn main()->int ! TaskError:
+  return total+value.right.values[0]+values[1]+scale
+fn main()->i64 ! TaskError:
   batch=make(2)
   pair=Pair {left:batch,right:batch}
-  try parallel:
+  return try parallel:
     try await spawn device(pair,batch.values,7) on devices.gpu()
 ''',17)
 fixtures = Path(__file__).resolve().parent.parent / 'tests/fixtures/mixed-host-aggregates'
-cases['gpu-host-closure-empty'] = ('''fn work(values:[int],callback:fn(int)->int)->int:
-  length(values)+callback(5)
-fn main()->int ! TaskError:
-  values=generate(0,fn(i:int):i)
-  callback=fn(n:int):n+length(values)
-  try parallel:
+cases['gpu-host-closure-empty'] = ('''fn work(values:[i64],callback:fn(i64)->i64)->i64:
+  return length(values)+callback(5)
+fn main()->i64 ! TaskError:
+  values=generate(0,fn(i:i64):return i)
+  callback=fn(n:i64):return n+length(values)
+  return try parallel:
     try await spawn work(values,callback) on devices.gpu()
 ''', 5)
-for typ in ('int8','int16','int32','int64','uint8','uint16','uint32','uint64','float32','float64'):
-    cases['gpu-host-closure-tensor-'+typ] = (f'''fn make(n:{typ})->fn(int)->{typ}:
+for typ in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
+    cases['gpu-host-closure-tensor-'+typ] = (f'''fn make(n:{typ})->fn(i64)->{typ}:
   grid=tensor([n,n,n,n],[2,2])
-  fn(i:int):grid[i,1]
-fn work(callback:fn(int)->{typ})->int:
-  int(callback(1))
-fn main()->int ! TaskError:
+  return fn(i:i64):return grid[i,1]
+fn work(callback:fn(i64)->{typ})->i64:
+  return i64(callback(1))
+fn main()->i64 ! TaskError:
   callback=make(7)
-  try parallel:
+  return try parallel:
     try await spawn work(callback) on devices.gpu()
 ''', 7)
 cases['gpu-host-closure-resident-result'] = ((fixtures/'gpu-host-closure-resident-result.k').read_text(), 32)
@@ -266,7 +272,7 @@ cases['gpu-host-closure-array-result-slice'] = (
     (fixtures/'gpu-host-closure-array-result.k').read_text()
     .replace('values=[7,11]', 'values=[5,7,11,13]')
     .replace('callback=make(values)', 'callback=make(slice(values,1,3))')
-    .replace('  values[0]+result[1]', '  values[1]+result[1]'), 54)
+    .replace('  return values[0]+result[1]', '  return values[1]+result[1]'), 54)
 cases['gpu-host-closure-tensor-record'] = ((fixtures/'gpu-host-closure-tensor-record.k').read_text(), 7)
 cases['gpu-host-closure-tensor'] = ((fixtures/'gpu-host-closure-tensor.k').read_text(), 20)
 cases['gpu-host-closure-joined'] = ((fixtures/'gpu-host-closure-joined.k').read_text(), 42)
@@ -275,21 +281,21 @@ cases['gpu-host-closure-nested'] = ((fixtures/'gpu-host-closure-nested.k').read_
 cases['gpu-host-closure-recursive-enum'] = ('''enum Tree:
   End
   Node:
-    values:[int]
+    values:[i64]
     tail:Tree
-fn sumTree(tree:Tree)->int:
-  match tree:
+fn sumTree(tree:Tree)->i64:
+  return match tree:
     Tree.End:0
     Tree.Node {values,tail}:values[0]+sumTree(tail)
-fn make(values:[int])->fn(int)->int:
+fn make(values:[i64])->fn(i64)->i64:
   tree=Tree.Node {values:values,tail:Tree.Node {values:values,tail:Tree.End}}
-  fn(n:int):sumTree(tree)+n
-fn work(callback:fn(int)->int)->int:
-  callback(4)
-fn main()->int ! TaskError:
+  return fn(n:i64):return sumTree(tree)+n
+fn work(callback:fn(i64)->i64)->i64:
+  return callback(4)
+fn main()->i64 ! TaskError:
   values=[9,11]
   callback=make(values)
-  try parallel:
+  return try parallel:
     result=try await spawn work(callback) on devices.gpu()
     values[0]=10
     result+values[0]
@@ -331,77 +337,77 @@ for fixture, expected in {
     'device-tensor-return-edge': 10,
 }.items():
     cases[fixture] = ((fixtures/f'{fixture}.k').read_text(), expected)
-for typ in ('int8','int16','int32','int64','uint8','uint16','uint32','uint64','float32','float64'):
-    cases[f'device-tensor-return-{typ}'] = (f'''fn make(rows:int)->Tensor[{typ}, ?, ?]:
+for typ in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
+    cases[f'device-tensor-return-{typ}'] = (f'''fn make(rows:i64)->Tensor[{typ}, ?, ?]:
   cells:[{typ}]=[1,2,3,4]
-  tensor(cells,[rows,4/rows])+1
+  return tensor(cells,[rows,4/rows])+1
 fn consume(grid:Tensor[{typ}, ?, ?])->{typ}:
   total:{typ}=0
   for i in range(2):
     total=total+grid[i,1]
-  total+2
-fn main()->int ! TaskError:
-  try parallel:
+  return total+2
+fn main()->i64 ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
     result=try await spawn make(2) on gpu
     value=try await spawn consume(result) on gpu
-    int(value)
+    i64(value)
 ''', 10)
 cases['device-mutual-recursion'] = ((fixtures/'device-mutual-recursion.k').read_text(), 1501)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
-  values:[Bool]
+  values:[bool]
 fn collect(batch:Batch)->Batch:
-  Batch {values:copy(batch.values)}
-fn main()->int ! TaskError:
+  return Batch {values:copy(batch.values)}
+fn main()->i64 ! TaskError:
   input=Batch {values:[true,false]}
-  try parallel:
+  return try parallel:
     result=try await spawn collect(input) on devices.gpu()
     result.values[1]=true
     if result.values[0] and result.values[1] and not input.values[1]:42
     else:0
 ''',42)
 cases['result-no-capture-paged-and-scalar'] = ('''type Batch:
-  values:[int]
-  count:int
-fn collect(n:int)->Batch:
-  Batch {values:generate(n,fn(i):i+2),count:n}
-fn main()->int ! TaskError:
-  try parallel:
+  values:[i64]
+  count:i64
+fn collect(n:i64)->Batch:
+  return Batch {values:generate(n,fn(i):return i+2),count:n}
+fn main()->i64 ! TaskError:
+  return try parallel:
     result=try await spawn collect(9000) on devices.gpu()
     result.values[8999]+result.count
 ''',18001)
 cases['result-scalar-only'] = ('''type Pair:
-  first:int8
-  second:Bool
+  first:i8
+  second:bool
 fn collect()->Pair:
-  Pair {first:-128,second:true}
-fn main()->int ! TaskError:
-  try parallel:
+  return Pair {first:-128,second:true}
+fn main()->i64 ! TaskError:
+  return try parallel:
     pair=try await spawn collect() on devices.gpu()
-    if pair.second:int(pair.first)+128
+    if pair.second:i64(pair.first)+128
     else:1
 ''',0)
 device_errors = (Path(__file__).resolve().parents[1] / 'metal-source' /
                  'device-application-errors.k').read_text()
 cases['graph-result-application-error-siblings'] = (device_errors + '''
-fn main()->int ! TaskError:
-  try parallel:
+fn main()->i64 ! TaskError:
+  return try parallel:
     child = spawn descend(0) on devices.gpu()
     sibling = spawn descend(-1) on devices.gpu()
     caught = await child catch fn(error):
-      match error:
+      return match error:
         SampleError.Invalid { values }: values[0] + values[1]
         OtherError.Empty: 23
         _: 0
-    result = await sibling catch fn(error):0
+    result = await sibling catch fn(error):return 0
     caught + result
 ''', 23)
 cases['graph-result-application-error-propagation'] = (device_errors + '''
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   result = parallel:
     try await spawn descend(40) on devices.gpu()
-  result catch fn(error):
-    match error:
+  return result catch fn(error):
+    return match error:
       SampleError.Invalid { values }: values[0] + values[1]
       OtherError.Empty: 23
       _: 0
@@ -421,73 +427,73 @@ cases['graph-result-captured-tensor-application-error'] = (
 cases['device-application-handler-fault'] = ('''error InputError:
   Negative
 
-fn validate(divisor: int) -> int ! InputError:
+fn validate(divisor: i64) -> i64 ! InputError:
   if divisor < 0:
     fail InputError.Negative
-  42 / divisor
+  return 42 / divisor
 
-fn guarded(divisor: int) -> int:
-  validate(divisor) catch fn(error): 7
+fn guarded(divisor: i64) -> i64:
+  return validate(divisor) catch fn(error): return 7
 
-fn main() -> int ! TaskError:
+fn main() -> i64 ! TaskError:
   recovered = try parallel:
     try await spawn guarded(-1) on devices.gpu()
   outcome = parallel:
     try await spawn guarded(0) on devices.gpu()
   fault = outcome catch fn(error):
-    match error:
+    return match error:
       TaskError.Fault { kind }:
         match kind:
           FaultKind.Arithmetic: 35
           _: 0
       _: 0
-  recovered + fault
+  return recovered + fault
 ''', 42)
 cases['graph-result-application-error-cancels-sibling'] = (device_errors + '''
-fn checkpointed(count: int) -> int:
+fn checkpointed(count: i64) -> i64:
   i = 0
   total = 0
   while i < count:
     total = total + i % 7
     i = i + 1
-  total
+  return total
 
-fn main() -> int ! TaskError:
+fn main() -> i64 ! TaskError:
   outcome = parallel:
     failing = spawn descend(0) on devices.gpu()
     sibling = spawn checkpointed(1000000000) on devices.gpu()
     first = try await failing
     second = try await sibling
     first + second
-  outcome catch fn(error):
-    match error:
+  return outcome catch fn(error):
+    return match error:
       SampleError.Invalid { values }: values[0] + values[1]
       _: 0
 ''', 18)
 cases['graph-result-recursive-error-union'] = ('''error NestedError:
   Leaf:
-    value: int
+    value: i64
   Wrapped:
     inner: NestedError
 
 error OtherError:
   Missing
 
-fn failNested(n: int) -> int ! NestedError:
+fn failNested(n: i64) -> i64 ! NestedError:
   if n == 0:
     fail NestedError.Leaf { value: 42 }
   fail NestedError.Wrapped { inner: NestedError.Leaf { value: 42 } }
 
-fn widen(n: int) -> int ! (NestedError | OtherError):
+fn widen(n: i64) -> i64 ! (NestedError | OtherError):
   if n < 0:
     fail OtherError.Missing
-  try failNested(n)
+  return try failNested(n)
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     result = await spawn widen(1) on devices.gpu()
     result catch fn(error):
-      match error:
+      return match error:
         NestedError.Wrapped { inner }:
           match inner:
             NestedError.Leaf { value }: value
@@ -496,44 +502,44 @@ fn main() -> int ! TaskError:
 ''', 42)
 cases['graph-result-application-error-replacement'] = ('''error InputError:
   Invalid:
-    value: int
+    value: i64
 
 error OutputError:
   Replaced:
-    values: [int]
+    values: [i64]
 
-fn validate(value: int) -> int ! InputError:
+fn validate(value: i64) -> i64 ! InputError:
   fail InputError.Invalid { value: value }
 
-fn replace(value: int) -> int ! OutputError:
+fn replace(value: i64) -> i64 ! OutputError:
   converted = validate(value) catch fn(error):
-    match error:
+    return match error:
       InputError.Invalid { value }: fail OutputError.Replaced { values: [value, 2] }
-  try converted
+  return try converted
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     result = await spawn replace(40) on devices.gpu()
     result catch fn(error):
-      match error:
+      return match error:
         OutputError.Replaced { values }: values[0] + values[1]
         _: 0
 ''', 42)
 cases['graph-result-application-error-repeated-await'] = (device_errors + '''
-fn coordinate(n: int) -> int ! (SampleError | OtherError | TaskError):
-  try parallel:
+fn coordinate(n: i64) -> i64 ! (SampleError | OtherError | TaskError):
+  return try parallel:
     try await spawn descend(n) on devices.gpu()
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     child = spawn coordinate(0) on devices.cpu()
     first = await child
-    total = first catch fn(error): 0
+    total = first catch fn(error): return 0
     i = 0
     while i < 100:
       response = await child
       value = response catch fn(error):
-        match error:
+        return match error:
           SampleError.Invalid { values }: values[0] + values[1]
           OtherError.Empty: 23
           _: 0
@@ -543,41 +549,41 @@ fn main() -> int ! TaskError:
 ''', 1800)
 cases['device-application-error-indirect'] = ('''error InputError:
   Invalid:
-    value: int
+    value: i64
 
-fn callback(offset: int) -> (fn(int) -> int ! InputError):
-  fn(value: int) -> int ! InputError:
+fn callback(offset: i64) -> (fn(i64) -> i64 ! InputError):
+  return fn(value: i64) -> i64 ! InputError:
     fail InputError.Invalid { value: value + offset }
 
-fn apply(f: fn(int) -> int ! InputError, value: int) -> int:
-  f(value) catch fn(error):
-    match error:
+fn apply(f: fn(i64) -> i64 ! InputError, value: i64) -> i64:
+  return f(value) catch fn(error):
+    return match error:
       InputError.Invalid { value }: value
 
-fn worker(value: int) -> int:
+fn worker(value: i64) -> i64:
   f = callback(2)
-  apply(f, value)
+  return apply(f, value)
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     try await spawn worker(40) on devices.gpu()
 ''', 42)
 cases['gpu-host-closure-application-error'] = ('''error InputError:
   Invalid:
-    value: int
+    value: i64
 
-fn callback(offset: int) -> (fn(int) -> int ! InputError):
-  fn(value: int) -> int ! InputError:
+fn callback(offset: i64) -> (fn(i64) -> i64 ! InputError):
+  return fn(value: i64) -> i64 ! InputError:
     fail InputError.Invalid { value: value + offset }
 
-fn apply(f: fn(int) -> int ! InputError, value: int) -> int:
-  f(value) catch fn(error):
-    match error:
+fn apply(f: fn(i64) -> i64 ! InputError, value: i64) -> i64:
+  return f(value) catch fn(error):
+    return match error:
       InputError.Invalid { value }: value
 
-fn main() -> int ! TaskError:
+fn main() -> i64 ! TaskError:
   f = callback(2)
-  try parallel:
+  return try parallel:
     try await spawn apply(f, 40) on devices.gpu()
 ''', 42)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
@@ -586,16 +592,19 @@ known |= {'reject-device-string-body','reject-device-host-only-record-result',
           'reject-closure-write', 'reject-closure-sort', 'reject-closure-string-capture'}
 if set(a.case)-known:
     p.error('unknown case: '+', '.join(sorted(set(a.case)-known)))
+requested = set(a.case) or known
+selected = {name for index, name in enumerate(sorted(requested))
+            if index % a.shard_count == a.shard_index}
 results = []
 for name,(source,expected) in cases.items():
-    if a.case and name not in a.case:
+    if name not in selected:
         continue
     root = a.root/name
     root.mkdir(exist_ok=True)
     cpu = root/'cpu.k'
     if name == 'device-mutual-recursion':
         # Compare the identical recursive functions through the ordinary CPU call ABI.
-        cpu.write_text(source[:source.index('fn main()')]+'fn main()->int:\n  even(1000)\n')
+        cpu.write_text(source[:source.index('fn main()')]+'fn main()->i64:\n  return even(1000)\n')
     else:
         cpu_source = source.replace(' on devices.gpu()', '').replace(' on devices.cpu()', '')
         if name.startswith(('device-tensor-resident-', 'device-tensor-return-', 'gpu-host-closure-resident-')):
@@ -611,7 +620,7 @@ for name,(source,expected) in cases.items():
     gpu = root/'gpu.k'
     gpu.write_text(source)
     bundle = root/'device'
-    fallback = name == 'entry-float64' or (name in ('device-closure-float64','device-tensor-return-float64','gpu-host-closure-tensor-float64') and a.backend == 'metal')
+    fallback = name == 'entry-f64' or (name in ('device-closure-float64','device-tensor-return-f64','gpu-host-closure-tensor-f64') and a.backend == 'metal')
     policy = ['--arithmetic','hardware-with-software-fallback'] if fallback else []
     run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()
@@ -648,27 +657,27 @@ for name,mutation in [(prefix+name,mutation) for prefix in ('record-','gpu-recor
                       for name,mutation in [('field','batch.values[0]=9'),
                                             ('field-alias','alias[0]=9'),
                                             ('field-sort','sort(batch.values)')]]:
-    if a.case and 'reject-'+name not in a.case:
+    if 'reject-'+name not in selected:
         continue
     root=a.root/('reject-'+name)
     root.mkdir(exist_ok=True)
     source=root/'gpu.k'
     target = 'gpu' if name.startswith('gpu-') else 'cpu'
-    source.write_text(common+work+'fn main()->int ! TaskError:\n  batch=make(1)\n  alias=batch.values\n  try parallel:\n    pending=spawn score(batch) on devices.'+target+'()\n    '+mutation+'\n    n=try await pending\n    try await spawn work(n) on devices.gpu()\n')
+    source.write_text(common+work+'fn main()->i64 ! TaskError:\n  batch=make(1)\n  alias=batch.values\n  return try parallel:\n    pending=spawn score(batch) on devices.'+target+'()\n    '+mutation+'\n    n=try await pending\n    try await spawn work(n) on devices.gpu()\n')
     r=subprocess.run(list(map(str,[a.compiler,source,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
     assert r.returncode!=0 and 'S077' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'S077'})
     print('reject-'+name,'rejected S077',flush=True)
 for mutation in ('values[0]=99', 'sort(values)'):
     name = 'reject-closure-' + ('write' if mutation.startswith('values') else 'sort')
-    if a.case and name not in a.case:
+    if name not in selected:
         continue
     root = a.root/name
     root.mkdir(exist_ok=True)
     path = root/'gpu.k'
-    path.write_text('fn work(callback:fn(int)->int)->int:\n  callback(1)\n'
-                    'fn main()->int ! TaskError:\n  values=[7,11]\n'
-                    '  callback=fn(n:int):n+values[0]\n  try parallel:\n'
+    path.write_text('fn work(callback:fn(i64)->i64)->i64:\n  return callback(1)\n'
+                    'fn main()->i64 ! TaskError:\n  values=[7,11]\n'
+                    '  callback=fn(n:i64):return n+values[0]\n  return try parallel:\n'
                     '    pending=spawn work(callback) on devices.gpu()\n    ' + mutation +
                     '\n    try await pending\n')
     r = subprocess.run(list(map(str, [a.compiler, path, '--target', a.backend, '-o', root/'device'])),
@@ -677,19 +686,19 @@ for mutation in ('values[0]=99', 'sort(values)'):
     results.append({'case': name, 'status': 'rejected', 'diagnostic': 'S077'})
     print(name, 'rejected S077', flush=True)
 for name,source in {
-    'closure-string-capture':'fn make()->fn(int)->int:\n  text="hello"\n  fn(n:int):length(text)+n\nfn work(callback:fn(int)->int)->int:\n  callback(1)\nfn main()->int ! TaskError:\n  callback=make()\n  try parallel:\n    try await spawn work(callback) on devices.gpu()\n',
-    'device-string-body':'fn work(n:int)->int:\n  message="text"\n  length(message)+n\nfn main()->int ! TaskError:\n  try parallel:\n    try await spawn work(1) on devices.gpu()\n',
+    'closure-string-capture':'fn make()->fn(i64)->i64:\n  text="hello"\n  return fn(n:i64):return length(text)+n\nfn work(callback:fn(i64)->i64)->i64:\n  return callback(1)\nfn main()->i64 ! TaskError:\n  callback=make()\n  return try parallel:\n    try await spawn work(callback) on devices.gpu()\n',
+    'device-string-body':'fn work(n:i64)->i64:\n  message="text"\n  return length(message)+n\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn work(1) on devices.gpu()\n',
     'device-host-only-record-result':'''type Message:
   text:String
 fn device()->Message:
-  Message {text:"hello"}
-fn main()->int ! TaskError:
-  try parallel:
+  return Message {text:"hello"}
+fn main()->i64 ! TaskError:
+  return try parallel:
     value=try await spawn device() on devices.gpu()
     length(value.text)
 ''',
 }.items():
-    if a.case and 'reject-'+name not in a.case:
+    if 'reject-'+name not in selected:
         continue
     root=a.root/('reject-'+name)
     root.mkdir(exist_ok=True)
@@ -701,6 +710,8 @@ fn main()->int ! TaskError:
         assert "capture 'text'" in r.stderr and 'String' in r.stderr, r.stderr
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'G001'})
     print('reject-'+name,'rejected G001',flush=True)
-(a.root/'report.json').write_text(json.dumps({'complete':True,'fullCorpus':not bool(a.case),'selectedCases':a.case,'gpuExecution':not a.compile_only,
+assert len(results) == len(selected) and {r['case'] for r in results} == selected, 'Incomplete qualification batch'
+(a.root/'report.json').write_text(json.dumps({'complete':True,'fullCorpus':not bool(a.case) and a.shard_count == 1,'selectedCases':a.case,
+    'shardIndex':a.shard_index,'shardCount':a.shard_count,'expectedCases':sorted(selected),'allCases':sorted(known),'gpuExecution':not a.compile_only,
     'backend':a.backend,'variant':a.variant,'scope':'native host aggregates and typed whole-record GPU inputs and results',
     'results':results},indent=2)+'\n')

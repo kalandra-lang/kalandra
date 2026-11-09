@@ -1,8 +1,8 @@
-fn double(value:int)->int:
-  value*2
-fn run(value:int)->int ! TaskError:
-  try parallel:
+fn double(value:i64)->i64:
+  return value*2
+fn run(value:i64)->i64 ! TaskError:
+  return try parallel:
     try await spawn double(value)
-fn main(callback:fn(int)->int ! TaskError)->int ! TaskError:
+fn main(callback:fn(i64)->i64 ! TaskError)->i64 ! TaskError:
   known=run
-  try callback(21)
+  return try callback(21)

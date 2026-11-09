@@ -1,25 +1,25 @@
 enum Chain:
   End
   Link:
-    values: [int]
+    values: [i64]
     next: Chain
 
 error ChainError:
   Invalid:
     chain: Chain
 
-fn rejectChain() -> int ! ChainError:
+fn rejectChain() -> i64 ! ChainError:
   tail = Chain.Link { values: [11], next: Chain.End }
   fail ChainError.Invalid { chain: Chain.Link { values: [7], next: tail } }
 
-fn sum(a: int, b: int) -> int:
-  a + b
+fn sum(a: i64, b: i64) -> i64:
+  return a + b
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     result = await spawn rejectChain() on devices.gpu()
     handled = result catch fn(error):
-      match error:
+      return match error:
         ChainError.Invalid { chain }:
           match chain:
             Chain.End: 0

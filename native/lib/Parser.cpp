@@ -463,9 +463,8 @@ private:
       return {};
     function.span = {start,
                      function.body.empty() ? end->span.begin : function.body.back().span.end};
-    if (function.body.empty() || function.body.back().binding ||
-        statementOnly(function.body.back().expression)) {
-      error("P007", "function body must end with a result expression", end->span);
+    if (function.body.empty()) {
+      error("P007", "function body must contain a statement", end->span);
       if (result_.module.editorOnly) {
         const SourceSpan hole{end->span.begin, end->span.begin};
         if (auto id = add({hole, NameExpr{hole}}))
@@ -509,7 +508,8 @@ private:
   bool statementOnly(ExprId id) {
     const auto &value = node(id).value;
     if (std::holds_alternative<ArraySetExpr>(value) ||
-        std::holds_alternative<LoopTransferExpr>(value) || std::holds_alternative<YieldExpr>(value))
+        std::holds_alternative<LoopTransferExpr>(value) ||
+        std::holds_alternative<YieldExpr>(value) || std::holds_alternative<ReturnExpr>(value))
       return true;
     if (const auto *loop = std::get_if<WhileExpr>(&value))
       return loop->statementOnly;
@@ -519,9 +519,43 @@ private:
       return choice->statementOnly;
     return false;
   }
+  bool exitsControl(ExprId id) {
+    const auto &value = node(id).value;
+    if (std::holds_alternative<ReturnExpr>(value) || std::holds_alternative<FailExpr>(value) ||
+        std::holds_alternative<LoopTransferExpr>(value))
+      return true;
+    if (const auto *choice = std::get_if<ConditionalExpr>(&value))
+      return !choice->whenTrue.empty() && !choice->whenFalse.empty() &&
+             exitsControl(choice->whenTrue.back().expression) &&
+             exitsControl(choice->whenFalse.back().expression);
+    if (const auto *match = std::get_if<MatchExpr>(&value))
+      return !match->arms.empty() && std::ranges::all_of(match->arms, [&](const auto &arm) {
+        return !arm.body.empty() && exitsControl(arm.body.back().expression);
+      });
+    return false;
+  }
   std::optional<Statement> parseStatement() {
     Statement statement;
     statement.span.begin = current().span.begin;
+    if (word("return")) {
+      advance();
+      std::optional<ExprId> value;
+      if (!at(TokenKind::Newline) && !at(TokenKind::Dedent) && !at(TokenKind::End)) {
+        value = parseExpression();
+        if (!value)
+          return {};
+      }
+      statement.span.end = value ? node(*value).span.end : tokens_[position_ - 1].span.end;
+      auto id = add({statement.span, ReturnExpr{value}});
+      if (!id)
+        return {};
+      statement.expression = *id;
+      if (tokens_[position_ - 1].kind != TokenKind::Dedent && !at(TokenKind::RightParen) &&
+          !at(TokenKind::RightBracket) && !at(TokenKind::RightBrace) && !at(TokenKind::Comma) &&
+          !expect(TokenKind::Newline, "expected a newline after return"))
+        return {};
+      return statement;
+    }
     if (word("yield")) {
       advance();
       auto value = parseExpression();
@@ -595,7 +629,8 @@ private:
     }
     statement.expression = *expression;
     statement.span.end = node(*expression).span.end;
-    if (tokens_[position_ - 1].kind != TokenKind::Dedent &&
+    if (tokens_[position_ - 1].kind != TokenKind::Dedent && !at(TokenKind::RightParen) &&
+        !at(TokenKind::RightBracket) && !at(TokenKind::RightBrace) && !at(TokenKind::Comma) &&
         !expect(TokenKind::Newline, "expected a newline after the expression"))
       return {};
     return statement;
@@ -715,7 +750,7 @@ private:
         if (!parameter || !expect(TokenKind::RightParen, "expected ')' after handler parameter") ||
             !expect(TokenKind::Colon, "expected ':' before handler body"))
           return {};
-        auto body = suite();
+        auto body = suite(true);
         if (!body)
           return {};
         auto span = SourceSpan{node(*left).span.begin, body->back().span.end};
@@ -784,7 +819,7 @@ private:
   std::optional<std::vector<Statement>> suite(bool statementsOnly = false) {
     std::vector<Statement> body;
     if (!consume(TokenKind::Newline)) {
-      if (statementsOnly) {
+      if (statementsOnly || word("return")) {
         auto statement = parseStatement();
         if (!statement)
           return {};
@@ -829,7 +864,9 @@ private:
     if (!end)
       return {};
     if (body.empty() ||
-        (!statementsOnly && (body.back().binding || statementOnly(body.back().expression)))) {
+        (!statementsOnly && (body.back().binding || (statementOnly(body.back().expression) &&
+                                                     !std::holds_alternative<ReturnExpr>(
+                                                         node(body.back().expression).value))))) {
       error("P007", "body must end with a result expression", end->span);
       if (!result_.module.editorOnly)
         return {};
@@ -894,7 +931,7 @@ private:
           return {};
         const auto savedLoopDepth = loopBodyDepth_;
         loopBodyDepth_ = 0;
-        auto body = suite();
+        auto body = suite(true);
         loopBodyDepth_ = savedLoopDepth;
         if (!body)
           return {};
@@ -946,8 +983,10 @@ private:
           error("P041", "collecting loops use yield without an else result", token.span);
           return {};
         }
-        const bool effects = !collecting && (normal.empty() || normal.back().binding ||
-                                             statementOnly(normal.back().expression));
+        const bool effects =
+            !collecting &&
+            (normal.empty() || normal.back().binding ||
+             (statementOnly(normal.back().expression) && !exitsControl(normal.back().expression)));
         if (effects && !statementIf) {
           error("P041", "loop expressions require an else branch with a result", token.span);
           return {};
@@ -999,9 +1038,10 @@ private:
         auto no = suite(true);
         if (!no)
           return {};
-        const bool effects = yes->back().binding || no->back().binding ||
-                             statementOnly(yes->back().expression) ||
-                             statementOnly(no->back().expression);
+        const bool effects =
+            yes->back().binding || no->back().binding ||
+            (statementOnly(yes->back().expression) && !exitsControl(yes->back().expression)) ||
+            (statementOnly(no->back().expression) && !exitsControl(no->back().expression));
         if (effects && !statementIf) {
           error("P035", "statement if has no expression result", token.span);
           return {};
@@ -1153,6 +1193,8 @@ private:
       return add({{token.span.begin, node(*value).span.end}, UnaryExpr{token.kind, *value}});
     }
     if (consume(TokenKind::LeftParen)) {
+      if (consume(TokenKind::RightParen))
+        return add({{token.span.begin, tokens_[position_ - 1].span.end}, UnitExpr{}});
       auto expression = parseExpression();
       if (!expression)
         return {};

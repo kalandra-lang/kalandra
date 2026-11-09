@@ -16,34 +16,34 @@ function(build_run NAME CONTENT EXPECTED)
   endforeach()
 endfunction()
 build_run(siblings "${SOURCE}" "42700000\n")
-string(REPLACE "fn main() -> float32 ! TaskError:\n  try parallel:"
-  "fn main() -> float32 ! TaskError:\n  outcome = parallel:" RECOVERED "${SOURCE}")
-string(REPLACE "\nfn compute(" "\n  outcome catch fn(error):\n    match error:\n      TaskError.Fault {kind:cause, message:detail}:\n        match cause:\n          FaultKind.Shape: 42\n          _: 99\n      _: 99\n\nfn compute(" RECOVERED "${RECOVERED}")
+string(REPLACE "fn main() -> f32 ! TaskError:\n  return try parallel:"
+  "fn main() -> f32 ! TaskError:\n  outcome = parallel:" RECOVERED "${SOURCE}")
+string(REPLACE "\nfn compute(" "\n  return outcome catch fn(error):\n    return match error:\n      TaskError.Fault {kind:cause, message:detail}:\n        match cause:\n          FaultKind.Shape: 42\n          _: 99\n      _: 99\n\nfn compute(" RECOVERED "${RECOVERED}")
 build_run(recovery-success "${RECOVERED}" "42700000\n")
-string(REPLACE "values:Tensor[float32,3] = tensor([1,2,3])"
-  "values:Tensor[float32,2] = tensor([1,2])" FAILED "${RECOVERED}")
+string(REPLACE "values:Tensor[f32,3] = tensor([1,2,3])"
+  "values:Tensor[f32,2] = tensor([1,2])" FAILED "${RECOVERED}")
 build_run(child-shape-recovery "${FAILED}" "42280000\n")
-string(REPLACE "fn compute(values:Tensor[float32,?], factor:float32) -> Tensor[float32,?] ! TaskError:\n  try parallel:\n    try await spawn transform(values,values,factor)"
-  "fn compute(values:Tensor[float32,?], factor:float32) -> Tensor[float32,?]:\n  outcome = parallel:\n    try await spawn transform(values,values,factor)\n  outcome catch fn(error): values" SAFE "${SOURCE}")
-string(REPLACE "values:Tensor[float32,3] = tensor([1,2,3])"
-  "values:Tensor[float32,2] = tensor([1,2])" SAFE "${SAFE}")
+string(REPLACE "fn compute(values:Tensor[f32,?], factor:f32) -> Tensor[f32,?] ! TaskError:\n  return try parallel:\n    try await spawn transform(values,values,factor)"
+  "fn compute(values:Tensor[f32,?], factor:f32) -> Tensor[f32,?]:\n  outcome = parallel:\n    try await spawn transform(values,values,factor)\n  return outcome catch fn(error): return values" SAFE "${SOURCE}")
+string(REPLACE "values:Tensor[f32,3] = tensor([1,2,3])"
+  "values:Tensor[f32,2] = tensor([1,2])" SAFE "${SAFE}")
 build_run(nonfallible-child "${SAFE}" "40c00000\n")
-string(REPLACE "fn compute(values:Tensor[float32,?], factor:float32) -> Tensor[float32,?] ! TaskError:\n  try parallel:\n    try await spawn transform(values,values,factor)"
-  "fn compute(values:Tensor[float32,?], factor:float32) -> float32 ! TaskError:\n  try parallel:\n    host = try await spawn transform(values,values,factor)\n    reduceSum(host)" SCALAR "${SOURCE}")
+string(REPLACE "fn compute(values:Tensor[f32,?], factor:f32) -> Tensor[f32,?] ! TaskError:\n  return try parallel:\n    try await spawn transform(values,values,factor)"
+  "fn compute(values:Tensor[f32,?], factor:f32) -> f32 ! TaskError:\n  return try parallel:\n    host = try await spawn transform(values,values,factor)\n    reduceSum(host)" SCALAR "${SOURCE}")
 string(REPLACE "reduceSum(first + second)" "first + second" SCALAR "${SCALAR}")
 build_run(scalar-child "${SCALAR}" "42700000\n")
-string(REPLACE "Tensor[float32,?]" "Tensor[float32,?,?]" MATRIX "${SOURCE}")
-string(REPLACE "Tensor[float32,3]" "Tensor[float32,1,3]" MATRIX "${MATRIX}")
+string(REPLACE "Tensor[f32,?]" "Tensor[f32,?,?]" MATRIX "${SOURCE}")
+string(REPLACE "Tensor[f32,3]" "Tensor[f32,1,3]" MATRIX "${MATRIX}")
 string(REPLACE "tensor([1,2,3])" "tensor([1,2,3],[1,3])" MATRIX "${MATRIX}")
 build_run(matrix-child "${MATRIX}" "42700000\n")
 # Dynamic shape obligations must be checked within the scheduled child.
-string(REPLACE "Tensor[float32,3], right:Tensor[float32,3]"
-  "Tensor[float32,?], right:Tensor[float32,?]" DYNAMIC "${SOURCE}")
+string(REPLACE "Tensor[f32,3], right:Tensor[f32,3]"
+  "Tensor[f32,?], right:Tensor[f32,?]" DYNAMIC "${SOURCE}")
 build_run(dynamic-preconditions "${DYNAMIC}" "42700000\n")
-string(REPLACE "Tensor[float32,3]" "Tensor[float32,0]" EMPTY "${SOURCE}")
+string(REPLACE "Tensor[f32,3]" "Tensor[f32,0]" EMPTY "${SOURCE}")
 string(REPLACE "tensor([1,2,3])" "tensor([])" EMPTY "${EMPTY}")
 build_run(empty-child "${EMPTY}" "00000000\n")
-set(SCOPED "fn main() -> float32 ! TaskError:\n  try parallel:\n    left:Tensor[float32,3] = tensor([1,2,3])\n    right:Tensor[float32,2] = tensor([1,2])\n    work = spawn recover(forward(left),forward(right))\n    factor = try await work\n    gpu = devices.gpu()\n    input = try await transfer(left,gpu)\n    result = try await spawn scale(input,factor) on gpu\n    host = try await transfer(result,devices.cpu())\n    reduceSum(host)\n\nfn recover(left:Tensor[float32,?], right:Tensor[float32,?]) -> float32:\n  outcome = parallel:\n    values = try await spawn combine(left,right)\n    reduceSum(values)\n  outcome catch fn(error): 42\n\nfn combine(left:Tensor[float32,?], right:Tensor[float32,?]) -> Tensor[float32,?]:\n  left + right\n\nfn forward(values:Tensor[float32,?]) -> Tensor[float32,?]:\n  values\n\nfn scale(values:Tensor[float32,?], factor:float32) -> Tensor[float32,?]:\n  values * factor\n")
+set(SCOPED "fn main() -> f32 ! TaskError:\n  return try parallel:\n    left:Tensor[f32,3] = tensor([1,2,3])\n    right:Tensor[f32,2] = tensor([1,2])\n    work = spawn recover(forward(left),forward(right))\n    factor = try await work\n    gpu = devices.gpu()\n    input = try await transfer(left,gpu)\n    result = try await spawn scale(input,factor) on gpu\n    host = try await transfer(result,devices.cpu())\n    reduceSum(host)\n\nfn recover(left:Tensor[f32,?], right:Tensor[f32,?]) -> f32:\n  outcome = parallel:\n    values = try await spawn combine(left,right)\n    reduceSum(values)\n  return outcome catch fn(error): return 42\n\nfn combine(left:Tensor[f32,?], right:Tensor[f32,?]) -> Tensor[f32,?]:\n  return left + right\n\nfn forward(values:Tensor[f32,?]) -> Tensor[f32,?]:\n  return values\n\nfn scale(values:Tensor[f32,?], factor:f32) -> Tensor[f32,?]:\n  return values * factor\n")
 build_run(scoped-dynamic-recovery "${SCOPED}" "437c0000\n")
 foreach(TOOL IN ITEMS NORMAL_COMPILER SANITIZED_COMPILER)
   execute_process(COMMAND "${${TOOL}}" "${OUTPUT_DIR}/siblings.k" -o "${OUTPUT_DIR}/${TOOL}"
@@ -77,16 +77,16 @@ function(reject NAME CONTENT PATTERN)
     message(FATAL_ERROR "${NAME} should reject transactionally: ${STATUS}: ${ERROR}")
   endif()
 endfunction()
-set(GPU "fn main() -> float32 ! TaskError:\n  try parallel:\n    try await spawn coordinator() on devices.gpu()\n\nfn coordinator() -> float32 ! TaskError:\n  try parallel:\n    1\n")
+set(GPU "fn main() -> f32 ! TaskError:\n  return try parallel:\n    try await spawn coordinator() on devices.gpu()\n\nfn coordinator() -> f32 ! TaskError:\n  return try parallel:\n    1\n")
 reject(gpu-orchestration "${GPU}" "resumable helpers require CPU placement")
 string(REPLACE "try await spawn transform(values,values,factor)" "try await spawn compute(values,factor)" RECURSIVE "${SOURCE}")
 reject(recursive-child "${RECURSIVE}" "recursive resumable task entries")
 string(REPLACE "try await spawn transform(values,values,factor)" "try await spawn other(values,factor)" MUTUAL "${SOURCE}")
-string(APPEND MUTUAL "\nfn other(values:Tensor[float32,?], factor:float32) -> Tensor[float32,?] ! TaskError:\n  try parallel:\n    try await spawn compute(values,factor)\n")
+string(APPEND MUTUAL "\nfn other(values:Tensor[f32,?], factor:f32) -> Tensor[f32,?] ! TaskError:\n  return try parallel:\n    try await spawn compute(values,factor)\n")
 reject(mutual-child "${MUTUAL}" "recursive resumable task entries")
 string(REPLACE "try await transfer(result,devices.cpu())" "result" ESCAPE "${SOURCE}")
 reject(resident-escape "${ESCAPE}" "S047")
-string(REPLACE "    second = try await right" "    ignored:float32 = 0" UNOBSERVED "${SOURCE}")
+string(REPLACE "    second = try await right" "    ignored:f32 = 0" UNOBSERVED "${SOURCE}")
 string(REPLACE "first + second" "first + first" UNOBSERVED "${UNOBSERVED}")
 reject(unobserved-child "${UNOBSERVED}" "S038")
 message(STATUS "Spawned helpers: siblings, nested entries, host tensor/scalar results, fixed/dynamic shapes, matrix captures, nonfallible recovery, matching plans and transactional capability/cycle diagnostics passed")

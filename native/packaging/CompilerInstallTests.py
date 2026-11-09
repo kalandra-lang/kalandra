@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
         expected, name = line.split("  ", 1)
         assert (prefix / name).resolve().is_relative_to(prefix.resolve())
         assert digest(prefix / name) == expected
-    assert len(list((prefix / "lib/kalandra/native").glob("*.a"))) == 30
+    assert len(list((prefix / "lib/kalandra/native").glob("*.a"))) == 33
     assert not (prefix / "bin/kalandrac").exists()
     compiler = cwd / "compiler symlink"
     compiler.symlink_to(prefix / "bin/kalandra")
@@ -46,33 +46,33 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
     run([compiler, "new", starter], cwd)
     run([compiler, "--project", starter / "kalandra.toml", "-o", cwd / "starter program"], cwd)
     assert run([cwd / "starter program"], cwd).stdout.strip() == "[2, 4, 6]"
-    cases = [(kind, "42", "42") for kind in ("int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64")]
-    cases += [("float32", "1.5", "1.5"), ("float64", "1.5", "1.5"),
-              ("Bool", "true", "true"), ("String", '"hello"', "hello")]
+    cases = [(kind, "42", "42") for kind in ("i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64")]
+    cases += [("f32", "1.5", "1.5"), ("f64", "1.5", "1.5"),
+              ("unit", "()", ""), ("bool", "true", "true"), ("String", '"hello"', "hello")]
     # Every result-entry family and all three runtime variants must link after relocation.
     for mode in ([], ["--sanitize"], ["--thread-sanitize"]):
         for kind, value, expected in cases:
             source = cwd / "main.k"
-            source.write_text(f"fn main() -> {kind}:\n  {value}\n")
+            source.write_text(f'fn main() -> {kind}:\n  return {value}\n')
             executable = cwd / "program"
             run([compiler, source, "-o", executable, "-O2", *mode], cwd)
             assert run([executable], cwd).stdout.strip() == expected
-    (cwd / "library.k").write_text("export fn double(value: int) -> int:\n  value * 2\n")
-    (cwd / "main.k").write_text('from "math" import double\nfn main() -> int:\n  double(21)\n')
+    (cwd / "library.k").write_text('export fn double(value: i64) -> i64:\n  return value * 2\n')
+    (cwd / "main.k").write_text('from "math" import double\nfn main() -> i64:\n  return double(21)\n')
     (cwd / "kalandra.toml").write_text('format=1\n[project]\nentry="main.k"\n[packages]\nmath="library.k"\n')
     run([compiler, "--project", cwd / "kalandra.toml", "-o", cwd / "program"], cwd)
     assert run([cwd / "program"], cwd).stdout.strip() == "42"
     deps = run(["otool", "-L", cwd / "program"], cwd).stdout
     assert "libLLVM" not in deps and "libMLIR" not in deps
     # Collection entry and bounded worker dispatch use the installed runtime too.
-    (cwd / "main.k").write_text("fn double(value: int) -> int:\n  value * 2\nfn main() -> int ! TaskError:\n  values = try parallelMap([21], double)\n  values[0]\n")
+    (cwd / "main.k").write_text('fn double(value: i64) -> i64:\n  return value * 2\nfn main() -> i64 ! TaskError:\n  values = try parallelMap([21], double)\n  return values[0]\n')
     for mode in ([], ["--sanitize"], ["--thread-sanitize"]):
         run([compiler, cwd / "main.k", "-o", cwd / "program", *mode], cwd)
         assert run([cwd / "program"], cwd).stdout.strip() == "42"
-        (cwd / "array.k").write_text("fn main() -> [int]:\n  [1, 2, 3]\n")
+        (cwd / "array.k").write_text('fn main() -> [i64]:\n  return [1, 2, 3]\n')
         run([compiler, cwd / "array.k", "-o", cwd / "program", *mode], cwd)
         assert "1" in run([cwd / "program"], cwd).stdout
-        (cwd / "strings.k").write_text('fn main() -> [String]:\n  ["hello", "world"]\n')
+        (cwd / "strings.k").write_text('fn main() -> [String]:\n  return ["hello", "world"]\n')
         run([compiler, cwd / "strings.k", "-o", cwd / "program", *mode], cwd)
         assert "hello" in run([cwd / "program"], cwd).stdout
     # The relocated public compiler installs exact local dependencies, then builds
@@ -86,13 +86,13 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
            "-c", "commit.gpgsign=false", "-C", repository]
     run([*git, "init", "--template=", "--initial-branch=main"], cwd)
     (repository / "kalandra.toml").write_text("format=1\n[package]\nname='installed'\nversion='0.1.0'\nentry='public.k'\n")
-    (repository / "public.k").write_text("export fn next(n:int)->int:\n  n+1\n")
+    (repository / "public.k").write_text('export fn next(n:i64)->i64:\n  return n+1\n')
     run([*git, "add", "--all"], cwd)
     run([*git, "commit", "-m", "fixture"], cwd)
     revision = run([*git, "rev-parse", "HEAD"], cwd).stdout.strip()
     application = cwd / "installed dependency application"
     application.mkdir()
-    (application / "main.k").write_text('from "installed" import next\nfn main()->int ! TaskError:\n  try parallel:\n    try await spawn next(41)\n')
+    (application / "main.k").write_text('from "installed" import next\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn next(41)\n')
     (application / "kalandra.toml").write_text("format=1\n[project]\nentry='main.k'\n[dependencies]\ninstalled={git=" + json.dumps(str(repository)) + ",rev=" + json.dumps(revision) + "}\n")
     run([compiler, "install", "--project", application / "kalandra.toml"], cwd)
     repository.rename(repository.with_name("unavailable Git library"))

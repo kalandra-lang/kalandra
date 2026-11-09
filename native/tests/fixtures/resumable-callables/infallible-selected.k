@@ -1,14 +1,14 @@
-fn double(value:int)->int:
-  value*2
-fn run(value:int)->int:
-  execute(value) catch fn(error):0
-fn execute(value:int)->int ! TaskError:
-  try parallel:
+fn double(value:i64)->i64:
+  return value*2
+fn run(value:i64)->i64:
+  return execute(value) catch fn(error):return 0
+fn execute(value:i64)->i64 ! TaskError:
+  return try parallel:
     try await spawn double(value)
-fn choose(flag:Bool)->fn(int)->int:
-  if flag:run
+fn choose(flag:bool)->fn(i64)->i64:
+  return if flag:run
   else:double
-fn main()->int:
+fn main()->i64:
   first=choose(true)
   second=choose(false)
-  first(10)+second(11)
+  return first(10)+second(11)

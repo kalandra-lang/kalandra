@@ -132,8 +132,8 @@ int main() {
     require(deep && deep->size() == count && deep->back().getBody()[0] == ptr,
             "deep recursive layout used inline recursion");
     // Resolution no longer mistakes an opaque callback contract for a storage cycle.
-    auto callable = analyze("type Node:\n  visit:fn(Node)->int\nfn visit(node:Node)->int:\n  42\n"
-                            "fn main()->int:\n  node=Node {visit:visit}\n  node.visit(node)\n");
+    auto callable = analyze("type Node:\n  visit:fn(Node)->i64\nfn visit(node:Node)->i64:\n  return 42\n"
+                            "fn main()->i64:\n  node=Node {visit:visit}\n  return node.visit(node)\n");
     if (!callable.ok())
       for (const auto &d : callable.diagnostics)
         std::cerr << renderDiagnostic(*callable.source, d);
@@ -143,9 +143,9 @@ int main() {
     require(bool(lowerNative(*callable.module)), "opaque callback source failed native lowering");
 #endif
     for (const auto &source :
-         {"enum List:\n  Cons:\n    tail:List\nfn main()->int:\n  0\n",
-          "type A:\n  child:B\ntype B:\n  child:A\nfn main()->int:\n  0\n",
-          "type Bad:\n  next:Bad\n  unknown:Missing\nfn main()->int:\n  0\n"}) {
+         {"enum List:\n  Cons:\n    tail:List\nfn main()->i64:\n  return 0\n",
+          "type A:\n  child:B\ntype B:\n  child:A\nfn main()->i64:\n  return 0\n",
+          "type Bad:\n  next:Bad\n  unknown:Missing\nfn main()->i64:\n  return 0\n"}) {
       auto result = analyze(source);
       require(!result.ok() && !result.module && !result.diagnostics.empty(),
               "recursive/invalid source published partial IR");

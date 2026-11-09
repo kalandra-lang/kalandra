@@ -1,8 +1,8 @@
-fn double(value: float32) -> float32:
-  value * 2
+fn double(value: f32) -> f32:
+  return value * 2
 
-fn main() -> float32 ! TaskError:
-  try parallel:
+fn main() -> f32 ! TaskError:
+  return try parallel:
     first = spawn double(2)
     inner = try parallel:
       second = spawn double(3)

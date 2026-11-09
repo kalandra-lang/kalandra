@@ -51,8 +51,8 @@ if(NOT STATUS EQUAL 0 OR NOT OUT STREQUAL EXPECTED)
   message(FATAL_ERROR "Relocated unary bundle failed: ${STATUS}: ${OUT} ${ERROR}")
 endif()
 # Fixed mismatches are diagnosed transactionally; dynamic mismatches fail before reads.
-string(REPLACE "Tensor[float32, 2, 3] = tensor([[7, 8, 9], [10, 11, 12]])"
-  "Tensor[float32, 3, 2] = tensor([[7, 8], [9, 10], [11, 12]])" BAD "${SOURCE}")
+string(REPLACE "Tensor[f32, 2, 3] = tensor([[7, 8, 9], [10, 11, 12]])"
+  "Tensor[f32, 3, 2] = tensor([[7, 8], [9, 10], [11, 12]])" BAD "${SOURCE}")
 file(WRITE "${OUTPUT_DIR}/bad.k" "${BAD}")
 file(MAKE_DIRECTORY "${OUTPUT_DIR}/bad")
 file(WRITE "${OUTPUT_DIR}/bad/host.cpp" "sentinel")
@@ -62,7 +62,7 @@ file(READ "${OUTPUT_DIR}/bad/host.cpp" SENTINEL)
 if(STATUS EQUAL 0 OR NOT ERROR MATCHES "(G001|S0)" OR NOT SENTINEL STREQUAL "sentinel")
   message(FATAL_ERROR "Known subtraction mismatch was not rejected transactionally: ${STATUS}: ${ERROR}")
 endif()
-set(FORWARD "fn forward(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:\n  values\n\n")
+set(FORWARD "fn forward(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:\n  return values\n\n")
 string(REPLACE "transfer(right, gpu)" "transfer(forward(right), gpu)" BAD "${BAD}")
 file(WRITE "${OUTPUT_DIR}/dynamic.k" "${FORWARD}${BAD}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/dynamic.k" --target metal -o "${OUTPUT_DIR}/dynamic" --sanitize
@@ -80,10 +80,10 @@ endforeach()
 # The same TensorUnary IR must survive CPU task extraction, including inline negation.
 string(FIND "${SOURCE}" "fn main()" MAIN)
 string(SUBSTRING "${SOURCE}" 0 ${MAIN} FUNCTIONS)
-set(CPU_MAIN "fn main() -> float32 ! TaskError:\n  try parallel:\n    a: Tensor[float32,2,3] = tensor([[1,2,3],[4,5,6]])\n    work = spawn negative(a)\n    negated = try await work\n    repeated = restored(negated)\n    back = -positive(repeated)\n    reduceSum(back)\n")
+set(CPU_MAIN "fn main() -> f32 ! TaskError:\n  return try parallel:\n    a: Tensor[f32,2,3] = tensor([[1,2,3],[4,5,6]])\n    work = spawn negative(a)\n    negated = try await work\n    repeated = restored(negated)\n    back = -positive(repeated)\n    reduceSum(back)\n")
 file(WRITE "${OUTPUT_DIR}/cpu-task.k" "${FUNCTIONS}${CPU_MAIN}")
 # General ranked CPU lowering is not restricted to the current rank-one/two GPU subset.
-set(RANK3 "fn main() -> float32:\n  a: Tensor[float32,2,1,2] = tensor([[[1,2]],[[3,4]]])\n  reduceSum(-a)\n")
+set(RANK3 "fn main() -> f32:\n  a: Tensor[f32,2,1,2] = tensor([[[1,2]],[[3,4]]])\n  return reduceSum(-a)\n")
 file(WRITE "${OUTPUT_DIR}/rank3.k" "${RANK3}")
 foreach(FLAG IN ITEMS -O2 --sanitize --thread-sanitize)
   string(REPLACE "--" "" NAME "${FLAG}")
@@ -116,7 +116,7 @@ if(STATUS EQUAL 0 OR NOT ERROR MATCHES "S017")
   message(FATAL_ERROR "Pending tensor negation bypassed task typing: ${ERROR}")
 endif()
 # A zero outer dimension still preserves the complete matrix shape.
-set(EMPTY "fn main() -> Tensor[float32,0,3] ! TaskError:\n  try parallel:\n    gpu = devices.gpu()\n    values: Tensor[float32,0,3] = tensor([], [0, 3])\n    uploaded = try await transfer(values,gpu)\n    negated = try await spawn negative(uploaded) on gpu\n    try await transfer(negated,devices.cpu())\n")
+set(EMPTY "fn main() -> Tensor[f32,0,3] ! TaskError:\n  return try parallel:\n    gpu = devices.gpu()\n    values: Tensor[f32,0,3] = tensor([], [0, 3])\n    uploaded = try await transfer(values,gpu)\n    negated = try await spawn negative(uploaded) on gpu\n    try await transfer(negated,devices.cpu())\n")
 file(WRITE "${OUTPUT_DIR}/empty.k" "${FUNCTIONS}${EMPTY}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/empty.k" --target metal
   -o "${OUTPUT_DIR}/empty" --sanitize RESULT_VARIABLE STATUS ERROR_VARIABLE ERROR)

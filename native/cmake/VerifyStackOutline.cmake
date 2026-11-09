@@ -5,8 +5,8 @@ foreach(I RANGE 0 19)
   string(APPEND BODY "  step${I}=-${PREVIOUS}+1\n")
   set(PREVIOUS "step${I}")
 endforeach()
-set(HELPER "fn long(values:Tensor[float32,?])->Tensor[float32,?]:\n${BODY}  ${PREVIOUS}\n")
-COMPILE(chain "${HELPER}fn main()->float32:\n  values:Tensor[float32,3]=tensor([1,2,3])\n  result=long(values)\n  reduceSum(result)\n")
+set(HELPER "fn long(values:Tensor[f32,?])->Tensor[f32,?]:\n${BODY}  return ${PREVIOUS}\n")
+COMPILE(chain "${HELPER}fn main()->f32:\n  values:Tensor[f32,3]=tensor([1,2,3])\n  result=long(values)\n  return reduceSum(result)\n")
 EXPECT(chain 6)
 file(READ "${OUTPUT_DIR}/chain.ll" LLVM)
 string(REGEX MATCHALL "define [^\n]*@kalandra_fn_elementwise_[0-9]+\\([^\n]*" HELPERS "${LLVM}")
@@ -21,18 +21,18 @@ foreach(DEFINITION IN LISTS HELPERS)
   endif()
 endforeach()
 # Empty inputs retain ordinary shape and allocation behavior across outlined calls.
-COMPILE(empty "${HELPER}fn main()->float32:\n  values:Tensor[float32,0]=tensor([])\n  reduceSum(long(values))\n")
+COMPILE(empty "${HELPER}fn main()->f32:\n  values:Tensor[f32,0]=tensor([])\n  return reduceSum(long(values))\n")
 EXPECT(empty 0)
-message(STATUS "Long float32 tensor bodies preserve unary/binary results and empty inputs through checked outlined helpers")
+message(STATUS "Long f32 tensor bodies preserve unary/binary results and empty inputs through checked outlined helpers")
 
 # A folded function-pointer choice must still use the final checked signature.
-COMPILE(pointer [=[fn plus(value:int)->int:
-  value+1
-fn choose(flag:Bool)->fn(int)->int:
-  if flag:plus
+COMPILE(pointer [=[fn plus(value:i64)->i64:
+  return value+1
+fn choose(flag:bool)->fn(i64)->i64:
+  return if flag:plus
   else:plus
-fn main()->int:
+fn main()->i64:
   selected=choose(true)
-  selected(41)
+  return selected(41)
 ]=])
 EXPECT(pointer 42)

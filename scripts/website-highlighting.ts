@@ -1,12 +1,12 @@
 // Lexical display highlighting for native .k source. This is deliberately not
 // a parser or a dependency on the retired prototype compiler.
 const keywords = new Set(
-  "fn export from import as type enum error if else while for in break continue yield match not and or true false parallel spawn await try catch fail on with mut".split(
+  "fn export from import as type enum error if else while for in break continue yield return match not and or true false parallel spawn await try catch fail on with mut".split(
     " ",
   ),
 );
 const numericTypes = new Set(
-  "int uint float int8 uint8 int16 uint16 int32 uint32 int64 uint64 float32 float64 Bool String Tensor TaskError FaultKind".split(
+  "i8 u8 i16 u16 i32 u32 i64 u64 f32 f64 bool unit String Tensor TaskError FaultKind".split(
     " ",
   ),
 );

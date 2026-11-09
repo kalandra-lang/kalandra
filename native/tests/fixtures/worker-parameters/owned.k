@@ -1,17 +1,17 @@
-fn double(value:int)->int:
-  value*2
-fn apply(value:int,f:fn(int)->int)->int:
-  f(value)
-fn wrap(functions:[fn(int)->int])->fn(int)->int:
-  fn(value:int):functions[0](value)
-fn producer()->fn(int)->int:
+fn double(value:i64)->i64:
+  return value*2
+fn apply(value:i64,f:fn(i64)->i64)->i64:
+  return f(value)
+fn wrap(functions:[fn(i64)->i64])->fn(i64)->i64:
+  return fn(value:i64):return functions[0](value)
+fn producer()->fn(i64)->i64:
   values=[40]
-  wrap([fn(value:int):values[0]+value])
-fn main()->int ! TaskError:
+  return wrap([fn(value:i64):return values[0]+value])
+fn main()->i64 ! TaskError:
   f=try parallel:
     task=spawn producer()
     first=try await task
     second=try await task
     second
-  try parallel:
+  return try parallel:
     try await spawn apply(2,f)

@@ -1,5 +1,5 @@
-fn main()->int:
-  (fn(value:int):
+fn main()->i64:
+  return (fn(value:i64):
     adjusted=value+1
-    adjusted
+    return adjusted
   )(20)*2

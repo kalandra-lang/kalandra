@@ -48,7 +48,7 @@ scheduleDeviceCalls(const continuation::ModulePlan &module, FunctionId entry,
     for (auto op : source.code) {
       const bool propagates = op.code == C::Try || op.code == C::Fail;
       if (op.output >= source.slots.size() || op.placement ||
-          (!propagates && !op.collections.empty()))
+          (!propagates && op.code != C::Jump && !op.collections.empty()))
         return std::unexpected("GPU call schedule has an unsupported instruction operand");
       op.output += base;
       for (auto &arg : op.args) {
@@ -60,11 +60,11 @@ scheduleDeviceCalls(const continuation::ModulePlan &module, FunctionId entry,
         if (op.target >= source.slots.size() || op.group != SIZE_MAX)
           return std::unexpected("GPU error propagation must stay within its device function");
         op.target += base;
-        for (auto &collection : op.collections) {
-          if (collection >= source.slots.size())
-            return std::unexpected("GPU error propagation has an invalid collection slot");
-          collection += base;
-        }
+      }
+      for (auto &collection : op.collections) {
+        if (collection >= source.slots.size())
+          return std::unexpected("GPU control transfer has an invalid collection slot");
+        collection += base;
       }
       if (op.code == C::Catch) {
         if (op.target >= source.code.size())

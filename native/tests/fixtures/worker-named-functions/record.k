@@ -1,11 +1,11 @@
 type Row:
   text:String
-  values:[int]
+  values:[i64]
 fn decorate(value:Row)->Row:
-  value with {text:value.text+"!"}
+  return value with {text:value.text+"!"}
 fn apply(value:Row,transform:fn(Row)->Row)->Row:
-  transform(value)
-fn main()->int ! TaskError:
+  return transform(value)
+fn main()->i64 ! TaskError:
   row=try parallel:
     try await spawn apply(Row {text:"é",values:[20,20]},decorate)
-  length(row.text)+row.values[0]+row.values[1]
+  return length(row.text)+row.values[0]+row.values[1]

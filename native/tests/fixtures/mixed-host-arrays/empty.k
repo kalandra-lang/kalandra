@@ -1,15 +1,15 @@
-fn twice(values:Tensor[int,?])->Tensor[int,?]:
-  values+values
-fn main()->int ! TaskError:
-  try parallel:
-    values:[int]=[]
-    flags:[Bool]=[]
+fn twice(values:Tensor[i64,?])->Tensor[i64,?]:
+  return values+values
+fn main()->i64 ! TaskError:
+  return try parallel:
+    values:[i64]=[]
+    flags:[bool]=[]
     saved=values
     i=0
     total=0
     while i<100:
-      values=generate(i%3,fn(j):j)
-      flags=map(values,fn(value):value==0)
+      values=generate(i%3,fn(j):return j)
+      flags=map(values,fn(value):return value==0)
       total=total+length(values)+length(flags)
       i=i+1
     gpu=devices.gpu()

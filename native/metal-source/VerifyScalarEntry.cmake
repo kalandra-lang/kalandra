@@ -14,7 +14,7 @@ foreach(WORKERS IN ITEMS 1 2 4)
   endif()
 endforeach()
 # An unused scalar retains its declared contract without requiring a resource binding.
-string(REPLACE "  values * factor" "  values" UNUSED "${SOURCE}")
+string(REPLACE "  return values * factor" "  return values" UNUSED "${SOURCE}")
 file(WRITE "${OUTPUT_DIR}/unused.k" "${UNUSED}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/unused.k" --target metal -o "${OUTPUT_DIR}/unused" -O2
   RESULT_VARIABLE STATUS ERROR_VARIABLE ERROR)
@@ -27,7 +27,7 @@ if(NOT STATUS EQUAL 0 OR NOT OUT STREQUAL "[41180000,41380000,41580000]\n")
 endif()
 string(FIND "${SOURCE}" "fn main()" MAIN)
 string(SUBSTRING "${SOURCE}" 0 ${MAIN} FUNCTIONS)
-file(WRITE "${OUTPUT_DIR}/cpu.k" "${FUNCTIONS}fn main() -> float32:\n  values: Tensor[float32,3] = tensor([1,2,3])\n  reduceSum(affine(0.5,values,2))\n")
+file(WRITE "${OUTPUT_DIR}/cpu.k" "${FUNCTIONS}fn main() -> f32:\n  values: Tensor[f32,3] = tensor([1,2,3])\n  return reduceSum(affine(0.5,values,2))\n")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/cpu.k" -o "${OUTPUT_DIR}/cpu" -O2
   RESULT_VARIABLE STATUS ERROR_VARIABLE ERROR)
 if(NOT STATUS EQUAL 0)
@@ -57,7 +57,7 @@ string(REPLACE "spawn scale(uploaded, factor)" "spawn scale(factor, uploaded)" B
 reject(types "${BAD}")
 string(REPLACE "spawn scale(uploaded, factor)" "spawn scale(values, factor)" BAD "${SOURCE}")
 reject(residency "${BAD}")
-string(REPLACE "h: float32)" "h: float32, i: float32)" BAD "${SOURCE}")
+string(REPLACE "h: f32)" "h: f32, i: f32)" BAD "${SOURCE}")
 string(REPLACE "copied, 1, 1, 1, 1, 1, 1, 1, 1)" "copied, 1, 1, 1, 1, 1, 1, 1, 1, 1)" BAD "${BAD}")
 file(WRITE "${OUTPUT_DIR}/nine-scalars.k" "${BAD}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/nine-scalars.k" --target metal
@@ -69,7 +69,7 @@ execute_process(COMMAND "${OUTPUT_DIR}/nine-scalars/program" RESULT_VARIABLE STA
 if(NOT STATUS EQUAL 0 OR NOT OUT STREQUAL "[41880000,41d00000,420c0000]\n")
   message(FATAL_ERROR "Ninth scalar changed the program result: ${OUT} ${ERROR}")
 endif()
-string(REPLACE "fn identity(values: Tensor[float32, ?])" "fn identity(values: Tensor[float32, ?], b: Tensor[float32, ?], c: Tensor[float32, ?])" BAD "${SOURCE}")
+string(REPLACE "fn identity(values: Tensor[f32, ?])" "fn identity(values: Tensor[f32, ?], b: Tensor[f32, ?], c: Tensor[f32, ?])" BAD "${SOURCE}")
 string(REPLACE "spawn identity(blended)" "spawn identity(blended, uploaded, uploaded)" BAD "${BAD}")
 file(WRITE "${OUTPUT_DIR}/unused-tensors.k" "${BAD}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/unused-tensors.k" --target metal
@@ -81,6 +81,6 @@ execute_process(COMMAND "${OUTPUT_DIR}/unused-tensors/program" RESULT_VARIABLE S
 if(NOT STATUS EQUAL 0 OR NOT OUT STREQUAL "[41880000,41d00000,420c0000]\n")
   message(FATAL_ERROR "Unused tensors changed result: ${OUT} ${ERROR}")
 endif()
-set(BAD "fn fill(value: float32) -> Tensor[float32,1]:\n  tensor([value])\nfn main() -> Tensor[float32,1] ! TaskError:\n  try parallel:\n    task = spawn fill(1) on devices.gpu()\n    try await transfer(try await task,devices.cpu())\n")
+set(BAD "fn fill(value: f32) -> Tensor[f32,1]:\n  return tensor([value])\nfn main() -> Tensor[f32,1] ! TaskError:\n  return try parallel:\n    task = spawn fill(1) on devices.gpu()\n    try await transfer(try await task,devices.cpu())\n")
 reject(no-tensor-input "${BAD}")
 message(STATUS "Scalar entry placement, common CPU helpers, limits and diagnostics passed")

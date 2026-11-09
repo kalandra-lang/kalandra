@@ -18,35 +18,35 @@ def run(args):
 variants = ['-O0', '-O2', '--sanitize']
 if sys.platform != 'win32':
     variants.append('--thread-sanitize')
-for numeric in ('float32', 'float64'):
+for numeric in ('f32', 'f64'):
     cases = [
         ('documentation', f'''fn main()->{numeric}:
   a:Tensor[{numeric},1,2]=tensor([[2,3]])
   b:Tensor[{numeric},2,1]=tensor([[4],[5]])
-  reduceSum(matmul(a,b))
+  return reduceSum(matmul(a,b))
 ''', '23'),
         ('rectangular', f'''fn main()->{numeric}:
   a:Tensor[{numeric},2,3]=tensor([[1,2,3],[4,5,6]])
   b:Tensor[{numeric},3,2]=tensor([[7,8],[9,10],[11,12]])
-  reduceSum(matmul(a,b))
+  return reduceSum(matmul(a,b))
 ''', '415'),
         ('map', f'''fn main()->{numeric}:
   a:Tensor[{numeric},3]=tensor([1,2,3])
-  reduceSum(a*3+1)
+  return reduceSum(a*3+1)
 ''', '21'),
         ('empty-map', f'''fn main()->{numeric}:
   a:Tensor[{numeric},0]=tensor([])
-  reduceSum(a*3+1)
+  return reduceSum(a*3+1)
 ''', '0'),
-        ('packed', f'''fn ones(n:int)->[{numeric}]:
-  if n == 0:[1]
+        ('packed', f'''fn ones(n:i64)->[{numeric}]:
+  return if n == 0:[1]
   else:
     part=ones(n-1)
     concat(part,part)
 fn main()->{numeric}:
   a:Tensor[{numeric},32,128]=tensor(ones(12),[32,128])
   b:Tensor[{numeric},128,32]=reshape(a,[128,32])
-  reduceSum(matmul(a,b))
+  return reduceSum(matmul(a,b))
 ''', '131072'),
     ]
     for name, source, expected in cases:

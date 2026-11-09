@@ -1,5 +1,6 @@
 #include "../metal-proof/FloatOracle.h"
 #include "../metal/Metal.h"
+#include "../metal/MatmulLayout.h"
 #include "ReluCases.h"
 #include <array>
 #include <chrono>
@@ -15,6 +16,14 @@ static std::size_t cells = 0, cases = 0, attempts = 0, preparations = 0, immutab
 static Bits flush(Bits b) { return (b & 0x7f800000u) == 0 ? b & 0x80000000u : b; }
 static Bits op(Bits a, Bits b, unsigned operation) {
   return flush(float_proof::oracle({flush(a), flush(b)}, operation));
+}
+// Independent scalar APFloat oracle for the qualified full-f32 FMA profile.
+static Bits fma(Bits a, Bits b, Bits c) {
+  llvm::APFloat x(llvm::APFloat::IEEEsingle(), llvm::APInt(32, flush(a)));
+  llvm::APFloat y(llvm::APFloat::IEEEsingle(), llvm::APInt(32, flush(b)));
+  llvm::APFloat z(llvm::APFloat::IEEEsingle(), llvm::APInt(32, flush(c)));
+  x.fusedMultiplyAdd(y, z, llvm::APFloat::rmNearestTiesToEven);
+  return flush(x.bitcastToAPInt().getZExtValue());
 }
 static Bits sum(std::vector<Bits> values) {
   while (values.size() > 1) {
@@ -72,8 +81,10 @@ static float scalar(TaskCore &core, TaskHandle work) {
   return out;
 }
 int main(int argc, char **argv) {
-  CHECK(argc == 2 || (argc == 3 && std::string(argv[2]) == "--legacy"));
-  const bool legacy = argc == 3;
+  CHECK(argc == 2 || (argc == 3 && (std::string(argv[2]) == "--legacy" ||
+                                  std::string(argv[2]) == "--optimized")));
+  const bool legacy = argc == 3 && std::string(argv[2]) == "--legacy";
+  const bool optimized = argc == 3 && std::string(argv[2]) == "--optimized";
   const std::string directory = argv[1];
   for (bool tight : {false, true}) {
     auto owner = m::Runtime::create(
@@ -351,12 +362,22 @@ int main(int argc, char **argv) {
           bv[i] = std::bit_cast<Bits>(float(int(i % 13) - 6) / 19);
         std::array<std::array<Bits, 13>, 17> reference{};
         std::vector<Bits> products(k);
+        const bool fusedAccumulation = optimized && device->name() == "Apple M2 Max" &&
+                                       m::steelMatmulVariant(rows, k, columns).has_value();
         for (int a = 0; a < 17; ++a)
           for (int b = 0; b < 13; ++b) {
-            for (int i = 0; i < k; ++i)
-              products[i] = op(std::bit_cast<Bits>(float((a + i) % 17 - 8) / 37),
-                               std::bit_cast<Bits>(float((b + i * columns) % 13 - 6) / 19), 1);
-            auto value = op(op(sum(products), cv[0], 0), std::bit_cast<Bits>(0.3f), 1);
+            Bits accumulation = 0;
+            for (int i = 0; i < k; ++i) {
+              const auto left = std::bit_cast<Bits>(float((a + i) % 17 - 8) / 37);
+              const auto right = std::bit_cast<Bits>(float((b + i * columns) % 13 - 6) / 19);
+              if (fusedAccumulation)
+                accumulation = fma(left, right, accumulation);
+              else
+                products[i] = op(left, right, 1);
+            }
+            if (!fusedAccumulation)
+              accumulation = sum(products);
+            auto value = op(op(accumulation, cv[0], 0), std::bit_cast<Bits>(0.3f), 1);
             reference[a][b] = Bits(relu_tests::expected(NumericType::Float32, value));
           }
         auto a = upload(rt, *core, av, {rows, k}), b = upload(rt, *core, bv, {k, columns}),
@@ -377,7 +398,12 @@ int main(int argc, char **argv) {
           for (int c = 0; c < columns; ++c) {
             Bits actual;
             std::memcpy(&actual, bytes->data() + (r * columns + c) * 4, 4);
-            CHECK(float_proof::equal(actual, reference[(r * k) % 17][c % 13]));
+            const auto expected = reference[(r * k) % 17][c % 13];
+            if (!float_proof::equal(actual, expected))
+              std::fprintf(stderr, "pipeline optimized=%d fused=%d shape=%d,%d,%d cell=%d,%d "
+                                   "actual=%08x expected=%08x\n",
+                           optimized, fusedAccumulation, rows, k, columns, r, c, actual, expected);
+            CHECK(float_proof::equal(actual, expected));
             ++cells;
           }
         result = {};

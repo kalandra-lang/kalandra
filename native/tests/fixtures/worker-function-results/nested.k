@@ -1,11 +1,11 @@
-fn make(offset:int)->fn(int)->int:
+fn make(offset:i64)->fn(i64)->i64:
   values=[offset]
-  base=fn(value:int):values[0]+value
-  fn(value:int):base(value)
-fn apply(value:int,f:fn(int)->int)->int:
-  f(value)
-fn main()->int ! TaskError:
+  base=fn(value:i64):return values[0]+value
+  return fn(value:i64):return base(value)
+fn apply(value:i64,f:fn(i64)->i64)->i64:
+  return f(value)
+fn main()->i64 ! TaskError:
   f=try parallel:
     try await spawn make(40)
-  try parallel:
+  return try parallel:
     try await spawn apply(2,f)

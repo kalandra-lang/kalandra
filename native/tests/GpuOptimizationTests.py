@@ -22,20 +22,20 @@ def run(command):
     return result.stdout
 
 source = args.output / 'kernels.k'
-source.write_text((root / 'native/benchmarks/languages/gpu.k').read_text().replace('float64', 'float32'))
+source.write_text((root / 'native/benchmarks/languages/gpu.k').read_text().replace('f64', 'f32'))
 bundle = args.output / 'bundle'
 run([compiler, source, '--target', 'metal', '--arithmetic', 'hardware', '--matmul-policy', 'fixed-tree', '-O2', '-o', bundle])
 assert 'kalandra_matmul_hardware_tiled' in (bundle / 'kernel2.metal').read_text()
 assert 'kalandra_matmul_hardware_block64' in (bundle / 'kernel2.metal').read_text()
 assert 'kalandra_reduce_sum_hardware_block' in (bundle / 'kernel0-reduce.metal').read_text()
 typed_source=args.output/'typed.k'
-typed_source.write_text('''fn work(a:Tensor[float32,?,?],b:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  transpose(transpose(matmul(a,b)))
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+typed_source.write_text('''fn work(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return transpose(transpose(matmul(a,b)))
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
     cpu=devices.cpu()
-    x:Tensor[float32,2,2]=tensor([[1,2],[3,4]])
+    x:Tensor[f32,2,2]=tensor([[1,2],[3,4]])
     a=try await transfer(x,gpu)
     b=try await spawn work(a,a) on gpu
     try await transfer(b,cpu)

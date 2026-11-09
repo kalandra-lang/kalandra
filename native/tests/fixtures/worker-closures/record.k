@@ -1,12 +1,12 @@
 type Row:
   text:String
-  values:[int]
-fn apply(value:int,f:fn(int)->int)->int:
-  f(value)
-fn main()->int ! TaskError:
+  values:[i64]
+fn apply(value:i64,f:fn(i64)->i64)->i64:
+  return f(value)
+fn main()->i64 ! TaskError:
   rows=[Row {text:"é"+"!",values:[20,20]}]
-  f=fn(value:int):length(rows[0].text)+rows[0].values[0]+rows[0].values[1]+value
-  try parallel:
+  f=fn(value:i64):return length(rows[0].text)+rows[0].values[0]+rows[0].values[1]+value
+  return try parallel:
     work=spawn apply(0,f)
     a=try await work
     b=try await work

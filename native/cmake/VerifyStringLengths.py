@@ -26,10 +26,10 @@ def literal(text):
     return '"'+''.join({'"':'\\"','\\':'\\\\','\n':'\\n','\r':'\\r','\t':'\\t','\0':'\\0'}.get(c,c) for c in text)+'"'
 
 for index,case in enumerate(fixtures['text_cases']):
-    exe=compile('counts-'+str(index),'fn scalarCount(text:String)->int64:\n  length(text)\nfn bytes(text:String)->int64:\n  byteLength(text)\nfn main():\n  text='+literal(case['text'])+'\n  [scalarCount(text),bytes(text)]\n')
+    exe=compile('counts-'+str(index),'fn scalarCount(text:String)->i64:\n  return length(text)\nfn bytes(text:String)->i64:\n  return byteLength(text)\nfn main():\n  text='+literal(case['text'])+'\n  return [scalarCount(text),bytes(text)]\n')
     run([exe],f'[{case["scalar_length"]}, {case["byte_length"]}]\n'.encode())
-(output/'queries.k').write_text('export fn measure(text:String)->int64:\n  length(text)*100+byteLength(text)\n')
-exe=compile('imported','from "./queries.k" import measure\nfn main():\n  measure("سلام"+"\\0"+"👩‍💻")\n')
+(output/'queries.k').write_text('export fn measure(text:String)->i64:\n  return length(text)*100+byteLength(text)\n')
+exe=compile('imported','from "./queries.k" import measure\nfn main():\n  return measure("سلام"+"\\0"+"👩\u200d💻")\n')
 run([exe],b'820\n')
 for failure in range(1,13):
     env=dict(os.environ,KALANDRA_TEST_FAIL_ALLOC_AT=str(failure),KALANDRA_TEST_REPORT_CLEANUP='1')
@@ -40,25 +40,25 @@ for failure in range(1,13):
         metrics=re.search(rb'cleanup: live=(\d+) allocations=(\d+) releases=(\d+)',result.stderr)
         assert metrics and metrics[1]==b'0' and metrics[2]==metrics[3],result.stderr
     else: assert result.stdout==b'820\n' and not result.stderr,result
-exe=compile('pipeline','fn main():\n  ["é"->length,"é"->byteLength]\n')
+exe=compile('pipeline','fn main():\n  return ["é"->length,"é"->byteLength]\n')
 run([exe],b'[1, 2]\n')
-exe=compile('callback','fn count(value:int64)->int64:\n  value+length("👩‍💻")+byteLength("é")\nfn main():\n  [1,2]->map(count)\n')
+exe=compile('callback','fn count(value:i64)->i64:\n  return value+length("👩\u200d💻")+byteLength("é")\nfn main():\n  return [1,2]->map(count)\n')
 run([exe],b'[6, 7]\n')
 for name,call,expected in [('scalar','length',b'3\n'),('bytes','byteLength',b'11\n')]:
-    exe=compile(name+'-single-evaluation','fn text()->String:\n  "👩‍💻"\nfn main()->int64:\n  '+call+'(text())\n')
+    exe=compile(name+'-single-evaluation','fn text()->String:\n  return "👩‍💻"\nfn main()->i64:\n  return '+call+'(text())\n')
     run([exe],expected)
     # One literal allocation: a second evaluation would hit the injected failure.
     env=dict(os.environ,KALANDRA_TEST_FAIL_ALLOC_AT='2')
     result=subprocess.run([exe],env=env,capture_output=True)
     assert not result.returncode and result.stdout==expected and not result.stderr,result
-    exe=compile(name+'-short-circuit','fn explode(value:int64)->String:\n  fault=1/value\n  "a"\nfn main()->Bool:\n  true or '+call+'(explode(0))==0\n')
+    exe=compile(name+'-short-circuit','fn explode(value:i64)->String:\n  fault=1/value\n  return "a"\nfn main()->bool:\n  return true or '+call+'(explode(0))==0\n')
     run([exe],b'true\n')
-    exe=compile(name+'-fault','fn explode(value:int64)->String:\n  fault=1/value\n  "a"\nfn main()->int64:\n  '+call+'(explode(0))\n')
+    exe=compile(name+'-fault','fn explode(value:i64)->String:\n  fault=1/value\n  return "a"\nfn main()->i64:\n  return '+call+'(explode(0))\n')
     result=subprocess.run([exe],capture_output=True)
     assert result.returncode and not result.stdout and b'ArithmeticFault' in result.stderr,result
 
 for index,expr in enumerate(['byteLength(1)','byteLength(true)','byteLength([1,2])','byteLength(tensor([1,2]))','shape("a")','length()','byteLength()','length("a","b")','byteLength("a","b")']):
-    file=output/f'invalid-{index}.k';file.write_text('fn main():\n  '+expr+'\n')
+    file=output/f'invalid-{index}.k';file.write_text('fn main():\n  return '+expr+'\n')
     artifacts=[output/'preserved',output/'preserved.ll',output/'preserved.mlir']
     for p in artifacts:p.write_bytes(b'keep-existing-artifact')
     result=subprocess.run(list(map(str,[compiler,file,'-o',artifacts[0],'--emit-llvm',artifacts[1],'--emit-mlir',artifacts[2],*extra])),capture_output=True)

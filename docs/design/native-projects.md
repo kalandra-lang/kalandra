@@ -8,11 +8,11 @@ Use an explicit native TOML manifest to record the root source file and local li
 
 ```kalandra
 export type Point:
-  x: int
-  y: int
+  x: i64
+  y: i64
 
-export fn total(point: Point) -> int:
-  point.x + point.y
+export fn total(point: Point) -> i64:
+  return point.x + point.y
 ```
 
 `main.k`:
@@ -20,8 +20,8 @@ export fn total(point: Point) -> int:
 ```kalandra
 from "geometry" import Point, total
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     try await spawn total(Point {x: 20, y: 22})
 ```
 

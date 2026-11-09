@@ -17,14 +17,30 @@ inline std::string numericKernelName(NumericType result, std::span<const Numeric
     homogeneous &= type == result;
   if (homogeneous)
     return name;
-  name += "_t_";
-  if(tensors.empty()) name+='z';
-  for (auto type : tensors)
-    name += char('a' + static_cast<unsigned>(type));
-  name += "_s_";
-  if(scalars.empty()) name+='z';
-  for (auto type : scalars)
-    name += char('a' + static_cast<unsigned>(type));
+  // Large control closures can carry many identical scalar slots. Preserve
+  // every type and its position with a lossless run spelling rather than
+  // exceeding a backend's entry-name bound. Short names keep their old ABI.
+  const auto signature = [](std::span<const NumericType> types) {
+    std::string plain;
+    for (auto type : types)
+      plain += char('a' + static_cast<unsigned>(type));
+    if (plain.empty())
+      return std::string("z");
+    if (plain.size() < 64)
+      return plain;
+    std::string runs = "r";
+    for (std::size_t i = 0; i < plain.size();) {
+      auto end = i + 1;
+      while (end < plain.size() && plain[end] == plain[i])
+        ++end;
+      runs += std::to_string(end - i);
+      runs += plain[i];
+      i = end;
+    }
+    return runs.size() < plain.size() ? runs : plain;
+  };
+  name += "_t_" + signature(tensors);
+  name += "_s_" + signature(scalars);
   return name;
 }
 } // namespace kalandra

@@ -56,10 +56,10 @@ def repository(name, source, dependencies=''):
     return repo, commit(repo)
 
 
-math, first = repository('math source λ', 'export fn next(n:int)->int:\n  n+1\n')
+math, first = repository('math source λ', 'export fn next(n:i64)->i64:\n  return n+1\n')
 git(math, 'tag', 'release', first)
 parent, parent_first = repository('parent',
-    'from "math" import next\nexport fn compute(n:int)->int:\n  next(n)\n', request('math', math, 'main'))
+    'from "math" import next\nexport fn compute(n:i64)->i64:\n  return next(n)\n', request('math', math, 'main'))
 app = root / 'application'
 app.mkdir()
 manifest = app / 'kalandra.toml'
@@ -68,7 +68,7 @@ configuration = "format=1\n[project]\nentry='main.k'\n[dependencies]\n" + (
     request('tagged', math, 'release') + request('fixed', math, first) + request('parent', parent, 'main'))
 manifest.write_text(configuration)
 source = ('from "math" import next\nfrom "parent" import compute\n'
-          'fn main()->[int] ! TaskError:\n  old=try parallel:\n    try await spawn compute(10)\n  [next(10),old]\n')
+          'fn main()->[i64] ! TaskError:\n  old=try parallel:\n    try await spawn compute(10)\n  return [next(10),old]\n')
 (app / 'main.k').write_text(source)
 lock = app / 'kalandra.lock'
 # Updates are not an implicit first install, and invalid selection creates no cache.
@@ -111,9 +111,9 @@ assert lock.read_text() == 'format=999\n'
 lock.write_bytes(original)
 
 # A selected branch can add a dependency without the old graph-size gate rejecting it.
-leaf, leaf_first = repository('leaf', 'export fn boost(n:int)->int:\n  n+2\n')
+leaf, leaf_first = repository('leaf', 'export fn boost(n:i64)->i64:\n  return n+2\n')
 (math / 'kalandra.toml').write_text((math / 'kalandra.toml').read_text() + '[dependencies]\n' + request('leaf', leaf, 'main'))
-(math / 'public.k').write_text('from "leaf" import boost\nexport fn next(n:int)->int:\n  boost(n)\n')
+(math / 'public.k').write_text('from "leaf" import boost\nexport fn next(n:i64)->i64:\n  return boost(n)\n')
 second = commit(math)
 git(math, 'tag', '-f', 'release', second)
 run(args.compiler, 'install', '--project', manifest)
@@ -130,7 +130,7 @@ program = app / 'program'
 run(args.compiler, '--project', manifest, '-o', program)
 assert run(program).stdout == b'[12, 11]\n'
 # Moving a private ref alone does not update an unchanged owner's private lock.
-(leaf / 'public.k').write_text('export fn boost(n:int)->int:\n  n+3\n')
+(leaf / 'public.k').write_text('export fn boost(n:i64)->i64:\n  return n+3\n')
 leaf_second = commit(leaf)
 update('math', api=True)
 data, roots = state()
@@ -161,7 +161,7 @@ assert package(data, math, third)['dependencies'][0]['commit'] == leaf_second
 assert package(data, math, second)['dependencies'][0]['commit'] == leaf_first
 before = lock.read_bytes()
 # Failed import graphs and held guards leave the active generation byte-for-byte unchanged.
-(math / 'public.k').write_text('from "absent" import missing\nexport fn next(n:int)->int:\n  missing(n)\n')
+(math / 'public.k').write_text('from "absent" import missing\nexport fn next(n:i64)->i64:\n  return missing(n)\n')
 commit(math)
 update('math', ok=False)
 update('math', ok=False, api=True)

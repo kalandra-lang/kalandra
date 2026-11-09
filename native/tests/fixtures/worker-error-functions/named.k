@@ -1,16 +1,16 @@
-fn double(value:int)->int:
-  value*2
+fn double(value:i64)->i64:
+  return value*2
 error E:
   Bad:
-    callback:fn(int)->int
-fn failer()->int ! E:
+    callback:fn(i64)->i64
+fn failer()->i64 ! E:
   fail E.Bad {callback:double}
-fn run()->int ! (E | TaskError):
+fn run()->i64 ! (E | TaskError):
   f=failer
-  try parallel:
+  return try parallel:
     try await spawn f()
-fn main()->int ! TaskError:
-  run() catch fn(error):
-    match error:
+fn main()->i64 ! TaskError:
+  return run() catch fn(error):
+    return match error:
       E.Bad {callback}:callback(21)
       _:fail error

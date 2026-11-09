@@ -20,13 +20,13 @@ h2 { "Values and function results" }
 
 A .k file contains function and type declarations. Execution starts at main. Use fn to define a function; the indented body ends with the expression to return. You do not need a return keyword.
 
-codeblock { language = kalandra, """fn main() -> int:
+codeblock { language = kalandra, """fn main() -> i64:
   width = 6
-  height: int = 7
-  width * height
+  height: i64 = 7
+  return width * height
 """ }
 
-This returns 42. The = introduces a name for a value. width has an inferred type; height explicitly declares int. The -> int after main() declares the function's result type. int is a signed 64-bit integer on every supported platform. Use # for a line comment and two spaces for each indentation level.
+This returns 42. The = introduces a name for a value. width has an inferred type; height explicitly declares i64. The -> i64 after main() declares the function's result type. i64 is a signed 64-bit integer on every supported platform. Use # for a line comment and two spaces for each indentation level.
 
 list {
   link { url = "/docs/syntax", "Syntax, bindings and comments" },
@@ -37,11 +37,11 @@ h2 { "Define and call a function" }
 
 Name parameters and their types inside parentheses. Call the function with arguments in the same order:
 
-codeblock { language = kalandra, """fn double(value: int) -> int:
-  value * 2
+codeblock { language = kalandra, """fn double(value: i64) -> i64:
+  return value * 2
 
-fn main() -> int:
-  double(21)
+fn main() -> i64:
+  return double(21)
 """ }
 
 This returns 42. A function can also be stored in a binding or passed to another function. You will use that when mapping an array.
@@ -54,29 +54,29 @@ h2 { "Choose a result" }
 
 An if expression selects one result. Both branches must produce compatible types; only the selected branch runs.
 
-codeblock { language = kalandra, """fn absolute(value: int) -> int:
-  if value < 0:
+codeblock { language = kalandra, """fn absolute(value: i64) -> i64:
+  return if value < 0:
     -value
   else:
     value
 
-fn main() -> int:
-  absolute(-42)
+fn main() -> i64:
+  return absolute(-42)
 """ }
 
-This returns 42. Comparisons produce Bool values, true or false. Combine conditions with and, or and not. Write a separate comparison on each side of and, such as value >= 0 and value < 100.
+This returns 42. Comparisons produce bool values, true or false. Combine conditions with and, or and not. Write a separate comparison on each side of and, such as value >= 0 and value < 100.
 
 h2 { "Update local state" }
 
-Reuse = to change a numeric or Bool binding without changing its type. A while loop repeats while its condition is true. Put the function's result after the loop:
+Reuse = to change a numeric or bool binding without changing its type. A while loop repeats while its condition is true. Put the function's result after the loop:
 
-codeblock { language = kalandra, """fn main() -> int:
+codeblock { language = kalandra, """fn main() -> i64:
   index = 0
   total = 0
   while index < 5:
     total = total + index
     index = index + 1
-  total
+  return total
 """ }
 
 This returns 10: the sum of 0, 1, 2, 3 and 4. Reassigning a scalar parameter inside a function does not change the caller's binding. Arrays have additional rules because two names can refer to the same storage.
@@ -93,14 +93,14 @@ list {
 
 h2 { "Build and transform an array" }
 
-An array contains elements of one type. [int] is an array of integers. generate creates elements from their indexes; map transforms them in order without changing the input array.
+An array contains elements of one type. [i64] is an array of integers. generate creates elements from their indexes; map transforms them in order without changing the input array.
 
-codeblock { language = kalandra, """fn double(value: int) -> int:
-  value * 2
+codeblock { language = kalandra, """fn double(value: i64) -> i64:
+  return value * 2
 
-fn main() -> [int]:
-  values = generate(4, fn(index): index + 1)
-  map(values, double)
+fn main() -> [i64]:
+  values = generate(4, fn(index): return index + 1)
+  return map(values, double)
 """ }
 
 This returns [2, 4, 6, 8]. The anonymous function fn(index): index + 1 receives indexes 0 through 3. You can also write values -> map(double): the pipeline passes values as the first argument to map. Indexes start at zero, and length(values) gives the number of elements.
@@ -109,15 +109,15 @@ h2 { "Share an array or copy it" }
 
 Assigning an array to another name shares its storage. Use copy when changes should be independent:
 
-codeblock { language = kalandra, """fn main() -> [int]:
+codeblock { language = kalandra, """fn main() -> [i64]:
   values = [1, 2, 3]
   alias = values
   independent = copy(values)
   values[0] = 9
-  [alias[0], independent[0]]
+  return [alias[0], independent[0]]
 """ }
 
-This returns [9, 1]. alias sees the edit; independent keeps the original value. Fresh numeric and Bool arrays allow local element writes. A function that writes an array supplied by its caller must declare a mut parameter. Ordinary parameters and captured arrays are read-only, and an unfinished task reader prevents writes to shared storage.
+This returns [9, 1]. alias sees the edit; independent keeps the original value. Fresh numeric and bool arrays allow local element writes. A function that writes an array supplied by its caller must declare a mut parameter. Ordinary parameters and captured arrays are read-only, and an unfinished task reader prevents writes to shared storage.
 
 For a style that avoids in-place edits, use map, generate, slice, concat and sorted to construct new arrays. sort edits an existing array; sorted returns a new sorted one.
 
@@ -128,12 +128,12 @@ list {
 
 h2 { "Compute with tensors" }
 
-A tensor is a dense numerical value with a shape. A matrix has two dimensions. Tensor[float32, 1, 2] means one row and two columns of 32-bit floating-point numbers.
+A tensor is a dense numerical value with a shape. A matrix has two dimensions. Tensor[f32, 1, 2] means one row and two columns of 32-bit floating-point numbers.
 
-codeblock { language = kalandra, """fn main() -> float32:
-  left: Tensor[float32, 1, 2] = tensor([[2, 3]])
-  right: Tensor[float32, 2, 1] = tensor([[4], [5]])
-  reduceSum(matmul(left, right))
+codeblock { language = kalandra, """fn main() -> f32:
+  left: Tensor[f32, 1, 2] = tensor([[2, 3]])
+  right: Tensor[f32, 2, 1] = tensor([[4], [5]])
+  return reduceSum(matmul(left, right))
 """ }
 
 This returns 23. matmul computes 2 * 4 + 3 * 5; reduceSum turns the one-element result tensor into a scalar. Tensor inputs stay unchanged. Constructing a tensor does not send work to a GPU: this example runs on the CPU.
@@ -149,13 +149,13 @@ Declare errors that callers should handle explicitly. A function's ! annotation 
 codeblock { language = kalandra, """error InputError:
   Negative
 
-fn requireNonnegative(value: int) -> int ! InputError:
+fn requireNonnegative(value: i64) -> i64 ! InputError:
   if value < 0:
     fail InputError.Negative
-  value
+  return value
 
-fn main() -> int:
-  requireNonnegative(-1) catch fn(error): 0
+fn main() -> i64:
+  return requireNonnegative(-1) catch fn(error): return 0
 """ }
 
 This returns 0 because the validation fails and the handler provides a fallback. A caller can instead use try to propagate the error through its own declared error channel. Checked execution faults, such as an array index outside its bounds, are distinct from these application-defined errors.
@@ -168,11 +168,11 @@ h2 { "Run independent tasks" }
 
 Ordinary calls run synchronously. spawn starts a task; await waits for its result. A parallel scope waits for all of its child tasks before it exits. Start independent tasks before awaiting them so they can overlap.
 
-codeblock { language = kalandra, """fn double(value: int) -> int:
-  value * 2
+codeblock { language = kalandra, """fn double(value: i64) -> i64:
+  return value * 2
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     left = spawn double(10)
     right = spawn double(11)
     a = try await left

@@ -12,30 +12,30 @@ static CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
-    const std::string types = "error A:\n  Missing\n  Bad:\n    text:String\n    values:[int]\n"
-                              "error B:\n  Bad:\n    value:int\nerror C:\n  Last\n"
+    const std::string types = "error A:\n  Missing\n  Bad:\n    text:String\n    values:[i64]\n"
+                              "error B:\n  Bad:\n    value:i64\nerror C:\n  Last\n"
                               "type Both=A | B | A\ntype Reordered=B | A\ntype All=C | Both\n";
-    const std::string functions = "fn first()->int ! A:\n  fail A.Missing\n"
-                                  "fn second()->int ! B:\n  fail B.Bad {value:2}\n";
+    const std::string functions = "fn first()->i64 ! A:\n  fail A.Missing\n"
+                                  "fn second()->i64 ! B:\n  fail B.Bad {value:2}\n";
     for (const auto *body :
-         {"fn main()->int ! Both:\n  try first()\n",
-          "enum Choice:\n  First\n  Second\nfn main()->int ! Both:\n  pending=first()\n"
-          "  match Choice.First:\n    Choice.First:pending\n    Choice.Second:pending\n",
-          "fn main()->int ! Both:\n  if true:fail A.Missing\n  try second()\n",
-          "fn main()->int ! (B | A | A):\n  first()\n",
-          "fn main()->int ! Both:\n  if true:first()\n  else:second()\n",
-          "fn main()->int ! All:\n  if true:\n    fail C.Last\n  try first()\n",
-          "fn joined()->int ! Both:\n  try first()\nfn main()->int ! Reordered:\n  joined()\n",
-          "fn joined()->int ! Both:\n  if true:first()\n  else:second()\n"
-          "fn main()->int:\n  joined() catch fn(error):\n    match error:\n"
+         {"fn main()->i64 ! Both:\n  return try first()\n",
+          "enum Choice:\n  First\n  Second\nfn main()->i64 ! Both:\n  pending=first()\n"
+          "  return match Choice.First:\n    Choice.First:pending\n    Choice.Second:pending\n",
+          "fn main()->i64 ! Both:\n  if true:fail A.Missing\n  return try second()\n",
+          "fn main()->i64 ! (B | A | A):\n  return first()\n",
+          "fn main()->i64 ! Both:\n  return if true:first()\n  else:second()\n",
+          "fn main()->i64 ! All:\n  if true:\n    fail C.Last\n  return try first()\n",
+          "fn joined()->i64 ! Both:\n  return try first()\nfn main()->i64 ! Reordered:\n  return joined()\n",
+          "fn joined()->i64 ! Both:\n  return if true:first()\n  else:second()\n"
+          "fn main()->i64:\n  return joined() catch fn(error):\n    return match error:\n"
           "      A.Missing:1\n      A.Bad {text,values}:length(text)+values[0]\n"
           "      B.Bad {value}:value\n",
-          "fn main()->int ! Both:\n  first() catch fn(error):\n"
+          "fn main()->i64 ! Both:\n  return first() catch fn(error):\n"
           "    if true:\n      fail B.Bad {value:2}\n    fail A.Missing\n",
-          "fn main()->int ! Both:\n  first() catch fn(error):\n"
-          "    x=try first()\n    y=try second()\n    x+y\n",
-          "fn joined()->int ! Both:\n  first()\nfn main()->int ! All:\n"
-          "  joined() catch fn(error):fail error\n"}) {
+          "fn main()->i64 ! Both:\n  return first() catch fn(error):\n"
+          "    x=try first()\n    y=try second()\n    return x+y\n",
+          "fn joined()->i64 ! Both:\n  return first()\nfn main()->i64 ! All:\n"
+          "  return joined() catch fn(error):fail error\n"}) {
       auto result = analyze(types + functions + body);
       if (!result.ok())
         for (const auto &d : result.diagnostics)
@@ -48,27 +48,27 @@ int main() {
 #endif
     }
     for (const auto *body :
-         {"type Loop=Loop\nfn main()->int:\n  0\n",
-          "enum Choice:\n  First\n  Second\nfn main()->int ! Both:\n  pending=first()\n"
-          "  match Choice.First:\n    Choice.First:0\n    Choice.Second:pending\n",
-          "type One=Two\ntype Two=One\nfn main()->int:\n  0\n",
-          "type Wrong=int\nfn main()->int:\n  0\n",
-          "enum Ordinary:\n  Bad\ntype Wrong=A | Ordinary\nfn main()->int:\n  0\n",
-          "type Wrong=A | Missing\nfn main()->int:\n  0\n",
-          "type Both=A | B\nfn main()->int:\n  0\n", "type A=B\nfn main()->int:\n  0\n",
-          "fn Both()->int:\n  0\nfn main()->int:\n  0\n", "fn main()->int ! A:\n  try second()\n",
-          "fn joined()->int ! Both:\n  first()\nfn main()->int ! A:\n  joined()\n",
-          "fn joined()->int ! Both:\n  first()\nfn main()->int ! A:\n  try joined()\n",
-          "fn joined()->int ! Both:\n  first()\nfn main()->int:\n  joined() catch fn(error):\n"
-          "    match error:\n      A.Missing:0\n      A.Bad:1\n",
-          "fn joined()->int ! Both:\n  first()\nfn main()->int:\n  joined() catch fn(error):\n"
-          "    match error:\n      A.Missing:0\n      A.Missing:1\n      _:2\n",
-          "fn joined()->int ! Both:\n  first()\nfn main()->int:\n  joined() catch fn(error):\n"
-          "    match error:\n      Both.Missing:0\n      _:1\n",
-          "fn child()->int ! Both:\n  first()\nfn main()->int ! TaskError:\n"
-          "  try parallel:\n    try await spawn child()\n"})
+         {"type Loop=Loop\nfn main()->i64:\n  return 0\n",
+          "enum Choice:\n  First\n  Second\nfn main()->i64 ! Both:\n  pending=first()\n"
+          "  return match Choice.First:\n    Choice.First:0\n    Choice.Second:pending\n",
+          "type One=Two\ntype Two=One\nfn main()->i64:\n  return 0\n",
+          "type Wrong=i64\nfn main()->i64:\n  return 0\n",
+          "enum Ordinary:\n  Bad\ntype Wrong=A | Ordinary\nfn main()->i64:\n  return 0\n",
+          "type Wrong=A | Missing\nfn main()->i64:\n  return 0\n",
+          "type Both=A | B\nfn main()->i64:\n  return 0\n", "type A=B\nfn main()->i64:\n  return 0\n",
+          "fn Both()->i64:\n  return 0\nfn main()->i64:\n  return 0\n", "fn main()->i64 ! A:\n  return try second()\n",
+          "fn joined()->i64 ! Both:\n  return first()\nfn main()->i64 ! A:\n  return joined()\n",
+          "fn joined()->i64 ! Both:\n  return first()\nfn main()->i64 ! A:\n  return try joined()\n",
+          "fn joined()->i64 ! Both:\n  return first()\nfn main()->i64:\n  return joined() catch fn(error):\n"
+          "    return match error:\n      A.Missing:0\n      A.Bad:1\n",
+          "fn joined()->i64 ! Both:\n  return first()\nfn main()->i64:\n  return joined() catch fn(error):\n"
+          "    return match error:\n      A.Missing:0\n      A.Missing:1\n      _:2\n",
+          "fn joined()->i64 ! Both:\n  return first()\nfn main()->i64:\n  return joined() catch fn(error):\n"
+          "    return match error:\n      Both.Missing:0\n      _:1\n",
+          "fn child()->i64 ! Both:\n  return first()\nfn main()->i64 ! TaskError:\n"
+          "  return try parallel:\n    try await spawn child()\n"})
       require(!analyze(types + functions + body).ok(), "invalid union admitted");
-    auto result = analyze(types + functions + "fn main()->int ! Both:\n  first()\n");
+    auto result = analyze(types + functions + "fn main()->i64 ! Both:\n  return first()\n");
     require(result.ok(), "metadata fixture rejected");
     const auto id = *result.module->functions.back().resultType.errorRecord;
     require(result.module->records[id].errorMembers == std::vector<std::size_t>{0, 1},

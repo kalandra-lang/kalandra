@@ -1,10 +1,10 @@
-fn apply(value:int,f:fn(int)->int)->int:
-  f(value)
-fn main()->int ! TaskError:
+fn apply(value:i64,f:fn(i64)->i64)->i64:
+  return f(value)
+fn main()->i64 ! TaskError:
   numbers=[20]
-  base=fn(value:int):numbers[0]+value
+  base=fn(value:i64):return numbers[0]+value
   left=base
   right=base
-  outer=fn(value:int):left(value)+right(value)
-  try parallel:
+  outer=fn(value:i64):return left(value)+right(value)
+  return try parallel:
     try await spawn apply(1,outer)

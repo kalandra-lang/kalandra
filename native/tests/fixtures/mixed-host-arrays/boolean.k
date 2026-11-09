@@ -1,17 +1,17 @@
-fn twice(values:Tensor[int,?])->Tensor[int,?]:
-  values+values
-fn flip(values:[Bool])->[Bool]:
+fn twice(values:Tensor[i64,?])->Tensor[i64,?]:
+  return values+values
+fn flip(values:[bool])->[bool]:
   result=copy(values)
   for index in range(length(result)):
     result[index]=not result[index]
-  result
-fn wrapped(values:[Bool])->[Bool] ! TaskError:
-  try parallel:
+  return result
+fn wrapped(values:[bool])->[bool] ! TaskError:
+  return try parallel:
     result=try await spawn flip(values) on devices.cpu()
     result=copy(result)
     result
-fn main()->int ! TaskError:
-  try parallel:
+fn main()->i64 ! TaskError:
+  return try parallel:
     flags=[true,false,true]
     saved=flags
     flags=copy(flags)
@@ -22,7 +22,7 @@ fn main()->int ! TaskError:
     fromTask[0]=true
     total=0
     for i in range(1000):
-      flags=generate(i%5+1,fn(j):j%2==0)
+      flags=generate(i%5+1,fn(j):return j%2==0)
       if flags[0]:
         total=total+length(flags)
     result=if saved[0] and not saved[1] and fromTask[0] and fromTask[1]:total

@@ -20,6 +20,8 @@ inline void collectionMetadata(llvm::Module &module, const ValueType &type) {
   };
   field("kalandra_collection_rank_v1", type.shape.size());
   field("kalandra_collection_element_v1", isStringArray(type) ? cli::stringArrayElement
+                                          : type.builtin == BuiltinValue::Unit
+                                              ? cli::unitArrayElement
                                           : isBoolArray(type)
                                               ? cli::boolArrayElement
                                               : static_cast<unsigned>(type.element));

@@ -12,15 +12,15 @@ static CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
-    for (auto type : {"int32", "uint32", "int64", "uint64", "float32", "float64"})
+    for (auto type : {"i32", "u32", "i64", "u64", "f32", "f64"})
       for (unsigned rank : {0u, 1u, 2u, 3u, 8u})
-        for (auto dim : {"int32", "uint32", "int64", "uint64"}) {
+        for (auto dim : {"i32", "u32", "i64", "u64"}) {
           std::string input = "Tensor[" + std::string(type);
           for (unsigned i = 0; i < rank; ++i)
             input += ",?";
           input += "]";
           auto typed = analyze("fn change(values:" + input + ",rows:" + dim + ",columns:" + dim +
-                               "):\n  reshape(values,[rows,columns])\nfn main()->int:\n  0\n");
+                               "):\n  return reshape(values,[rows,columns])\nfn main()->i64:\n  return 0\n");
           require(typed.ok(), "valid numeric tensor reshape rejected");
           auto id = typed.module->functions[0].result;
           require(std::holds_alternative<TensorReshape>(typed.module->expressions[id].operation),
@@ -64,20 +64,20 @@ int main() {
 #endif
         }
     for (auto source :
-         {"fn main():\n  reshape(tensor([[1,2],[3,4]]),[4])[2]\n",
-          "fn main():\n  reshape(tensor(7),[1,1])[0,0]\n",
-          "fn main():\n  reshape(tensor([[7]]),[])[]\n",
-          "fn main():\n  empty:Tensor[float32,0,3]=tensor([],[0,3])\n  "
+         {"fn main():\n  return reshape(tensor([[1,2],[3,4]]),[4])[2]\n",
+          "fn main():\n  return reshape(tensor(7),[1,1])[0,0]\n",
+          "fn main():\n  return reshape(tensor([[7]]),[])[]\n",
+          "fn main():\n  empty:Tensor[f32,0,3]=tensor([],[0,3])\n  return "
           "reduceSum(reshape(empty,[3,0]))\n",
-          "fn change(values:Tensor[int,?,?],a:int32,b:uint32)->Tensor[int,2,2]:\n  "
-          "reshape(values,[a,b])\nfn main()->int:\n  0\n",
-          "fn change(values:Tensor[int,?,?]):\n  "
-          "map([1,2],fn(x):reduceSum(reshape(values,[x,2])))\nfn main()->int:\n  0\n",
-          "fn main() ! TaskError:\n  try parallel:\n    work=spawn "
+          "fn change(values:Tensor[i64,?,?],a:i32,b:u32)->Tensor[i64,2,2]:\n  return "
+          "reshape(values,[a,b])\nfn main()->i64:\n  return 0\n",
+          "fn change(values:Tensor[i64,?,?]):\n  return "
+          "map([1,2],fn(x):return reduceSum(reshape(values,[x,2])))\nfn main()->i64:\n  return 0\n",
+          "fn main() ! TaskError:\n  return try parallel:\n    work=spawn "
           "reshape(tensor([[1,2],[3,4]]),[4])\n    values=try await work\n    values[2]\n",
-          "fn dims()->int:\n  2\nfn main() ! TaskError:\n  try parallel:\n    work=spawn dims()\n  "
+          "fn dims()->i64:\n  return 2\nfn main() ! TaskError:\n  return try parallel:\n    work=spawn dims()\n  "
           "  reduceSum(reshape(tensor([[1,2],[3,4]]),[try await work,2]))\n",
-          "fn reshape(value:int):\n  value+1\nfn main():\n  reshape(1)\n"}) {
+          "fn reshape(value:i64):\n  return value+1\nfn main():\n  return reshape(1)\n"}) {
       auto typed = analyze(source);
       require(typed.ok(), std::string("valid reshape program rejected: ") + source);
       require(bool(continuation::plan(*typed.module)), "reshape helper import failed");
@@ -87,24 +87,24 @@ int main() {
 #endif
     }
     for (auto source :
-         {"fn main():\n  reshape([1,2],[2])\n", "fn main():\n  reshape(1,[])\n",
-          "fn main():\n  reshape(tensor([1,2]),[3])\n", "fn main():\n  reshape(tensor([1,2]),[])\n",
-          "fn main():\n  reshape(tensor([1,2]),[-1,2])\n",
-          "fn main():\n  reshape(tensor([1,2]),[1.0,2])\n",
-          "fn main():\n  reshape(tensor([1,2]),[true,2])\n",
-          "fn main():\n  reshape(tensor([1,2]),[uint(18446744073709551615),0])\n",
-          "fn main():\n  dimensions=[2]\n  reshape(tensor([1,2]),dimensions)\n",
-          "fn main():\n  reshape(tensor([1,2]))\n",
-          "fn change(values:Tensor[int,?])->Tensor[float32,?]:\n  reshape(values,[2])\n",
-          "fn change(values:Tensor[int,?])->[int]:\n  reshape(values,[2])\n",
-          "fn change(values:Tensor[int,?])->Tensor[int,2,2]:\n  reshape(values,[1,4])\n",
-          "fn main() ! TaskError:\n  try parallel:\n    work=spawn tensor([1,2])\n    "
+         {"fn main():\n  return reshape([1,2],[2])\n", "fn main():\n  return reshape(1,[])\n",
+          "fn main():\n  return reshape(tensor([1,2]),[3])\n", "fn main():\n  return reshape(tensor([1,2]),[])\n",
+          "fn main():\n  return reshape(tensor([1,2]),[-1,2])\n",
+          "fn main():\n  return reshape(tensor([1,2]),[1.0,2])\n",
+          "fn main():\n  return reshape(tensor([1,2]),[true,2])\n",
+          "fn main():\n  return reshape(tensor([1,2]),[u64(18446744073709551615),0])\n",
+          "fn main():\n  dimensions=[2]\n  return reshape(tensor([1,2]),dimensions)\n",
+          "fn main():\n  return reshape(tensor([1,2]))\n",
+          "fn change(values:Tensor[i64,?])->Tensor[f32,?]:\n  return reshape(values,[2])\n",
+          "fn change(values:Tensor[i64,?])->[i64]:\n  return reshape(values,[2])\n",
+          "fn change(values:Tensor[i64,?])->Tensor[i64,2,2]:\n  return reshape(values,[1,4])\n",
+          "fn main() ! TaskError:\n  return try parallel:\n    work=spawn tensor([1,2])\n    "
           "reshape(work,[2])\n"})
       require(!analyze(source).ok(), std::string("invalid tensor reshape admitted: ") + source);
     auto resident = check(parse(std::make_shared<SourceFile>(
                               "resident.k",
-                              "fn main()->Tensor[float32,4] ! TaskError:\n  try parallel:\n    "
-                              "values:Tensor[float32,2,2]=tensor([[1,2],[3,4]])\n    resident=try "
+                              "fn main()->Tensor[f32,4] ! TaskError:\n  return try parallel:\n    "
+                              "values:Tensor[f32,2,2]=tensor([[1,2],[3,4]])\n    resident=try "
                               "await transfer(values,devices.gpu())\n    reshape(resident,[4])\n")),
                           {}, {.placement = true});
     bool diagnostic = false;

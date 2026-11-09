@@ -3,10 +3,10 @@ meta { title = "Strings and Unicode", description = "Work with immutable UTF-8 t
 String is immutable, well-formed UTF-8 text. Use double-quoted literals and + for concatenation. Numbers and Boolean values are not implicitly formatted as Strings.
 
 codeblock { language = kalandra, """fn greeting(name: String) -> String:
-  "Hello, " + name
+  return "Hello, " + name
 
 fn main() -> String:
-  greeting("Kalandra")
+  return greeting("Kalandra")
 """ }
 
 This returns Hello, Kalandra. The executable displays the String contents without source-code quotes.
@@ -15,9 +15,9 @@ h2 { "Length is measured in Unicode scalars" }
 
 length(text) returns a count of Unicode scalar values; byteLength(text) counts UTF-8 bytes. Neither is a count of user-perceived grapheme clusters. Combining marks can contribute additional scalars.
 
-codeblock { language = kalandra, """fn main() -> int:
+codeblock { language = kalandra, """fn main() -> i64:
   text = "سلام"
-  length(text) + byteLength(text)
+  return length(text) + byteLength(text)
 """ }
 
 This returns 12: four Unicode scalars encoded in eight UTF-8 bytes.
@@ -26,7 +26,7 @@ h2 { "Index and slice" }
 
 codeblock { language = kalandra, """fn main() -> String:
   text = "Kalandra"
-  slice(text, 0, 3) + text[7]
+  return slice(text, 0, 3) + text[7]
 """ }
 
 This returns Kala: slice(text, 0, 3) is Kal, and text[7] is a. Indexes are zero-based scalar indexes. slice uses a half-open start/end range, with both endpoints checked; it does not clamp or wrap. An indexed scalar is returned as a String, not a separate Char type.

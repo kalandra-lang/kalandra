@@ -2,7 +2,7 @@ meta { title = "Collection functions", description = "Signatures, results and fa
 
 Use these functions to construct and transform collections. They are available without an import. T and U in the signatures stand for supported element types; they are reference notation, not generic declarations. Examples on this page are complete CPU programs.
 
-Inputs must be values rather than pending tasks; await task results first. Numeric and Bool array operations also execute inside GPU helpers on arrays constructed there. They keep their sequential ordering and access rules; placement does not parallelize each callback or loop iteration. Arrays of Strings, records, enums or function values remain limited to CPU programs. Arrays cannot cross CPU/device entry boundaries. On the host, tensor construction creates CPU storage; use transfer to move that snapshot to a GPU.
+Inputs must be values rather than pending tasks; await task results first. Numeric and bool array operations also execute inside GPU helpers on arrays constructed there. They keep their sequential ordering and access rules; placement does not parallelize each callback or loop iteration. Arrays of Strings, records, enums or function values remain limited to CPU programs. Arrays cannot cross CPU/device entry boundaries. On the host, tensor construction creates CPU storage; use transfer to move that snapshot to a GPU.
 
 Built-in names cannot be passed directly as callbacks. Wrap a built-in call in a named or anonymous function when an API requires a callback.
 
@@ -14,13 +14,13 @@ list {
 
 h2 { "length" }
 
-code { "length(value: String | [T]) -> int" }
+code { "length(value: String | [T]) -> i64" }
 
-Count Unicode scalar values in a String or elements in an array. Combining marks count separately; this is not a grapheme count. Empty values have length zero. Tensors use shape instead; length does not return a tensor element count. GPU helpers support length on local numeric and Bool arrays; String queries remain CPU operations.
+Count Unicode scalar values in a String or elements in an array. Combining marks count separately; this is not a grapheme count. Empty values have length zero. Tensors use shape instead; length does not return a tensor element count. GPU helpers support length on local numeric and bool arrays; String queries remain CPU operations.
 
 h2 { "byteLength" }
 
-code { "byteLength(text: String) -> int" }
+code { "byteLength(text: String) -> i64" }
 
 Count UTF-8 bytes, not characters or Unicode scalars. Empty text returns zero. Accepts only a completed CPU String.
 
@@ -28,57 +28,57 @@ h2 { "slice" }
 
 code { "slice(value: String | [T], start: integer, end: integer) -> same collection kind" }
 
-Return the half-open range from start through end, excluding end. Both bounds must be integer scalars and satisfy 0 <= start <= end <= length(value). String bounds count Unicode scalars. Equal bounds produce an empty value. Invalid constant bounds are diagnosed; invalid runtime bounds fail with a checked bounds fault. The result has independent outer array storage; no zero-copy view is promised. String values remain immutable. GPU helpers support slicing local numeric and Bool arrays; String and other array element kinds remain CPU operations.
+Return the half-open range from start through end, excluding end. Both bounds must be integer scalars and satisfy 0 <= start <= end <= length(value). String bounds count Unicode scalars. Equal bounds produce an empty value. Invalid constant bounds are diagnosed; invalid runtime bounds fail with a checked bounds fault. The result has independent outer array storage; no zero-copy view is promised. String values remain immutable. GPU helpers support slicing local numeric and bool arrays; String and other array element kinds remain CPU operations.
 
 h2 { "concat" }
 
 code { "concat(left: [T], right: [T]) -> [T]" }
 
-Join two arrays with the same element type, retaining left-to-right order. Empty arrays are allowed when their element type can be inferred. Supported array element kinds include numeric, Bool, String, records, enums and function values; nested arrays and tensors are not general array elements. The combined size is checked. This is not String concatenation; use + for Strings. GPU helpers support concatenating local numeric and Bool arrays.
+Join two arrays with the same element type, retaining left-to-right order. Empty arrays are allowed when their element type can be inferred. Supported array element kinds include numeric, bool, String, records, enums and function values; nested arrays and tensors are not general array elements. The combined size is checked. This is not String concatenation; use + for Strings. GPU helpers support concatenating local numeric and bool arrays.
 
 h2 { "map" }
 
 code { "map(input: [T], callback: fn(T) -> U) -> [U]" }
 
-Call a one-argument function once per element, sequentially and in input order. The callback may be a named function, a function value or a supported closure. Its input and output must be supported array element kinds. The callback cannot return a task or an expected-error result; use parallelMap for supported fallible callbacks. An empty input calls no callbacks. Allocation and execution faults remain checked. GPU helpers support numeric/Bool input and output arrays with eligible nonrecursive callbacks and supported captures; general function-value callbacks remain CPU-only.
+Call a one-argument function once per element, sequentially and in input order. The callback may be a named function, a function value or a supported closure. Its input and output must be supported array element kinds. The callback cannot return a task or an expected-error result; use parallelMap for supported fallible callbacks. An empty input calls no callbacks. Allocation and execution faults remain checked. GPU helpers support numeric/bool input and output arrays with eligible nonrecursive callbacks and supported captures; general function-value callbacks remain CPU-only.
 
 h2 { "copy" }
 
 code { "copy(input: [T]) -> [T]" }
 
-Return an independent array with the same length, element order and exact numeric bits. Supported elements are the ten numeric types, Bool and String. The array storage is fresh; String elements remain immutable values and may share their own text backing. Records, function values and nested arrays are not accepted. Empty arrays need an element type from context. Allocation and execution faults remain checked. CPU worker tasks are supported. GPU helpers can copy their local numeric and Bool arrays. String arrays require CPU programs.
+Return an independent array with the same length, element order and exact numeric bits. Supported elements are the ten numeric types, bool and String. The array storage is fresh; String elements remain immutable values and may share their own text backing. Records, function values and nested arrays are not accepted. Empty arrays need an element type from context. Allocation and execution faults remain checked. CPU worker tasks are supported. GPU helpers can copy their local numeric and bool arrays. String arrays require CPU programs.
 
 h2 { "sort" }
 
 code { "sort(mut input: [T]) -> [T]" }
 
-Sort a numeric or Bool array in ascending order, in place, and return the same array. Existing aliases observe the writes. Ordinary array parameters and captured arrays are read-only; a function that sorts its caller's array must declare a mut parameter. A live task reader prevents sorting that storage until the task settles, and spawn sort(input) is rejected. Arrays of Strings, records, enums or function values, tensor arguments and custom comparators are not supported.
+Sort a numeric or bool array in ascending order, in place, and return the same array. Existing aliases observe the writes. Ordinary array parameters and captured arrays are read-only; a function that sorts its caller's array must declare a mut parameter. A live task reader prevents sorting that storage until the task settles, and spawn sort(input) is rejected. Arrays of Strings, records, enums or function values, tensor arguments and custom comparators are not supported.
 
-Sorting is unstable: equal elements have no guaranteed relative order. It takes O(n log n) time with constant auxiliary storage. Cancellation can leave a partially sorted input; completed writes remain visible. Checked faults and cancellation checks remain enabled. GPU helpers can also sort local numeric and Bool arrays, with cancellation checkpoints between bounded comparison/swap steps.
+Sorting is unstable: equal elements have no guaranteed relative order. It takes O(n log n) time with constant auxiliary storage. Cancellation can leave a partially sorted input; completed writes remain visible. Checked faults and cancellation checks remain enabled. GPU helpers can also sort local numeric and bool arrays, with cancellation checkpoints between bounded comparison/swap steps.
 
-Integer ordering is numeric; Bool orders false before true. Floating-point ordering is deterministic and preserves exact bits: negative NaNs, negative infinity, negative finite values, negative zero, positive zero, positive finite values, positive infinity, then positive NaNs. Within a NaN sign, negative encodings are ordered by decreasing raw bits and positive encodings by increasing raw bits, including their quiet/signaling bit and payload. Sorting uses integer bit keys, without floating-point arithmetic or comparisons, and does not change the rounding mode or raise floating-point exception flags.
+Integer ordering is numeric; bool orders false before true. Floating-point ordering is deterministic and preserves exact bits: negative NaNs, negative infinity, negative finite values, negative zero, positive zero, positive finite values, positive infinity, then positive NaNs. Within a NaN sign, negative encodings are ordered by decreasing raw bits and positive encodings by increasing raw bits, including their quiet/signaling bit and payload. Sorting uses integer bit keys, without floating-point arithmetic or comparisons, and does not change the rounding mode or raise floating-point exception flags.
 
 h2 { "sorted" }
 
 code { "sorted(input: [T]) -> [T]" }
 
-Return a fresh sorted array without changing the input. Accepts the same numeric and Bool element types and uses the same ordering as sort. The copy requires O(n) additional element storage; sorting that copy uses constant auxiliary storage. Ordinary read-only inputs and worker tasks are supported. Allocation failures and cancellation remain checked; a canceled operation does not modify the input. GPU helpers can also sort local numeric and Bool arrays, with cancellation checkpoints between bounded comparison/swap steps.
+Return a fresh sorted array without changing the input. Accepts the same numeric and bool element types and uses the same ordering as sort. The copy requires O(n) additional element storage; sorting that copy uses constant auxiliary storage. Ordinary read-only inputs and worker tasks are supported. Allocation failures and cancellation remain checked; a canceled operation does not modify the input. GPU helpers can also sort local numeric and bool arrays, with cancellation checkpoints between bounded comparison/swap steps.
 
-codeblock { language = kalandra, """fn main() -> [int]:
+codeblock { language = kalandra, """fn main() -> [i64]:
   values = [3, 1, 2]
   ordered = sorted(values)
   alias = values
   result = sort(values)
   ordered[0] = 9
-  [alias[0], result[2], ordered[0]]
+  return [alias[0], result[2], ordered[0]]
 """ }
 The result is [1, 3, 9].
 
 h2 { "generate" }
 
-code { "generate(count: int, callback: fn(int) -> T) -> [T]" }
+code { "generate(count: i64, callback: fn(i64) -> T) -> [T]" }
 
-Construct a fresh array in ascending index order, without an intermediate index array. Call the callback once for each index from zero through count, excluding count. The callback may be a named function, function value or closure and must return a completed supported array element, as for sequential map. A zero count invokes no callbacks. A negative constant count is rejected; a negative runtime count produces a checked bounds fault. Byte-size overflow, allocation failures and callback execution faults remain checked. The count must be int (int64); use an explicit conversion for other integer widths. GPU helpers support numeric and Bool results with eligible nonrecursive callbacks and supported captures, executing callbacks sequentially on the device. Other element kinds and general function-value callbacks remain CPU-only.
+Construct a fresh array in ascending index order, without an intermediate index array. Call the callback once for each index from zero through count, excluding count. The callback may be a named function, function value or closure and must return a completed supported array element, as for sequential map. A zero count invokes no callbacks. A negative constant count is rejected; a negative runtime count produces a checked bounds fault. Byte-size overflow, allocation failures and callback execution faults remain checked. The count must be i64; use an explicit conversion for other integer widths. GPU helpers support numeric and bool results with eligible nonrecursive callbacks and supported captures, executing callbacks sequentially on the device. Other element kinds and general function-value callbacks remain CPU-only.
 
 h2 { "tensor" }
 
@@ -96,7 +96,7 @@ Flatten a completed CPU numeric tensor in row-major logical order, preserving th
 
 h2 { "shape" }
 
-code { "shape(values: Tensor[T, ...]) -> [int]" }
+code { "shape(values: Tensor[T, ...]) -> [i64]" }
 
 Return one extent per dimension of a completed CPU numeric tensor. A rank-zero tensor returns an empty array. The dimensions describe the logical shape rather than storage byte strides. Download a resident result before querying it on the host.
 
@@ -108,14 +108,14 @@ Change the shape of a completed CPU numeric tensor while retaining its numeric i
 
 h2 { "Example" }
 
-codeblock { language = kalandra, """fn double(value: int) -> int:
-  value * 2
+codeblock { language = kalandra, """fn double(value: i64) -> i64:
+  return value * 2
 
-fn main() -> [int]:
+fn main() -> [i64]:
   values = concat(slice([1, 2, 3], 0, 2), [4])
   matrix = tensor(map(values, double), [1, 3])
   flat = array(reshape(matrix, [3]))
-  [length("سلام"), byteLength("سلام"), length(flat), shape(matrix)[1], flat[2]]
+  return [length("سلام"), byteLength("سلام"), length(flat), shape(matrix)[1], flat[2]]
 """ }
 The result is [4, 8, 3, 3, 8].
 

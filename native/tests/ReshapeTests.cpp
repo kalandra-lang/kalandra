@@ -12,11 +12,11 @@ static CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
-    for (auto type : {"int32", "uint32", "int64", "uint64", "float32", "float64"})
-      for (auto dimension : {"int32", "uint32", "int64", "uint64"}) {
+    for (auto type : {"i32", "u32", "i64", "u64", "f32", "f64"})
+      for (auto dimension : {"i32", "u32", "i64", "u64"}) {
         auto typed = analyze("fn reshape(values:[" + std::string(type) + "],rows:" + dimension +
                              ",columns:" + dimension +
-                             "):\n  tensor(values,[rows,columns])\nfn main()->int:\n  0\n");
+                             "):\n  return tensor(values,[rows,columns])\nfn main()->i64:\n  return 0\n");
         require(typed.ok(), "numeric/dimension type pair rejected");
         const auto &node = typed.module->expressions[typed.module->functions[0].result];
         const auto &op = std::get<ArrayToTensor>(node.operation);
@@ -30,20 +30,20 @@ int main() {
         require(bool(lowerNative(*typed.module)), "reshape numeric/dimension lowering failed");
 #endif
       }
-    for (auto text : {"fn run(values:[int]):\n  tensor(values,[2,2])\n",
-                      "fn run(values:[int]):\n  tensor(values,[])\n",
-                      "fn run(values:[int],n:int):\n  tensor(values,[n,0,2])\n",
-                      "fn run(rows:int,columns:int):\n  tensor([1,2,3,4],[rows,columns])\n",
-                      "fn run(rows:int,columns:int)->Tensor[float32,?,?]:\n  "
+    for (auto text : {"fn run(values:[i64]):\n  return tensor(values,[2,2])\n",
+                      "fn run(values:[i64]):\n  return tensor(values,[])\n",
+                      "fn run(values:[i64],n:i64):\n  return tensor(values,[n,0,2])\n",
+                      "fn run(rows:i64,columns:i64):\n  return tensor([1,2,3,4],[rows,columns])\n",
+                      "fn run(rows:i64,columns:i64)->Tensor[f32,?,?]:\n  return "
                       "tensor([1,2,3,4],[rows,columns])\n",
-                      "fn run(values:[int],rows:int32,columns:uint64)->Tensor[int,2,2]:\n  "
+                      "fn run(values:[i64],rows:i32,columns:u64)->Tensor[i64,2,2]:\n  return "
                       "tensor(values,[rows,columns])\n",
-                      "fn run(values:[int],rows:int,columns:int) ! TaskError:\n  try parallel:\n   "
+                      "fn run(values:[i64],rows:i64,columns:i64) ! TaskError:\n  return try parallel:\n   "
                       " work=spawn tensor(values,[rows,columns])\n    first=try await work\n    "
                       "again=try await work\n    again\n",
-                      "fn run(values:[int],side:int):\n  map(values,fn(x): "
-                      "reduceSum(tensor(map([x],fn(y): y+x),[side,side])))\n"}) {
-      auto typed = analyze(std::string(text) + "fn main()->int:\n  0\n");
+                      "fn run(values:[i64],side:i64):\n  return map(values,fn(x): return "
+                      "reduceSum(tensor(map([x],fn(y): return y+x),[side,side])))\n"}) {
+      auto typed = analyze(std::string(text) + "fn main()->i64:\n  return 0\n");
       require(typed.ok(), std::string("valid reshape rejected: ") + text);
       require(bool(continuation::plan(*typed.module)), "reshape helper import failed");
 #ifndef KALANDRA_RESHAPE_FRONTEND_ONLY
@@ -53,20 +53,20 @@ int main() {
 #endif
     }
     for (auto text :
-         {"fn run(values:[int]):\n  tensor(values,[-1,2])\n",
-          "fn run(values:[int]):\n  tensor(values,[uint64(18446744073709551615),0])\n",
-          "fn run(values:[int]):\n  tensor(values,[9223372036854775807,2])\n",
-          "fn run(values:[int]):\n  tensor(values,[0,9223372036854775807,9223372036854775807])\n",
-          "fn run(values:[int],rows:float):\n  tensor(values,[rows,2])\n",
-          "fn run(values:[int],rows:Bool):\n  tensor(values,[rows,2])\n",
-          "fn run(values:[int],shape:[int]):\n  tensor(values,shape)\n",
-          "fn run():\n  values=[1,2,3]\n  tensor(values,[2,2])\n",
-          "fn run()->Tensor[float32,2,2]:\n  values=[1,2,3,4]\n  tensor(values,[2,2])\n",
-          "fn run(values:[int],rows:int)->Tensor[int,?,?]:\n  tensor(values,[rows])\n"})
+         {"fn run(values:[i64]):\n  return tensor(values,[-1,2])\n",
+          "fn run(values:[i64]):\n  return tensor(values,[u64(18446744073709551615),0])\n",
+          "fn run(values:[i64]):\n  return tensor(values,[9223372036854775807,2])\n",
+          "fn run(values:[i64]):\n  return tensor(values,[0,9223372036854775807,9223372036854775807])\n",
+          "fn run(values:[i64],rows:f64):\n  return tensor(values,[rows,2])\n",
+          "fn run(values:[i64],rows:bool):\n  return tensor(values,[rows,2])\n",
+          "fn run(values:[i64],shape:[i64]):\n  return tensor(values,shape)\n",
+          "fn run():\n  values=[1,2,3]\n  return tensor(values,[2,2])\n",
+          "fn run()->Tensor[f32,2,2]:\n  values=[1,2,3,4]\n  return tensor(values,[2,2])\n",
+          "fn run(values:[i64],rows:i64)->Tensor[i64,?,?]:\n  return tensor(values,[rows])\n"})
       require(!analyze(text).ok(), std::string("invalid reshape accepted: ") + text);
 #ifndef KALANDRA_RESHAPE_FRONTEND_ONLY
     auto good =
-        analyze("fn run(values:[int],n:int):\n  tensor(values,[n,n])\nfn main()->int:\n  0\n");
+        analyze("fn run(values:[i64],n:i64):\n  return tensor(values,[n,n])\nfn main()->i64:\n  return 0\n");
     for (unsigned surface = 0; surface < 4; ++surface) {
       auto forged = *good.module;
       auto &node = forged.expressions[forged.functions[0].result];

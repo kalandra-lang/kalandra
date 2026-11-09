@@ -129,7 +129,7 @@ static void verify(Shape shape, std::size_t length, int error = 0) {
     if (expected) {
       require(!output.allocated && !output.aligned, "failed reshape published partial output");
       if (error) {
-        require(context.line() == 2 && context.column() == 3,
+        require(context.line() == 2 && context.column() == 10,
                 "reshape failure lost original location");
         require(!context.allocations(), "reshape validation happened after allocation");
       }

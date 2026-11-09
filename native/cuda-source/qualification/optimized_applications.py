@@ -18,13 +18,13 @@ for name,m,n,k in [('aligned',128,256,32),('row-tail',129,128,16),('contraction-
     source=a.output/(name+'.k')
     left='['+','.join('['+','.join('1' for _ in range(k))+']' for _ in range(m))+']'
     right='['+','.join('['+','.join('1' for _ in range(n))+']' for _ in range(k))+']'
-    source.write_text(f'''fn work(a:Tensor[float32,?,?],b:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  matmul(a,b)
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+    source.write_text(f'''fn work(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return matmul(a,b)
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    a:Tensor[float32,{m},{k}]=tensor({left})
-    b:Tensor[float32,{k},{n}]=tensor({right})
+    a:Tensor[f32,{m},{k}]=tensor({left})
+    b:Tensor[f32,{k},{n}]=tensor({right})
     x=try await transfer(a,gpu)
     y=try await transfer(b,gpu)
     result=try await spawn work(x,y) on gpu

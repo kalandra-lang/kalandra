@@ -37,16 +37,16 @@ int main() {
       }
     }
     require(count >= 148, "worker callable fixture catalog incomplete");
-    const std::string base = "fn double(value:int)->int:\n  value*2\nfn "
-                             "apply(value:int,transform:fn(int)->int)->int:\n  transform(value)\n";
+    const std::string base = "fn double(value:i64)->i64:\n  return value*2\nfn "
+                             "apply(value:i64,transform:fn(i64)->i64)->i64:\n  return transform(value)\n";
     for (const auto *body :
-         {"fn wrap(target:fn(int)->int)->fn(int)->int:\n  fn(value:int):target(value)\nfn "
-          "main()->int ! TaskError:\n  f=wrap(double)\n  try parallel:\n    try await spawn "
+         {"fn wrap(target:fn(i64)->i64)->fn(i64)->i64:\n  return fn(value:i64):return target(value)\nfn "
+          "main()->i64 ! TaskError:\n  f=wrap(double)\n  return try parallel:\n    try await spawn "
           "apply(21,f)\n",
-          "fn make(target:fn(int)->int)->fn(int)->int:\n  target\nfn main()->int ! TaskError:\n  "
+          "fn make(target:fn(i64)->i64)->fn(i64)->i64:\n  return target\nfn main()->i64 ! TaskError:\n  return "
           "try parallel:\n    try await spawn apply(21,make(double))\n",
-          "fn forward(f:fn(int)->int)->int ! TaskError:\n  try parallel:\n    try await spawn "
-          "apply(21,f)\nfn main()->int ! TaskError:\n  try forward(double)\n"}) {
+          "fn forward(f:fn(i64)->i64)->i64 ! TaskError:\n  return try parallel:\n    try await spawn "
+          "apply(21,f)\nfn main()->i64 ! TaskError:\n  return try forward(double)\n"}) {
       auto result = analyze(base + body);
       require(result.ok(), "direct parameter provenance rejected");
     }
@@ -64,7 +64,7 @@ int main() {
                                                     [](const auto &d) { return d.code == "S074"; }),
                 "unproven parameter sources admitted");
       }
-    auto result = analyze(base + "fn main()->int ! TaskError:\n  f=double\n  try parallel:\n    "
+    auto result = analyze(base + "fn main()->i64 ! TaskError:\n  f=double\n  return try parallel:\n    "
                                  "try await spawn apply(21,f)\n");
     require(result.ok(), "mutation fixture rejected");
     for (unsigned mode = 0; mode < 3; ++mode) {
@@ -82,8 +82,8 @@ int main() {
       require(numericCapabilityError(module, NumericTarget::Cpu).has_value(),
               "forged worker callable provenance accepted");
     }
-    auto returned = analyze("fn make()->fn(int)->int:\n  fn(value:int):value\nfn main()->int ! "
-                            "TaskError:\n  f=try parallel:\n    try await spawn make()\n  f(42)\n");
+    auto returned = analyze("fn make()->fn(i64)->i64:\n  return fn(value:i64):return value\nfn main()->i64 ! "
+                            "TaskError:\n  f=try parallel:\n    try await spawn make()\n  return f(42)\n");
     require(returned.ok(), "returned function mutation fixture rejected");
     for (unsigned mode = 0; mode < 3; ++mode) {
       auto module = *returned.module;
@@ -108,9 +108,9 @@ int main() {
               "forged function result task/signature admitted");
     }
     auto indirect =
-        analyze(base + "fn make()->fn(int)->int:\n  double\n"
-                       "fn main()->int ! TaskError:\n  factory=if true:make\n  else:make\n"
-                       "  f=factory()\n  try parallel:\n    try await spawn apply(21,f)\n");
+        analyze(base + "fn make()->fn(i64)->i64:\n  return double\n"
+                       "fn main()->i64 ! TaskError:\n  factory=if true:make\n  else:make\n"
+                       "  f=factory()\n  return try parallel:\n    try await spawn apply(21,f)\n");
     require(indirect.ok(), "indirect provenance mutation fixture rejected");
     for (unsigned mode = 0; mode < 2; ++mode) {
       auto module = *indirect.module;
@@ -140,7 +140,7 @@ int main() {
       require(changed && rejected && numericCapabilityError(module, NumericTarget::Cpu).has_value(),
               "partial or malformed indirect provenance admitted");
     }
-    auto mapped = analyze(base + "fn main()->int ! TaskError:\n  f=double\n  try parallel:\n    "
+    auto mapped = analyze(base + "fn main()->i64 ! TaskError:\n  f=double\n  return try parallel:\n    "
                                  "values=try await spawn map([21],f)\n    values[0]\n");
     require(mapped.ok(), "map provenance mutation fixture rejected");
     auto forgedMap = *mapped.module;
@@ -163,7 +163,7 @@ int main() {
       const std::string query =
           std::string(operation).starts_with("length") ? "values" : "length(values)";
       auto checked = analyze(base +
-                             "fn main()->int ! TaskError:\n  callbacks=[double]\n  try parallel:\n "
+                             "fn main()->i64 ! TaskError:\n  callbacks=[double]\n  return try parallel:\n "
                              "   values=try await spawn " +
                              operation + "\n    " + query + "\n");
       require(checked.ok(), "collection provenance mutation fixture rejected");
@@ -183,9 +183,9 @@ int main() {
       require(changed && rejected, "forged collection element provenance admitted");
     }
     auto errorResult =
-        analyze("error E:\n  Bad:\n    callback:fn(int)->int\nfn worker()->int ! E:\n  if "
-                "true:fail E.Bad {callback:fn(value:int):value}\n  42\nfn main()->int ! (E | "
-                "TaskError):\n  try parallel:\n    try await spawn worker()\n");
+        analyze("error E:\n  Bad:\n    callback:fn(i64)->i64\nfn worker()->i64 ! E:\n  if "
+                "true:fail E.Bad {callback:fn(value:i64):return value}\n  return 42\nfn main()->i64 ! (E | "
+                "TaskError):\n  return try parallel:\n    try await spawn worker()\n");
     require(errorResult.ok(), "error provenance mutation fixture rejected");
     for (unsigned mode = 0; mode < 2; ++mode) {
       auto module = *errorResult.module;

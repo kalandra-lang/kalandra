@@ -1,13 +1,13 @@
-fn twice(values:Tensor[int,?])->Tensor[int,?]:
-  values+values
-fn bad(values:[int],position:int)->[int]:
-  [values[position]]
-fn recover(values:[int])->[int] ! TaskError:
+fn twice(values:Tensor[i64,?])->Tensor[i64,?]:
+  return values+values
+fn bad(values:[i64],position:i64)->[i64]:
+  return [values[position]]
+fn recover(values:[i64])->[i64] ! TaskError:
   result=parallel:
     try await spawn bad(values,length(values)) on devices.cpu()
-  result catch fn(error):copy(values)
-fn main()->int ! TaskError:
-  try parallel:
+  return result catch fn(error):return copy(values)
+fn main()->i64 ! TaskError:
+  return try parallel:
     values=[3,1,2]
     saved=values
     values=try await spawn recover(values) on devices.cpu()

@@ -1,19 +1,19 @@
-fn twice(values:Tensor[int,?])->Tensor[int,?]:
-  values+values
-fn contains(values:[int],wanted:int)->Bool:
-  for value in values:
+fn twice(values:Tensor[i64,?])->Tensor[i64,?]:
+  return values+values
+fn contains(values:[i64],wanted:i64)->bool:
+  return for value in values:
     if value==wanted:
       break true
   else:
     false
-fn edit(mut values:[int])->[int]:
+fn edit(mut values:[i64])->[i64]:
   for index in range(length(values)):
     if index==1:
       continue
     values[index]=values[index]+1
-  values
-fn sum(n:int)->int:
-  if n==0:
+  return values
+fn sum(n:i64)->i64:
+  return if n==0:
     0
   else:
     value=for index in range(1):
@@ -21,15 +21,15 @@ fn sum(n:int)->int:
     else:
       0
     value+sum(n-1)
-fn prepare(values:[int])->Tensor[int,?]:
-  while true:
+fn prepare(values:[i64])->Tensor[i64,?]:
+  return while true:
     break tensor(values)
   else:
     tensor([0])
-fn identity(value:int)->int:
-  value
-fn main()->int ! TaskError:
-  try parallel:
+fn identity(value:i64)->i64:
+  return value
+fn main()->i64 ! TaskError:
+  return try parallel:
     groups=0
     for index in range(3):
       try parallel:
@@ -52,4 +52,4 @@ fn main()->int ! TaskError:
     resident=try await transfer(prepare(result),gpu)
     work=spawn twice(resident) on gpu
     host=try await transfer(try await work,devices.cpu())
-    int(reduceSum(host))+selected*10+hit+sum(200)+groups
+    i64(reduceSum(host))+selected*10+hit+sum(200)+groups

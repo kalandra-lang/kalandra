@@ -1,14 +1,14 @@
-fn double(value:int)->int:
-  value*2
+fn double(value:i64)->i64:
+  return value*2
 type Job:
-  run:fn(int)->int
-  values:[int]
-fn make(value:int)->Job:
+  run:fn(i64)->i64
+  values:[i64]
+fn make(value:i64)->Job:
   numbers=[value]
-  Job {run:fn(item:int):numbers[0]+item,values:[2]}
-fn main()->int ! TaskError:
+  return Job {run:fn(item:i64):return numbers[0]+item,values:[2]}
+fn main()->i64 ! TaskError:
   factory=make
   job=try parallel:
     try await spawn factory(40)
-  try parallel:
+  return try parallel:
     try await spawn job.run(job.values[0])

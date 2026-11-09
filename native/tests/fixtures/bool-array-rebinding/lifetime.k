@@ -1,9 +1,9 @@
-fn choose(index:int)->[Bool]:
-  if index%2==0: [true,false,true]
+fn choose(index:i64)->[bool]:
+  return if index%2==0: [true,false,true]
   else: [false]
-fn alternate(index:int)->[Bool]:
-  choose(index)
-fn run(count:int)->int:
+fn alternate(index:i64)->[bool]:
+  return choose(index)
+fn run(count:i64)->i64:
   values=[true,true]
   saved=values
   index=0
@@ -14,6 +14,6 @@ fn run(count:int)->int:
     index=index+1
   marker=if saved[0] and saved[1]:11
   else:0
-  total+length(values)+marker
-fn main()->int:
-  run(10000)
+  return total+length(values)+marker
+fn main()->i64:
+  return run(10000)

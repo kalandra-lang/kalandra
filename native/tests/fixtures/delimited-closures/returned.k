@@ -1,10 +1,10 @@
-fn identity(callback:fn(int)->int)->fn(int)->int:
-  callback
-fn make(offset:int)->fn(int)->int:
-  identity(fn(value):
+fn identity(callback:fn(i64)->i64)->fn(i64)->i64:
+  return callback
+fn make(offset:i64)->fn(i64)->i64:
+  return identity(fn(value):
     total=value+offset
-    total
+    return total
   )
-fn main()->int:
+fn main()->i64:
   callback=make(20)
-  callback(22)
+  return callback(22)

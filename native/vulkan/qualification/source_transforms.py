@@ -27,7 +27,7 @@ else:
 def run(command,**kwargs):
     return subprocess.run(list(map(str,command)),text=True,capture_output=True,timeout=180,**kwargs)
 
-types=[('float32','f','I'),('float64','d','Q')]+[(('u' if u else '')+'int'+str(w),'','B' if w==8 else 'H' if w==16 else 'I' if w==32 else 'Q') for w in (8,16,32,64) for u in (False,True)]
+types=[('f32','f','I'),('f64','d','Q')]+[(('u' if u else 'i')+str(w),'','B' if w==8 else 'H' if w==16 else 'I' if w==32 else 'Q') for w in (8,16,32,64) for u in (False,True)]
 cases=[]
 for name,fmt,wire in types:
     for mode in ('hardware','software'):
@@ -36,14 +36,14 @@ for kind,body,epsilon,fault in [('softmaxRows','softmaxRows(x)',None,False),
                               ('rmsNormRows','rmsNormRows(x,0.00001)',D.from_float(from_bits(to_bits(.00001,'f','I'),'f','I')),False),
                               ('rms-device','rmsNormRows(x,reduceSum(x*x))',D(91),False),
                               ('rms-invalid','rmsNormRows(x,-reduceSum(x*x))',None,True)]:
-    cases.append(('float32','f','I','hardware',kind,body,1 if kind=='softmaxRows' else 2,epsilon,fault))
+    cases.append(('f32','f','I','hardware',kind,body,1 if kind=='softmaxRows' else 2,epsilon,fault))
 for name,fmt,wire,mode,kind,body,operation,epsilon,fault in cases:
     case=a.output/f'{name}-{kind}-{mode}';case.mkdir(exist_ok=True)
     source=case/'source.k'
     source.write_text(f'''fn work(x:Tensor[{name},?,?])->Tensor[{name},?,?]:
-  {body}
+  return {body}
 fn main()->Tensor[{name},?,?] ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     cpu=devices.cpu()
     x:Tensor[{name},2,3]=tensor([[1,2,3],[4,5,6]])

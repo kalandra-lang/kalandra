@@ -5,11 +5,11 @@ A native language for CPU and GPU computing. [kalandra.dev](https://kalandra.dev
 Kalandra's native implementation uses C++23 and MLIR/LLVM. It combines immutable values, automatic memory management, structured parallel tasks and explicit GPU execution. CPU execution supports macOS on Apple silicon and Linux/Windows on x86-64 and ARM64; GPU execution uses Apple Metal on macOS and CUDA/Vulkan on qualified Linux x86-64 hardware. Windows GPU support is experimental and hardware-unqualified.
 
 ```kalandra
-fn double(value: int) -> int:
-  value * 2
+fn double(value: i64) -> i64:
+  return value * 2
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     try await spawn double(21)
 ```
 

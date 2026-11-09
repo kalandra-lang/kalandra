@@ -14,10 +14,10 @@ results=[]
 for mode,extra,flags,library in variants:
  if windows and mode=='thread-sanitized':continue
  for width in (2,8,32,128):
-  for lang,cpp in [('int64','std::int64_t'),('float64','double'),('Bool','bool')]:
+  for lang,cpp in [('i64','std::int64_t'),('f64','double'),('bool','bool')]:
    name=f'{mode}-{lang}-{width}';source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
-   values=','.join('a' if i%2==0 else 'b' for i in range(width));value='acc' if lang=='int64' else 'acc != 0' if lang=='Bool' else 'float64(acc)';main='false' if lang=='Bool' else lang+'(0)'
-   source.write_text(f'fn total(values:[int64],index:int64,acc:int64)->{lang}:\n  if index == {width}:\n    {value}\n  else:\n    total(values,index+1,acc+values[index])\nfn value(a:int64,b:int64)->{lang}:\n  total([{values}],0,0)\nfn main()->{lang}:\n  {main}\n')
+   values=','.join('a' if i%2==0 else 'b' for i in range(width));value='acc' if lang=='i64' else 'acc != 0' if lang=='bool' else 'f64(acc)';main='false' if lang=='bool' else lang+'(0)'
+   source.write_text(f'fn total(values:[i64],index:i64,acc:i64)->{lang}:\n  return if index == {width}:\n    {value}\n  else:\n    total(values,index+1,acc+values[index])\nfn value(a:i64,b:i64)->{lang}:\n  return total([{values}],0,0)\nfn main()->{lang}:\n  return {main}\n')
    run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
    if width>=32:
     assert 'kalandra.ordinary.reduction' in ir.read_text(),name

@@ -1,7 +1,7 @@
 type Job:
-  value:int
-  run:fn(int)->int
-fn main()->int ! TaskError:
-  jobs=try parallelMap([40],fn(offset):Job {value:2,run:fn(value:int):offset+value})
-  values=try parallelMap(jobs,fn(job):job.run(job.value))
-  values[0]
+  value:i64
+  run:fn(i64)->i64
+fn main()->i64 ! TaskError:
+  jobs=try parallelMap([40],fn(offset):return Job {value:2,run:fn(value:i64):return offset+value})
+  values=try parallelMap(jobs,fn(job):return job.run(job.value))
+  return values[0]

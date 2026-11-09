@@ -1,9 +1,9 @@
-fn double(value:int)->int:
-  value*2
-fn choose(flag:Bool)->fn(int)->int:
-  if flag:double
-  else:fn(value:int):value+21
-fn main()->int ! TaskError:
+fn double(value:i64)->i64:
+  return value*2
+fn choose(flag:bool)->fn(i64)->i64:
+  return if flag:double
+  else:fn(value:i64):return value+21
+fn main()->i64 ! TaskError:
   f=choose(false)
-  try parallel:
+  return try parallel:
     try await spawn f(21)

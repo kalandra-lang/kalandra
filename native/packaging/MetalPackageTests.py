@@ -31,10 +31,10 @@ def qualify_packages(compiler, checker, cwd, run):
     (numerical / "kalandra.toml").write_text(metadata)
     # Relative helper imports and a re-export retain their numerical package owner.
     (numerical / "public.k").write_text('export from "./kernel.k" import shift\n')
-    kernel = 'export fn shift(values:Tensor[float32,?])->Tensor[float32,?]:\n  values+1\n'
+    kernel = 'export fn shift(values:Tensor[f32,?])->Tensor[f32,?]:\n  return values+1\n'
     (numerical / "kernel.k").write_text(kernel)
     old = commit(numerical)
-    (pipeline / "public.k").write_text('from "numerical" import shift\nexport fn process(values:Tensor[float32,?])->Tensor[float32,?]:\n  shift(values)\n')
+    (pipeline / "public.k").write_text('from "numerical" import shift\nexport fn process(values:Tensor[f32,?])->Tensor[f32,?]:\n  return shift(values)\n')
     (pipeline / "kalandra.toml").write_text("format=1\n[package]\nname='pipeline'\nversion='1.0.0'\nentry='public.k'\n[dependencies]\n" + dependency("numerical", numerical, "main"))
     wrapped = commit(pipeline)
     project = cwd / "package application"
@@ -44,11 +44,11 @@ def qualify_packages(compiler, checker, cwd, run):
                         dependency("numerical", numerical, "main") + dependency("pipeline", pipeline, wrapped))
     (project / "main.k").write_text('''from "numerical" import shift
 from "pipeline" import process
-fn combine(left:Tensor[float32,?],right:Tensor[float32,?])->Tensor[float32,?]:
-  left+right
-fn main()->Tensor[float32,3] ! TaskError:
-  try parallel:
-    values:Tensor[float32,3]=tensor([1,2,3])
+fn combine(left:Tensor[f32,?],right:Tensor[f32,?])->Tensor[f32,?]:
+  return left+right
+fn main()->Tensor[f32,3] ! TaskError:
+  return try parallel:
+    values:Tensor[f32,3]=tensor([1,2,3])
     prepared=try await spawn process(values)
     gpu=devices.gpu()
     resident=try await transfer(prepared,gpu)

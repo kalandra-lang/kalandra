@@ -1,26 +1,26 @@
 fn project(
-  samples: Tensor[float32, ?, ?],
-  weights: Tensor[float32, ?, ?],
-) -> Tensor[float32, ?, ?]:
-  matmul(samples, weights)
+  samples: Tensor[f32, ?, ?],
+  weights: Tensor[f32, ?, ?],
+) -> Tensor[f32, ?, ?]:
+  return matmul(samples, weights)
 
-fn summarize(values: Tensor[float32, ?, ?]) -> float32:
-  reduceSum(values)
+fn summarize(values: Tensor[f32, ?, ?]) -> f32:
+  return reduceSum(values)
 
 fn reference(
-  samples: Tensor[float32, ?, ?],
-  weights: Tensor[float32, ?, ?],
-) -> float32:
-  summarize(project(samples, weights))
+  samples: Tensor[f32, ?, ?],
+  weights: Tensor[f32, ?, ?],
+) -> f32:
+  return summarize(project(samples, weights))
 
-fn main() -> float32:
-  samples: Tensor[float32, 2, 3] = tensor([
+fn main() -> f32:
+  samples: Tensor[f32, 2, 3] = tensor([
     [1, 2, 3],
     [4, 5, 6],
   ])
-  weights: Tensor[float32, ?, ?] = tensor([
+  weights: Tensor[f32, ?, ?] = tensor([
     [1, 2],
     [3, 4],
     [5, 6],
   ])
-  reference(samples, weights)
+  return reference(samples, weights)

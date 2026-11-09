@@ -1,19 +1,19 @@
-fn double(value:int)->int:
-  value*2
-fn triple(value:int)->int:
-  value*3
-fn apply(value:int,transform:fn(int)->int)->int:
-  transform(value)
+fn double(value:i64)->i64:
+  return value*2
+fn triple(value:i64)->i64:
+  return value*3
+fn apply(value:i64,transform:fn(i64)->i64)->i64:
+  return transform(value)
 enum Mode:
   Twice
   Thrice
-fn run(mode:Mode)->int ! TaskError:
+fn run(mode:Mode)->i64 ! TaskError:
   transform=match mode:
     Mode.Twice:double
     Mode.Thrice:triple
-  try parallel:
+  return try parallel:
     try await spawn apply(14,transform)
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   a=try run(Mode.Thrice)
   b=try run(Mode.Twice)
-  a+b-28
+  return a+b-28

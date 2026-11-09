@@ -4,22 +4,22 @@ Native CPU arrays can contain values of one finite record type. The element reco
 
 ```kalandra
 type Reading:
-  value: float
-  samples: [float]
+  value: f64
+  samples: [f64]
 
 fn batch() -> [Reading]:
-  [Reading { value: 1, samples: [2, 3] }, Reading { value: 2, samples: [4, 5] }]
+  return [Reading { value: 1, samples: [2, 3] }, Reading { value: 2, samples: [4, 5] }]
 
 fn keep(rows: [Reading]) -> [Reading]:
-  rows
+  return rows
 
-fn main() -> float ! TaskError:
+fn main() -> f64 ! TaskError:
   rows = try parallel:
     work = spawn keep(batch())
     first = try await work
     again = try await work
     again
-  rows[1].samples[0] + float(length(rows))
+  return rows[1].samples[0] + f64(length(rows))
 ```
 
 The result is `6`. Helpers can return record arrays, workers can capture and return them, and repeated awaits read the same immutable outcome.

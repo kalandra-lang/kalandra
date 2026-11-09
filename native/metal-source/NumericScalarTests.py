@@ -15,12 +15,12 @@ flags = [] if not args.variant else ["--target", "metal", {
     "debug": "-O0", "optimized": "-O2", "sanitized": "--sanitize",
     "thread-sanitized": "--thread-sanitize"}[args.variant]]
 
-TYPES = (("int8",8),("uint8",8),("int16",16),("uint16",16),("int32",32),
-         ("uint32",32),("int64",64),("uint64",64),("float32",32),("float64",64))
+TYPES = (("i8",8),("u8",8),("i16",16),("u16",16),("i32",32),
+         ("u32",32),("i64",64),("u64",64),("f32",32),("f64",64))
 
 def encoded(name, width, values):
     def bits(value):
-        if name.startswith("float"):
+        if name.startswith("f"):
             return int.from_bytes(struct.pack("<f" if width == 32 else "<d", value), "little")
         return int(value) & ((1 << width) - 1)
     return "[" + ",".join(f"{bits(v):0{width//4}x}" for v in values) + "]\n"
@@ -40,7 +40,7 @@ def check(label, name, width, body, values, expected, rank=1, scalar="0", fault=
         construction=""
     source = (f"fn operation({argument}{',' if argument else ''}scalar:{name})->{name}:\n" +
               "".join("  " + line + "\n" for line in body.splitlines()) +
-              f"fn main()->{name} ! TaskError:\n  try parallel:\n"
+              f"fn main()->{name} ! TaskError:\n  return try parallel:\n"
               "    gpu=devices.gpu()\n" + construction +
               f"    try await spawn operation({argument_value}{scalar}) on gpu\n")
     path, destination = args.root / f"{name}-{label}.k", args.root / f"{name}-{label}"
@@ -60,14 +60,14 @@ def check(label, name, width, body, values, expected, rank=1, scalar="0", fault=
     programs += 1
 
 for name,width in TYPES:
-    check("arithmetic",name,width,"(scalar*3+1)/2",[],[5],scalar="3")
-    check("lazy",name,width,"if scalar==0:\n  1\nelse:\n  7/scalar",[],[1])
-    check("rank-zero-sum",name,width,"reduceSum(values+scalar)",[],[9],rank=0,scalar="2")
-    if not name.startswith("float"):
-        maximum=(1 << (width if name.startswith("uint") else width-1))-1
-        check("overflow",name,width,"scalar+1",[],[],scalar=str(maximum),fault=True)
-        check("division",name,width,"7/scalar",[],[],fault=True)
+    check("arithmetic",name,width,'return (scalar*3+1)/2',[],[5],scalar="3")
+    check("lazy",name,width,'return if scalar==0:\n  1\nelse:\n  7/scalar',[],[1])
+    check("rank-zero-sum",name,width,'return reduceSum(values+scalar)',[],[9],rank=0,scalar="2")
+    if not name.startswith("f"):
+        maximum=(1 << (width if name.startswith("u") else width-1))-1
+        check("overflow",name,width,'return scalar+1',[],[],scalar=str(maximum),fault=True)
+        check("division",name,width,'return 7/scalar',[],[],fault=True)
     else:
         boundary=1 << (24 if width==32 else 53)
-        check("rounding",name,width,"scalar+1",[],[boundary],scalar=str(boundary))
+        check("rounding",name,width,'return scalar+1',[],[boundary],scalar=str(boundary))
 print(f"Typed GPU scalar tasks: {programs} programs, ten types, scalar-only dispatch, rank-zero sums, lazy arithmetic, exact rounding and checked faults passed")

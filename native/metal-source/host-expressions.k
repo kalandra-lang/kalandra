@@ -1,16 +1,16 @@
-fn scale(values: Tensor[float32, ?, ?], factor: float32) -> Tensor[float32, ?, ?]:
-  values * factor
+fn scale(values: Tensor[f32, ?, ?], factor: f32) -> Tensor[f32, ?, ?]:
+  return values * factor
 
-fn finish(value: float32, extra: float32) -> float32:
-  value + extra
+fn finish(value: f32, extra: f32) -> f32:
+  return value + extra
 
-fn __host_expression_3(value: float32) -> float32:
-  value
+fn __host_expression_3(value: f32) -> f32:
+  return value
 
-fn main() -> float32 ! TaskError:
-  try parallel:
-    left: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
-    weights: Tensor[float32, 3, 2] = tensor([[1, 0], [0, 1], [1, 1]])
+fn main() -> f32 ! TaskError:
+  return try parallel:
+    left: Tensor[f32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+    weights: Tensor[f32, 3, 2] = tensor([[1, 0], [0, 1], [1, 1]])
     gpu = devices.gpu()
     # CPU expressions can appear in transfer arguments.
     deviceInput = try await transfer((left + left) / 2, gpu)

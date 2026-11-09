@@ -48,14 +48,14 @@ def main():
         p.run([compiler,source,'--test-entry','block','--arithmetic','hardware','-O2','--emit-llvm',build/'cpu.ll','-o',build/'cpu-standalone'])
         p.run([p.CLANG,'-std=c++23','-O2','-ffp-contract=off','-pthread','-Wno-override-module',fair/'TransformerCpu.cpp',build/'cpu.ll',native,'-o',build/'cpu'])
         gpu_source=build/'block-gpu.k'
-        gpu_source.write_text(source.read_text().split('fn main()')[0]+'''fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+        gpu_source.write_text(source.read_text().split('fn main()')[0]+'''fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
     cpu=devices.cpu()
-    x:Tensor[float32,2,2]=tensor([[1,2],[3,4]])
-    w:Tensor[float32,2,2]=tensor([[1,0],[0,1]])
-    up:Tensor[float32,2,8]=tensor([1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1],[2,8])
-    down:Tensor[float32,8,2]=tensor([1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1],[8,2])
+    x:Tensor[f32,2,2]=tensor([[1,2],[3,4]])
+    w:Tensor[f32,2,2]=tensor([[1,0],[0,1]])
+    up:Tensor[f32,2,8]=tensor([1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1],[2,8])
+    down:Tensor[f32,8,2]=tensor([1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1],[8,2])
     a=try await transfer(x,gpu)
     b=try await transfer(w,gpu)
     c=try await transfer(up,gpu)

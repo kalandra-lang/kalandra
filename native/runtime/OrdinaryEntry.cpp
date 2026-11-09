@@ -38,6 +38,9 @@ kalandra_ordinary_finish_v1(std::uint64_t bits, std::int32_t kind,
   case 6:
     std::printf("%llu\n", static_cast<unsigned long long>(check(bits)));
     break;
+  case 7:
+    check(bits);
+    break;
   default:
     std::abort();
   }

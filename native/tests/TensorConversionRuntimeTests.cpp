@@ -66,7 +66,7 @@ static void verify(const std::vector<std::uint64_t> &bits, std::array<std::int64
   const auto code = fail ? 2 : valid ? 0 : 4;
   require(context.status() == code, "tensor conversion status mismatch");
   if (code == 4)
-    require(context.line() == 2 && context.column() == 3, "conversion lost fault location");
+    require(context.line() == 2 && context.column() == 10, "conversion lost fault location");
   ++cases;
   faults += code != 0;
   auto check = [&] {

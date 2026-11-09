@@ -188,7 +188,7 @@ public:
       const auto supported = [&](const ValueType &type) {
         return !type.task && !type.fallible && !type.device &&
                (type.builtin == BuiltinValue::Numeric ||
-                (type.builtin == BuiltinValue::Bool && (!type.tensor || isBoolArray(type))) ||
+                (isBooleanStorage(type) && (!type.tensor || isBoolArray(type))) ||
                 (type.builtin == BuiltinValue::Record && !type.tensor &&
                  !containsFunctionStorage(planner.input, type)) ||
                 (type.builtin == BuiltinValue::Function && !type.tensor));
@@ -205,24 +205,24 @@ public:
     }
     for (auto id : synchronousTargets) {
       const auto &source = planner.input.functions.at(id);
-          if (planner.plans[id]->groups ||
-              std::ranges::any_of(planner.plans[id]->code, [](const auto &op) {
-                return op.code == Code::Open || op.code == Code::Spawn || op.code == Code::Await ||
-                       op.code == Code::Join || op.code == Code::MapJoin ||
-                       op.code == Code::Device || op.code == Code::Transfer;
-              }))
-            throw std::runtime_error("synchronous callable plan contains task/device coordination");
-          const auto result = source.declaredResult.value_or(source.resultType);
-          std::vector<Type *> parameters{pointer}; // Immutable capture environment.
-          if (result.fallible)
-            parameters.push_back(pointer);
-          for (std::size_t i = 0; i < source.parameters.size() - source.captureCount; ++i)
-            parameters.push_back(scalarType(planner.input.symbols[source.parameters[i]].type));
-          parameters.push_back(pointer);
-          synchronousEntries[id] =
-              function("kalandra_callable_plan_" + std::to_string(id),
-                       result.fallible ? voidType : scalarType(result), parameters);
-        }
+      if (planner.plans[id]->groups ||
+          std::ranges::any_of(planner.plans[id]->code, [](const auto &op) {
+            return op.code == Code::Open || op.code == Code::Spawn || op.code == Code::Await ||
+                   op.code == Code::Join || op.code == Code::MapJoin || op.code == Code::Device ||
+                   op.code == Code::Transfer;
+          }))
+        throw std::runtime_error("synchronous callable plan contains task/device coordination");
+      const auto result = source.declaredResult.value_or(source.resultType);
+      std::vector<Type *> parameters{pointer}; // Immutable capture environment.
+      if (result.fallible)
+        parameters.push_back(pointer);
+      for (std::size_t i = 0; i < source.parameters.size() - source.captureCount; ++i)
+        parameters.push_back(scalarType(planner.input.symbols[source.parameters[i]].type));
+      parameters.push_back(pointer);
+      synchronousEntries[id] =
+          function("kalandra_callable_plan_" + std::to_string(id),
+                   result.fallible ? voidType : scalarType(result), parameters);
+    }
     if (recursiveClosures) {
       std::set<std::size_t> targets;
       for (const auto &plan : planner.plans)
@@ -269,7 +269,7 @@ public:
     // self/mutual references and recursive direct calls need no expansion.
     if (exports.empty())
       for (std::size_t id = 0; id < planner.plans.size(); ++id)
-      emitPlan(id);
+        emitPlan(id);
     for (std::size_t id = 0; id < synchronousEntries.size(); ++id)
       if (synchronousEntries[id]) {
         emitPlan(id, true);
@@ -334,12 +334,11 @@ public:
         parameters.push_back(indirect(type) ? pointer : scalarType(type));
       }
       parameters.push_back(pointer);
-      auto *bridge =
-          Function::Create(llvm::FunctionType::get(
-                               indirectResult ? voidType : scalarType(found->resultType),
-                               parameters, false),
-                           llvm::GlobalValue::ExternalLinkage,
-                           "_mlir_ciface_kalandra_cpu_" + std::to_string(index), module);
+      auto *bridge = Function::Create(
+          llvm::FunctionType::get(indirectResult ? voidType : scalarType(found->resultType),
+                                  parameters, false),
+          llvm::GlobalValue::ExternalLinkage, "_mlir_ciface_kalandra_cpu_" + std::to_string(index),
+          module);
       builder.SetInsertPoint(Block::Create(context, "entry", bridge));
       std::vector<Value *> args{llvm::ConstantPointerNull::get(builder.getPtrTy())};
       const auto offset = indirectResult ? 1u : 0u;
@@ -349,15 +348,13 @@ public:
       for (unsigned n = 0; n < found->parameters.size(); ++n) {
         const auto &type = planner.input.symbols[found->parameters[n]].type;
         args.push_back(indirect(type) ? static_cast<Value *>(builder.CreateLoad(
-                                         scalarType(type), bridge->getArg(n + offset)))
-                                   : static_cast<Value *>(bridge->getArg(n + offset)));
-        if (!indirect(type) &&
-            (type.builtin == BuiltinValue::Bool ||
-             (type.builtin == BuiltinValue::Numeric && isNarrowInteger(type.element))))
-          bridge->addParamAttr(n + offset,
-                               type.builtin == BuiltinValue::Bool || isUnsigned(type.element)
-                                   ? llvm::Attribute::ZExt
-                                   : llvm::Attribute::SExt);
+                                            scalarType(type), bridge->getArg(n + offset)))
+                                      : static_cast<Value *>(bridge->getArg(n + offset)));
+        if (!indirect(type) && (isBooleanStorage(type) || (type.builtin == BuiltinValue::Numeric &&
+                                                           isNarrowInteger(type.element))))
+          bridge->addParamAttr(n + offset, isBooleanStorage(type) || isUnsigned(type.element)
+                                               ? llvm::Attribute::ZExt
+                                               : llvm::Attribute::SExt);
       }
       args.push_back(bridge->getArg(bridge->arg_size() - 1));
       auto *value = builder.CreateCall(synchronousEntries[id], args);
@@ -365,10 +362,10 @@ public:
         builder.CreateStore(value, bridge->getArg(0));
         builder.CreateRetVoid();
       } else {
-        if (found->resultType.builtin == BuiltinValue::Bool ||
+        if (isBooleanStorage(found->resultType) ||
             (found->resultType.builtin == BuiltinValue::Numeric &&
              isNarrowInteger(found->resultType.element)))
-          bridge->addRetAttr(found->resultType.builtin == BuiltinValue::Bool ||
+          bridge->addRetAttr(isBooleanStorage(found->resultType) ||
                                      isUnsigned(found->resultType.element)
                                  ? llvm::Attribute::ZExt
                                  : llvm::Attribute::SExt);
@@ -387,7 +384,7 @@ public:
            found->resultType.builtin != BuiltinValue::Record && !isBoolArray(found->resultType) &&
            found->resultType.builtin != BuiltinValue::String) ||
           (found->resultType.builtin != BuiltinValue::Numeric &&
-           found->resultType.builtin != BuiltinValue::Bool &&
+           !isBooleanStorage(found->resultType) &&
            found->resultType.builtin != BuiltinValue::Record &&
            found->resultType.builtin != BuiltinValue::String))
         throw std::runtime_error("private task test entry requires a parameterless numeric/Bool "
@@ -417,8 +414,7 @@ public:
     auto main = std::ranges::find_if(planner.input.functions,
                                      [](const auto &f) { return f.name == "main"; });
     if (main == planner.input.functions.end() || !main->parameters.empty() ||
-        (main->resultType.builtin != BuiltinValue::Numeric &&
-         main->resultType.builtin != BuiltinValue::Bool &&
+        (main->resultType.builtin != BuiltinValue::Numeric && !isBooleanStorage(main->resultType) &&
          main->resultType.builtin != BuiltinValue::String))
       throw std::runtime_error(
           "native task entry requires parameterless float32, int32, uint32, "
@@ -437,8 +433,7 @@ public:
                                stringResult ? "_mlir_ciface_kalandra_string_entry"
                                             : "_mlir_ciface_kalandra_collection_entry",
                                module);
-    } else if (main->resultType.builtin == BuiltinValue::Bool ||
-               isInteger(main->resultType.element) ||
+    } else if (isBooleanStorage(main->resultType) || isInteger(main->resultType.element) ||
                main->resultType.element == NumericType::Float64) {
       entry->eraseFromParent();
       entry = Function::Create(
@@ -446,7 +441,8 @@ public:
               isNarrowInteger(main->resultType.element) ? i64 : scalarType(main->resultType),
               {pointer}, false),
           llvm::GlobalValue::ExternalLinkage,
-          main->resultType.builtin == BuiltinValue::Bool     ? "_mlir_ciface_kalandra_bool_entry"
+          main->resultType.builtin == BuiltinValue::Unit     ? "_mlir_ciface_kalandra_unit_entry"
+          : isBooleanStorage(main->resultType)               ? "_mlir_ciface_kalandra_bool_entry"
           : main->resultType.element == NumericType::Float64 ? "_mlir_ciface_kalandra_float64_entry"
           : (main->resultType.element == NumericType::UInt64 ||
              main->resultType.element == NumericType::UInt8 ||
@@ -699,7 +695,7 @@ private:
            : type.builtin == BuiltinValue::FaultKind ? "FaultKind"
            : type.builtin == BuiltinValue::String    ? "String"
            : type.task                               ? "handle"
-           : type.builtin == BuiltinValue::Bool      ? "Bool"
+           : isBooleanStorage(type)                  ? "Bool"
            : type.tensor                             ? "tensor" + std::to_string(type.shape.size())
            : type.element == NumericType::Float64    ? "scalar.float64"
            : type.element == NumericType::UInt64     ? "scalar.uint64"
@@ -1299,7 +1295,8 @@ private:
     for (const auto &expression : planner.kernels.expressions)
       if (const auto *ref = std::get_if<FunctionReference>(&expression.operation)) {
         const auto id = std::to_string(ref->function);
-        const bool projectedFallible = planner.input.functions.empty() &&
+        const bool projectedFallible =
+            planner.input.functions.empty() &&
             planner.kernels.functions.at(ref->function).resultType.fallible;
         auto *code = module.getFunction(
             (projectedFallible ? "kalandra_callable_plan_" : "kalandra_callable_") + id);
@@ -1413,18 +1410,17 @@ private:
                                  nullptr, "frame.value.layout." + name);
     frameLayouts[name] = result;
     Function *successCopy;
-    // Keep the strict transport cache separate. In particular, requesting a
-    // fallible frame slot must not make a plain function packet accept errors.
+    // Keep frame copies separate from the strict transport cache. Fallible
+    // slots must retain their declared application errors without making a
+    // plain function packet accept an error instead of a callable value.
     if (!type.task &&
         (type.builtin == BuiltinValue::Function || containsFunctionStorage(planner.input, type))) {
-      auto strict = type;
-      strict.fallible = false;
       successCopy =
           function("frame.value.success." + name, boolean, {pointer, pointer, pointer, pointer});
       if (type.builtin == BuiltinValue::Function && !type.tensor)
-        emitFunctionCopy(strict, successCopy);
+        emitFunctionCopy(type, successCopy);
       else
-        emitAggregateCopy(strict, successCopy);
+        emitAggregateCopy(type, successCopy);
     } else {
       auto *base = layout(type);
       successCopy = llvm::cast<Function>(base->getInitializer()->getOperand(3));
@@ -1689,7 +1685,7 @@ private:
         synchronous && !resultType.fallible && !arenaFields[id] && size(frameType) <= 2048 &&
         loopControl.at(id) && std::ranges::all_of(plan.slots, [](const ValueType &type) {
           return !type.tensor && !type.record && !type.errorRecord && !type.task &&
-                 (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
+                 (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type));
         });
     auto returnZero = [&](bool admitted = true) {
       if (synchronous && admitted)
@@ -2061,10 +2057,10 @@ private:
           // actual wrapper signature rather than inferring its ABI from the
           // language's array ownership category.
           auto *parameter = fn->getFunctionType()->getParamType(arguments.size());
-          arguments.push_back(parameter->isPointerTy()
-                                  ? payload(argument)
-                                  : builder.CreateLoad(scalarType(plan.slots[argument]),
-                                                       payload(argument)));
+          arguments.push_back(
+              parameter->isPointerTy()
+                  ? payload(argument)
+                  : builder.CreateLoad(scalarType(plan.slots[argument]), payload(argument)));
         }
         arguments.push_back(ctx);
         auto *value = builder.CreateCall(fn, arguments);
@@ -2346,8 +2342,8 @@ private:
                               builder.CreateMul(index, builder.CreateExtractValue(value, {4, 0})));
         const bool boolInput = isBoolArray(plan.slots[instruction.args[0]]);
         auto *cell = boolInput ? builder.getInt8Ty() : scalarType(type);
-        auto *address = builder.CreateInBoundsGEP(cell, builder.CreateExtractValue(value, {1}),
-                                                  position);
+        auto *address =
+            builder.CreateInBoundsGEP(cell, builder.CreateExtractValue(value, {1}), position);
         Value *loaded = builder.CreateLoad(cell, address);
         if (boolInput) {
           auto *valid = Block::Create(context, "map.bool.valid", resume);
@@ -2581,6 +2577,13 @@ private:
         break;
       }
       case Code::Jump:
+        for (auto collection : instruction.collections) {
+          auto *discarded = Block::Create(context, "return.collection.discarded", resume);
+          builder.CreateCondBr(call("kalandra_collect_discard_v1", boolean,
+                                    {arena(), c64(scopeSlots[id].at(collection))}),
+                               discarded, abort);
+          builder.SetInsertPoint(discarded);
+        }
         if (instruction.jump <= n && std::holds_alternative<WhileOperation>(
                                          planner.input.expressions[instruction.source].operation)) {
           // New statement loops need a checkpoint. Existing parallelMap

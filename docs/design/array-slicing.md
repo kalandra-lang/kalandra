@@ -3,14 +3,14 @@
 Use `slice(values, start, end)` to select an array range. The start is inclusive and the end is exclusive, matching the existing String slicing convention.
 
 ```kalandra
-fn middle(values: [int]) -> [int]:
-  slice(values, 1, 3)
+fn middle(values: [i64]) -> [i64]:
+  return slice(values, 1, 3)
 
-fn main() -> [int] ! TaskError:
+fn main() -> [i64] ! TaskError:
   original = [10, 20, 30, 40]
   selected = try parallel:
     try await spawn middle(original)
-  [original[0], selected[0], selected[1], original[3]]
+  return [original[0], selected[0], selected[1], original[3]]
 ```
 
 This prints `[10, 20, 30, 40]`. The selected array contains `[20, 30]`; `original` stays available and unchanged. A slice can be returned from a function, captured by a callback, passed to another worker, or observed through repeated awaits.
@@ -28,8 +28,8 @@ An expected array type can provide literal context, including `fn empty() -> [fl
 Pipelines and direct worker dispatch are supported:
 
 ```kalandra
-fn main() -> [int] ! TaskError:
-  try parallel:
+fn main() -> [i64] ! TaskError:
+  return try parallel:
     try await spawn slice([1, 2, 3, 4], 1, 3)
 ```
 

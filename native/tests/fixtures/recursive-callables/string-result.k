@@ -1,12 +1,12 @@
 enum Choice:
   Some
-fn descend(n:int)->String:
-  match Choice.Some:
+fn descend(n:i64)->String:
+  return match Choice.Some:
     Choice.Some:
       if n==0:
         "é"+"!"
       else:
         descend(n-1)
-fn main()->int:
+fn main()->i64:
   callback=descend
-  length(callback(20))+40
+  return length(callback(20))+40

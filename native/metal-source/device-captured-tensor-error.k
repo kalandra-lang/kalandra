@@ -1,19 +1,19 @@
 type Input:
-  tile: Tensor[int16,2,2]
+  tile: Tensor[i16,2,2]
 
 error TileError:
   Invalid:
-    tile: Tensor[int16,2,2]
+    tile: Tensor[i16,2,2]
 
-fn rejectInput(input: Input) -> int ! TileError:
+fn rejectInput(input: Input) -> i64 ! TileError:
   fail TileError.Invalid { tile: input.tile }
 
-fn main() -> int ! TaskError:
-  tile: Tensor[int16,2,2] = tensor([[1,2],[3,4]])
+fn main() -> i64 ! TaskError:
+  tile: Tensor[i16,2,2] = tensor([[1,2],[3,4]])
   input = Input { tile: tile }
-  try parallel:
+  return try parallel:
     result = await spawn rejectInput(input) on devices.gpu()
     result catch fn(error):
-      match error:
-        TileError.Invalid { tile }: int(reduceSum(tile))
+      return match error:
+        TileError.Invalid { tile }: i64(reduceSum(tile))
         _: 0

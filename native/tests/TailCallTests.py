@@ -7,41 +7,41 @@ import subprocess
 import sys
 from pathlib import Path
 
-SOURCE = '''fn gcd(a:int,b:int)->int:
-  if b == 0:a
+SOURCE = '''fn gcd(a:i64,b:i64)->i64:
+  return if b == 0:a
   else:gcd(b,a%b)
-fn swap(a:int,b:int,n:int)->int:
-  if n == 0:a*1000+b
+fn swap(a:i64,b:i64,n:i64)->i64:
+  return if n == 0:a*1000+b
   else:swap(b,a,n-1)
-fn choose(a:int,b:int,n:int)->int:
-  if n == 0:a
+fn choose(a:i64,b:i64,n:i64)->i64:
+  return if n == 0:a
   else:
     if a%2 == 0:choose(a+b,-b,n-1)
     else:choose(a-b,b,n-1)
-fn total(a:int,n:int)->int:
-  if n == 0:a
+fn total(a:i64,n:i64)->i64:
+  return if n == 0:a
   else:total(a+n,n-1)
-fn divide(a:int,b:int,n:int)->int:
-  if n == 0:a/b
+fn divide(a:i64,b:i64,n:i64)->i64:
+  return if n == 0:a/b
   else:divide(a,b,n-1)
-fn ordinary(a:int,n:int)->int:
-  if n == 0:a
+fn ordinary(a:i64,n:i64)->i64:
+  return if n == 0:a
   else:ordinary(a,n-1)+1
-fn tree(a:int,n:int)->int:
-  if n == 0:gcd(a*13+7,a*7+11)
+fn tree(a:i64,n:i64)->i64:
+  return if n == 0:gcd(a*13+7,a*7+11)
   else:tree(a*2,n-1)+tree(a*2+1,n-1)
-fn helper(a:int)->int:
-  a+1
-fn mixed(a:int,n:int)->int:
-  if n == 0:a
+fn helper(a:i64)->i64:
+  return a+1
+fn mixed(a:i64,n:i64)->i64:
+  return if n == 0:a
   else:mixed(helper(a),n-1)
-fn mixed_self(a:int,n:int)->int:
-  if n == 0:a
+fn mixed_self(a:i64,n:i64)->i64:
+  return if n == 0:a
   else:
     if n%2 == 0:mixed_self(a+1,n-1)
     else:mixed_self(a,n-1)+1
-fn run(kind:int,a:int,b:int,n:int)->int:
-  if kind == 0:gcd(a,b)
+fn run(kind:i64,a:i64,b:i64,n:i64)->i64:
+  return if kind == 0:gcd(a,b)
   else:
     if kind == 1:swap(a,b,n)
     else:
@@ -57,34 +57,34 @@ fn run(kind:int,a:int,b:int,n:int)->int:
               else:
                 if kind == 7:mixed(a,n)
                 else:mixed_self(a,n)
-fn main()->int:
-  run(1,37,7,2)
+fn main()->i64:
+  return run(1,37,7,2)
 '''
-FLOAT = '''fn bounce(value:float64,n:int)->float64:
-  if n == 0:value
+FLOAT = '''fn bounce(value:f64,n:i64)->f64:
+  return if n == 0:value
   else:bounce(-value,n-1)
-fn main()->float64:
-  bounce(1.25,7)
+fn main()->f64:
+  return bounce(1.25,7)
 '''
 ELIGIBILITY = {
-    'large-signature': ('''fn recurse(a:int,b:int,c:int,d:int,e:int,f:int,g:int,h:int,i:int,n:int)->int:
-  if n == 0:a+b+c+d+e+f+g+h+i
+    'large-signature': ('''fn recurse(a:i64,b:i64,c:i64,d:i64,e:i64,f:i64,g:i64,h:i64,i:i64,n:i64)->i64:
+  return if n == 0:a+b+c+d+e+f+g+h+i
   else:recurse(a,b,c,d,e,f,g,h,i,n-1)
-fn main()->int:
-  recurse(1,2,3,4,5,6,7,8,6,30)
+fn main()->i64:
+  return recurse(1,2,3,4,5,6,7,8,6,30)
 ''', '42\n', False),
-    'owned-tensor': ('''fn recurse(values:Tensor[int,?],n:int)->int:
-  if n == 0:values[0]
+    'owned-tensor': ('''fn recurse(values:Tensor[i64,?],n:i64)->i64:
+  return if n == 0:values[0]
   else:recurse(values,n-1)
-fn main()->int:
-  values:Tensor[int,1]=tensor([42])
-  recurse(values,30)
+fn main()->i64:
+  values:Tensor[i64,1]=tensor([42])
+  return recurse(values,30)
 ''', '42\n', False),
-    'float-recurrence': ('''fn recurse(value:float64,n:int)->float64:
-  if n == 0:value
+    'float-recurrence': ('''fn recurse(value:f64,n:i64)->f64:
+  return if n == 0:value
   else:recurse(value*0.5+0.125,n-1)
-fn main()->float64:
-  recurse(2.0,4)
+fn main()->f64:
+  return recurse(2.0,4)
 ''', '0.359375\n', True),
 }
 

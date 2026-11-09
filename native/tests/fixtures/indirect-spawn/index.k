@@ -1,6 +1,6 @@
-fn double(value:int)->int:
-  value*2
-fn main()->int ! TaskError:
+fn double(value:i64)->i64:
+  return value*2
+fn main()->i64 ! TaskError:
   functions=[double]
-  try parallel:
+  return try parallel:
     try await spawn functions[0](21)

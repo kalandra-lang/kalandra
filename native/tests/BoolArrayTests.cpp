@@ -13,19 +13,20 @@ static CheckResult analyze(const std::string &text) {
 int main() {
   try {
     for (const auto *body :
-         {"fn main():\n  [true,false]\n", "fn main()->[Bool]:\n  []\n",
-          "fn main():\n  map([1,2],fn(x):x>1)\n",
-          "fn flip(x:Bool)->Bool:\n  not x\nfn main():\n  map([],flip)\n",
-          "fn main():\n  map([],fn(x:Bool)->Bool:not x)\n",
-          "fn encode(flag:Bool)->int:\n  if flag:1\n  else:0\nfn main():\n  "
+         {"fn main():\n  return [true,false]\n", "fn main()->[bool]:\n  return []\n",
+          "fn main():\n  return map([1,2],fn(x):return x>1)\n",
+          "fn flip(x:bool)->bool:\n  return not x\nfn main():\n  return map([],flip)\n",
+          "fn main():\n  return map([],fn(x:bool)->bool:return not x)\n",
+          "fn encode(flag:bool)->i64:\n  return if flag:1\n  else:0\nfn main():\n  return "
           "map([true,false],encode)\n",
-          "type Flag:\n  enabled:Bool\nfn main():\n  rows=map([true,false],fn(x):Flag "
-          "{enabled:x})\n  map(rows,fn(row):row.enabled)\n",
-          "fn main()->[Bool] ! TaskError:\n  flags=[true,false]\n  try parallel:\n    try await "
-          "spawn map(flags,fn(x):not x)\n",
-          "fn encode(flag:Bool)->int:\n  if flag:1\n  else:0\nfn main()->[int] ! TaskError:\n  "
-          "flags=[true,false]\n  try parallel:\n    try await spawn "
-          "map([0,1],fn(i):encode(flags[i]))\n"}) {
+          "type Flag:\n  enabled:bool\nfn main():\n  rows=map([true,false],fn(x):return Flag "
+          "{enabled:x})\n  return map(rows,fn(row):return row.enabled)\n",
+          "fn main()->[bool] ! TaskError:\n  flags=[true,false]\n  return try parallel:\n    try "
+          "await "
+          "spawn map(flags,fn(x):return not x)\n",
+          "fn encode(flag:bool)->i64:\n  return if flag:1\n  else:0\nfn main()->[i64] ! "
+          "TaskError:\n  flags=[true,false]\n  return try parallel:\n    try await spawn "
+          "map([0,1],fn(i):return encode(flags[i]))\n"}) {
       auto checked = analyze(body);
       require(checked.ok(), "valid Bool array rejected: " + std::string(body));
       require(!numericCapabilityError(*checked.module, NumericTarget::Cpu),
@@ -37,19 +38,22 @@ int main() {
 #endif
     }
     for (const auto *body :
-         {"fn main():\n  [true,1]\n", "fn main()->[Bool]:\n  [1]\n", "fn main():\n  [[true]]\n",
-          "fn main():\n  [true,false]+[true,false]\n", "fn main():\n  not [true]\n",
-          "fn main():\n  [true]==[false]\n", "fn main():\n  [true][true]\n",
-          "fn main():\n  [true][1]\n", "fn main():\n  tensor([true,false])\n",
-          "fn main()->Tensor[Bool,2]:\n  tensor([true,false])\n",
-          "fn main():\n  flags=[true,false]\n  shape(flags)\n",
-          "fn main():\n  flags=[true,false]\n  int(flags)\n",
-          "fn main():\n  flags=[true,false]\n  reduceSum(flags)\n",
-          "fn main():\n  map([true],fn(x:int):x)\n", "fn main():\n  map([],fn(x):true)\n"})
+         {"fn main():\n  return [true,1]\n", "fn main()->[bool]:\n  return [1]\n",
+          "fn main():\n  return [[true]]\n", "fn main():\n  return [true,false]+[true,false]\n",
+          "fn main():\n  return not [true]\n", "fn main():\n  return [true]==[false]\n",
+          "fn main():\n  return [true][true]\n", "fn main():\n  return [true][1]\n",
+          "fn main():\n  return tensor([true,false])\n",
+          "fn main()->Tensor[bool,2]:\n  return tensor([true,false])\n",
+          "fn main():\n  flags=[true,false]\n  return shape(flags)\n",
+          "fn main():\n  flags=[true,false]\n  return i64(flags)\n",
+          "fn main():\n  flags=[true,false]\n  return reduceSum(flags)\n",
+          "fn main():\n  return map([true],fn(x:i64):return x)\n",
+          "fn main():\n  return map([],fn(x):return true)\n"})
       require(!analyze(body).ok(), "invalid Bool array admitted: " + std::string(body));
-    auto valid = analyze("fn flags(values:[int])->[Bool]:\n  map(values,fn(x):x>0)\nfn "
-                         "main()->[Bool]:\n  flags([1,2])\n");
-    require(valid.ok() && describeType(valid.module->functions[0].resultType) == "[Bool]",
+    auto valid =
+        analyze("fn flags(values:[i64])->[bool]:\n  return map(values,fn(x):return x>0)\nfn "
+                "main()->[bool]:\n  return flags([1,2])\n");
+    require(valid.ok() && describeType(valid.module->functions[0].resultType) == "[bool]",
             "Bool array type name lost");
     auto mapId = valid.module->functions[0].result;
     for (unsigned mutation = 0; mutation < 6; ++mutation) {
@@ -71,7 +75,7 @@ int main() {
       require(numericCapabilityError(forged, NumericTarget::Cpu).has_value(),
               "forged Bool map admitted");
     }
-    auto boolean = analyze("fn main()->Bool:\n  true\n");
+    auto boolean = analyze("fn main()->bool:\n  return true\n");
     require(boolean.ok(), "Boolean literal fixture rejected");
     auto forged = *boolean.module;
     auto &literal = forged.expressions[forged.functions[0].result].type;

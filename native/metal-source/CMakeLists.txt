@@ -1243,12 +1243,25 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyHostArrayRuntime.cmake")
     set_tests_properties(native-metal-closure-lifecycle-${VARIANT} PROPERTIES TIMEOUT 600
       RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
-    add_test(NAME native-metal-host-aggregates-${VARIANT}
-      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/HostAggregateTests.py"
-        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
-        --root "${CMAKE_CURRENT_BINARY_DIR}/host-aggregates-${VARIANT}")
-    set_tests_properties(native-metal-host-aggregates-${VARIANT} PROPERTIES TIMEOUT 1200
-      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    set(AGGREGATE_SHARDS 1)
+    if(VARIANT STREQUAL "thread-sanitized")
+      # Keep the expanded corpus within each bounded test's existing budget.
+      set(AGGREGATE_SHARDS 2)
+    endif()
+    math(EXPR AGGREGATE_LAST_SHARD "${AGGREGATE_SHARDS} - 1")
+    foreach(SHARD RANGE 0 ${AGGREGATE_LAST_SHARD})
+      set(AGGREGATE_NAME "host-aggregates-${VARIANT}")
+      if(AGGREGATE_SHARDS GREATER 1)
+        string(APPEND AGGREGATE_NAME "-shard-${SHARD}")
+      endif()
+      add_test(NAME native-metal-${AGGREGATE_NAME}
+        COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/HostAggregateTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+          --shard-index "${SHARD}" --shard-count "${AGGREGATE_SHARDS}"
+          --root "${CMAKE_CURRENT_BINARY_DIR}/${AGGREGATE_NAME}")
+      set_tests_properties(native-metal-${AGGREGATE_NAME} PROPERTIES TIMEOUT 1200
+        RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    endforeach()
   endforeach()
 endif()
 

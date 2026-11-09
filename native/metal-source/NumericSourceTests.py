@@ -15,12 +15,12 @@ flags = [] if not args.variant else ["--target", "metal", {
     "debug": "-O0", "optimized": "-O2", "sanitized": "--sanitize",
     "thread-sanitized": "--thread-sanitize"}[args.variant]]
 
-TYPES = (("int8",8),("uint8",8),("int16",16),("uint16",16),("int32",32),
-         ("uint32",32),("int64",64),("uint64",64),("float32",32),("float64",64))
+TYPES = (("i8",8),("u8",8),("i16",16),("u16",16),("i32",32),
+         ("u32",32),("i64",64),("u64",64),("f32",32),("f64",64))
 
 def encoded(name, width, values):
     def bits(value):
-        if name.startswith("float"):
+        if name.startswith("f"):
             return int.from_bytes(struct.pack("<f" if width == 32 else "<d", value), "little")
         return int(value) & ((1 << width) - 1)
     return "[" + ",".join(f"{bits(v):0{width//4}x}" for v in values) + "]\n"
@@ -34,10 +34,10 @@ def check(label, name, width, body, values, expected, rank=1, scalar="0", fault=
     literal = "[" + ",".join(map(str, values)) + "]"
     for _ in range(rank-1):
         literal = "[" + literal + "]"
-    source = (f"fn helper(value:{name})->{name}:\n  value*2\n"
+    source = (f"fn helper(value:{name})->{name}:\n  return value*2\n"
               f"fn operation(values:Tensor[{name},{shape}],scalar:{name})->Tensor[{name},{shape}]:\n" +
               "".join("  " + line + "\n" for line in body.splitlines()) +
-              f"fn main()->Tensor[{name},{shape}] ! TaskError:\n  try parallel:\n"
+              f"fn main()->Tensor[{name},{shape}] ! TaskError:\n  return try parallel:\n"
               "    gpu=devices.gpu()\n" +
               f"    values:Tensor[{name},{concrete}]=tensor({literal})\n"
               "    resident=try await transfer(values,gpu)\n" +
@@ -61,17 +61,17 @@ def check(label, name, width, body, values, expected, rank=1, scalar="0", fault=
     programs += 1
 
 for name,width in TYPES:
-    check("arithmetic",name,width,"values*helper(scalar)+3",[1,3,5],[7,15,23],scalar="2")
+    check("arithmetic",name,width,'return values*helper(scalar)+3',[1,3,5],[7,15,23],scalar="2")
     # Division by zero in an unselected arm must never fail, including empty tensors.
-    body="safe=scalar==0 or 7/scalar>0\nif safe:\n  values+1\nelse:\n  values/scalar"
+    body='safe=scalar==0 or 7/scalar>0\nreturn if safe:\n  values+1\nelse:\n  values/scalar'
     check("lazy",name,width,body,[1,3,5],[2,4,6])
     check("empty",name,width,body,[],[])
-    check("rank-eight",name,width,"values+scalar",[1,3,5],[3,5,7],rank=8,scalar="2")
-    if not name.startswith("float"):
-        maximum=(1 << (width if name.startswith("uint") else width-1))-1
-        check("overflow",name,width,"values+scalar",[maximum],[],scalar="1",fault=True)
-        check("uniform-empty-fault",name,width,"amount=7/scalar\nvalues+amount",[],[],fault=True)
+    check("rank-eight",name,width,'return values+scalar',[1,3,5],[3,5,7],rank=8,scalar="2")
+    if not name.startswith("f"):
+        maximum=(1 << (width if name.startswith("u") else width-1))-1
+        check("overflow",name,width,'return values+scalar',[maximum],[],scalar="1",fault=True)
+        check("uniform-empty-fault",name,width,'amount=7/scalar\nreturn values+amount',[],[],fault=True)
     else:
         boundary=1 << (24 if width==32 else 53)
-        check("rounding",name,width,"values+scalar",[boundary],[boundary],scalar="1")
+        check("rounding",name,width,'return values+scalar',[boundary],[boundary],scalar="1")
 print(f"Typed GPU source: {programs} programs, ten numeric types, rank eight, helpers, exact rounding, lazy choices and checked empty/overflow faults passed")

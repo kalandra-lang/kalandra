@@ -62,21 +62,18 @@ def library(path, name, version, text, dependencies=""):
     return commit(path)
 
 geometry = repo("geometry source λ")
-body = "export type Item:\n  value:int64\nexport fn next(item:Item)->Item:\n  item with {value:item.value+1}\n"
+body = 'export type Item:\n  value:i64\nexport fn next(item:Item)->Item:\n  return item with {value:item.value+1}\n'
 first = library(geometry, "geometry", "0.1.0", body)
 second = library(geometry, "geometry", "0.2.0", body.replace("value+1", "value+2"))
 telemetry = repo("telemetry")
 third = library(telemetry, "telemetry", "1.0.0",
-                'from "geometry" import Item, next\nexport fn compute(n:int64)->int64:\n  next(Item {value:n}).value\nexport fn take(item:Item)->int64:\n  item.value\n',
+                'from "geometry" import Item, next\nexport fn compute(n:i64)->i64:\n  return next(Item {value:n}).value\nexport fn take(item:Item)->i64:\n  return item.value\n',
                 request("geometry", geometry, first))
 app = root / "application space λ"
 app.mkdir()
 manifest = app / "kalandra.toml"
 source = app / "main.k"
-text = ('from "geometry" import Item, next\nfrom "again" import Item as Same\n'
-        'from "telemetry" import compute\nfn identity(item:Item)->Same:\n  item\n'
-        'fn main()->[int64] ! TaskError:\n  old=try parallel:\n    try await spawn compute(10)\n'
-        '  [next(identity(Item {value:10})).value,old]\n')
+text = ('from "geometry" import Item, next\nfrom "again" import Item as Same\nfrom "telemetry" import compute\nfn identity(item:Item)->Same:\n  return item\nfn main()->[i64] ! TaskError:\n  old=try parallel:\n    try await spawn compute(10)\n  return [next(identity(Item {value:10})).value,old]\n')
 source.write_text(text)
 configuration = ("format=1\n[project]\nentry='main.k'\n[dependencies]\n" +
                  request("geometry", geometry, second) + request("again", geometry, second) +
@@ -105,11 +102,11 @@ assert not response["diagnostics"]
 # Unsaved root checking must not parse a broken disk buffer before applying stdin.
 source.write_text("fn main(:\n")
 run(args.checker, "--stdin", "--project", manifest, data=text.encode())
-source.write_text('from "geometry" import Item\nfrom "telemetry" import take\nfn main():\n  take(Item {value:1})\n')
+source.write_text('from "geometry" import Item\nfrom "telemetry" import take\nfn main():\n  return take(Item {value:1})\n')
 run(args.checker, "--project", manifest, ok=False)
 source.write_text(text)
 extra = app / "extra.k"
-extra.write_text("export fn unused()->int64:\n  1\n")
+extra.write_text('export fn unused()->i64:\n  return 1\n')
 run(args.checker, "--project", manifest, "--package", f"geometry={extra}", ok=False)
 # Manifest spelling changes require explicit activation, without rewriting source.
 manifest.write_text(configuration + "\n# changed\n")
@@ -120,7 +117,7 @@ configuration = manifest.read_text()
 active = index.read_bytes()
 # Failure after a parent snapshot is published leaves the prior activation intact.
 broken = repo("unresolved parent")
-bad = library(broken, "unresolved", "1.0.0", "export fn value()->int64:\n  1\n",
+bad = library(broken, "unresolved", "1.0.0", 'export fn value()->i64:\n  return 1\n',
               request("missing", geometry, "f" * 40))
 manifest.write_text(configuration + request("unresolved", broken, bad))
 run(args.compiler, "install", "--project", manifest, ok=False)
@@ -168,13 +165,13 @@ run(args.compiler, "--project", manifest, "-o", redirect / "new", ok=False)
 assert output.read_text() == "preserved"
 if args.metal:
     gpu_repo = repo("gpu library")
-    revision = library(gpu_repo, "numerical", "0.1.0", "export fn shift(values:Tensor[float32,?])->Tensor[float32,?]:\n  values+1\n")
+    revision = library(gpu_repo, "numerical", "0.1.0", 'export fn shift(values:Tensor[f32,?])->Tensor[f32,?]:\n  return values+1\n')
     gpu_app = root / "gpu-app"
     gpu_app.mkdir()
     gpu_manifest = gpu_app / "kalandra.toml"
     gpu_configuration = "format=1\n[project]\nentry='main.k'\n[dependencies]\n" + request("numerical", gpu_repo, revision)
     gpu_manifest.write_text(gpu_configuration)
-    (gpu_app / "main.k").write_text('from "numerical" import shift\nfn main()->float32 ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n    values:Tensor[float32,3]=tensor([1,2,3])\n    resident=try await transfer(values,gpu)\n    changed=try await spawn shift(resident) on gpu\n    host=try await transfer(changed,devices.cpu())\n    reduceSum(host)\n')
+    (gpu_app / "main.k").write_text('from "numerical" import shift\nfn main()->f32 ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    values:Tensor[f32,3]=tensor([1,2,3])\n    resident=try await transfer(values,gpu)\n    changed=try await spawn shift(resident) on gpu\n    host=try await transfer(changed,devices.cpu())\n    reduceSum(host)\n')
     run(args.compiler, "install", "--project", gpu_manifest)
     run(args.checker, "--placement", "--project", gpu_manifest)
     gpu_repo.rename(root / "gpu library unavailable")
@@ -232,7 +229,7 @@ assert not list((changing / ".kalandra").glob(".activate-*"))
 if args.api:
     run(args.api, "load", manifest, "normal")
     wrapper = repo("wrapper")
-    wrapper_revision = library(wrapper, "wrapper", "0.1.0", "export fn value()->int64:\n  1\n", request("telemetry", telemetry, third))
+    wrapper_revision = library(wrapper, "wrapper", "0.1.0", 'export fn value()->i64:\n  return 1\n', request("telemetry", telemetry, third))
     shared = root / "shared-depth"
     shared.mkdir()
     (shared / "main.k").write_text(text)

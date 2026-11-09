@@ -12,12 +12,12 @@ static void require(bool ok, const char *message) {
 #include "Integer64TensorChecks.h"
 int main() {
   try {
-    checkInteger64Tensors("uint64", true);
+    checkInteger64Tensors("u64", true);
     for (const auto *value :
          {"0", "18446744073709551615", "9223372036854775808", "9007199254740993", "+17", "-0",
           "18446744073709551615 / 2", "18446744073709551615 % 2", "18446744073709551615 * 0",
           "4294967295 * 4294967297"}) {
-      auto checked = analyze(std::string("fn main() -> uint64:\n  ") + value + "\n");
+      auto checked = analyze(std::string("fn main() -> u64:\n  return ") + value + "\n");
       require(checked.ok(), value);
 #ifndef KALANDRA_UINT64_FRONTEND_ONLY
       auto lowered = lowerNative(*checked.module);
@@ -29,17 +29,17 @@ int main() {
     for (const auto *value : {"18446744073709551616", "-1", "-18446744073709551615", "1.0", "1e0",
                               "18446744073709551615 + 1", "0 - 1", "4294967296 * 4294967296",
                               "18446744073709551615 * 18446744073709551615", "1 / 0", "1 % 0"}) {
-      auto checked = analyze(std::string("fn main() -> uint64:\n  ") + value + "\n");
+      auto checked = analyze(std::string("fn main() -> u64:\n  return ") + value + "\n");
       require(!checked.ok(), value);
       require(checked.diagnostics.front().code == "S051" ||
                   checked.diagnostics.front().code == "S052",
               "wrong uint64 constant diagnostic");
     }
     for (const auto *source :
-         {"fn identity(value:uint) -> uint64:\n  value\nfn main() -> uint:\n  "
+         {"fn identity(value:u64) -> u64:\n  return value\nfn main() -> u64:\n  return "
           "identity(18446744073709551615)\n",
-          "fn main() -> uint64:\n  value:uint = 18446744073709551615\n  value - 1\n",
-          "fn main() -> uint64:\n  value:uint = 9223372036854775808\n  value + value - 1\n"}) {
+          "fn main() -> u64:\n  value:u64 = 18446744073709551615\n  return value - 1\n",
+          "fn main() -> u64:\n  value:u64 = 9223372036854775808\n  return value + value - 1\n"}) {
       auto checked = analyze(source);
       if (std::string(source).find("value + value") != std::string::npos) {
         require(!checked.ok(), "overflowing intermediate constant escaped");
@@ -51,17 +51,17 @@ int main() {
 #endif
     }
     for (const auto *source :
-         {"fn f(x:uint64) -> int64:\n  x\n", "fn f(x:int64) -> uint64:\n  x\n",
-          "fn f(x:uint64,y:uint32) -> uint64:\n  x + y\n",
-          "fn f(x:uint64,y:float32) -> uint64:\n  x + y\n", "fn f() -> uint16:\n  65536\n",
-          "fn f() -> int16:\n  32768\n", "fn main() -> uint:\n  value = 1\n  value\n",
-          "fn main() -> uint:\n  value:uint = 18446744073709551615\n  value * value\n",
-          "fn main() -> uint:\n  value:uint = 18446744073709551615\n  -value\n",
-          "fn f(value:uint) -> uint:\n  zero:uint = 0\n  value / zero\n"})
+         {"fn f(x:u64) -> i64:\n  return x\n", "fn f(x:i64) -> u64:\n  return x\n",
+          "fn f(x:u64,y:u32) -> u64:\n  return x + y\n",
+          "fn f(x:u64,y:f32) -> u64:\n  return x + y\n", "fn f() -> u16:\n  return 65536\n",
+          "fn f() -> i16:\n  return 32768\n", "fn main() -> u64:\n  value = 1\n  return value\n",
+          "fn main() -> u64:\n  value:u64 = 18446744073709551615\n  return value * value\n",
+          "fn main() -> u64:\n  value:u64 = 18446744073709551615\n  return -value\n",
+          "fn f(value:u64) -> u64:\n  zero:u64 = 0\n  return value / zero\n"})
       require(!analyze(source).ok(), "unsupported conversion/type or invalid binding accepted");
     auto task =
-        analyze("fn identity(value:uint) -> uint:\n  value\nfn main() -> uint ! TaskError:\n"
-                "  try parallel:\n    try await spawn identity(18446744073709551615)\n");
+        analyze("fn identity(value:u64) -> u64:\n  return value\nfn main() -> u64 ! TaskError:\n"
+                "  return try parallel:\n    try await spawn identity(18446744073709551615)\n");
     require(task.ok(), "uint64 task rejected");
 #ifndef KALANDRA_UINT64_FRONTEND_ONLY
     auto lowered = lowerNative(*task.module);

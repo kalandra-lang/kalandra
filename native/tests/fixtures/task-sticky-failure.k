@@ -1,12 +1,12 @@
-fn compute() -> float32:
-  data: Tensor[float32, 2] = tensor([1, 2])
-  reduceSum(data)
+fn compute() -> f32:
+  data: Tensor[f32, 2] = tensor([1, 2])
+  return reduceSum(data)
 
-fn main() -> float32:
+fn main() -> f32:
   result = parallel:
     work = spawn compute()
     completed = await work
-    first = completed catch fn(error): 99
-    second = await work catch fn(error): 88
+    first = completed catch fn(error): return 99
+    second = await work catch fn(error): return 88
     first + second
-  result catch fn(error): 42
+  return result catch fn(error): return 42

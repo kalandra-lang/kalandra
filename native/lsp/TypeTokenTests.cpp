@@ -24,9 +24,9 @@ static void hover(const std::string &text, std::size_t at, const std::string &ex
 int main() {
   try {
     const std::string code =
-        "type Point:\n  x:int\ntype Other:\n  x:int\ntype Box:\n  point:Point\nfn "
-        "move(point:Point)->Point:\n  point with {x:point.x+1}\nfn main()->Point:\n  "
-        "start:Point=Point {x:2}\n  move(start)\n";
+        "type Point:\n  x:i64\ntype Other:\n  x:i64\ntype Box:\n  point:Point\nfn "
+        "move(point:Point)->Point:\n  return point with {x:point.x+1}\nfn main()->Point:\n  "
+        "start:Point=Point {x:2}\n  return move(start)\n";
     auto checked = check(syntax(code));
     if (!checked.ok())
       for (const auto &d : checked.diagnostics)
@@ -43,34 +43,34 @@ int main() {
     }
     auto refs = lsp::references(syntax(code), *target, true);
     require(refs && refs->size() == count && count == 7, "type occurrences lost");
-    const auto field = code.find("x:int"), label = code.find("x:point"), read = code.find("x+1"),
+    const auto field = code.find("x:i64"), label = code.find("x:point"), read = code.find("x+1"),
                ctor = code.find("x:2");
     for (auto at : {label, read, ctor}) {
       definition(code, at, field);
-      hover(code, at, "x: int64");
+      hover(code, at, "x: i64");
     }
     target = lsp::definition(syntax(code), "types.k", field);
     refs = lsp::references(syntax(code), *target, false);
     require(refs && refs->size() == 3, "field construction/update/read identities differ");
-    target = lsp::definition(syntax(code), "types.k", code.find("x:int", field + 1));
+    target = lsp::definition(syntax(code), "types.k", code.find("x:i64", field + 1));
     refs = lsp::references(syntax(code), *target, false);
     require(refs && refs->empty(), "same-spelled field stole occurrences");
-    hover(code, code.find(":int") + 1, "int: int64");
-    require(!lsp::definition(syntax(code), "types.k", code.find(":int") + 1),
+    hover(code, code.find(":i64") + 1, "i64: i64");
+    require(!lsp::definition(syntax(code), "types.k", code.find(":i64") + 1),
             "invented builtin declaration");
-    const std::string nested = "type Point:\n  x:int\nfn apply(callback:fn(Point)->Point, "
-                               "points:[Point])->Point:\n  callback(points[0])\nfn main():\n  0\n";
+    const std::string nested = "type Point:\n  x:i64\nfn apply(callback:fn(Point)->Point, "
+                               "points:[Point])->Point:\n  return callback(points[0])\nfn main():\n  return 0\n";
     target = lsp::definition(syntax(nested), "types.k", nested.find("Point"));
     require(target.has_value(), "missing nested fixture type");
     refs = lsp::references(syntax(nested), *target, false);
     require(refs && refs->size() == 4, "nested callable/array/result annotations lost");
     const std::string tensor =
-        "fn scale(values:Tensor[float32,?])->Tensor[float32,?]:\n  values*2\nfn main():\n  0\n";
-    hover(tensor, tensor.find("float32"), "float32: float32");
+        "fn scale(values:Tensor[f32,?])->Tensor[f32,?]:\n  return values*2\nfn main():\n  return 0\n";
+    hover(tensor, tensor.find("f32"), "f32: f32");
     require(lsp::hoverInfo(syntax(tensor), "types.k", tensor.find("Tensor")).has_value(),
             "missing tensor annotation hover");
-    const std::string errors = "error A:\n  Bad\ntype Both=A\nfn work()->int ! Both:\n  fail "
-                               "A.Bad\nfn main()->int ! A:\n  try work()\n";
+    const std::string errors = "error A:\n  Bad\ntype Both=A\nfn work()->i64 ! Both:\n  fail "
+                               "A.Bad\nfn main()->i64 ! A:\n  return try work()\n";
     target = lsp::definition(syntax(errors), "types.k", errors.find("Both:"));
     // The alias spelling is preserved rather than navigating to its canonical member.
     definition(errors, errors.find("Both:\n"), errors.find("Both="));
@@ -79,7 +79,7 @@ int main() {
     require(target.has_value(), "alias declaration unmapped");
     refs = lsp::references(syntax(errors), *target, true);
     require(refs && refs->size() == 2, "error alias channel identity lost");
-    const std::string invalid = "type Point:\n  x:int\nfn main():\n  Point {missing:1}\n";
+    const std::string invalid = "type Point:\n  x:i64\nfn main():\n  return Point {missing:1}\n";
     require(!lsp::definition(syntax(invalid), "types.k", invalid.find("missing")),
             "invalid constructor leaked metadata");
     std::cout << "Native type tokens: annotations, nested callable/array types, constructors, "

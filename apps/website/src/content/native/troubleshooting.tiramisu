@@ -20,25 +20,25 @@ h2 { "Two numeric values will not combine" }
 
 Give compatible literals an expected type, or convert typed values explicitly. This example intentionally fails because it mixes already typed widths:
 
-codeblock { language = kalandra, """fn main() -> int64:
-  narrow: int32 = 40
-  wide: int64 = 2
-  narrow + wide
+codeblock { language = kalandra, """fn main() -> i64:
+  narrow: i32 = 40
+  wide: i64 = 2
+  return narrow + wide
 """ }
 
 The corrected complete program returns 42:
 
-codeblock { language = kalandra, """fn main() -> int64:
-  narrow: int32 = 40
-  wide: int64 = 2
-  int64(narrow) + wide
+codeblock { language = kalandra, """fn main() -> i64:
+  narrow: i32 = 40
+  wide: i64 = 2
+  return i64(narrow) + wide
 """ }
 
-Use an explicit conversion if the intended operation is int64 arithmetic. An explicit conversion is checked and is not a general promise that every destination can represent every value.
+Use an explicit conversion if the intended operation is i64 arithmetic. An explicit conversion is checked and is not a general promise that every destination can represent every value.
 
 h2 { "An array is read-only or has an unfinished reader" }
 
-Ordinary array parameters and captured arrays do not grant write access. If a helper must write its caller's numeric or Bool array, declare a mut parameter. If it only needs a private working array, call copy and edit the result.
+Ordinary array parameters and captured arrays do not grant write access. If a helper must write its caller's numeric or bool array, declare a mut parameter. If it only needs a private working array, call copy and edit the result.
 
 A task can still read storage after the parent gives it another local name or replaces its own binding. Await every relevant reader before editing the old storage. An await in only one branch or inside a loop that might run zero times does not prove the task has finished. A spawned task cannot request mut access to parent-provided arrays.
 
@@ -58,7 +58,7 @@ h2 { "A GPU backend or arithmetic mode is unavailable" }
 
 Confirm that the installed compiler package includes the backend selected by --target and that its prerequisites are installed. A CPU-only package cannot compile GPU code merely by adding a backend flag. Windows GPU packages remain experimental.
 
-For Metal float64 arithmetic, select --arithmetic hardware-with-software-fallback explicitly or use a supported float32 calculation. Do not change precision just to silence an error unless that precision suits your application. GPU row normalization requires hardware float32 and does not accept software arithmetic.
+For Metal f64 arithmetic, select --arithmetic hardware-with-software-fallback explicitly or use a supported f32 calculation. Do not change precision just to silence an error unless that precision suits your application. GPU row normalization requires hardware f32 and does not accept software arithmetic.
 
 list {
   link { url = "/docs/installation", "Packages and backend prerequisites" },
@@ -67,7 +67,7 @@ list {
 
 h2 { "A GPU program displays hexadecimal digits" }
 
-The Metal executable displays floating results as IEEE-754 bit patterns. For example, float32 23 is displayed as 41b80000. This is the result representation, not an error or an integer conversion. Compare with the expected display given beside the GPU example.
+The Metal executable displays floating results as IEEE-754 bit patterns. For example, f32 23 is displayed as 41b80000. This is the result representation, not an error or an integer conversion. Compare with the expected display given beside the GPU example.
 
 h2 { "Parallel work is slower than a normal call" }
 

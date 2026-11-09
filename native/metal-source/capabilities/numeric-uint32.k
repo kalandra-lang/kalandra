@@ -1,9 +1,9 @@
-fn operation(values:Tensor[uint32,?])->Tensor[uint32,?]:
-  values
-fn main()->Tensor[uint32,3] ! TaskError:
-  try parallel:
+fn operation(values:Tensor[u32,?])->Tensor[u32,?]:
+  return values
+fn main()->Tensor[u32,3] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    values:Tensor[uint32,3]=tensor([1,2,3])
+    values:Tensor[u32,3]=tensor([1,2,3])
     resident=try await transfer(values,gpu)
     answer=try await spawn operation(resident) on gpu
     try await transfer(answer,devices.cpu())

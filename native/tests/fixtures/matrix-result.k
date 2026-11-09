@@ -1,8 +1,8 @@
-fn reference(a: Tensor[float32, ?, ?], b: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  matmul(a, b)
+fn reference(a: Tensor[f32, ?, ?], b: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return matmul(a, b)
 
-fn shared(a: Tensor[float32, ?, ?], b: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  matmul(a, a)
+fn shared(a: Tensor[f32, ?, ?], b: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return matmul(a, a)
 
-fn main() -> float32:
-  0
+fn main() -> f32:
+  return 0

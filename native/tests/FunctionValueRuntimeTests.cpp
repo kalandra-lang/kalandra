@@ -44,7 +44,7 @@ int main() {
     fault.settle();
     require(fault.allocations() == fault.releases(), "failed collection call leaked storage");
 #endif
-    require(faultResult == 0 && fault.status() == 4 && fault.line() == 2 && fault.column() == 3 &&
+    require(faultResult == 0 && fault.status() == 4 && fault.line() == 2 && fault.column() == 10 &&
                 fault.live() == 0,
             "indirect arithmetic fault lost its context or original source location");
     Invocation alreadyFailed;

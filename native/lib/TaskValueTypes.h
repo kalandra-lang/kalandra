@@ -50,7 +50,7 @@ public:
       return failure();
     if (type.builtin == BuiltinValue::FaultKind)
       return integer(32);
-    if (type.builtin == BuiltinValue::Bool)
+    if (isBooleanStorage(type))
       return integer(1);
     if (type.builtin == BuiltinValue::String)
       return llvm::StructType::get(*context_, {pointer(), pointer(), integer(64)});

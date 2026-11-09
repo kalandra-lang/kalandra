@@ -133,7 +133,7 @@ static bool verify(std::array<std::int64_t, Rank> shape, std::vector<std::uint32
   if (code) {
     if (result.allocated)
       return reject("partial result published");
-    if (code == 4 && (context.line() != 2 || context.column() != 3))
+    if (code == 4 && (context.line() != 2 || context.column() != 10))
       return reject("source location lost");
   } else {
     if (!correct())

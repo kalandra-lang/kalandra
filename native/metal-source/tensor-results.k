@@ -1,18 +1,18 @@
-fn seed(first: float32, second: float32, third: float32) -> Tensor[float32, 3]:
-  tensor([first, second, third])
+fn seed(first: f32, second: f32, third: f32) -> Tensor[f32, 3]:
+  return tensor([first, second, third])
 
-fn forward(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  values
+fn forward(values: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return values
 
-fn prepare(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  forward(values)
+fn prepare(values: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return forward(values)
 
-fn combine(left: Tensor[float32, ?], right: Tensor[float32, ?]) -> Tensor[float32, ?]:
+fn combine(left: Tensor[f32, ?], right: Tensor[f32, ?]) -> Tensor[f32, ?]:
   product = left * right
-  product + left
+  return product + left
 
-fn main() -> Tensor[float32, 3] ! TaskError:
-  try parallel:
+fn main() -> Tensor[f32, 3] ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
     left = prepare(seed(1, 2, 3))
     right = prepare(seed(4, 5, 6))

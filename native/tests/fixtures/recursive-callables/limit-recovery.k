@@ -1,17 +1,17 @@
 error E:
   Bad
-fn descend(n:int)->int ! E:
+fn descend(n:i64)->i64 ! E:
   if n==0:fail E.Bad
-  try descend(n-1)
-fn worker(n:int)->int:
+  return try descend(n-1)
+fn worker(n:i64)->i64:
   callback=descend
-  callback(n) catch fn(error):0
-fn attempt()->int ! TaskError:
-  try parallel:
+  return callback(n) catch fn(error):return 0
+fn attempt()->i64 ! TaskError:
+  return try parallel:
     try await spawn worker(1000000)
-fn main()->int:
-  attempt() catch fn(error):
-    match error:
+fn main()->i64:
+  return attempt() catch fn(error):
+    return match error:
       TaskError.Fault {kind}:
         match kind:
           FaultKind.Native:42

@@ -1,18 +1,18 @@
 type Batch:
-  values:[int]
-  enabled:Bool
-fn make(n:int)->Batch:
-  Batch {values:[n,n+1],enabled:true}
-fn first(batch:Batch)->int:
-  batch.values[0]
-fn work(batch:Batch)->int:
+  values:[i64]
+  enabled:bool
+fn make(n:i64)->Batch:
+  return Batch {values:[n,n+1],enabled:true}
+fn first(batch:Batch)->i64:
+  return batch.values[0]
+fn work(batch:Batch)->i64:
   total=0
   for i in range(batch.values[0]):
     total=total+2
-  total
-fn main()->int ! TaskError:
+  return total
+fn main()->i64 ! TaskError:
   saved=make(17)
-  try parallel:
+  return try parallel:
     total=0
     for i in range(1000):
       batch=make(i%2)

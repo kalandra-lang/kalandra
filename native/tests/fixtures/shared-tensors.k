@@ -1,21 +1,21 @@
-fn identity(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  values
+fn identity(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return values
 
-fn forward(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  identity(values)
+fn forward(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return identity(values)
 
-fn square(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  matmul(values, values)
+fn square(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return matmul(values, values)
 
 fn reference(
-  samples: Tensor[float32, ?, ?],
-  weights: Tensor[float32, ?, ?],
-) -> float32:
+  samples: Tensor[f32, ?, ?],
+  weights: Tensor[f32, ?, ?],
+) -> f32:
   alias = samples
   first = forward(square(forward(alias)))
   second = square(samples)
-  reduceSum(first) + reduceSum(second) + reduceSum(alias)
+  return reduceSum(first) + reduceSum(second) + reduceSum(alias)
 
-fn main() -> float32:
-  values: Tensor[float32, 2, 2] = tensor([[1, 2], [3, 4]])
-  reference(values, values)
+fn main() -> f32:
+  values: Tensor[f32, 2, 2] = tensor([[1, 2], [3, 4]])
+  return reference(values, values)

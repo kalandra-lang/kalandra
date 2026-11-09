@@ -15,15 +15,15 @@ int main(int argc, char **argv) {
     if (argc != 2 && argc != 3)
       throw std::runtime_error("expected LLVM output path");
     auto checked = check(parse(std::make_shared<SourceFile>("closure-bridge.k", R"k(
-fn named(value:int)->int:
-  value+1
-fn make(offset:int,choice:int)->fn(int)->int:
-  captured=fn(value:int):value+offset
-  if choice==0:named
+fn named(value:i64)->i64:
+  return value+1
+fn make(offset:i64,choice:i64)->fn(i64)->i64:
+  captured=fn(value:i64):return value+offset
+  return if choice==0:named
   else:captured
-fn main()->int:
+fn main()->i64:
   callback=make(9,1)
-  callback(1)
+  return callback(1)
 )k")));
     if (!checked.ok()) {
       for (const auto &diagnostic : checked.diagnostics)

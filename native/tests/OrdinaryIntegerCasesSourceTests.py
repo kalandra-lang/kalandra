@@ -16,10 +16,10 @@ variants=qualified_variants(variants,a.compiler)
 results=[]
 for mode,extra,flags,library in variants:
  if windows and mode=='thread-sanitized':continue
- for language,cpp in [('float32','float'),('float64','double')]:
+ for language,cpp in [('f32','float'),('f64','double')]:
   for fixture,ac,ao,bc,bo in [('positive',13,7,7,11),('other-positive',5,1,3,2),('cycle',1,0,0,3),('u32-divisor',13,7,65537,0),('wide-divisor',13,7,65538,17),('zero-divisor',13,7,0,0),('negative-divisor',13,7,-7,-11),('overflowing-divisor',13,7,9223372036854775807,11)]:
    name=mode+'-'+language+'-'+fixture;source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
-   source.write_text(f'fn gcd(a:int64,b:int64)->int64:\n  if b == 0:\n    a\n  else:\n    gcd(b,a % b)\nfn iterate(x:int64,seed:int64,rounds:int64)->{language}:\n  if rounds == 0:\n    {language}(x)\n  else:\n    iterate(gcd(x*{ac}+{ao},seed*{bc}+{bo})+seed,seed,rounds-1)\nfn value(seed:int64,rounds:int64)->{language}:\n  iterate(seed,seed,rounds)\nfn main()->{language}:\n  {language}(0)\n')
+   source.write_text(f'fn gcd(a:i64,b:i64)->i64:\n  return if b == 0:\n    a\n  else:\n    gcd(b,a % b)\nfn iterate(x:i64,seed:i64,rounds:i64)->{language}:\n  return if rounds == 0:\n    {language}(x)\n  else:\n    iterate(gcd(x*{ac}+{ao},seed*{bc}+{bo})+seed,seed,rounds-1)\nfn value(seed:i64,rounds:i64)->{language}:\n  return iterate(seed,seed,rounds)\nfn main()->{language}:\n  return {language}(0)\n')
    run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
    if mode=='optimized' and fixture in ('positive','other-positive'):assert 'kalandra.ordinary.integer-cases' in ir.read_text(),name
    if fixture=='positive':

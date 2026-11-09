@@ -58,7 +58,7 @@ for name, flag, flags in variants:
     result = run([binary])
     assert run([standalone]) == '1000000\n'
     terminal = a.output / ('terminal-' + name + '.k')
-    terminal.write_text('fn terminal(value:int)->int:\n  1/(value-value)\nfn main()->int:\n  terminal(0)\n')
+    terminal.write_text('fn terminal(value:i64)->i64:\n  return 1/(value-value)\nfn main()->i64:\n  return terminal(0)\n')
     terminal_binary = binary.with_name('terminal-' + binary.name)
     run([a.compiler, terminal, flag, '-o', terminal_binary])
     stopped = subprocess.run([str(terminal_binary)], capture_output=True, text=True,

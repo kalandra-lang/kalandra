@@ -1,18 +1,18 @@
 enum List:
   End
   Next:
-    value:int
+    value:i64
     tail:List
-fn head(list:List)->int:
-  match list:
+fn head(list:List)->i64:
+  return match list:
     List.End:0
     List.Next {value,tail}:value
-fn firstTwo(list:List)->int:
-  match list:
+fn firstTwo(list:List)->i64:
+  return match list:
     List.End:0
     List.Next {value,tail}:value+head(tail)
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   tail=List.Next {value:7,tail:List.End}
   list=List.Next {value:11,tail:tail}
-  try parallel:
+  return try parallel:
     try await spawn firstTwo(list) on devices.gpu()

@@ -1,10 +1,10 @@
-fn main()->int:
+fn main()->i64:
   values=map([20,22],fn(value): # begin body
 
     # ignore this indentation
     total=value+1
 
-    total-1 # result
+    return total-1 # result
   # boundary comment
   )
-  values[0]+values[1]
+  return values[0]+values[1]

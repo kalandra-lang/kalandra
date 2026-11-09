@@ -18,12 +18,12 @@ def run(command):
     assert not any(x in r.stderr for x in ('AddressSanitizer','ThreadSanitizer','runtime error:')),r.stderr
     return r.stdout
 source=out/'model.k'
-source.write_text((root/'native/benchmarks/TransformerBlock.k').read_text().split('fn main(')[0]+'''fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+source.write_text((root/'native/benchmarks/TransformerBlock.k').read_text().split('fn main(')[0]+'''fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    x:Tensor[float32,2,2]=tensor([[1,0],[0,1]])
-    up:Tensor[float32,2,8]=tensor([[1,0,1,0,1,0,1,0],[0,1,0,1,0,1,0,1]])
-    down:Tensor[float32,8,2]=tensor([[1,0],[0,1],[1,0],[0,1],[1,0],[0,1],[1,0],[0,1]])
+    x:Tensor[f32,2,2]=tensor([[1,0],[0,1]])
+    up:Tensor[f32,2,8]=tensor([[1,0,1,0,1,0,1,0],[0,1,0,1,0,1,0,1]])
+    down:Tensor[f32,8,2]=tensor([[1,0],[0,1],[1,0],[0,1],[1,0],[0,1],[1,0],[0,1]])
     a=try await transfer(x,gpu)
     b=try await transfer(up,gpu)
     c=try await transfer(down,gpu)
@@ -40,27 +40,27 @@ assert host.count(',0u,2u}') == 8 # hardware matrix work proofs
 variants=[('optimized',['-O2'],'libkalandra-task-core-optimized.a')]
 if not args.quick:variants += [('debug',['-O0'],'libkalandra-native-runtime.a'),('sanitized',['-O1','-g','-fsanitize=address,undefined','-fno-omit-frame-pointer'],'libkalandra-native-runtime-sanitized.a'),('thread-sanitized',['-O1','-g','-fsanitize=thread','-fno-omit-frame-pointer'],'libkalandra-native-runtime-thread-sanitized.a')]
 unsafe=out/'checked-cast.k'
-unsafe.write_text('''fn work(x:Tensor[float32,?,?])->Tensor[float32,?,?]:
+unsafe.write_text('''fn work(x:Tensor[f32,?,?])->Tensor[f32,?,?]:
   normal=rmsNormRows(x,0.00001)
-  checked=float32(int32(normal*1.0e30))
-  softmaxRows(checked)
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+  checked=f32(i32(normal*1.0e30))
+  return softmaxRows(checked)
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    x:Tensor[float32,2,2]=tensor([[1,2],[3,4]])
+    x:Tensor[f32,2,2]=tensor([[1,2],[3,4]])
     a=try await transfer(x,gpu)
     y=try await spawn work(a) on gpu
     try await transfer(y,devices.cpu())
 ''')
 residual=out/'residual.k'
-residual.write_text('''fn work(a:Tensor[float32,?,?],b:Tensor[float32,?,?],c:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  c-matmul(transpose(a),b)
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+residual.write_text('''fn work(a:Tensor[f32,?,?],b:Tensor[f32,?,?],c:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return c-matmul(transpose(a),b)
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    a:Tensor[float32,2,2]=tensor([[1,3],[2,4]])
-    b:Tensor[float32,2,2]=tensor([[2,0],[0,2]])
-    c:Tensor[float32,2,2]=tensor([[10,20],[30,40]])
+    a:Tensor[f32,2,2]=tensor([[1,3],[2,4]])
+    b:Tensor[f32,2,2]=tensor([[2,0],[0,2]])
+    c:Tensor[f32,2,2]=tensor([[10,20],[30,40]])
     x=try await transfer(a,gpu)
     y=try await transfer(b,gpu)
     z=try await transfer(c,gpu)

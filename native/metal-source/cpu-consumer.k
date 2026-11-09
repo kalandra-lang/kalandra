@@ -1,5 +1,5 @@
-fn total(values: Tensor[float32, ?]) -> float32:
-  reduceSum(values)
+fn total(values: Tensor[f32, ?]) -> f32:
+  return reduceSum(values)
 
-fn main() -> float32:
-  0
+fn main() -> f32:
+  return 0

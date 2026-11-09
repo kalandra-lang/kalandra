@@ -1,4 +1,18 @@
 foreach(VARIANT IN ITEMS debug sanitized thread-sanitized)
+  add_library(kalandra-unit-entry-${VARIANT} STATIC runtime/UnitEntry.cpp)
+  target_compile_options(kalandra-unit-entry-${VARIANT} PRIVATE -Wall -Wextra -Werror)
+  if(VARIANT STREQUAL "sanitized")
+    target_compile_options(kalandra-unit-entry-${VARIANT} PRIVATE -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+  elseif(VARIANT STREQUAL "thread-sanitized")
+    target_compile_options(kalandra-unit-entry-${VARIANT} PRIVATE -fsanitize=thread -fno-omit-frame-pointer)
+  endif()
+endforeach()
+target_compile_definitions(kalandra PRIVATE
+  KALANDRA_UNIT_ENTRY="$<TARGET_FILE:kalandra-unit-entry-debug>"
+  KALANDRA_UNIT_SANITIZED_ENTRY="$<TARGET_FILE:kalandra-unit-entry-sanitized>"
+  KALANDRA_UNIT_THREAD_SANITIZED_ENTRY="$<TARGET_FILE:kalandra-unit-entry-thread-sanitized>")
+kalandra_compiler_runtimes(kalandra-unit-entry-debug kalandra-unit-entry-sanitized kalandra-unit-entry-thread-sanitized)
+foreach(VARIANT IN ITEMS debug sanitized thread-sanitized)
   add_library(kalandra-bool-entry-${VARIANT} STATIC runtime/BoolEntry.cpp)
   target_compile_options(kalandra-bool-entry-${VARIANT} PRIVATE -Wall -Wextra -Werror)
   if(VARIANT STREQUAL "sanitized")

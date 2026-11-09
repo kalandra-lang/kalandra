@@ -25,11 +25,11 @@ a.root.mkdir(parents=True, exist_ok=True)
 def run(command):
     subprocess.run(list(map(str, command)), check=True, timeout=180)
 
-types = ('int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64', 'float32', 'float64', 'Bool') if a.all_types else ('int',)
+types = ('i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64', 'bool') if a.all_types else ('i64',)
 for typ, kind, body in [(typ, kind, body) for typ in types for kind, body in [('alias', 'values'), ('fresh', 'copy(values)')]]:
     case = kind + '-' + typ if a.all_types else kind
     source = a.root / (case + '.k')
-    source.write_text(f'fn work(values:[{typ}])->[{typ}]:\n  ' + body + '\nfn main()->int:\n  0\n')
+    source.write_text(f'fn work(values:[{typ}])->[{typ}]:\n  return ' + body + '\nfn main()->i64:\n  return 0\n')
     out = a.root / case
     run([a.build / 'native/gpu-source/kalandra-vulkan-kernels', source, 'work', out, 'hardware'])
     program = json.loads((out / 'program.json').read_text())

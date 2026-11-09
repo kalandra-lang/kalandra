@@ -1,19 +1,19 @@
-fn enabled(total: float32, threshold: float32) -> Bool:
-  total > threshold
+fn enabled(total: f32, threshold: f32) -> bool:
+  return total > threshold
 
-fn total(values: Tensor[float32, ?]) -> float32:
-  reduceSum(values)
+fn total(values: Tensor[f32, ?]) -> f32:
+  return reduceSum(values)
 
-fn normalize(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  values / reduceSum(values)
+fn normalize(values: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return values / reduceSum(values)
 
-fn adjust(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  values - 1
+fn adjust(values: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return values - 1
 
-fn main() -> Tensor[float32, ?] ! TaskError:
-  try parallel:
+fn main() -> Tensor[f32, ?] ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    values: Tensor[float32, 3] = tensor([1, 2, 3])
+    values: Tensor[f32, 3] = tensor([1, 2, 3])
     resident = try await transfer(values, gpu)
     sum = try await spawn total(resident) on gpu
     selected = enabled(sum, 0) and not (sum != sum)

@@ -1,5 +1,5 @@
-fn choose(a: Tensor[float32, 2, 3], b: Tensor[float32, 2, 3], c: Tensor[float32, 2, 3], factor: float32) -> Tensor[float32, 2, 3]:
-  if factor > 1:
+fn choose(a: Tensor[f32, 2, 3], b: Tensor[f32, 2, 3], c: Tensor[f32, 2, 3], factor: f32) -> Tensor[f32, 2, 3]:
+  return if factor > 1:
     a
   else:
     if factor > 0:
@@ -7,22 +7,22 @@ fn choose(a: Tensor[float32, 2, 3], b: Tensor[float32, 2, 3], c: Tensor[float32,
     else:
       c
 
-fn project(a: Tensor[float32, 2, 3], b: Tensor[float32, 2, 3], c: Tensor[float32, 2, 3], x: Tensor[float32, 3, 2], y: Tensor[float32, 3, 2], factor: float32) -> Tensor[float32, 2, 2]:
+fn project(a: Tensor[f32, 2, 3], b: Tensor[f32, 2, 3], c: Tensor[f32, 2, 3], x: Tensor[f32, 3, 2], y: Tensor[f32, 3, 2], factor: f32) -> Tensor[f32, 2, 2]:
   left = choose(a, b, c, factor)
   right = if factor > 0:
     x
   else:
     y
-  matmul(left, right)
+  return matmul(left, right)
 
-fn main() -> Tensor[float32, ?, ?] ! TaskError:
-  try parallel:
+fn main() -> Tensor[f32, ?, ?] ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    a: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
-    b: Tensor[float32, 2, 3] = tensor([[2, 3, 4], [5, 6, 7]])
-    c: Tensor[float32, 2, 3] = tensor([[3, 4, 5], [6, 7, 8]])
-    x: Tensor[float32, 3, 2] = tensor([[1, 2], [3, 4], [5, 6]])
-    y: Tensor[float32, 3, 2] = tensor([[2, 1], [4, 3], [6, 5]])
+    a: Tensor[f32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+    b: Tensor[f32, 2, 3] = tensor([[2, 3, 4], [5, 6, 7]])
+    c: Tensor[f32, 2, 3] = tensor([[3, 4, 5], [6, 7, 8]])
+    x: Tensor[f32, 3, 2] = tensor([[1, 2], [3, 4], [5, 6]])
+    y: Tensor[f32, 3, 2] = tensor([[2, 1], [4, 3], [6, 5]])
     aa = try await transfer(a, gpu)
     bb = try await transfer(b, gpu)
     cc = try await transfer(c, gpu)

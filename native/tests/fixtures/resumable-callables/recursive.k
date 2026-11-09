@@ -1,12 +1,12 @@
-fn leaf(value:int)->int:
-  value+42
-fn run(value:int)->int ! TaskError:
-  if value==0:
+fn leaf(value:i64)->i64:
+  return value+42
+fn run(value:i64)->i64 ! TaskError:
+  return if value==0:
     try parallel:
       try await spawn leaf(value)
   else:
     f=run
     try f(value-1)
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   f=run
-  try f(8)
+  return try f(8)

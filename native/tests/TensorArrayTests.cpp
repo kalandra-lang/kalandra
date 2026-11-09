@@ -12,14 +12,14 @@ static CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
-    for (auto type : {"int32", "uint32", "int64", "uint64", "float32", "float64"})
+    for (auto type : {"i32", "u32", "i64", "u64", "f32", "f64"})
       for (unsigned rank : {0u, 1u, 2u, 3u, 8u}) {
         std::string input = "Tensor[" + std::string(type);
         for (unsigned i = 0; i < rank; ++i)
           input += ",?";
         input += "]";
         auto typed = analyze("fn change(values:" + input + ")->[" + type +
-                             "]:\n  array(values)\nfn main()->int:\n  0\n");
+                             "]:\n  return array(values)\nfn main()->i64:\n  return 0\n");
         require(typed.ok(), "valid tensor-to-array rejected");
         const auto id = typed.module->functions[0].result;
         const auto &result = typed.module->expressions[id];
@@ -72,18 +72,18 @@ int main() {
 #endif
       }
     for (auto source :
-         {"fn main():\n  array(tensor([[1,2],[3,4]]))[2]\n",
-          "fn main():\n  length(array(tensor(7)))\n",
-          "fn main():\n  values:Tensor[float32,0,3]=tensor([],[0,3])\n  length(array(values))\n",
-          "fn main():\n  tensor([[1,2],[3,4]]) -> array() -> map(fn(x):x*2) -> tensor() -> "
+         {"fn main():\n  return array(tensor([[1,2],[3,4]]))[2]\n",
+          "fn main():\n  return length(array(tensor(7)))\n",
+          "fn main():\n  values:Tensor[f32,0,3]=tensor([],[0,3])\n  return length(array(values))\n",
+          "fn main():\n  return tensor([[1,2],[3,4]]) -> array() -> map(fn(x):return x*2) -> tensor() -> "
           "reduceSum()\n",
-          "fn change(values:Tensor[int,?,?]):\n  map([1,2],fn(x):array(values)[x])\nfn main():\n  "
+          "fn change(values:Tensor[i64,?,?]):\n  return map([1,2],fn(x):return array(values)[x])\nfn main():\n  return "
           "change(tensor([[1,2],[3,4]]))[1]\n",
-          "fn main() ! TaskError:\n  try parallel:\n    work=spawn array(tensor([[1,2],[3,4]]))\n  "
+          "fn main() ! TaskError:\n  return try parallel:\n    work=spawn array(tensor([[1,2],[3,4]]))\n  "
           "  values=try await work\n    values[2]\n",
-          "fn make():\n  tensor([[1,2],[3,4]])\nfn main() ! TaskError:\n  try parallel:\n    "
+          "fn make():\n  return tensor([[1,2],[3,4]])\nfn main() ! TaskError:\n  return try parallel:\n    "
           "work=spawn make()\n    array(try await work)[2]\n",
-          "fn array(x:int):\n  x+1\nfn main():\n  array(1)\n"}) {
+          "fn array(x:i64):\n  return x+1\nfn main():\n  return array(1)\n"}) {
       auto typed = analyze(source);
       require(typed.ok(), std::string("valid tensor-to-array program rejected: ") + source);
       require(bool(continuation::plan(*typed.module)), "helper import failed");
@@ -93,30 +93,30 @@ int main() {
 #endif
     }
     for (auto source :
-         {"fn main():\n  array()\n", "fn main():\n  array(tensor([1]),tensor([2]))\n",
-          "fn main():\n  array(1)\n", "fn main():\n  array([1,2])\n", "fn main():\n  array(true)\n",
-          "fn change(values:Tensor[int,?])->[float32]:\n  array(values)\n",
-          "fn change(values:Tensor[int,?])->Tensor[int,?]:\n  array(values)\n",
-          "fn main():\n  array=1\n  array(tensor([2]))\n",
-          "fn main() ! TaskError:\n  try parallel:\n    work=spawn tensor([1,2])\n    "
+         {"fn main():\n  return array()\n", "fn main():\n  return array(tensor([1]),tensor([2]))\n",
+          "fn main():\n  return array(1)\n", "fn main():\n  return array([1,2])\n", "fn main():\n  return array(true)\n",
+          "fn change(values:Tensor[i64,?])->[f32]:\n  return array(values)\n",
+          "fn change(values:Tensor[i64,?])->Tensor[i64,?]:\n  return array(values)\n",
+          "fn main():\n  array=1\n  return array(tensor([2]))\n",
+          "fn main() ! TaskError:\n  return try parallel:\n    work=spawn tensor([1,2])\n    "
           "array(work)\n"})
       require(!analyze(source).ok(), std::string("invalid tensor-to-array admitted: ") + source);
     auto resident = check(
         parse(std::make_shared<SourceFile>(
-            "resident.k", "fn main() ! TaskError:\n  try parallel:\n    "
-                                 "values:Tensor[float32,2]=tensor([1,2])\n    resident=try "
+            "resident.k", "fn main() ! TaskError:\n  return try parallel:\n    "
+                                 "values:Tensor[f32,2]=tensor([1,2])\n    resident=try "
                                  "await transfer(values,devices.gpu())\n    array(resident)\n")),
         {}, {.placement = true});
     bool diagnostic = false;
     for (const auto &d : resident.diagnostics)
       diagnostic |= d.code == "S026";
     require(!resident.ok() && diagnostic, "resident tensor bypassed array construction gate");
-    for (auto input : {"Tensor[int,2,3]", "Tensor[int,0,?]", "Tensor[int]"}) {
+    for (auto input : {"Tensor[i64,2,3]", "Tensor[i64,0,?]", "Tensor[i64]"}) {
       auto typed = analyze("fn change(values:" + std::string(input) +
-                           "):\n  array(values)\nfn main()->int:\n  0\n");
+                           "):\n  return array(values)\nfn main()->i64:\n  return 0\n");
       require(typed.ok(), "known count program failed");
-      auto expected = std::string(input) == "Tensor[int,2,3]" ? 6
-                      : std::string(input) == "Tensor[int]"   ? 1
+      auto expected = std::string(input) == "Tensor[i64,2,3]" ? 6
+                      : std::string(input) == "Tensor[i64]"   ? 1
                                                               : 0;
       require(typed.module->functions[0].resultType.shape[0].constant == expected,
               "known flattened count lost");

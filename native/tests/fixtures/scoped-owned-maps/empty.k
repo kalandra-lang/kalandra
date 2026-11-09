@@ -1,12 +1,12 @@
 type Job:
-  run: fn(int) -> int
-  data: [int]
-fn make(value: int) -> Job:
+  run: fn(i64) -> i64
+  data: [i64]
+fn make(value: i64) -> Job:
   saved = [value, value + 1]
-  Job {run: fn(delta: int): saved[0] + delta, data: saved}
-fn main() -> int ! TaskError:
+  return Job {run: fn(delta: i64): return saved[0] + delta, data: saved}
+fn main() -> i64 ! TaskError:
   a = [1]
   a = [2]
   jobs = try parallelMap([], make)
-  callbacks = try parallelMap([], fn(value: int): fn(x: int): x / value)
-  length(jobs) + length(callbacks) + a[0]
+  callbacks = try parallelMap([], fn(value: i64): return fn(x: i64): return x / value)
+  return length(jobs) + length(callbacks) + a[0]

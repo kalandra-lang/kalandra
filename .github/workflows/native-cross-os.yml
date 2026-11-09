@@ -84,6 +84,10 @@ jobs:
           cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-cross-target-tests -j2
           ctest --test-dir build/macos --output-on-failure \
             -R '^native-(cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
+      - name: Qualify explicit returns and primitive types
+        run: >-
+          ctest --test-dir build/macos --output-on-failure
+          -R '^native-explicit-returns$'
       - name: Qualify scoped ownership and compiler value layouts
         run: |
           cmake --build build/macos --target kalandra-ownership-scope-optimized kalandra-value-scope-optimized -j2

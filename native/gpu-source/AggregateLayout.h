@@ -21,11 +21,11 @@ struct DeviceAggregateLayout {
 using DeviceAggregateLayouts = std::map<std::size_t, DeviceAggregateLayout>;
 inline bool deviceScalarValue(const ValueType &type) {
   return !type.tensor && !type.array && !type.task && !type.fallible &&
-         (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
+         (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type));
 }
 inline bool deviceFlatArrayValue(const ValueType &type) {
   return type.array && type.tensor && type.shape.size() == 1 && !type.task && !type.fallible &&
-         (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
+         (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type));
 }
 inline bool deviceInlineRecordValue(const ValueType &type) {
   return type.record && type.builtin == BuiltinValue::Record && !type.tensor && !type.array &&
@@ -36,8 +36,8 @@ inline bool deviceRecordArrayValue(const ValueType &type) {
          !type.task && !type.fallible;
 }
 inline bool deviceCallableValue(const ValueType &type) {
-  return type.builtin == BuiltinValue::Function && !type.array && !type.tensor &&
-         !type.task && !type.fallible;
+  return type.builtin == BuiltinValue::Function && !type.array && !type.tensor && !type.task &&
+         !type.fallible;
 }
 inline bool deviceTensorValue(const ValueType &type) {
   return type.tensor && !type.array && !type.task && !type.fallible &&
@@ -47,8 +47,8 @@ inline bool deviceTensorValue(const ValueType &type) {
 // arena handles. Flat boundary projections omit the storage plan.
 inline std::expected<DeviceAggregateLayouts, std::string>
 planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> values,
-                           std::size_t budget = 300000,
-                           const RecordStoragePlan *storage = nullptr, bool deviceClosures = false) {
+                           std::size_t budget = 300000, const RecordStoragePlan *storage = nullptr,
+                           bool deviceClosures = false) {
   DeviceAggregateLayouts layouts;
   const auto reject = [](std::string message) { return std::unexpected(std::move(message)); };
   const auto recordArray = [&](const ValueType &type) {
@@ -130,11 +130,10 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
         const auto &member = record.fields[index];
         layout.fields.push_back(layout.words);
         layout.boxed.push_back(boxed(index));
-        const bool handle = deviceFlatArrayValue(member.type) || recordArray(member.type) || closure(member.type) ||
-                            layout.boxed.back();
-        const auto size = deviceScalarValue(member.type) || handle
-                              ? 1
-                              : layouts.at(*member.type.record).words;
+        const bool handle = deviceFlatArrayValue(member.type) || recordArray(member.type) ||
+                            closure(member.type) || layout.boxed.back();
+        const auto size =
+            deviceScalarValue(member.type) || handle ? 1 : layouts.at(*member.type.record).words;
         const auto owned = handle ? 1
                            : deviceInlineRecordValue(member.type)
                                ? layouts.at(*member.type.record).owned.size()

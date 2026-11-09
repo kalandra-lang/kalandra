@@ -249,19 +249,19 @@ EXPECT_FAULT("${OUTPUT_DIR}/order-harness" 87 ShapeFault --rows 3)
 if(NOT FAULT_DIAGNOSTICS MATCHES "ShapeFault at source 2:")
   message(FATAL_ERROR "Call arguments did not fault left-to-right: ${FAULT_DIAGNOSTICS}")
 endif()
-file(WRITE "${OUTPUT_DIR}/scalar.k" "fn main() -> float32:\n  2 + 3 * 4\n")
+file(WRITE "${OUTPUT_DIR}/scalar.k" "fn main() -> f32:\n  return 2 + 3 * 4\n")
 RUN_OK("${COMPILER}" "${OUTPUT_DIR}/scalar.k" -o "${OUTPUT_DIR}/scalar" ${EXTRA})
 RUN_OK("${OUTPUT_DIR}/scalar")
 if(NOT OUTPUT STREQUAL "14\n")
   message(FATAL_ERROR "Scalar arithmetic lowering failed")
 endif()
-file(WRITE "${OUTPUT_DIR}/rankzero.k" "fn main() -> float32:\n  x: Tensor[float32] = tensor(2)\n  reduceSum(x)\n")
+file(WRITE "${OUTPUT_DIR}/rankzero.k" "fn main() -> f32:\n  x: Tensor[f32] = tensor(2)\n  return reduceSum(x)\n")
 RUN_OK("${COMPILER}" "${OUTPUT_DIR}/rankzero.k" -o "${OUTPUT_DIR}/rankzero" ${EXTRA})
 RUN_OK("${OUTPUT_DIR}/rankzero")
 if(NOT OUTPUT STREQUAL "2\n")
   message(FATAL_ERROR "Rank-zero lowering failed")
 endif()
-file(WRITE "${OUTPUT_DIR}/invalid.k" "fn main() -> float32:\n  missing\n")
+file(WRITE "${OUTPUT_DIR}/invalid.k" "fn main() -> f32:\n  return missing\n")
 file(WRITE "${OUTPUT_DIR}/preserved-output" "keep existing artifact\n")
 execute_process(COMMAND "${COMPILER}" "${OUTPUT_DIR}/invalid.k" -o "${OUTPUT_DIR}/preserved-output"
   RESULT_VARIABLE STATUS ERROR_VARIABLE STDERR)
@@ -276,17 +276,17 @@ endif()
 message(STATUS "Dynamic extents, empty tensors, descriptor/shape/size faults, returned aliases, scalar/rank-zero code, and artifact preservation pass")
 
 foreach(CASE IN ITEMS
-  "rankone|Tensor[float32, 3]|tensor([1, 2, 3])|6"
-  "rankthree|Tensor[float32, 2, 1, 2]|tensor([[[1, 2]], [[3, 4]]])|10"
-  "emptyrankthree|Tensor[float32, 2, 0]|tensor([[], []])|0"
-  "negativezero|Tensor[float32, 1]|tensor([-0])|-0")
+  "rankone|Tensor[f32, 3]|tensor([1, 2, 3])|6"
+  "rankthree|Tensor[f32, 2, 1, 2]|tensor([[[1, 2]], [[3, 4]]])|10"
+  "emptyrankthree|Tensor[f32, 2, 0]|tensor([[], []])|0"
+  "negativezero|Tensor[f32, 1]|tensor([-0])|-0")
   string(REPLACE "|" ";" FIELDS "${CASE}")
   list(GET FIELDS 0 NAME)
   list(GET FIELDS 1 TYPE)
   list(GET FIELDS 2 VALUE)
   list(GET FIELDS 3 EXPECTED)
   file(WRITE "${OUTPUT_DIR}/${NAME}.k"
-    "fn main() -> float32:\n  x: ${TYPE} = ${VALUE}\n  reduceSum(x)\n")
+    "fn main() -> f32:\n  x: ${TYPE} = ${VALUE}\n  return reduceSum(x)\n")
   RUN_OK("${COMPILER}" "${OUTPUT_DIR}/${NAME}.k" -o "${OUTPUT_DIR}/${NAME}" ${EXTRA})
   RUN_OK("${OUTPUT_DIR}/${NAME}")
   if(NOT OUTPUT STREQUAL "${EXPECTED}\n")

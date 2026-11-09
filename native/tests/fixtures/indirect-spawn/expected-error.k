@@ -1,17 +1,17 @@
-fn double(value:int)->int:
-  value*2
+fn double(value:i64)->i64:
+  return value*2
 error E:
   Bad:
-    value:int
-fn checked(value:int)->int ! E:
+    value:i64
+fn checked(value:i64)->i64 ! E:
   if value==0:fail E.Bad {value:42}
-  value*2
-fn run()->int ! (E | TaskError):
+  return value*2
+fn run()->i64 ! (E | TaskError):
   f=checked
-  try parallel:
+  return try parallel:
     try await spawn f(0)
-fn main()->int:
-  run() catch fn(error):
-    match error:
+fn main()->i64:
+  return run() catch fn(error):
+    return match error:
       E.Bad {value}:value
       _:0

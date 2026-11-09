@@ -26,19 +26,19 @@ for name, (helper, call, typ, expected) in cases().items():
     root = a.root/name
     root.mkdir(exist_ok=True)
     cpu = root/'cpu.k'
-    cpu.write_text(helper+f'fn main()->{typ}:\n  {call}\n')
+    cpu.write_text(helper+f'fn main()->{typ}:\n  return {call}\n')
     reference = root/('cpu'+suffix)
     run([a.compiler, cpu, *flags, '-o', reference])
     output = run([reference])
     assert float(output) == expected, (name, 'CPU', output, expected)
     gpu = root/'gpu.k'
     gpu.write_text(helper+f'''fn main()->{typ} ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     try await spawn {call} on gpu
 ''')
     bundle = root/'device'
-    arithmetic = 'hardware-with-software-fallback' if a.backend == 'metal' and typ == 'float64' else 'hardware'
+    arithmetic = 'hardware-with-software-fallback' if a.backend == 'metal' and typ == 'f64' else 'hardware'
     run([a.compiler, gpu, '--target', a.backend, '--arithmetic', arithmetic, *flags, '-o', bundle])
     assert 'NumericInstructionKind::DeviceControl' in (bundle/'host.cpp').read_text(), name
     assert any('gpu.func' in f.read_text() and 'scf.while' in f.read_text()
@@ -47,12 +47,12 @@ for name, (helper, call, typ, expected) in cases().items():
         raw = run([bundle/('program'+suffix)], dict(os.environ, KALANDRA_WORKERS='1'))
         assert raw == run([bundle/('program'+suffix)], dict(os.environ, KALANDRA_WORKERS='4')), name
         bits = int(raw, 16)
-        if typ.startswith('float'):
-            width = 32 if typ == 'float32' else 64
+        if typ.startswith('f'):
+            width = 32 if typ == 'f32' else 64
             value = struct.unpack('<f' if width == 32 else '<d', bits.to_bytes(width//8, 'little'))[0]
         else:
-            width = 64 if typ == 'int' else int(''.join(filter(str.isdigit, typ)))
-            value = bits - (1 << width) if typ.startswith('int') and bits & (1 << (width-1)) else bits
+            width = 64 if typ == 'i64' else int(''.join(filter(str.isdigit, typ)))
+            value = bits - (1 << width) if typ.startswith('i') and bits & (1 << (width-1)) else bits
         assert value == expected, (name, 'GPU', raw, value, expected)
     results.append({'case': name, 'expected': expected, 'status': 'compiled' if a.compile_only else 'executed'})
     print(name, results[-1]['status'], flush=True)
@@ -60,25 +60,25 @@ for name, (helper, call, typ, expected) in cases().items():
 # need not itself have a scalar result.
 root = a.root/'tensor-composition'
 root.mkdir(exist_ok=True)
-helper = """fn factor(n:int)->float32:
+helper = """fn factor(n:i64)->f32:
   values=for i in range(n):
-    yield float32(i)
-  total:float32=0
+    yield f32(i)
+  total:f32=0
   for value in values:
     total=total+value
-  total
-fn graph(values:Tensor[float32,?],n:int)->Tensor[float32,?]:
-  values*factor(n)
+  return total
+fn graph(values:Tensor[f32,?],n:i64)->Tensor[f32,?]:
+  return values*factor(n)
 """
 cpu = root/'cpu.k'
-cpu.write_text(helper+"fn main()->Tensor[float32,3]:\n  graph(tensor([1,2,3]),5)\n")
+cpu.write_text(helper+'fn main()->Tensor[f32,3]:\n  return graph(tensor([1,2,3]),5)\n')
 run([a.compiler, cpu, *flags, '-o', root/('cpu'+suffix)])
 assert run([root/('cpu'+suffix)]) == 'tensor([10, 20, 30], [3])'
 gpu = root/'gpu.k'
-gpu.write_text(helper+"""fn main()->Tensor[float32,3] ! TaskError:
-  try parallel:
+gpu.write_text(helper+"""fn main()->Tensor[f32,3] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    values:Tensor[float32,3]=tensor([1,2,3])
+    values:Tensor[f32,3]=tensor([1,2,3])
     resident=try await transfer(values,gpu)
     result=try await spawn graph(resident,5) on gpu
     try await transfer(result,devices.cpu())
@@ -96,14 +96,14 @@ for name, (helper, call, code) in fault_cases().items():
     root = a.root/name
     root.mkdir(exist_ok=True)
     cpu = root/'cpu.k'
-    cpu.write_text(helper+'fn main()->int:\n  '+call+'\n')
+    cpu.write_text(helper+'fn main()->i64:\n  return '+call+'\n')
     reference = root/('cpu'+suffix)
     run([a.compiler, cpu, *flags, '-o', reference])
     r = subprocess.run([str(reference)], capture_output=True, text=True, timeout=30)
     assert r.returncode != 0 and not r.stdout, (name, 'CPU', r)
     gpu = root/'gpu.k'
-    gpu.write_text(helper+'''fn main()->int ! TaskError:
-  try parallel:
+    gpu.write_text(helper+'''fn main()->i64 ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
     try await spawn '''+call+' on gpu\n')
     bundle = root/'device'
@@ -116,18 +116,18 @@ for name, (helper, call, code) in fault_cases().items():
 # A scalar integer result must not hide double arithmetic in a lifted callback.
 if a.backend == 'metal':
     policy_source = a.root/'callback-float64-policy.k'
-    policy_source.write_text("""fn work(n:int)->int:
-  values=generate(n,fn(i):float64(i)+float64(1))
-  length(values)
-fn main()->int ! TaskError:
-  try parallel:
+    policy_source.write_text("""fn work(n:i64)->i64:
+  values=generate(n,fn(i):return f64(i)+f64(1))
+  return length(values)
+fn main()->i64 ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
     try await spawn work(4) on gpu
 """)
     rejected = subprocess.run([str(a.compiler), str(policy_source), '--target', 'metal',
                                '--arithmetic', 'hardware', *flags, '-o', str(a.root/'callback-policy')],
                               capture_output=True, text=True, timeout=180)
-    assert rejected.returncode and 'Metal has no hardware float64 arithmetic' in rejected.stderr, rejected
+    assert rejected.returncode and 'Metal has no hardware f64 arithmetic' in rejected.stderr, rejected
     run([a.compiler, policy_source, '--target', 'metal', '--arithmetic',
          'hardware-with-software-fallback', *flags, '-o', a.root/'callback-policy'])
     if not a.compile_only:

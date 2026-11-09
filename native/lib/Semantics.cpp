@@ -1,6 +1,7 @@
 #include "kalandra/Semantics.h"
 #include "ArrayAccess.h"
 #include "ErrorFamilies.h"
+#include "NonCompleting.h"
 #include "RecordLayout.h"
 #include "RecordStorage.h"
 #include "RecursiveAdmission.h"
@@ -32,6 +33,8 @@ class Checker {
     std::optional<ValueType> context;
     std::vector<ValueId> results;
     bool transfers = false;
+    bool breaks = false;
+    bool handler = false;
   };
   struct CollectionScope {
     std::size_t identity;
@@ -61,15 +64,58 @@ class Checker {
     std::shared_ptr<LoopScope> loop = {};
     bool stopped = false;
     std::shared_ptr<CollectionScope> collection = {};
+    std::shared_ptr<LoopScope> returns = {};
   };
   struct TensorData {
     std::vector<std::uint64_t> shape;
     std::vector<ExprId> leaves;
   };
 
+  void normalizeTailReturns() {
+    // A return in the final arm of an already-returned conditional/match has
+    // no further work to skip. Keep this value flow ordinary so typed numeric
+    // stages remain visible instead of requiring a synthetic control loop.
+    // Never descend through operators, loops, calls, lambdas or catch handlers:
+    // their surrounding work or lexical return boundary can differ.
+    std::vector<ExprId> pending;
+    std::vector<bool> visited(syntax_.expressions.size());
+    for (const auto &expr : syntax_.expressions)
+      if (const auto *exit = std::get_if<ReturnExpr>(&expr.value); exit && exit->value)
+        pending.push_back(*exit->value);
+    const auto tail = [&](const std::vector<Statement> &body) {
+      if (!body.empty() && !body.back().binding)
+        pending.push_back(body.back().expression);
+    };
+    while (!pending.empty()) {
+      const auto id = pending.back();
+      pending.pop_back();
+      if (visited[id])
+        continue;
+      visited[id] = true;
+      auto &expr = syntax_.expressions[id];
+      while (const auto *exit = std::get_if<ReturnExpr>(&expr.value)) {
+        if (!exit->value) {
+          expr.value = UnitExpr{};
+          break;
+        }
+        const auto operand = *exit->value;
+        visited[operand] = true;
+        expr = syntax_.expressions[operand];
+      }
+      if (const auto *choice = std::get_if<ConditionalExpr>(&expr.value)) {
+        tail(choice->whenTrue);
+        tail(choice->whenFalse);
+      } else if (const auto *match = std::get_if<MatchExpr>(&expr.value)) {
+        for (const auto &arm : match->arms)
+          tail(arm.body);
+      }
+    }
+  }
+
 public:
   Checker(Module syntax, SemanticLimits limits, CheckOptions options)
       : syntax_(std::move(syntax)), limits_(limits), options_(options) {
+    normalizeTailReturns();
     output_.source = syntax_.source;
     output_.functions.resize(syntax_.functions.size());
     states_.resize(syntax_.functions.size(), State::Unseen);
@@ -246,7 +292,7 @@ private:
         // Mirror closure capture eligibility without lifting a capture or mutating IR.
         if (captured &&
             (type.task || type.fallible || type.device ||
-             (type.builtin != BuiltinValue::Numeric && type.builtin != BuiltinValue::Bool &&
+             (type.builtin != BuiltinValue::Numeric && !isBooleanStorage(type) &&
               type.builtin != BuiltinValue::Record && type.builtin != BuiltinValue::String &&
               type.builtin != BuiltinValue::Function))) {
           hidden.insert(label);
@@ -270,20 +316,21 @@ private:
       // These names are compiler call forms, not first-class function values.
       // Insert last so lexical and module bindings retain their normal priority.
       for (const auto *label :
-           {"array", "tensor", "reshape", "map", "parallelMap", "matmul", "reduceSum", "relu",
-            "transpose", "softmaxRows", "rmsNormRows", "length", "byteLength", "shape", "slice",
-            "concat", "generate", "copy",       "sort",      "sorted"})
+           {"array",       "tensor",    "reshape",    "map",       "parallelMap",
+            "matmul",      "reduceSum", "relu",       "transpose", "softmaxRows",
+            "rmsNormRows", "length",    "byteLength", "shape",     "slice",
+            "concat",      "generate",  "copy",       "sort",      "sorted"})
         insert(label, ScopeNameKind::Function);
       if (allowTransfer && options_.placement && !frame.groups.empty())
         insert("transfer", ScopeNameKind::Function);
       for (const auto &numeric : numericTypes)
-        insert(std::string(numeric.name), ScopeNameKind::Function);
-      for (const auto *alias : {"int", "uint", "float"})
-        insert(alias, ScopeNameKind::Function);
+        insert(std::string(numeric.sourceName), ScopeNameKind::Function);
     }
     if (!callTarget)
       for (const auto *keyword : {"true", "false", "if", "match", "fn", "not", "while", "for"})
         insert(keyword, ScopeNameKind::Keyword);
+    if (!callTarget && frame.returns)
+      insert("return", ScopeNameKind::Keyword);
     if (!callTarget && frame.loop)
       insert("yield", ScopeNameKind::Keyword);
     if (!callTarget && frame.loop) {
@@ -390,7 +437,8 @@ private:
   static bool reservedControl(const std::string &name) {
     return name == "true" || name == "false" || name == "while" || name == "if" || name == "else" ||
            name == "and" || name == "or" || name == "not" || name == "type" || name == "with" ||
-           name == "mut" || name == "for" || name == "in" || name == "break" || name == "continue" || name == "yield";
+           name == "mut" || name == "for" || name == "in" || name == "break" ||
+           name == "continue" || name == "yield" || name == "return";
   }
   void rememberSourceToken(ResolvedSourceToken token) {
     if (token.span.end > token.span.begin)
@@ -416,10 +464,9 @@ private:
       return;
     std::vector<std::string> names;
     for (const auto &numeric : numericTypes)
-      names.emplace_back(numeric.name);
-    names.insert(names.end(), {"int", "uint", "float"});
+      names.emplace_back(numeric.sourceName);
     if (!syntax.tensor) {
-      names.insert(names.end(), {"Bool", "String"});
+      names.insert(names.end(), {"bool", "unit", "String"});
       if (!syntax.array)
         names.insert(names.end(), {"TaskError", "Tensor"});
       const auto prefix = functionKey(syntax_.source->partIndex(site->begin), "");
@@ -500,9 +547,9 @@ private:
       }
       return result;
     }
-    if (!syntax.tensor && name(syntax.name) == "Bool") {
+    if (!syntax.tensor && (name(syntax.name) == "bool" || name(syntax.name) == "unit")) {
       ValueType result;
-      result.builtin = BuiltinValue::Bool;
+      result.builtin = name(syntax.name) == "unit" ? BuiltinValue::Unit : BuiltinValue::Bool;
       if (syntax.array) {
         result.tensor = result.array = true;
         result.shape = {dynamic()};
@@ -541,8 +588,22 @@ private:
         !(syntax.array    ? numericCollectionStorageAvailable(*numeric, NumericTarget::Cpu)
           : syntax.tensor ? numericTensorElementwiseAvailable(*numeric, NumericTarget::Cpu)
                           : numericScalarArithmeticAvailable(*numeric, NumericTarget::Cpu))) {
+      const auto spelling = name(syntax.tensor && syntax.element ? *syntax.element : syntax.name);
+      auto replacement = spelling == "int"     ? std::string_view("i64")
+                         : spelling == "uint"  ? std::string_view("u64")
+                         : spelling == "float" ? std::string_view("f64")
+                         : spelling == "Bool"  ? std::string_view("bool")
+                                               : std::string_view{};
+      for (const auto &description : numericTypes)
+        if (spelling == description.name)
+          replacement = description.sourceName;
+      if (!replacement.empty()) {
+        error("S003", "type '" + spelling + "' was removed; use '" + std::string(replacement) + "'",
+              syntax.span);
+        return {};
+      }
       error("S003",
-            "expected a declared record or enum type, String, Bool, TaskError, or a supported "
+            "expected a declared record or enum type, String, bool, TaskError, or a supported "
             "numeric scalar, "
             "tensor "
             "or array "
@@ -563,13 +624,13 @@ private:
   }
   static bool mutableArrayType(const ValueType &value) {
     return value.array && !value.task && !value.fallible && !value.device &&
-           (value.builtin == BuiltinValue::Numeric || value.builtin == BuiltinValue::Bool);
+           (value.builtin == BuiltinValue::Numeric || isBooleanStorage(value));
   }
   std::optional<ValueType> callableType(std::vector<ValueType> parameters, ValueType result,
                                         SourceSpan span, std::vector<bool> mutations = {}) {
     for (std::size_t i = 0; i < mutations.size(); ++i)
       if (mutations[i] && (i >= parameters.size() || !mutableArrayType(parameters[i]))) {
-        error("S076", "mut parameters require flat numeric or Bool array storage", span);
+        error("S076", "mut parameters require flat numeric or bool array storage", span);
         return {};
       }
     const auto supported = [](const ValueType &value) {
@@ -580,8 +641,7 @@ private:
     success.fallible = false;
     success.errorRecord.reset();
     if (!supported(success) || !std::ranges::all_of(parameters, supported)) {
-      error("S074", "function values require completed parameters and synchronous results",
-            span);
+      error("S074", "function values require completed parameters and synchronous results", span);
       return {};
     }
     // Array lengths are value facts, not part of the [T] callable contract.
@@ -843,8 +903,9 @@ private:
     for (std::size_t declaration = 0; declaration < syntax_.records.size(); ++declaration) {
       const auto &record = syntax_.records[declaration];
       const auto label = name(record.name);
-      if (reservedControl(label) || resolveNumeric(label) || label == "Bool" || label == "Tensor" ||
-          label == "TaskError" || label == "FaultKind" || label == "String" || label == "Device") {
+      if (reservedControl(label) || resolveNumeric(label) || label == "bool" || label == "unit" ||
+          label == "Tensor" || label == "TaskError" || label == "FaultKind" || label == "String" ||
+          label == "Device") {
         error("S068", "reserved record type name '" + label + "'", record.name);
         continue;
       }
@@ -883,7 +944,7 @@ private:
           continue;
         const auto binding = imported.alias.value_or(imported.name);
         const auto label = name(binding);
-        if (reservedControl(label) || resolveNumeric(label) || label == "Bool" ||
+        if (reservedControl(label) || resolveNumeric(label) || label == "bool" || label == "unit" ||
             label == "Tensor" || label == "TaskError" || label == "FaultKind" ||
             label == "String" || label == "Device") {
           error("S067", "reserved import alias '" + label + "'", binding);
@@ -959,7 +1020,7 @@ private:
             continue;
           if ((value->tensor && value->builtin != BuiltinValue::Numeric && !isBoolArray(*value) &&
                !isStringArray(*value) && !isRecordArray(*value) && !isFunctionArray(*value)) ||
-              (value->builtin != BuiltinValue::Numeric && value->builtin != BuiltinValue::Bool &&
+              (value->builtin != BuiltinValue::Numeric && !isBooleanStorage(*value) &&
                value->builtin != BuiltinValue::String &&
                value->builtin != BuiltinValue::TaskError &&
                value->builtin != BuiltinValue::Record &&
@@ -987,13 +1048,13 @@ private:
       if ((fieldType->tensor && fieldType->builtin != BuiltinValue::Numeric &&
            !isBoolArray(*fieldType) && !isStringArray(*fieldType) && !isRecordArray(*fieldType) &&
            !isFunctionArray(*fieldType)) ||
-          (fieldType->builtin != BuiltinValue::Numeric &&
-           fieldType->builtin != BuiltinValue::Bool && fieldType->builtin != BuiltinValue::Record &&
+          (fieldType->builtin != BuiltinValue::Numeric && !isBooleanStorage(*fieldType) &&
+           fieldType->builtin != BuiltinValue::Record &&
            fieldType->builtin != BuiltinValue::TaskError &&
            fieldType->builtin != BuiltinValue::String &&
            fieldType->builtin != BuiltinValue::Function)) {
         error("S068",
-              "record fields require CPU numbers, numeric collections, Bool, Bool arrays, "
+              "record fields require CPU numbers, numeric collections, bool, bool arrays, "
               "Strings, String arrays, TaskError values, functions, records or record arrays",
               field.type.span);
         continue;
@@ -1009,7 +1070,8 @@ private:
       target.declaration = function.name;
       if (records_.contains(functionKey(function.moduleIndex, target.name)))
         error("S068", "function conflicts with nominal type name", function.name);
-      if (target.name == "Bool" || target.name == "String" || reservedControl(target.name))
+      if (target.name == "bool" || target.name == "unit" || target.name == "String" ||
+          reservedControl(target.name))
         error("S056", "reserved builtin/control-flow name", function.name);
       if (resolveNumeric(target.name)) {
         error("S055", "numeric type names are reserved conversion functions", function.name);
@@ -1039,7 +1101,7 @@ private:
           continue;
         }
         if (parameter.mutableAccess && !mutableArrayType(*parameterType)) {
-          error("S076", "mut parameters require flat numeric or Bool array storage",
+          error("S076", "mut parameters require flat numeric or bool array storage",
                 parameter.name);
           signatures_[id] = false;
         }
@@ -1095,7 +1157,7 @@ private:
           error("S068", "import conflicts with record type name", binding);
           continue;
         }
-        if (local == "Bool" || local == "String" || reservedControl(local) ||
+        if (local == "bool" || local == "unit" || local == "String" || reservedControl(local) ||
             resolveNumeric(local)) {
           error("S067", "reserved import alias '" + local + "'", binding);
           continue;
@@ -1112,9 +1174,8 @@ private:
   }
   static bool localBinding(const ValueType &type) {
     return !type.task && !type.fallible && !type.device &&
-           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool) &&
-           ((!type.tensor && !type.array) ||
-            (type.tensor && type.array && type.shape.size() == 1));
+           (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type)) &&
+           ((!type.tensor && !type.array) || (type.tensor && type.array && type.shape.size() == 1));
   }
   ValueType bindingType(ValueType type) {
     if (type.array)
@@ -1123,7 +1184,8 @@ private:
   }
   // Discover writes before checking any initializer/condition. A binding that
   // changes later must not supply a constant to checks on an earlier read.
-  void prepareBindings(Frame &frame, const std::vector<Statement> &body) {
+  void prepareBindings(Frame &frame, const std::vector<Statement> &body,
+                       bool updateSymbols = true) {
     auto written = std::make_shared<std::unordered_set<std::string>>();
     std::unordered_set<std::string> visible;
     for (const Frame *scope = &frame; scope;) {
@@ -1179,13 +1241,14 @@ private:
           [&](const auto &op) {
             using T = std::decay_t<decltype(op)>;
             if constexpr (!std::is_same_v<T, LambdaExpr>) {
-              if constexpr (requires { op.body; })
-                statements(op.body);
+              if constexpr (!std::is_same_v<T, CatchExpr>)
+                if constexpr (requires { op.body; })
+                  statements(op.body);
               if constexpr (std::is_same_v<T, WhileExpr> || std::is_same_v<T, ForExpr>)
                 statements(op.whenDone);
               if constexpr (std::is_same_v<T, ForExpr>)
                 expression(op.input);
-              if constexpr (std::is_same_v<T, LoopTransferExpr>)
+              if constexpr (std::is_same_v<T, LoopTransferExpr> || std::is_same_v<T, ReturnExpr>)
                 if (op.value)
                   expression(*op.value);
               if constexpr (std::is_same_v<T, ConditionalExpr>) {
@@ -1237,7 +1300,8 @@ private:
     }
     frame.writtenNames = std::move(written);
     for (const auto &[label, symbol] : frame.locals)
-      if (frame.writtenNames->contains(label) && localBinding(output_.symbols[symbol].type)) {
+      if (updateSymbols && frame.writtenNames->contains(label) &&
+          localBinding(output_.symbols[symbol].type)) {
         output_.symbols[symbol].reassignable = true;
         output_.symbols[symbol].type = bindingType(output_.symbols[symbol].type);
       }
@@ -1250,13 +1314,13 @@ private:
     while (scope) {
       if (auto found = scope->locals.find(label); found != scope->locals.end())
         return localBinding(output_.symbols[found->second].type) ? std::optional(found->second)
-                                                                : std::nullopt;
+                                                                 : std::nullopt;
       if (!scope->closure)
         break;
       if (auto found = scope->closure->captures.find(label);
           found != scope->closure->captures.end())
         return localBinding(output_.symbols[found->second].type) ? std::optional(found->second)
-                                                                : std::nullopt;
+                                                                 : std::nullopt;
       scope = scope->closure->parent;
     }
     return {};
@@ -1285,8 +1349,11 @@ private:
     auto &symbol = output_.symbols[found->second];
     if (!localBinding(symbol.type))
       return {};
-    if (!localBinding(node(value).type) || !sameFunctionValueType(bindingType(symbol.type), bindingType(node(value).type))) {
-      error("S075", "local reassignment must preserve the element or scalar type " + describeType(symbol.type),
+    if (!localBinding(node(value).type) ||
+        !sameFunctionValueType(bindingType(symbol.type), bindingType(node(value).type))) {
+      error("S075",
+            "local reassignment must preserve the element or scalar type " +
+                describeType(symbol.type),
             *statement.binding);
       return {};
     }
@@ -1327,83 +1394,28 @@ private:
     bool success = true;
     const auto &body = syntax_.functions[id].body;
     prepareBindings(frame, body);
-    for (std::size_t index = 0; index < body.size() && diagnostics_.size() < limits_.maxDiagnostics;
-         ++index) {
-      const auto &statement = body[index];
-      std::optional<ValueType> expected;
-      if (statement.annotation) {
-        expected = type(*statement.annotation);
-        if (!expected) {
-          success = false;
-          continue;
-        }
-      } else if (statement.binding)
-        expected = rebindContext(frame, statement);
-      else if (index + 1 == body.size())
-        expected = output_.functions[id].declaredResult;
-      auto value = statementValue(frame, statement, expected, index + 1 == body.size());
-      // An editor signature query deliberately stops at its checked argument
-      // projection. Recovery may append a result hole after a statement loop;
-      // that later hole must not invalidate an already validated signature.
-      if (syntax_.editorOnly && options_.signature && options_.signature->snapshot) {
-        success = false;
-        break;
-      }
-      std::optional<SymbolId> symbol;
-      if (statement.binding) {
-        const auto bindingName = name(*statement.binding);
-        if (reservedControl(bindingName))
-          error("S056", "Control-flow keywords cannot be binding names", *statement.binding);
-        // The initializer is checked before this name is introduced.
-        if (value && (symbol = scalarRebinding(frame, statement, *value))) {
-          // Same invocation-local scalar, with a new value at this statement.
-        } else if (frame.locals.contains(bindingName)) {
-          error("S008", "duplicate binding '" + bindingName + "'; bindings are immutable",
-                *statement.binding);
-          success = false;
-        } else if (value) {
-          symbol = output_.symbols.size();
-          output_.symbols.push_back(
-              {bindingName, node(*value).type, *statement.binding, id, false});
-          frame.locals.emplace(bindingName, *symbol);
-          output_.symbols[*symbol].reassignable =
-              mayReassign(frame, bindingName) && localBinding(node(*value).type);
-          if (output_.symbols[*symbol].reassignable)
-            output_.symbols[*symbol].type = bindingType(output_.symbols[*symbol].type);
-          if (auto it = stringCounts_.find(*value); it != stringCounts_.end())
-            stringBindings_[*symbol] = it->second;
-          if (auto it = intConstants_.find(*value);
-              it != intConstants_.end() && !output_.symbols[*symbol].reassignable)
-            intBindings_[*symbol] = it->second;
-          if (auto it = floatConstants_.find(*value);
-              it != floatConstants_.end() && !output_.symbols[*symbol].reassignable)
-            floatBindings_.insert_or_assign(*symbol, it->second);
-        }
-      }
-      if (!value) {
-        success = false;
-        continue;
-      }
-      output_.functions[id].body.push_back({statement.span, symbol, *value});
-      if (index + 1 == body.size()) {
-        output_.functions[id].result = *value;
-        output_.functions[id].resultType = node(*value).type;
-        if (options_.placement && node(*value).type.tensor && node(*value).type.device)
-          error("S047", "function results require an explicit transfer to devices.cpu()",
-                statement.span);
-        if (node(*value).type.builtin == BuiltinValue::Device)
-          error("S048", "device selectors cannot escape as function results", statement.span);
-        if (node(*value).type.task)
-          error("S035", "task handles cannot escape their owning parallel group", statement.span);
-        if (node(*value).type.fallible) {
-          frame.tasks->handled.insert(node(*value).type.identity);
-          if (!syntax_.functions[id].taskError)
-            error("S036", "a fallible function must declare its error return channel",
-                  statement.span);
-          else if (!errorSubset(output_, node(*value).type.errorRecord, errorFamilies_[id]))
-            error("S072", "return channel does not cover every returned error family",
-                  statement.span);
-        }
+    std::vector<TypedStatement> statements;
+    std::unordered_set<std::string> parameters;
+    for (auto parameter : output_.functions[id].parameters)
+      parameters.insert(output_.symbols[parameter].name);
+    auto result = functionSuite(frame, body, output_.functions[id].declaredResult, statements,
+                                syntax_.functions[id].span, parameters);
+    output_.functions[id].body = std::move(statements);
+    if (!result)
+      success = false;
+    else {
+      output_.functions[id].result = *result;
+      output_.functions[id].resultType = node(*result).type;
+      if (node(*result).type.task || node(*result).type.builtin == BuiltinValue::Device)
+        error("S035", "function results require completed values", syntax_.functions[id].name);
+      if (node(*result).type.fallible) {
+        frame.tasks->handled.insert(node(*result).type.identity);
+        if (!syntax_.functions[id].taskError)
+          error("S036", "a fallible function must declare its error return channel",
+                syntax_.functions[id].name);
+        else if (!errorSubset(output_, node(*result).type.errorRecord, errorFamilies_[id]))
+          error("S072", "return channel does not cover every returned error family",
+                syntax_.functions[id].name);
       }
     }
     if (syntax_.functions[id].taskError) {
@@ -1412,8 +1424,10 @@ private:
     }
     for (auto pending : frame.tasks->pending)
       if (!frame.tasks->handled.contains(pending))
-        error("S036", "expected error must be propagated with try or returned",
-              syntax_.functions[id].name);
+        error("S036",
+              "expected error must be propagated with try or returned (" +
+                  describeType(node(pending - 1).type) + ")",
+              node(pending - 1).span);
     --functionDepth_;
     // Any diagnostic means no module is published; success still tracks failed
     // dependencies even once the bounded diagnostic sink is full.
@@ -1438,7 +1452,8 @@ private:
     }
     if constexpr (std::is_same_v<Operation, StringLiteral>) {
       std::uint64_t count = 0;
-      validateUtf8(operation.value, [] { return true; }, &count);
+      validateUtf8(
+          operation.value, [] { return true; }, &count);
       stringCounts_[id] = count;
     } else if constexpr (std::is_same_v<Operation, StringSlice>) {
       auto a = intConstants_.find(operation.start), b = intConstants_.find(operation.end);
@@ -1531,7 +1546,7 @@ private:
         syntax.value);
     if (value && isInteger(node(*value).type.element)) {
       const auto element = node(*value).type.element;
-      const auto typeName = std::string(describeNumeric(element)->name);
+      const auto typeName = std::string(describeNumeric(element)->sourceName);
       const bool unsignedValue = isUnsigned(element);
       const __int128_t maximum = integerMaximum(element);
       const __int128_t minimum = integerMinimum(element);
@@ -1597,7 +1612,7 @@ private:
     }
     if (value)
       floatingConstant(*value);
-    if (value && expected)
+    if (value && expected && !frame.stopped)
       return conform(frame, *value, *expected, syntax.span, deferShape);
     return value;
   }
@@ -1620,7 +1635,8 @@ private:
                                               : integerMaximum(element) + (negative ? 1 : 0);
     if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() || magnitude > limit) {
       error("S051",
-            std::string(describeNumeric(element)->name) + " requires an in-range integer literal",
+            std::string(describeNumeric(element)->sourceName) +
+                " requires an in-range integer literal",
             span);
       return {};
     }
@@ -1769,11 +1785,11 @@ private:
     if (privateCopy)
       type = bindingType(type);
     if (type.task || type.fallible || type.device ||
-        (type.builtin != BuiltinValue::Numeric && type.builtin != BuiltinValue::Bool &&
+        (type.builtin != BuiltinValue::Numeric && !isBooleanStorage(type) &&
          type.builtin != BuiltinValue::Record && type.builtin != BuiltinValue::String &&
          type.builtin != BuiltinValue::Function)) {
       error("S060",
-            "anonymous callbacks capture only completed CPU numbers, collections, Bool, records or "
+            "anonymous callbacks capture only completed CPU numbers, collections, bool, records or "
             "Strings",
             span);
       return {};
@@ -1988,7 +2004,7 @@ private:
         return {};
       }
       if (parameter.mutableAccess && !mutableArrayType(*resolved)) {
-        error("S076", "mut parameters require flat numeric or Bool array storage", parameter.name);
+        error("S076", "mut parameters require flat numeric or bool array storage", parameter.name);
         return {};
       }
       if (context && (parameter.mutableAccess != context->mutates(i) ||
@@ -2051,7 +2067,7 @@ private:
       introduced.insert(name(parameter.name));
     std::vector<TypedStatement> statements;
     prepareBindings(nested, lambda.body);
-    auto result = suite(nested, lambda.body, resultContext, statements, introduced);
+    auto result = functionSuite(nested, lambda.body, resultContext, statements, span, introduced);
     if (!result)
       return {};
     const auto resultType = node(*result).type;
@@ -2095,7 +2111,8 @@ private:
       if (!value)
         return {};
       const auto &function = output_.functions[id];
-      const auto captureSymbol = function.parameters[function.parameters.size() - function.captureCount + captures.size()];
+      const auto captureSymbol =
+          function.parameters[function.parameters.size() - function.captureCount + captures.size()];
       const auto &capture = output_.symbols[captureSymbol];
       if (capture.reassignable && capture.type.array)
         value = add(frame, capture.type, span, ShapeCheck{*value, {}});
@@ -2151,7 +2168,7 @@ private:
       auto type = node(*input).type;
       if (type.builtin != BuiltinValue::Bool || type.task || type.fallible || type.tensor ||
           type.device) {
-        error("S057", "not requires a completed CPU Bool", span);
+        error("S057", "not requires a completed CPU bool", span);
         return {};
       }
       auto no = add(frame, type, span, BoolLiteral{false});
@@ -2210,7 +2227,7 @@ private:
     const auto a = node(*left).type, b = node(*right).type;
     const bool numeric = a.builtin == BuiltinValue::Numeric && b.builtin == BuiltinValue::Numeric &&
                          a.element == b.element;
-    const bool boolean = a.builtin == BuiltinValue::Bool && b.builtin == BuiltinValue::Bool &&
+    const bool boolean = isBooleanStorage(a) && a.builtin == b.builtin &&
                          (comparison.operation == ComparisonKind::Equal ||
                           comparison.operation == ComparisonKind::NotEqual);
     const bool string = a.builtin == BuiltinValue::String && b.builtin == BuiltinValue::String &&
@@ -2219,7 +2236,7 @@ private:
     if ((!numeric && !boolean && !string) || a.tensor || b.tensor || a.task || b.task ||
         a.fallible || b.fallible || a.device || b.device) {
       error("S056",
-            "comparison requires completed CPU scalars of the same numeric type, or Bool/String "
+            "comparison requires completed CPU scalars of the same numeric type, or bool/String "
             "equality",
             span);
       return {};
@@ -2594,8 +2611,8 @@ private:
     const auto output = node(*input).type;
     if (!output.array || !output.tensor || output.shape.size() != 1 || output.task ||
         output.fallible || output.device ||
-        (output.builtin != BuiltinValue::Numeric && output.builtin != BuiltinValue::Bool)) {
-      error("S078", callee + " requires a completed CPU numeric or Bool array without placement",
+        (output.builtin != BuiltinValue::Numeric && !isBooleanStorage(output))) {
+      error("S078", callee + " requires a completed CPU numeric or bool array without placement",
             span);
       return {};
     }
@@ -2615,10 +2632,10 @@ private:
     const auto output = node(*input).type;
     if (!output.array || !output.tensor || output.shape.size() != 1 || output.task ||
         output.fallible || output.device ||
-        (output.builtin != BuiltinValue::Numeric && output.builtin != BuiltinValue::Bool &&
+        (output.builtin != BuiltinValue::Numeric && !isBooleanStorage(output) &&
          output.builtin != BuiltinValue::String)) {
       error("S061",
-            "copy requires a completed CPU numeric, Bool or String array without placement; "
+            "copy requires a completed CPU numeric, bool or String array without placement; "
             "copying nested mutable storage is not yet defined",
             span);
       return {};
@@ -2682,7 +2699,7 @@ private:
       return {};
     const auto array = node(*input).type;
     if (!mutableArrayType(array)) {
-      error("S078", "element assignment requires a completed CPU numeric or Bool array",
+      error("S078", "element assignment requires a completed CPU numeric or bool array",
             store.target);
       return {};
     }
@@ -2835,10 +2852,10 @@ private:
       const auto actual = node(*value).type;
       if (actual.tensor || actual.task || actual.fallible || actual.device ||
           (actual.builtin != BuiltinValue::Numeric && actual.builtin != BuiltinValue::Record &&
-           actual.builtin != BuiltinValue::Bool && actual.builtin != BuiltinValue::String &&
+           !isBooleanStorage(actual) && actual.builtin != BuiltinValue::String &&
            actual.builtin != BuiltinValue::Function)) {
         error("S058",
-              "array elements require completed CPU numeric scalars, Bool, String, records or "
+              "array elements require completed CPU numeric scalars, bool, String, records or "
               "functions",
               syntax_.expressions[leaf].span);
         return {};
@@ -2991,7 +3008,7 @@ private:
     for (std::size_t index = 0; index < block.body.size(); ++index) {
       const auto &statement = block.body[index];
       if (nested.stopped) {
-        error("S076", "unreachable statement after loop transfer", statement.span);
+        error("S076", "unreachable statement after control transfer", statement.span);
         return {};
       }
       std::optional<ValueType> context;
@@ -3071,6 +3088,170 @@ private:
       }
     }
   }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const UnitExpr &,
+                               const std::optional<ValueType> &) {
+    ValueType type;
+    type.builtin = BuiltinValue::Unit;
+    return add(frame, type, span, BoolLiteral{false});
+  }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ReturnExpr &exit,
+                               const std::optional<ValueType> &) {
+    if (!frame.returns) {
+      error("S079", "return requires an enclosing function", span);
+      return {};
+    }
+    auto &scope = *frame.returns;
+    auto value = exit.value ? expression(frame, *exit.value, scope.context)
+                            : infer(frame, span, UnitExpr{}, scope.context);
+    if (!value)
+      return {};
+    if (frame.stopped) {
+      // A non-completing operand can still carry its checked error identity
+      // (for example, a match whose arms all fail). It is propagated by this
+      // return, not an independently discarded expected-error result.
+      if (node(*value).type.fallible)
+        frame.tasks->handled.insert(node(*value).type.identity);
+      return value;
+    }
+    const auto actual = node(*value).type;
+    if (actual.task) {
+      error("S035", "task handles cannot escape their owning parallel group", span);
+      return {};
+    }
+    if (actual.builtin == BuiltinValue::Device) {
+      error("S048", "device selectors cannot escape as function results", span);
+      return {};
+    }
+    if (options_.placement && actual.tensor &&
+        ((!scope.handler && actual.device) ||
+         (scope.handler && scope.context && actual.device != scope.context->device))) {
+      error("S047",
+            scope.handler
+                ? "catch branches require matching residency and GPU index; transfer explicitly"
+                : "function results require an explicit transfer to devices.cpu()",
+            span);
+      return {};
+    }
+    if (!exit.value && scope.context && !conform(frame, *value, *scope.context, span))
+      return {};
+    if (!scope.context)
+      scope.context = bindingType(actual);
+    scope.results.push_back(*value);
+    if (actual.fallible)
+      frame.tasks->handled.insert(actual.identity);
+    finishBranch(scope.before, frame, *value, span);
+    scope.transfers = true;
+    frame.stopped = true;
+    ValueType marker;
+    marker.builtin = BuiltinValue::Bool;
+    return add(frame, marker, span, LoopTransferOperation{scope.identity, false, *value});
+  }
+  std::optional<ValueId> functionSuite(Frame &frame, const std::vector<Statement> &body,
+                                       std::optional<ValueType> context,
+                                       std::vector<TypedStatement> &statements, SourceSpan span,
+                                       const std::unordered_set<std::string> &introduced = {},
+                                       bool handler = false) {
+    auto scope =
+        std::make_shared<LoopScope>(LoopScope{nextLoop_++, *frame.tasks, true, context, {}});
+    scope->handler = handler;
+    frame.returns = scope;
+    std::vector<TypedStatement> checked;
+    auto completed = suite(frame, body, {}, checked, introduced, true, !handler);
+    if (!completed && !body.empty())
+      return {};
+    if (!frame.stopped) {
+      const bool finalStatement =
+          !body.empty() &&
+          std::visit(
+              [](const auto &op) {
+                using T = std::decay_t<decltype(op)>;
+                if constexpr (std::is_same_v<T, WhileExpr> || std::is_same_v<T, ForExpr>)
+                  return op.statementOnly;
+                else if constexpr (std::is_same_v<T, ConditionalExpr>)
+                  return op.statementOnly || op.whenFalse.empty();
+                else
+                  return std::is_same_v<T, ArraySetExpr>;
+              },
+              syntax_.expressions[body.back().expression].value);
+      if (completed && !body.back().binding && !finalStatement &&
+          node(*completed).type.builtin != BuiltinValue::Unit) {
+        error("S079", "function result requires an explicit return", body.back().span);
+        return {};
+      }
+      if ((context && context->builtin != BuiltinValue::Unit) ||
+          (scope->context && scope->context->builtin != BuiltinValue::Unit)) {
+        error("S079", "function can finish without an explicit return", span);
+        return {};
+      }
+      auto value = infer(frame, span, ReturnExpr{}, {});
+      if (!value)
+        return {};
+      checked.push_back({span, {}, *value});
+    }
+    if (scope->results.empty()) {
+      if (completed && frame.stopped) {
+        ValueType unit;
+        unit.builtin = BuiltinValue::Unit;
+        auto resultType = context.value_or(unit);
+        if (handler) {
+          resultType.fallible = false;
+          resultType.errorRecord.reset();
+          resultType.identity = 0;
+        }
+        if (!joinErrors(resultType, node(*completed).type, span))
+          return {};
+        output_.expressions[*completed].type = resultType;
+        statements = std::move(checked);
+        return completed;
+      }
+      error("S079", "cannot infer function result from its returning paths", span);
+      return {};
+    }
+    auto resultType = context.value_or(node(scope->results.front()).type);
+    if (handler) {
+      resultType.fallible = false;
+      resultType.errorRecord.reset();
+      resultType.identity = 0;
+    }
+    for (auto result : scope->results)
+      if (!joinErrors(resultType, node(result).type, span))
+        return {};
+    // A terminal return needs no control-flow wrapper. Preserve the ordinary
+    // direct-call path for the common straight-line function shape.
+    if (scope->results.size() == 1 && !checked.empty()) {
+      const auto *exit = std::get_if<LoopTransferOperation>(&node(checked.back().value).operation);
+      if (exit && exit->loop == scope->identity) {
+        const auto result = *exit->value;
+        const auto transfer = checked.back().value;
+        checked.back().value = result;
+        std::erase(output_.functions[frame.function].expressions, transfer);
+        if (transfer + 1 == output_.expressions.size())
+          output_.expressions.pop_back();
+        statements = std::move(checked);
+        return result;
+      }
+    }
+    ValueType boolean;
+    boolean.builtin = BuiltinValue::Bool;
+    auto condition = add(frame, boolean, span, BoolLiteral{true});
+    if (!condition)
+      return {};
+    auto result = add(frame, resultType, span,
+                      WhileOperation{*condition,
+                                     std::move(checked),
+                                     {},
+                                     {},
+                                     scope->identity,
+                                     true,
+                                     {},
+                                     {},
+                                     scope->results,
+                                     false,
+                                     true});
+    if (result)
+      statements.push_back({span, {}, *result});
+    return result;
+  }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const YieldExpr &yield,
                                const std::optional<ValueType> &) {
     if (!frame.collection) {
@@ -3109,6 +3290,7 @@ private:
     loop.transfers = true;
     std::optional<ValueId> value;
     if (!jump.continuing) {
+      loop.breaks = true;
       if (bool(jump.value) != loop.expression) {
         error("S076",
               loop.expression ? "an expression loop requires break value"
@@ -3153,7 +3335,7 @@ private:
     const auto test = node(condition).type;
     if (test.builtin != BuiltinValue::Bool || test.tensor || test.array || test.task ||
         test.fallible || test.device) {
-      error("S057", "while conditions require a completed CPU Bool", node(condition).span);
+      error("S057", "while conditions require a completed CPU bool", node(condition).span);
       return {};
     }
     const auto before = *frame.tasks;
@@ -3172,7 +3354,7 @@ private:
       if (!normalResult)
         return {};
       finishBranch(before, normal, *normalResult, span);
-      if (!loop.statementOnly && !expected) {
+      if (!loop.statementOnly && !expected && !normal.stopped) {
         scope->context = node(*normalResult).type;
         for (auto &axis : scope->context->shape)
           axis = dynamic();
@@ -3216,8 +3398,13 @@ private:
         error("S076", "loop expressions require a normal-completion result", span);
         return {};
       }
-      resultType = node(*normalResult).type;
-      scope->results.push_back(*normalResult);
+      if (!normal.stopped)
+        scope->results.push_back(*normalResult);
+      resultType = expected.value_or(scope->results.empty() ? node(*normalResult).type
+                                                            : node(scope->results.front()).type);
+      resultType.fallible = false;
+      resultType.errorRecord.reset();
+      resultType.identity = 0;
       for (auto value : scope->results) {
         const auto actual = node(value).type;
         if (actual.task || actual.builtin == BuiltinValue::Device ||
@@ -3239,6 +3426,9 @@ private:
       }
       resultType.identity = 0;
     }
+    const auto *literal = std::get_if<BoolLiteral>(&node(condition).operation);
+    if (!scope->breaks && ((literal && literal->value) || normal.stopped))
+      frame.stopped = true;
     return add(frame, resultType, span,
                WhileOperation{condition, std::move(body), std::move(whenDone),
                               loop.statementOnly ? std::optional<ValueId>{} : normalResult,
@@ -3371,21 +3561,27 @@ private:
         return {};
       iteration.push_back({span, counter, *advance});
     }
-    return checkLoop(frame, span, WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting},
-                     expected, condition, std::move(nested), std::move(initial),
-                     std::move(iteration));
+    return checkLoop(
+        frame, span, WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting},
+        expected, condition, std::move(nested), std::move(initial), std::move(iteration));
   }
   std::optional<ValueId> statementValue(Frame &frame, const Statement &statement,
                                         const std::optional<ValueType> &expected, bool last) {
     const auto &ast = syntax_.expressions[statement.expression];
-    if (!last && !statement.binding && std::holds_alternative<FailExpr>(ast.value)) {
-      // A statement-body failure has no success value to infer. Its Bool marker
-      // is private; the existing boundary receives only the propagated error.
+    if (!statement.binding && std::holds_alternative<FailExpr>(ast.value)) {
       ValueType marker;
       marker.builtin = BuiltinValue::Bool;
-      auto value = infer(frame, ast.span, std::get<FailExpr>(ast.value), marker);
-      if (value)
+      auto context = expected;
+      if (!context && frame.returns)
+        context = frame.returns->context;
+      auto value = infer(frame, ast.span, std::get<FailExpr>(ast.value),
+                         context ? context : std::optional{marker});
+      if (value) {
         frame.tasks->handled.insert(node(*value).type.identity);
+        frame.stopped = true;
+        if (frame.returns && context)
+          frame.returns->results.push_back(*value);
+      }
       return value;
     }
     const auto *sourceLoop = std::get_if<WhileExpr>(&ast.value);
@@ -3412,18 +3608,19 @@ private:
       if (!test)
         return {};
       auto value = conditional(frame, ast.span, *test, {},
-                         [&](Frame &branch, unsigned index, const std::optional<ValueType> &,
-                             std::vector<TypedStatement> &body) -> std::optional<ValueId> {
-                           const auto &source = index == 0 ? guard->whenTrue : guard->whenFalse;
-                           if (!source.empty() && !suite(branch, source, {}, body, {}, true))
-                             return {};
-                           ValueType marker;
-                           marker.builtin = BuiltinValue::Bool;
-                           auto value = add(branch, marker, ast.span, BoolLiteral{false});
-                           if (value)
-                             body.push_back({ast.span, {}, *value});
-                           return value;
-                         });
+                               [&](Frame &branch, unsigned index, const std::optional<ValueType> &,
+                                   std::vector<TypedStatement> &body) -> std::optional<ValueId> {
+                                 const auto &source =
+                                     index == 0 ? guard->whenTrue : guard->whenFalse;
+                                 if (!source.empty() && !suite(branch, source, {}, body, {}, true))
+                                   return {};
+                                 ValueType marker;
+                                 marker.builtin = BuiltinValue::Bool;
+                                 auto value = add(branch, marker, ast.span, BoolLiteral{false});
+                                 if (value)
+                                   body.push_back({ast.span, {}, *value});
+                                 return value;
+                               });
       if (last && !frame.stopped) {
         error("S075", "statement if requires a result on its continuing path", ast.span);
         return {};
@@ -3444,7 +3641,7 @@ private:
       return {};
     const auto &t = node(*condition).type;
     if (t.builtin != BuiltinValue::Bool || t.tensor || t.task || t.fallible) {
-      error("S057", "guard conditions require a completed Bool", ast.span);
+      error("S057", "guard conditions require a completed bool", ast.span);
       return {};
     }
     auto branch = frame;
@@ -3464,13 +3661,13 @@ private:
                                std::optional<ValueType> context,
                                std::vector<TypedStatement> &statements,
                                const std::unordered_set<std::string> &introduced = {},
-                               bool statementBody = false) {
+                               bool statementBody = false, bool functionBody = false) {
     auto bindings = introduced;
     std::optional<ValueId> result;
     for (std::size_t index = 0; index < body.size(); ++index) {
       const auto &statement = body[index];
       if (frame.stopped) {
-        error("S076", "unreachable statement after loop transfer", statement.span);
+        error("S076", "unreachable statement after control transfer", statement.span);
         return {};
       }
       auto expected = statement.binding          ? rebindContext(frame, statement)
@@ -3483,6 +3680,8 @@ private:
       }
       auto value =
           statementValue(frame, statement, expected, !statementBody && index + 1 == body.size());
+      if (syntax_.editorOnly && options_.signature && options_.signature->snapshot)
+        return {};
       if (!value)
         return {};
       std::optional<SymbolId> symbol;
@@ -3510,6 +3709,12 @@ private:
         }
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
           stringBindings_[*symbol] = known->second;
+        if (functionBody && !output_.symbols[*symbol].reassignable) {
+          if (auto known = intConstants_.find(*value); known != intConstants_.end())
+            intBindings_[*symbol] = known->second;
+          if (auto known = floatConstants_.find(*value); known != floatConstants_.end())
+            floatBindings_.insert_or_assign(*symbol, known->second);
+        }
       }
       statements.push_back({statement.span, symbol, *value});
       result = value;
@@ -3541,6 +3746,8 @@ private:
     nested.handlerErrorRecord = std::make_shared<std::optional<std::size_t>>();
     nested.handlerDepth = nested.groups.size();
     nested.conditional = true;
+    nested.loop.reset();
+    nested.collection.reset();
     ValueType errorType;
     if (resultType.errorRecord)
       errorType = recordType(*resultType.errorRecord);
@@ -3550,8 +3757,42 @@ private:
     output_.symbols.push_back(
         {name(handler.parameter), errorType, handler.parameter, frame.function, true});
     nested.locals[name(handler.parameter)] = symbol;
+    // A handler is a lexical function boundary. Its scalar/array rebindings
+    // update private value snapshots, never the caller's symbol storage.
+    prepareBindings(nested, handler.body, false);
+    std::vector<TypedStatement> snapshots;
+    std::vector<std::string> written(nested.writtenNames->begin(), nested.writtenNames->end());
+    std::sort(written.begin(), written.end());
+    for (const auto &label : written) {
+      if (label == name(handler.parameter))
+        continue;
+      const auto visible = visibleScalar(nested, label);
+      if (!visible)
+        continue;
+      // Import closure captures using the caller's writes, not the handler's.
+      // A private handler rebind must not make that outer capture mutable.
+      const auto origin = lookupSymbol(frame, output_.symbols[*visible].declaration);
+      if (!origin)
+        return {};
+      const auto captured = output_.symbols[*origin];
+      auto type = bindingType(captured.type);
+      auto value = add(nested, captured.type, span, SymbolRead{*origin});
+      if (!value)
+        return {};
+      const auto local = output_.symbols.size();
+      output_.symbols.push_back({label, type, captured.declaration, frame.function, false,
+                                 captured.definition.value_or(captured.declaration)});
+      output_.symbols.back().reassignable = true;
+      nested.locals[label] = local;
+      snapshots.push_back({span, local, *value});
+    }
     std::vector<TypedStatement> body;
     auto handlerContext = resultType;
+    // Handler returns can forward a new error channel; infer it from actual
+    // return values rather than retaining the error being recovered.
+    handlerContext.fallible = true;
+    handlerContext.errorRecord.reset();
+    handlerContext.identity = 0;
     // The success path's inferred extent is not a constraint on a fallback.
     // Preserve explicit outer constraints; otherwise join differing extents.
     if (expected)
@@ -3559,9 +3800,11 @@ private:
     else
       for (auto &dimension : handlerContext.shape)
         dimension = dynamic();
-    auto result = suite(nested, handler.body, handlerContext, body, {name(handler.parameter)});
+    auto result = functionSuite(nested, handler.body, handlerContext, body, span,
+                                {name(handler.parameter)}, true);
     if (!result)
       return {};
+    body.insert(body.begin(), snapshots.begin(), snapshots.end());
     finishBranch(before, nested, *result, span);
     const auto handlerType = node(*result).type;
     if (resultType.device != handlerType.device) {
@@ -3600,7 +3843,7 @@ private:
       return {};
     }
     if (!expected ||
-        (expected->builtin != BuiltinValue::Numeric && expected->builtin != BuiltinValue::Bool &&
+        (expected->builtin != BuiltinValue::Numeric && !isBooleanStorage(*expected) &&
          expected->builtin != BuiltinValue::Record && expected->builtin != BuiltinValue::String &&
          expected->builtin != BuiltinValue::Function) ||
         expected->task) {
@@ -3622,7 +3865,7 @@ private:
     const auto conditionType = node(condition).type;
     if (conditionType.builtin != BuiltinValue::Bool || conditionType.task ||
         conditionType.fallible || conditionType.tensor || conditionType.device) {
-      error("S057", "conditions require a completed CPU Bool", node(condition).span);
+      error("S057", "conditions require a completed CPU bool", node(condition).span);
       return {};
     }
     const auto before = *frame.tasks;
@@ -3631,6 +3874,7 @@ private:
     std::vector<std::vector<TypedStatement>> bodies(2);
     std::vector<ValueId> results;
     std::optional<ValueType> resultType;
+    ValueType errors;
     auto context = expected;
     if (context)
       context->fallible = true;
@@ -3646,27 +3890,32 @@ private:
         error("S035", "conditional branches cannot return task handles or device selectors", span);
         return {};
       }
-      if (resultType) {
-        if (actual.builtin != resultType->builtin || actual.record != resultType->record ||
-            (actual.builtin == BuiltinValue::Function &&
-             !sameFunctionValueType(recordArrayElement(actual), recordArrayElement(*resultType))) ||
-            (actual.builtin == BuiltinValue::Numeric && actual.element != resultType->element) ||
-            actual.tensor != resultType->tensor || actual.array != resultType->array ||
-            actual.shape.size() != resultType->shape.size()) {
-          error("S043", "conditional branches require a common success type", span);
-          return {};
-        }
-        if (actual.device != resultType->device) {
-          error("S047", "conditional branches require matching residency", span);
-          return {};
-        }
-        if (!joinErrors(*resultType, actual, span))
-          return {};
-        for (std::size_t axis = 0; axis < actual.shape.size(); ++axis)
-          if (!same(resultType->shape[axis], actual.shape[axis]))
-            resultType->shape[axis] = dynamic();
-      } else
-        resultType = actual;
+      if (!branch.stopped) {
+        if (resultType) {
+          if (actual.builtin != resultType->builtin || actual.record != resultType->record ||
+              (actual.builtin == BuiltinValue::Function &&
+               !sameFunctionValueType(recordArrayElement(actual),
+                                      recordArrayElement(*resultType))) ||
+              (actual.builtin == BuiltinValue::Numeric && actual.element != resultType->element) ||
+              actual.tensor != resultType->tensor || actual.array != resultType->array ||
+              actual.shape.size() != resultType->shape.size()) {
+            error("S043", "conditional branches require a common success type", span);
+            return {};
+          }
+          if (actual.device != resultType->device) {
+            error("S047", "conditional branches require matching residency", span);
+            return {};
+          }
+          if (!joinErrors(*resultType, actual, span))
+            return {};
+          for (std::size_t axis = 0; axis < actual.shape.size(); ++axis)
+            if (!same(resultType->shape[axis], actual.shape[axis]))
+              resultType->shape[axis] = dynamic();
+        } else
+          resultType = actual;
+      }
+      if (!joinErrors(errors, actual, span))
+        return {};
       finishBranch(before, branch, *value, span);
       allStopped = allStopped && branch.stopped;
       paths.push_back(branch.tasks);
@@ -3683,6 +3932,18 @@ private:
             }))
           frame.tasks->observed.insert(node(child).type.identity);
     frame.stopped = allStopped;
+    if (!resultType) {
+      ValueType marker;
+      marker.builtin = BuiltinValue::Bool;
+      resultType = expected.value_or(marker);
+      // Expected types constrain success values; they do not themselves
+      // introduce an error channel on a non-completing branch expression.
+      resultType->fallible = false;
+      resultType->errorRecord.reset();
+      resultType->identity = 0;
+    }
+    if (!joinErrors(*resultType, errors, span))
+      return {};
     resultType->identity = 0;
     return add(frame, *resultType, span,
                ConditionalOperation{condition, std::move(bodies[0]), std::move(bodies[1]),
@@ -3762,10 +4023,12 @@ private:
     }
     std::unordered_set<unsigned> seen;
     bool fallback = false;
+    bool allStopped = true;
     std::vector<MatchCase> cases;
     const auto before = *frame.tasks;
     std::vector<std::shared_ptr<TaskChecks>> paths;
     std::optional<ValueType> resultType;
+    ValueType errors;
     auto context = expected;
     if (context)
       context->fallible = true;
@@ -3970,30 +4233,36 @@ private:
         error("S035", "match cannot return a task handle", arm.span);
         return {};
       }
-      if (resultType) {
-        if (actual.device != resultType->device) {
-          error("S047",
-                "match branches require matching residency and GPU index; transfer explicitly",
-                arm.span);
-          return {};
-        }
-        if (actual.builtin != resultType->builtin || actual.record != resultType->record ||
-            (actual.builtin == BuiltinValue::Function &&
-             !sameFunctionValueType(recordArrayElement(actual), recordArrayElement(*resultType))) ||
-            (actual.builtin == BuiltinValue::Numeric && actual.element != resultType->element) ||
-            actual.tensor != resultType->tensor || actual.array != resultType->array ||
-            actual.shape.size() != resultType->shape.size()) {
-          error("S043", "match branches need a common success type", arm.span);
-          return {};
-        }
-        if (!joinErrors(*resultType, actual, span))
-          return {};
-        for (std::size_t axis = 0; axis < actual.shape.size(); ++axis)
-          if (!same(resultType->shape[axis], actual.shape[axis]))
-            resultType->shape[axis] = dynamic();
-      } else
-        resultType = actual;
+      if (!branch.stopped) {
+        if (resultType) {
+          if (actual.device != resultType->device) {
+            error("S047",
+                  "match branches require matching residency and GPU index; transfer explicitly",
+                  arm.span);
+            return {};
+          }
+          if (actual.builtin != resultType->builtin || actual.record != resultType->record ||
+              (actual.builtin == BuiltinValue::Function &&
+               !sameFunctionValueType(recordArrayElement(actual),
+                                      recordArrayElement(*resultType))) ||
+              (actual.builtin == BuiltinValue::Numeric && actual.element != resultType->element) ||
+              actual.tensor != resultType->tensor || actual.array != resultType->array ||
+              actual.shape.size() != resultType->shape.size()) {
+            error("S043", "match branches need a common success type", arm.span);
+            return {};
+          }
+          if (!joinErrors(*resultType, actual, span))
+            return {};
+          for (std::size_t axis = 0; axis < actual.shape.size(); ++axis)
+            if (!same(resultType->shape[axis], actual.shape[axis]))
+              resultType->shape[axis] = dynamic();
+        } else
+          resultType = actual;
+      }
+      if (!joinErrors(errors, actual, span))
+        return {};
       finishBranch(before, branch, *value, arm.span);
+      allStopped = allStopped && branch.stopped;
       paths.push_back(branch.tasks);
       cases.push_back({tag, std::move(statements), *value});
     }
@@ -4010,6 +4279,19 @@ private:
               return p->observed.contains(node(child).type.identity);
             }))
           frame.tasks->observed.insert(node(child).type.identity);
+    frame.stopped = allStopped;
+    if (!resultType) {
+      ValueType marker;
+      marker.builtin = BuiltinValue::Bool;
+      resultType = expected.value_or(marker);
+      // Expected types constrain success values; they do not themselves
+      // introduce an error channel on a non-completing branch expression.
+      resultType->fallible = false;
+      resultType->errorRecord.reset();
+      resultType->identity = 0;
+    }
+    if (!joinErrors(*resultType, errors, span))
+      return {};
     resultType->identity = 0;
     // Keep recursive matches explicit for bounded flat-switch lowering and
     // independent executable-IR validation. The established acyclic path stays.
@@ -4563,7 +4845,7 @@ private:
     }
     const auto mapElement = [parallel](const ValueType &type) {
       return (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Record ||
-              type.builtin == BuiltinValue::Bool || type.builtin == BuiltinValue::String ||
+              isBooleanStorage(type) || type.builtin == BuiltinValue::String ||
               type.builtin == BuiltinValue::Function) &&
              !type.tensor && !type.task && (!type.fallible || parallel) && !type.device;
     };
@@ -4573,7 +4855,7 @@ private:
       if (!annotation)
         return {};
       if (!mapElement(*annotation)) {
-        error("S060", "anonymous map parameter requires a numeric scalar, Bool or record type",
+        error("S060", "anonymous map parameter requires a numeric scalar, bool or record type",
               lambdaSpan);
         return {};
       }
@@ -4590,10 +4872,10 @@ private:
     const auto inputType = mapInputType(*input, generate);
     if (!inputType.array ||
         (inputType.builtin != BuiltinValue::Numeric && inputType.builtin != BuiltinValue::Record &&
-         inputType.builtin != BuiltinValue::Bool && inputType.builtin != BuiltinValue::String &&
+         !isBooleanStorage(inputType) && inputType.builtin != BuiltinValue::String &&
          inputType.builtin != BuiltinValue::Function) ||
         inputType.task || inputType.fallible || inputType.device) {
-      error("S060", "anonymous map requires a completed CPU numeric, Bool or record array", span);
+      error("S060", "anonymous map requires a completed CPU numeric, bool or record array", span);
       return {};
     }
     std::optional<ValueType> resultContext;
@@ -4602,7 +4884,7 @@ private:
       if (!resultContext)
         return {};
       if (!mapElement(*resultContext)) {
-        error("S060", "anonymous map result requires a numeric scalar, Bool or record type",
+        error("S060", "anonymous map result requires a numeric scalar, bool or record type",
               lambdaSpan);
         return {};
       }
@@ -4650,13 +4932,13 @@ private:
     nested.closure = std::make_shared<ClosureScope>(ClosureScope{&frame, {}, {}});
     std::vector<TypedStatement> statements;
     prepareBindings(nested, lambda.body);
-    auto result =
-        suite(nested, lambda.body, resultContext, statements, {name(lambda.parameters[0].name)});
+    auto result = functionSuite(nested, lambda.body, resultContext, statements, lambdaSpan,
+                                {name(lambda.parameters[0].name)});
     if (!result)
       return {};
     const auto resultType = node(*result).type;
     if (!mapElement(resultType)) {
-      error("S060", "anonymous map body must produce a completed numeric scalar, Bool or record",
+      error("S060", "anonymous map body must produce a completed numeric scalar, bool or record",
             lambdaSpan);
       return {};
     }
@@ -4683,7 +4965,8 @@ private:
       if (!value)
         return {};
       const auto &function = output_.functions[id];
-      const auto captureSymbol = function.parameters[function.parameters.size() - function.captureCount + captures.size()];
+      const auto captureSymbol =
+          function.parameters[function.parameters.size() - function.captureCount + captures.size()];
       const auto &capture = output_.symbols[captureSymbol];
       if (capture.reassignable && capture.type.array)
         value = add(frame, capture.type, lambdaSpan, ShapeCheck{*value, {}});
@@ -4725,7 +5008,7 @@ private:
       const auto targetType = node(*target).type;
       const auto scalar = [parallel](const ValueType &type) {
         return !type.tensor && !type.task && (!type.fallible || parallel) && !type.device &&
-               (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool ||
+               (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type) ||
                 type.builtin == BuiltinValue::String || type.builtin == BuiltinValue::Record ||
                 type.builtin == BuiltinValue::Function);
       };
@@ -4788,7 +5071,7 @@ private:
     const auto &fn = output_.functions[id];
     const auto scalar = [parallel](const ValueType &type) {
       return (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Record ||
-              type.builtin == BuiltinValue::Bool || type.builtin == BuiltinValue::String ||
+              isBooleanStorage(type) || type.builtin == BuiltinValue::String ||
               type.builtin == BuiltinValue::Function) &&
              !type.tensor && !type.task && (!type.fallible || parallel) && !type.device;
     };
@@ -4797,7 +5080,7 @@ private:
         (output_.symbols[fn.parameters[0]].type.fallible ||
          !scalar(output_.symbols[fn.parameters[0]].type))) {
       error("S059",
-            "map callback requires one numeric scalar, Bool or record parameter and a numeric "
+            "map callback requires one numeric scalar, bool or record parameter and a numeric "
             "scalar or "
             "record result",
             callback->name);
@@ -4826,7 +5109,8 @@ private:
                                  const std::optional<ValueType> &expected) {
     if (callee == "tensor")
       return tensor(frame, span, arguments, expected);
-    const bool transform = callee == "transpose" || callee == "softmaxRows" || callee == "rmsNormRows";
+    const bool transform =
+        callee == "transpose" || callee == "softmaxRows" || callee == "rmsNormRows";
     const auto arity = callee == "matmul" || callee == "rmsNormRows" ? 2u : 1u;
     if (arguments.size() != arity) {
       error("S027", callee + " expects " + std::to_string(arity) + " arguments", span);
@@ -4842,7 +5126,9 @@ private:
     }
     if (leftType.task || leftType.fallible || leftType.array || !leftType.tensor ||
         ((callee == "matmul" || transform) && leftType.shape.size() != 2)) {
-      error("S028", callee + " requires " + (callee == "matmul" || transform ? "rank-two tensors" : "a tensor"),
+      error("S028",
+            callee + " requires " +
+                (callee == "matmul" || transform ? "rank-two tensors" : "a tensor"),
             syntax_.expressions[arguments[0]].span);
       return {};
     }
@@ -4857,9 +5143,9 @@ private:
         return {};
       }
       auto result = leftType;
-      const auto kind = callee == "transpose" ? TensorTransformKind::Transpose
+      const auto kind = callee == "transpose"     ? TensorTransformKind::Transpose
                         : callee == "softmaxRows" ? TensorTransformKind::SoftmaxRows
-                                                    : TensorTransformKind::RmsNormRows;
+                                                  : TensorTransformKind::RmsNormRows;
       std::optional<ValueId> epsilon;
       if (kind == TensorTransformKind::Transpose)
         std::swap(result.shape[0], result.shape[1]);

@@ -1,10 +1,10 @@
-fn main()->int:
-  offset:int=10
+fn main()->i64:
+  offset:i64=10
   values=map([10,12],fn(value):
     inner=map([value],fn(item):
       adjusted=item+offset
-      adjusted
+      return adjusted
     )
-    inner[0]
+    return inner[0]
   )
-  values[0]+values[1]
+  return values[0]+values[1]

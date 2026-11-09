@@ -1,10 +1,10 @@
 error E:
   Bad
-fn apply(callback:fn(int)->int ! E)->int:
-  callback(0) catch fn(error):42
-fn main()->int:
-  apply(fn(value) ! E:
+fn apply(callback:fn(i64)->i64 ! E)->i64:
+  return callback(0) catch fn(error):return 42
+fn main()->i64:
+  return apply(fn(value) ! E:
     if value==0:
       fail E.Bad
-    value
+    return value
   )

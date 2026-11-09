@@ -5,8 +5,8 @@ set(MANIFEST "${OUTPUT_DIR}/kalandra.toml")
 file(WRITE "${MANIFEST}" "${LIBRARY}[project]\nentry='examples/main.k'\n")
 # The library source is deliberately unused: the declared public entry still
 # must not be replaced by compilation of the example application.
-file(WRITE "${OUTPUT_DIR}/src/public.k" "export fn libraryValue()->int64:\n  99\n")
-file(WRITE "${OUTPUT_DIR}/examples/main.k" "fn answer()->int64:\n  42\nfn main()->int64 ! TaskError:\n  try parallel:\n    try await spawn answer()\n")
+file(WRITE "${OUTPUT_DIR}/src/public.k" "export fn libraryValue()->i64:\n  return 99\n")
+file(WRITE "${OUTPUT_DIR}/examples/main.k" "fn answer()->i64:\n  return 42\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn answer()\n")
 RUN_OK("${CHECKER}" --project "${MANIFEST}")
 RUN_OK("${COMPILER}" --project "${MANIFEST}" -o "${OUTPUT_DIR}/program" ${EXTRA})
 RUN_OK("${OUTPUT_DIR}/program")

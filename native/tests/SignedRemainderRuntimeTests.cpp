@@ -37,7 +37,7 @@ static void test(std::int64_t a, std::int64_t b) {
     else if (mode == 5)
       check(value == 0 && ctx.status() == 0 && ctx.poll() == -1);
     else if (!b)
-      check(value == 0 && ctx.status() == 4 && ctx.line() == 2 && ctx.column() == 3);
+      check(value == 0 && ctx.status() == 4 && ctx.line() == 2 && ctx.column() == 10);
     else {
       // C++'s only overflowing pair is handled explicitly in the reference.
       const auto expected = a == std::numeric_limits<std::int64_t>::min() && b == -1 ? 0 : a % b;

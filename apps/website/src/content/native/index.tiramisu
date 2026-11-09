@@ -50,8 +50,8 @@ list {
 
 h2 { "A first program" }
 
-codeblock { language = kalandra, """fn main() -> int:
-  6 * 7
+codeblock { language = kalandra, """fn main() -> i64:
+  return 6 * 7
 """ }
 
 Save this as main.k. In a macOS or Linux terminal, check it, compile it, then run the executable:

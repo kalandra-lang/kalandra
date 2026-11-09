@@ -171,6 +171,14 @@ int main() {
               scheduled->plan.code[2].target == 4 && scheduled->plan.code[2].jump == 3 &&
               scheduled->plan.code[3].target == 3 && scheduled->plan.code[3].jump == 4,
           "device schedule mixed up error destination slots and branch PCs");
+    module.plans[1]->code[1] = {Code::Jump, 0, {}, 0, 0, 3, 0, {}, {3}};
+    scheduled = scheduleDeviceCalls(module, 0, 20, 20);
+    check(scheduled && scheduled->plan.code[2].jump == 4 &&
+              scheduled->plan.code[2].collections == std::vector<Slot>{4},
+          "device schedule lost an early return's abandoned collection");
+    module.plans[1]->code[1].collections = {4};
+    check(!scheduleDeviceCalls(module, 0, 20, 20), "invalid abandoned collection admitted");
+    module.plans[1]->code[1].collections = {3};
     module.plans[1]->code[0].group = 0;
     check(!scheduleDeviceCalls(module, 0, 20, 20), "host group propagation admitted to device frame");
     randomGraphs();

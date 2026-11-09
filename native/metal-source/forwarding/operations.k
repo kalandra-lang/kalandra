@@ -1,15 +1,15 @@
-export fn project(input: Tensor[float32, ?, ?], weights: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
+export fn project(input: Tensor[f32, ?, ?], weights: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
   left = input
   right = weights
   result = matmul(left, right)
-  result
+  return result
 
-export fn total(values: Tensor[float32, ?, ?]) -> float32:
+export fn total(values: Tensor[f32, ?, ?]) -> f32:
   input = values
   result = reduceSum(input)
-  result
+  return result
 
-export fn vectorTotal(values: Tensor[float32, ?]) -> float32:
+export fn vectorTotal(values: Tensor[f32, ?]) -> f32:
   input = values
   result = reduceSum(input)
-  result
+  return result

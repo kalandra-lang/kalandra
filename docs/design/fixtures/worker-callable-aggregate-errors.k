@@ -1,20 +1,20 @@
 error InputError:
   Invalid:
-    values: [int]
+    values: [i64]
 
 type Job:
-  callbacks: [fn(int) -> int ! InputError]
+  callbacks: [fn(i64) -> i64 ! InputError]
 
 fn makeJob() -> Job:
   values = [20, 20]
-  callback = fn(value: int) -> int ! InputError:
+  callback = fn(value: i64) -> i64 ! InputError:
     if value == 0: fail InputError.Invalid {values: values}
-    value
-  Job {callbacks: [callback]}
+    return value
+  return Job {callbacks: [callback]}
 
-fn main() -> int ! TaskError:
+fn main() -> i64 ! TaskError:
   job = try parallel:
     try await spawn makeJob()
-  job.callbacks[0](0) catch fn(error):
-    match error:
+  return job.callbacks[0](0) catch fn(error):
+    return match error:
       InputError.Invalid {values}: values[0] + values[1] + 2

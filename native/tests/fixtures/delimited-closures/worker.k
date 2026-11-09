@@ -1,14 +1,14 @@
 type Row:
   text:String
-  values:[int]
-fn worker(input:int)->[Row]:
-  map([input],fn(value):
+  values:[i64]
+fn worker(input:i64)->[Row]:
+  return map([input],fn(value):
     words="é"+"!"
-    numbers:[int]=[value]
-    Row {text:words,values:numbers}
+    numbers:[i64]=[value]
+    return Row {text:words,values:numbers}
   )
-fn main()->int ! TaskError:
-  try parallel:
+fn main()->i64 ! TaskError:
+  return try parallel:
     task=spawn worker(40)
     first=try await task
     second=try await task

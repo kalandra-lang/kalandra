@@ -1,16 +1,16 @@
-fn twice(values:Tensor[int,?])->Tensor[int,?]:
-  values+values
-fn read(values:[int])->int:
-  values[0]
-fn privateWork(values:[int])->[int] ! TaskError:
-  try parallel:
+fn twice(values:Tensor[i64,?])->Tensor[i64,?]:
+  return values+values
+fn read(values:[i64])->i64:
+  return values[0]
+fn privateWork(values:[i64])->[i64] ! TaskError:
+  return try parallel:
     old=spawn read(values) on devices.cpu()
     values=sorted(values)
     values[0]=9
     before=try await old
     concat(values,[before])
-fn main()->int ! TaskError:
-  try parallel:
+fn main()->i64 ! TaskError:
+  return try parallel:
     values=[3,1,2]
     saved=values
     worker=spawn privateWork(values) on devices.cpu()

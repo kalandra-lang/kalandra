@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
   if (argc != 3 && argc != 4)
     return 2;
   if (argc == 4 && std::string_view(argv[3]) == "reduce") {
-    auto type = resolveNumeric(argv[1]);
+    auto type = resolveNumericStorage(argv[1]);
     if (!type)
       return 2;
     const auto ir = numericReductionShader(*type);
@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
   const bool scalarOnly = argc == 4;
   if (scalarOnly && std::string_view(argv[3]) != "scalar")
     return 2;
-  const auto type = resolveNumeric(argv[1]);
+  const auto type = resolveNumericStorage(argv[1]);
   if (!type)
     return 2;
   const auto bits = describeNumeric(*type)->bits;

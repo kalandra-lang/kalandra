@@ -1,10 +1,10 @@
 type Job:
-  run:fn(int)->int
-  values:[int]
-fn make(offset:int)->Job:
+  run:fn(i64)->i64
+  values:[i64]
+fn make(offset:i64)->Job:
   values=[offset]
-  Job {run:fn(value:int):values[0]+value,values:[1]}
-fn main()->int ! TaskError:
+  return Job {run:fn(value:i64):return values[0]+value,values:[1]}
+fn main()->i64 ! TaskError:
   job=try parallel:
     try await spawn make(40)
-  job.run(1)+job.values[0]
+  return job.run(1)+job.values[0]

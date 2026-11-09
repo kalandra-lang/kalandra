@@ -25,40 +25,40 @@ function(EXPECT NAME EXPECTED)
     endif()
   endforeach()
 endfunction()
-set(TYPES int8 uint8 int16 uint16 int32 uint32 int64 uint64 float32 float64 Bool)
+set(TYPES i8 u8 i16 u16 i32 u32 i64 u64 f32 f64 bool)
 set(VALUES -128 255 -32768 65535 -2147483648 4294967295 -9223372036854775808 18446744073709551615 1.5 1.0000000000000002 true)
 foreach(INDEX RANGE 0 10)
   list(GET TYPES ${INDEX} TYPE)
   list(GET VALUES ${INDEX} VALUE)
-  COMPILE("payload-${TYPE}" "enum Sample:\n  Empty\n  Value:\n    item:${TYPE}\nfn valid(x:Sample)->Bool:\n  match x:\n    Sample.Empty:false\n    Sample.Value {item}:item==${VALUE}\nfn echo(x:Sample)->Sample:\n  x\nfn child(x:Sample)->Sample ! TaskError:\n  try parallel:\n    work=spawn echo(x)\n    first=try await work\n    again=try await work\n    again\nfn main()->int ! TaskError:\n  value=Sample.Value {item:${VALUE}}\n  try parallel:\n    work=spawn child(value)\n    empty=spawn echo(Sample.Empty)\n    result=try await work\n    missing=try await empty\n    if valid(result):\n      match missing:\n        Sample.Empty:1\n        Sample.Value:0\n    else:0\n")
+  COMPILE("payload-${TYPE}" "enum Sample:\n  Empty\n  Value:\n    item:${TYPE}\nfn valid(x:Sample)->bool:\n  return match x:\n    Sample.Empty:false\n    Sample.Value {item}:item==${VALUE}\nfn echo(x:Sample)->Sample:\n  return x\nfn child(x:Sample)->Sample ! TaskError:\n  return try parallel:\n    work=spawn echo(x)\n    first=try await work\n    again=try await work\n    again\nfn main()->i64 ! TaskError:\n  value=Sample.Value {item:${VALUE}}\n  return try parallel:\n    work=spawn child(value)\n    empty=spawn echo(Sample.Empty)\n    result=try await work\n    missing=try await empty\n    if valid(result):\n      match missing:\n        Sample.Empty:1\n        Sample.Value:0\n    else:0\n")
   EXPECT("payload-${TYPE}" 1)
 endforeach()
-COMPILE(shared-field "enum Number:\n  Small:\n    item:int8\n  Large:\n    item:uint64\nfn extract(x:Number)->uint64:\n  match x:\n    Number.Small {item}:uint64(item)\n    Number.Large {item}:item\nfn main()->int:\n  if extract(Number.Large {item:18446744073709551615})==18446744073709551615:1\n  else:0\n")
+COMPILE(shared-field "enum Number:\n  Small:\n    item:i8\n  Large:\n    item:u64\nfn extract(x:Number)->u64:\n  return match x:\n    Number.Small {item}:u64(item)\n    Number.Large {item}:item\nfn main()->i64:\n  return if extract(Number.Large {item:18446744073709551615})==18446744073709551615:1\n  else:0\n")
 EXPECT(shared-field 1)
-set(PREFIX "enum Reading:\n  Missing\n  Value:\n    measurement:int16\n  Invalid:\n    reason:String\nfn echo(x:Reading)->Reading:\n  x\nfn child(x:Reading)->Reading ! TaskError:\n  try parallel:\n    work=spawn echo(x)\n    first=try await work\n    again=try await work\n    again\n")
-COMPILE(strings "${PREFIX}fn main()->int ! TaskError:\n  original=Reading.Invalid {reason:\"é\"+\"🙂\"}\n  result=try parallel:\n    work=spawn child(original)\n    try await work\n  match result:\n    Reading.Invalid {reason:text}:length(text)+byteLength(text)\n    _:0\n")
+set(PREFIX "enum Reading:\n  Missing\n  Value:\n    measurement:i16\n  Invalid:\n    reason:String\nfn echo(x:Reading)->Reading:\n  return x\nfn child(x:Reading)->Reading ! TaskError:\n  return try parallel:\n    work=spawn echo(x)\n    first=try await work\n    again=try await work\n    again\n")
+COMPILE(strings "${PREFIX}fn main()->i64 ! TaskError:\n  original=Reading.Invalid {reason:\"é\"+\"🙂\"}\n  result=try parallel:\n    work=spawn child(original)\n    try await work\n  return match result:\n    Reading.Invalid {reason:text}:length(text)+byteLength(text)\n    _:0\n")
 EXPECT(strings 8)
-COMPILE(child-string "${PREFIX}fn make()->Reading:\n  Reading.Invalid {reason:\"é\"+\"🙂\"}\nfn main()->int ! TaskError:\n  result=try parallel:\n    work=spawn make()\n    first=try await work\n    again=try await work\n    again\n  match result:\n    Reading.Invalid {reason}:length(reason)+byteLength(reason)\n    _:0\n")
+COMPILE(child-string "${PREFIX}fn make()->Reading:\n  return Reading.Invalid {reason:\"é\"+\"🙂\"}\nfn main()->i64 ! TaskError:\n  result=try parallel:\n    work=spawn make()\n    first=try await work\n    again=try await work\n    again\n  return match result:\n    Reading.Invalid {reason}:length(reason)+byteLength(reason)\n    _:0\n")
 EXPECT(child-string 8)
-COMPILE(records "${PREFIX}type Box:\n  reading:Reading\n  enabled:Bool\nfn change(x:Box)->Box:\n  x with {reading:Reading.Value {measurement:42}}\nfn main()->int ! TaskError:\n  original=Box {reading:Reading.Invalid {reason:\"hello\"+\"!\"},enabled:true}\n  result=try parallel:\n    work=spawn change(original)\n    try await work\n  previous=match original.reading:\n    Reading.Invalid {reason}:length(reason)\n    _:0\n  match result.reading:\n    Reading.Value {measurement}:int(measurement)+previous\n    _:0\n")
+COMPILE(records "${PREFIX}type Box:\n  reading:Reading\n  enabled:bool\nfn change(x:Box)->Box:\n  return x with {reading:Reading.Value {measurement:42}}\nfn main()->i64 ! TaskError:\n  original=Box {reading:Reading.Invalid {reason:\"hello\"+\"!\"},enabled:true}\n  result=try parallel:\n    work=spawn change(original)\n    try await work\n  previous=match original.reading:\n    Reading.Invalid {reason}:length(reason)\n    _:0\n  return match result.reading:\n    Reading.Value {measurement}:i64(measurement)+previous\n    _:0\n")
 EXPECT(records 48)
-COMPILE(arrays "${PREFIX}fn score(x:Reading)->int:\n  match x:\n    Reading.Missing:0\n    Reading.Value {measurement}:int(measurement)\n    Reading.Invalid {reason}:length(reason)\nfn copy(values:[Reading])->[Reading]:\n  values\nfn main()->int ! TaskError:\n  original:[Reading]=[Reading.Missing,Reading.Value {measurement:42},Reading.Invalid {reason:\"hi\"}]\n  values=try parallel:\n    work=spawn copy(original)\n    try await work\n  reduceSum(tensor(map(values,score)))\n")
+COMPILE(arrays "${PREFIX}fn score(x:Reading)->i64:\n  return match x:\n    Reading.Missing:0\n    Reading.Value {measurement}:i64(measurement)\n    Reading.Invalid {reason}:length(reason)\nfn copy(values:[Reading])->[Reading]:\n  return values\nfn main()->i64 ! TaskError:\n  original:[Reading]=[Reading.Missing,Reading.Value {measurement:42},Reading.Invalid {reason:\"hi\"}]\n  values=try parallel:\n    work=spawn copy(original)\n    try await work\n  return reduceSum(tensor(map(values,score)))\n")
 EXPECT(arrays 44)
-COMPILE(only "enum Single:\n  Item:\n    value:int\nfn select(x:Single)->int:\n  match x:\n    Single.Item {value}:\n      next=value+1\n      next\nfn main()->int ! TaskError:\n  try parallel:\n    work=spawn select(Single.Item {value:41})\n    try await work\n")
+COMPILE(only "enum Single:\n  Item:\n    value:i64\nfn select(x:Single)->i64:\n  return match x:\n    Single.Item {value}:\n      next=value+1\n      next\nfn main()->i64 ! TaskError:\n  return try parallel:\n    work=spawn select(Single.Item {value:41})\n    try await work\n")
 EXPECT(only 42)
-COMPILE(fallback "${PREFIX}fn main()->int:\n  match Reading.Missing:\n    _:\n      answer=42\n      answer\n")
+COMPILE(fallback "${PREFIX}fn main()->i64:\n  return match Reading.Missing:\n    _:\n      answer=42\n      answer\n")
 EXPECT(fallback 42)
-COMPILE(selected-only "${PREFIX}fn bad(x:int)->int:\n  1/x\nfn main()->int:\n  match Reading.Missing:\n    Reading.Missing:42\n    Reading.Value:bad(0)\n    Reading.Invalid:bad(0)\n")
+COMPILE(selected-only "${PREFIX}fn bad(x:i64)->i64:\n  return 1/x\nfn main()->i64:\n  return match Reading.Missing:\n    Reading.Missing:42\n    Reading.Value:bad(0)\n    Reading.Invalid:bad(0)\n")
 EXPECT(selected-only 42)
-COMPILE(subject-once "fn bad(x:int)->int:\n  1/x\nenum Choice:\n  Value:\n    item:int\nfn main()->int:\n  match Choice.Value {item:bad(0)}:\n    _:42\n")
+COMPILE(subject-once "fn bad(x:i64)->i64:\n  return 1/x\nenum Choice:\n  Value:\n    item:i64\nfn main()->i64:\n  return match Choice.Value {item:bad(0)}:\n    _:42\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env KALANDRA_TEST_REPORT_CLEANUP=1 "${OUTPUT_DIR}/subject-once"
   RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
-if(NOT "${STATUS}" STREQUAL "86" OR NOT OUT STREQUAL "" OR NOT ERR MATCHES "ArithmeticFault at source 2:3" OR NOT ERR MATCHES "cleanup: live=0")
+if(NOT "${STATUS}" STREQUAL "86" OR NOT OUT STREQUAL "" OR NOT ERR MATCHES "ArithmeticFault at source 2:10" OR NOT ERR MATCHES "cleanup: live=0")
   message(FATAL_ERROR "Unused enum payload/subject was skipped or leaked: ${STATUS}: ${OUT}${ERR}")
 endif()
-file(WRITE "${OUTPUT_DIR}/model.k" "export enum Reading:\n  Missing\n  Value:\n    item:int\n")
+file(WRITE "${OUTPUT_DIR}/model.k" "export enum Reading:\n  Missing\n  Value:\n    item:i64\n")
 file(WRITE "${OUTPUT_DIR}/facade.k" "export from \"./model.k\" import Reading as Result\n")
-COMPILE(imported "from \"./facade.k\" import Result as R\nfn main()->int:\n  match R.Value {item:42}:\n    R.Missing:0\n    R.Value {item}:item\n")
+COMPILE(imported "from \"./facade.k\" import Result as R\nfn main()->i64:\n  return match R.Value {item:42}:\n    R.Missing:0\n    R.Value {item}:item\n")
 EXPECT(imported 42)
 foreach(WORKERS IN ITEMS 1 2 4)
   foreach(ATTEMPT RANGE 1 24)
@@ -79,7 +79,7 @@ foreach(WORKERS IN ITEMS 1 2 4)
 endforeach()
 file(WRITE "${OUTPUT_DIR}/preserved" "existing output")
 file(WRITE "${OUTPUT_DIR}/preserved.ll" "existing IR")
-file(WRITE "${OUTPUT_DIR}/bad.k" "${PREFIX}fn main()->int:\n  match Reading.Missing:\n    Reading.Missing:0\n")
+file(WRITE "${OUTPUT_DIR}/bad.k" "${PREFIX}fn main()->i64:\n  return match Reading.Missing:\n    Reading.Missing:0\n")
 execute_process(COMMAND "${COMPILER}" "${OUTPUT_DIR}/bad.k" -o "${OUTPUT_DIR}/preserved" --emit-llvm "${OUTPUT_DIR}/preserved.ll"
   RESULT_VARIABLE STATUS ERROR_VARIABLE ERR)
 file(READ "${OUTPUT_DIR}/preserved" OUT)
@@ -96,23 +96,23 @@ message(STATUS "CPU enums: 21 generated programs, ten numeric widths/Bool/String
 
 # A callback signature names a nominal type without embedding its storage.
 COMPILE(callback-contract [=[type Node:
-  visit:fn(Node)->int
-fn visit(node:Node)->int:
-  42
-fn main()->int:
+  visit:fn(Node)->i64
+fn visit(node:Node)->i64:
+  return 42
+fn main()->i64:
   node=Node {visit:visit}
-  node.visit(node)
+  return node.visit(node)
 ]=])
 EXPECT(callback-contract 42)
 COMPILE(worker-callback-contract [=[type Node:
-  visit:fn(Node)->int
-fn visit(node:Node)->int:
-  42
-fn run(node:Node)->int:
-  node.visit(node)
-fn main()->int ! TaskError:
+  visit:fn(Node)->i64
+fn visit(node:Node)->i64:
+  return 42
+fn run(node:Node)->i64:
+  return node.visit(node)
+fn main()->i64 ! TaskError:
   node=Node {visit:visit}
-  try parallel:
+  return try parallel:
     work=spawn run(node)
     try await work
 ]=])

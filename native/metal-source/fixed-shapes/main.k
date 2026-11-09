@@ -1,19 +1,19 @@
 from "./library.k" import vector, selected, total, project, transitive, pinned as checkedKernel, pinnedResult, pinnedMatrix, empty
 
-fn forward(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  values
+fn forward(values: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return values
 
-fn matrixForward(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  values
+fn matrixForward(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return values
 
-fn main() -> float32 ! TaskError:
-  try parallel:
+fn main() -> f32 ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    values: Tensor[float32, 3] = tensor([1, 2, 3])
-    ignored: Tensor[float32, 2] = tensor([9, 9])
-    input: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
-    weights: Tensor[float32, 3, 2] = tensor([[1, 0], [0, 1], [1, 1]])
-    zeros: Tensor[float32, 0] = tensor([])
+    values: Tensor[f32, 3] = tensor([1, 2, 3])
+    ignored: Tensor[f32, 2] = tensor([9, 9])
+    input: Tensor[f32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+    weights: Tensor[f32, 3, 2] = tensor([[1, 0], [0, 1], [1, 1]])
+    zeros: Tensor[f32, 0] = tensor([])
     a = try await transfer(forward(values), gpu)
     b = try await transfer(forward(ignored), gpu)
     c = try await transfer(matrixForward(input), gpu)

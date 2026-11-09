@@ -1,10 +1,10 @@
-fn apply(value: int, transform: fn(int) -> int) -> int:
-  transform(value)
+fn apply(value: i64, transform: fn(i64) -> i64) -> i64:
+  return transform(value)
 
-fn main() -> int ! TaskError:
+fn main() -> i64 ! TaskError:
   offsets = [20, 20]
-  transform = fn(value: int): offsets[0] + offsets[1] + value
-  try parallel:
+  transform = fn(value: i64): return offsets[0] + offsets[1] + value
+  return try parallel:
     work = spawn apply(2, transform)
     first = try await work
     second = try await work

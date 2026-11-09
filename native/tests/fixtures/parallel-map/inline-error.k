@@ -1,14 +1,14 @@
 error E:
   Bad:
-    value:int
-fn run()->int ! (E | TaskError):
-  values=try parallelMap([0],fn(value)->int ! E:
+    value:i64
+fn run()->i64 ! (E | TaskError):
+  values=try parallelMap([0],fn(value)->i64 ! E:
     if value==0:fail E.Bad {value:42}
-    value
+    return value
   )
-  values[0]
-fn main()->int ! TaskError:
-  run() catch fn(error):
-    match error:
+  return values[0]
+fn main()->i64 ! TaskError:
+  return run() catch fn(error):
+    return match error:
       E.Bad {value}:value
       _:fail error

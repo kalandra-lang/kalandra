@@ -5,14 +5,14 @@ Immutable CPU records can contain `String` fields, including inside nested recor
 ```kalandra
 type Label:
   text: String
-  enabled: Bool
+  enabled: bool
 
 type Reading:
   label: Label
-  value: float64
+  value: f64
 
 fn rename(reading: Reading) -> Reading:
-  reading with {label: reading.label with {text: reading.label.text + "!"}}
+  return reading with {label: reading.label with {text: reading.label.text + "!"}}
 
 fn main() -> String ! TaskError:
   original = Reading {label: Label {text: "north", enabled: true}, value: 12.5}
@@ -21,7 +21,7 @@ fn main() -> String ! TaskError:
     first = try await work
     again = try await work
     again
-  original.label.text + " / " + changed.label.text
+  return original.label.text + " / " + changed.label.text
 ```
 
 The executable prints `north / north!`. Updating the nested label preserves the original record and its text. A String field requires a String value; numbers and Bool values are not implicitly formatted. Every declared field is required when constructing a record. The usual String operations apply after field access, with Unicode scalar bounds rather than byte indexes.

@@ -1,4 +1,4 @@
-fn run(flag:Bool)->int:
+fn run(flag:bool)->i64:
   values=[true,false]
   saved=values
   if flag:
@@ -10,6 +10,6 @@ fn run(flag:Bool)->int:
   else:1000
   while false:
     values=[false]
-  result+length(values)
-fn main()->int:
-  run(true)+run(false)
+  return result+length(values)
+fn main()->i64:
+  return run(true)+run(false)

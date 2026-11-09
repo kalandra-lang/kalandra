@@ -1,10 +1,10 @@
 error E:
   Retry:
-    callback:fn(int)->int
-fn worker(callback:fn(int)->int)->int ! E:
+    callback:fn(i64)->i64
+fn worker(callback:fn(i64)->i64)->i64 ! E:
   fail E.Retry {callback:callback}
-fn submit(callback:fn(int)->int)->int ! (E | TaskError):
-  try parallel:
+fn submit(callback:fn(i64)->i64)->i64 ! (E | TaskError):
+  return try parallel:
     try await spawn worker(callback)
-fn main()->int:
-  42
+fn main()->i64:
+  return 42

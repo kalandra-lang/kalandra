@@ -1,5 +1,6 @@
 #include "kalandra/Continuation.h"
 #include "ErrorFamilies.h"
+#include "NonCompleting.h"
 #include "RecordStorage.h"
 #include <algorithm>
 #include <set>
@@ -97,6 +98,7 @@ class Builder : public ModulePlan {
     std::size_t groupDepth;
     ValueId source;
     std::vector<std::size_t> exits;
+    std::size_t collectionDepth = 0;
   };
   struct Environment {
     std::unordered_map<ValueId, Slot> values;
@@ -119,14 +121,16 @@ public:
   std::optional<FunctionInvocationFlow> invocationFlow;
   std::vector<FunctionId> pending;
   std::vector<bool> scheduled;
+  std::vector<bool> nonCompleting;
   std::vector<std::vector<SymbolId>> localCells;
-  explicit Builder(const TypedModule &input, Options options, const RecordStoragePlan &recordStorage)
+  explicit Builder(const TypedModule &input, Options options,
+                   const RecordStoragePlan &recordStorage)
       : ModulePlan(input), options(options), recordStorage(recordStorage),
-        resumable(resumableFunctions(input)),
-        coordinating(coordinatingFunctions(input)), loopControl(loopControlFunctions(input)),
-        invocationFlow(functionInvocationFlow(input)) {
-    if (options.deviceCallFrames &&
-        (!options.entry || !options.deviceValues || options.nativeSubgraphs || options.preserveCalls))
+        resumable(resumableFunctions(input)), coordinating(coordinatingFunctions(input)),
+        loopControl(loopControlFunctions(input)), invocationFlow(functionInvocationFlow(input)) {
+    nonCompleting = nonCompletingValues(input);
+    if (options.deviceCallFrames && (!options.entry || !options.deviceValues ||
+                                     options.nativeSubgraphs || options.preserveCalls))
       throw std::runtime_error("device call frames require a selected device continuation entry");
     if (options.preserveCalls)
       for (FunctionId id = 0; id < input.functions.size(); ++id)
@@ -137,8 +141,7 @@ public:
     // A device entry can share its source module with unrelated host placement.
     // Only the selected entry and its reachable calls are lowered in this mode;
     // the device emitter still rejects task/placement instructions in that graph.
-    if (hasPlacement(input) && !options.preserveCalls &&
-        !(options.entry && options.deviceValues))
+    if (hasPlacement(input) && !options.preserveCalls && !(options.entry && options.deviceValues))
       throw std::runtime_error("placement-aware plans require preserved target calls");
     for (const auto &symbol : input.symbols)
       if (symbol.reassignable && symbol.type.array && resumable.at(symbol.owner) &&
@@ -440,7 +443,8 @@ private:
   FunctionId importFunction(FunctionId id) {
     if (auto found = importedFunctions.find(id); found != importedFunctions.end())
       return found->second;
-    if (resumable.at(id) && !(options.preserveCalls && options.deviceValues && !coordinating.at(id)))
+    if (resumable.at(id) &&
+        !(options.preserveCalls && options.deviceValues && !coordinating.at(id)))
       throw std::runtime_error("map callback cannot suspend");
     const auto copied = kernels.functions.size();
     importedFunctions[id] = copied;
@@ -871,11 +875,9 @@ private:
     plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group});
     return output;
   }
-  void deviceIndirectCall(Plan &plan, ValueId id, Slot output,
-                          const kalandra::FunctionInvoke &call, Environment &env,
-                          std::set<FunctionId> &stack) {
-    if (!invocationFlow || invocationFlow->unknown.at(id) ||
-        invocationFlow->targets.at(id).empty())
+  void deviceIndirectCall(Plan &plan, ValueId id, Slot output, const kalandra::FunctionInvoke &call,
+                          Environment &env, std::set<FunctionId> &stack) {
+    if (!invocationFlow || invocationFlow->unknown.at(id) || invocationFlow->targets.at(id).empty())
       throw std::runtime_error("GPU function invocation needs a closed target set");
     const auto callee = expression(plan, call.callee, env, stack);
     std::vector<Slot> args;
@@ -1173,6 +1175,8 @@ private:
       const auto branch = plan.code.size();
       plan.code.push_back(
           {Code::Jump, 0, {}, 0, 0, jump->continuing ? loop.header : 0, loop.source});
+      for (auto depth = env.collectionStack.size(); depth > loop.collectionDepth; --depth)
+        plan.code.back().collections.push_back(env.collectionStack[depth - 1]);
       if (!jump->continuing)
         loop.exits.push_back(branch);
     } else if (const auto *loop = std::get_if<WhileOperation>(&node.operation)) {
@@ -1192,6 +1196,7 @@ private:
       auto iteration = env;
       const auto condition = expression(plan, loop->condition, iteration, stack);
       LoopBoundary boundary{output, condition, header, env.groups.size(), id, {}};
+      boundary.collectionDepth = env.collectionStack.size();
       iteration.loops[loop->identity] = &boundary;
       const auto dispatch = plan.code.size();
       plan.code.push_back({Code::Branch, output, {condition}});
@@ -1216,7 +1221,8 @@ private:
       }
       if (loop->normalResult) {
         const auto result = expression(plan, *loop->normalResult, normal, stack);
-        plan.code.push_back({Code::Copy, output, {result}});
+        if (!nonCompleting[*loop->normalResult])
+          plan.code.push_back({Code::Copy, output, {result}});
       }
       const auto exit = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
@@ -1254,7 +1260,8 @@ private:
         }
         auto result =
             expression(plan, index == 0 ? choice->trueResult : choice->falseResult, branch, stack);
-        plan.code.push_back({Code::Copy, output, {result}});
+        if (!nonCompleting[index == 0 ? choice->trueResult : choice->falseResult])
+          plan.code.push_back({Code::Copy, output, {result}});
         if (index == 0) {
           plan.code[dispatch].target = plan.code.size();
           plan.code.push_back({Code::Jump, 0, {}});
@@ -1281,7 +1288,8 @@ private:
           if (statement.binding)
             bindScalar(plan, branch, *statement.binding, result);
         }
-        plan.code.push_back({Code::Copy, output, {result}});
+        if (!nonCompleting[arm.result])
+          plan.code.push_back({Code::Copy, output, {result}});
         exits.push_back(plan.code.size());
         plan.code.push_back({Code::Jump, 0, {}});
       }
@@ -1293,11 +1301,12 @@ private:
       for (auto jump : exits)
         plan.code[jump].jump = exit;
     } else if (const auto *field = std::get_if<RecordFieldRead>(&node.operation);
-               field && (!options.preserveCalls ||
-                         (options.deviceValues && input.expressions.at(field->input).type.record &&
-                          (input.records.at(*input.expressions.at(field->input).type.record).error ||
-                           recordStorage.fields.at(*input.expressions.at(field->input).type.record)
-                                   .at(field->field) == RecordFieldStorage::ManagedReference)))) {
+               field &&
+               (!options.preserveCalls ||
+                (options.deviceValues && input.expressions.at(field->input).type.record &&
+                 (input.records.at(*input.expressions.at(field->input).type.record).error ||
+                  recordStorage.fields.at(*input.expressions.at(field->input).type.record)
+                          .at(field->field) == RecordFieldStorage::ManagedReference)))) {
       auto subject = expression(plan, field->input, env, stack);
       plan.code.push_back({Code::Field, output, {subject}, field->field, 0, 0, id});
     } else if (const auto *narrow = std::get_if<ErrorNarrow>(&node.operation);
@@ -1357,17 +1366,15 @@ private:
           {Code::Kernel, output, args,
            !options.preserveCalls ||
                    std::holds_alternative<IntegerRangeOperation>(node.operation) ||
-                   (options.valueScopes && (node.type.array || node.type.record ||
-                                            containsFunctionStorage(input, node.type) ||
-                                            std::ranges::any_of(operands(node),
-                                                                [&](auto value) {
-                                                                  const auto &type =
-                                                                      input.expressions[value].type;
-                                                                  return type.array ||
-                                                                         type.record ||
-                                                                         containsFunctionStorage(
-                                                                             input, type);
-                                                                })))
+                   (options.valueScopes &&
+                    (node.type.array || node.type.record ||
+                     containsFunctionStorage(input, node.type) ||
+                     std::ranges::any_of(operands(node),
+                                         [&](auto value) {
+                                           const auto &type = input.expressions[value].type;
+                                           return type.array || type.record ||
+                                                  containsFunctionStorage(input, type);
+                                         })))
                ? kernel(id)
                : 0,
            0, 0, id});
@@ -1435,6 +1442,7 @@ std::vector<bool> loopControlFunctions(const TypedModule &input) {
   return result;
 }
 std::vector<bool> resumableFunctions(const TypedModule &input) {
+  const auto nonCompleting = nonCompletingValues(input);
   // Indirect synchronous entries already encapsulate their expected-error
   // control flow. Only actual coordination crosses that calling boundary.
   auto result = coordinatingFunctions(input);
@@ -1450,7 +1458,8 @@ std::vector<bool> resumableFunctions(const TypedModule &input) {
         callers.at(reference->function).push_back(id);
       if (const auto *map = std::get_if<ArrayMap>(&op))
         callers.at(map->function).push_back(id);
-      if (input.expressions[value].type.fallible || std::holds_alternative<TaskOperation>(op) ||
+      if (nonCompleting[value] || input.expressions[value].type.fallible ||
+          std::holds_alternative<TaskOperation>(op) ||
           std::holds_alternative<ParallelOperation>(op) ||
           std::holds_alternative<CatchOperation>(op) ||
           std::holds_alternative<LoopTransferOperation>(op) ||

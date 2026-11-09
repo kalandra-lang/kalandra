@@ -10,8 +10,8 @@ foreach(PATH IN LISTS SOURCES)
     EXPECT("${NAME}" 42)
   endif()
 endforeach()
-foreach(TYPE IN ITEMS int8 uint8 int16 uint16 int32 uint32 int64 uint64 float32 float64)
-  COMPILE("width-${TYPE}" "fn main()->${TYPE}:\n  offset:${TYPE}=${TYPE}(20)\n  values=map([${TYPE}(1),${TYPE}(1)],fn(value):\n    adjusted=value+offset\n    adjusted\n  )\n  values[0]+values[1]\n")
+foreach(TYPE IN ITEMS i8 u8 i16 u16 i32 u32 i64 u64 f32 f64)
+  COMPILE("width-${TYPE}" "fn main()->${TYPE}:\n  offset:${TYPE}=${TYPE}(20)\n  values=map([${TYPE}(1),${TYPE}(1)],fn(value):\n    adjusted=value+offset\n    return adjusted\n  )\n  return values[0]+values[1]\n")
   EXPECT("width-${TYPE}" 42)
 endforeach()
 foreach(WORKERS IN ITEMS 1 2 4)
@@ -27,48 +27,48 @@ COMPILE(guide "${GUIDE}")
 EXPECT(guide "[0, 10, 15]")
 COMPILE(raw-owned [=[type Row:
   text:String
-  values:[int]
+  values:[i64]
 error E:
   Bad
-fn checked(value:int)->int ! E:
+fn checked(value:i64)->i64 ! E:
   if value==0:fail E.Bad
-  value
-fn probe()->int:
-  input:int=40
+  return value
+fn probe()->i64:
+  input:i64=40
   row=Row {text:"é"+"!",values:[input]}
   values=map([0,1],fn(value):
-    checked(value) catch fn(error):
+    return checked(value) catch fn(error):
       adjusted=row.values[0]+length(row.text)-1
-      adjusted
+      return adjusted
   )
-  values[0]+values[1]
-fn main()->int:
+  return values[0]+values[1]
+fn main()->i64:
   f=probe
-  probe()
+  return probe()
 ]=] --test-entry probe)
 EXPECT(raw-owned 42)
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS} "${SOURCE_DIR}/tests/ControlMapRuntimeTests.cpp" "${OUTPUT_DIR}/raw-owned.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/allocation-harness")
 RUN_OK("${OUTPUT_DIR}/allocation-harness")
 COMPILE(raw-fault [=[error E:
   Bad
-fn checked(value:int)->int ! E:
+fn checked(value:i64)->i64 ! E:
   if value==0:fail E.Bad
-  value
-fn recover(value:int)->int:
-  checked(value) catch fn(error):42/value
-fn source()->int:
-  0
-fn probe()->int:
+  return value
+fn recover(value:i64)->i64:
+  return checked(value) catch fn(error):return 42/value
+fn source()->i64:
+  return 0
+fn probe()->i64:
   input=source()
   values=map([input,1],fn(value):
     adjusted=recover(value)
-    adjusted
+    return adjusted
   )
   later=1/(input-input)
-  values[0]+later
-fn main()->int:
+  return values[0]+later
+fn main()->i64:
   f=probe
-  probe()
+  return probe()
 ]=] --test-entry probe)
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS} "${SOURCE_DIR}/tests/ControlMapFaultRuntimeTests.cpp" "${OUTPUT_DIR}/raw-fault.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/fault-harness")
 RUN_OK("${OUTPUT_DIR}/fault-harness")
@@ -92,8 +92,8 @@ function(REJECT NAME SOURCE CODE)
   endforeach()
 endfunction()
 REJECT(empty "fn main():\n  map([1],fn(v):\n  )\n" P002)
-REJECT(binding "fn main():\n  map([1],fn(v):\n    result=v+1\n  )\n" P007)
-REJECT(else "fn main():\n  map([1],fn(v):\n    if v>0:\n      v\n  )\n" P007)
+REJECT(binding "fn main():\n  return map([1],fn(v):\n    result=v+1\n    result\n  )\n" S079)
+REJECT(else "fn main():\n  return map([1],fn(v):\n    return if v>0:\n      v\n  )\n" P007)
 REJECT(inline-close "fn main():\n  map([1],fn(v):\n    v)\n" L016)
 REJECT(indented-close "fn main():\n  map([1],fn(v):\n    v\n    )\n" L016)
 REJECT(dedent "fn main():\n  map([1],fn(v):\n    x=v+1\n   x\n  )\n" L008)

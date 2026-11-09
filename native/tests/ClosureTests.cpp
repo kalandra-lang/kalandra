@@ -14,97 +14,120 @@ CheckResult analyze(const char *source) {
 } // namespace
 int main() {
   try {
-    for (const auto *source :
-         {"fn worker(value:int)->int:\n  value\nfn run(value:int)->int ! TaskError:\n  try "
-          "parallel:\n    try await spawn worker(value)\nfn main()->int:\n  "
-          "f=fn(value:int):run(value) catch fn(error):0\n  f(42)\n",
-          "fn makeAdder(offset:int)->fn(int)->int:\n  fn(value:int):value+offset\nfn "
-          "apply(value:int,f:fn(int)->int)->int:\n  f(value)\nfn main()->int:\n  "
-          "add=makeAdder(10)\n  apply(22,add)+add(0)\n",
-          "fn apply(value:int,f:fn(int)->int)->int:\n  f(value)\nfn main()->int:\n  "
-          "f:fn(int)->int=fn(value):value*2\n  apply(f(20),fn(value):value+2)\n",
-          "fn make(a:int)->fn(int)->fn(int)->int:\n  fn(b:int):fn(c:int):a+b+c\nfn main()->int:\n  "
-          "first=make(10)\n  second=first(20)\n  second(12)\n",
-          "fn twice(value:int)->int:\n  value*2\nfn make(f:fn(int)->int,offset:\n  "
-          "int)->fn(int)->int:\n  fn(value:int):f(value)+offset\nfn main()->int:\n  "
-          "first=make(twice,10)\n  second=make(first,10)\n  second(11)\n",
-          "fn double(value:int)->int:\n  value*2\nfn make(offset:int)->fn(int)->int:\n  "
-          "fn(value:int):value+offset\nfn choose(flag:Bool)->fn(int)->int:\n  if flag:make(21)\n  "
-          "else:double\nfn main()->int:\n  a=choose(true)\n  b=choose(false)\n  a(0)+b(10)+1\n",
-          "type Row:\n  text:String\n  values:[int]\nfn make(row:Row)->fn(int)->int:\n  "
-          "fn(value:int):row.values[0]+row.values[1]+length(row.text)+value\nfn main()->int:\n  "
-          "f=make(Row {text:\"é\"+\"!\",values:[10,20]})\n  f(10)\n",
-          "fn make(values:[int])->fn(int)->[int]:\n  fn(value:int):concat(values,[value])\nfn "
-          "main()->int:\n  values:[int]=[10,20]\n  f=make(values)\n  result=f(12)\n  "
-          "result[0]+result[1]+result[2]\n",
-          "fn make(values:Tensor[int,?,?])->fn(int)->Tensor[int,?,?]:\n  "
-          "fn(value:int):values+value\nfn main()->int:\n  f=make(tensor([[10,10]]))\n  "
-          "reduceSum(f(11))\n",
-          "fn make(value:String)->fn(String)->String:\n  fn(suffix:String):value+suffix\nfn "
-          "main()->int:\n  f=make(\"é\"+\"🙂\")\n  length(f(\"!\"))+39\n",
-          "fn make(offset:int)->fn(int)->int:\n  fn(value:int):value+offset\nfn main()->int:\n  "
-          "f=make(10)\n  values=map([10,12],f)\n  values[0]+values[1]\n",
-          "fn make(offset:int)->fn(int)->int:\n  fn(value:int):value+offset\nfn main()->int:\n  "
-          "f=make(10)\n  values=map([10,12],fn(value):f(value))\n  values[0]+values[1]\n",
-          "fn make(offset:int)->fn(int)->int:\n  fn(value:int):value+offset\nfn "
-          "worker(value:int)->int:\n  f=make(value)\n  f(21)\nfn main()->int ! TaskError:\n  try "
-          "parallel:\n    try await spawn worker(21)\n",
-          "fn worker(value:int)->int:\n  value*2\nfn make(offset:int)->fn(int)->int:\n  "
-          "fn(value:int):value+offset\nfn main()->int ! TaskError:\n  f=make(10)\n  try "
-          "parallel:\n    value=try await spawn worker(16)\n    f(value)\n",
-          "error E:\n  Bad:\n    value:int\nfn check(value:int,offset:int)->int ! E:\n  if "
-          "value==0:fail E.Bad {value:offset}\n  value+offset\nfn make(offset:int)->fn(int)->int ! "
-          "E:\n  fn(value):check(value,offset)\nfn main()->int:\n  f=make(21)\n  a=f(0) catch "
-          "fn(error):\n    match error:\n      E.Bad {value}:value\n  b=f(1) catch fn(error):0\n  "
-          "a+b-1\n",
-          "error E:\n  Bad:\n    value:int\nfn check(value:int,offset:int)->int ! E:\n  if "
-          "value==0:fail E.Bad {value:offset}\n  value+offset\nfn "
-          "make(offset:int)->fn(int)->int:\n  fn(value:int):check(value,offset) catch "
-          "fn(error):offset\nfn main()->int:\n  f=make(21)\n  f(0)+f(1)-1\n",
-          "fn make(offset:int)->fn()->int:\n  fn():offset\nfn main()->int:\n  f=make(42)\n  f()\n",
-          "fn make(value:int)->fn(int)->int:\n  fn(value:int):value*2\nfn main()->int:\n  "
-          "f=make(100)\n  f(21)\n",
-          "error E:\n  Bad\nfn make(offset:int)->(fn(int)->int) ! E:\n  if offset==0:fail E.Bad\n  "
-          "fn(value):value+offset\nfn main()->int:\n  f=make(21) catch "
-          "fn(error):fn(value:int):value\n  f(21)\n",
-          "fn main()->int:\n  value:int=42\n  f=fn(item:int):value/item\n  input:[int]=[]\n  "
-          "result=map(input,f)\n  value+length(result)\n",
-          "fn make(value:int)->fn(int)->int:\n  fn(x:int):value+value+x\nfn main()->int:\n  "
-          "f=make(20)\n  f(2)\n",
-          "error E:\n  Bad:\n    value:int\nfn check(value:int,offset:int)->int ! E:\n  if "
-          "value==0:fail E.Bad {value:offset}\n  value+offset\nfn make(offset:int)->fn(int)->int ! "
-          "E:\n  fn(value):try check(value,offset)\nfn main()->int:\n  f=make(21)\n  a=f(0) catch "
-          "fn(error):\n    match error:\n      E.Bad {value}:value\n  b=f(1) catch fn(error):0\n  "
-          "a+b-1\n",
-          "error E:\n  Bad\nfn make(offset:int)->fn(int)->int ! E:\n  fn(value):value+offset\nfn "
-          "main()->int:\n  f=make(21)\n  f(21) catch fn(error):0\n",
-          "type Row:\n  text:String\n  values:[int]\nerror E:\n  Bad:\n    row:Row\nfn "
-          "check(value:int,row:Row)->int ! E:\n  if value==0:fail E.Bad {row:row}\n  "
-          "value+row.values[0]\nfn make(row:Row)->fn(int)->int ! E:\n  fn(value):try "
-          "check(value,row)\nfn main()->int:\n  f=make(Row {text:\"é\"+\"!\",values:[20,20]})\n  "
-          "f(0) catch fn(error):\n    match error:\n      E.Bad "
-          "{row}:length(row.text)+row.values[0]+row.values[1]\n",
-          "fn makeAdder(offset:int)->fn(int)->int:\n  fn(value:int):value+offset\nfn "
-          "apply(value:int,f:fn(int)->int)->int:\n  f(value)\nfn main()->int:\n  "
-          "add=makeAdder(10)\n  (22->add())+add(0)\n",
-          "fn use(flags:[Bool],words:[String],value:int)->int:\n  if "
-          "flags[0]:length(words[0])+value\n  else:0\nfn "
-          "make(flags:[Bool],words:[String])->fn(int)->int:\n  "
-          "fn(value:int):use(flags,words,value)\nfn main()->int:\n  "
-          "f=make([true,false],[\"é\"+\"!\",\"x\"])\n  f(40)\n",
-          "fn make(offset:int)->fn(int)->int:\n  fn(value:int):value+offset\nfn "
-          "probe(input:int)->int:\n  f=make(input)\n  f(2)\nfn main()->int:\n  probe(40)\n",
-          "type Row:\n  text:String\n  values:[int]\nfn make(row:Row)->fn(int)->int:\n  "
-          "fn(value:int):row.values[0]+row.values[1]+length(row.text)+value\nfn "
-          "probe(input:int)->int:\n  f=make(Row {text:\"é\"+\"!\",values:[10,20]})\n  f(input)\nfn "
-          "main()->int:\n  probe(10)\n",
-          "type Row:\n  text:String\n  values:[int]\nfn make(row:Row)->fn(int)->Row:\n  "
-          "fn(value:int):Row {text:row.text+\"!\",values:concat(row.values,[value])}\nfn "
-          "worker(value:int)->Row:\n  f=make(Row {text:\"é\"+\"🙂\",values:[10,20]})\n  "
-          "f(value)\nfn run()->int ! TaskError:\n  try parallel:\n    task=spawn worker(9)\n    "
-          "first=try await task\n    second=try await task\n    "
-          "first.values[0]+first.values[1]+second.values[2]+length(second.text)\nfn main()->int ! "
-          "TaskError:\n  try run()\n"}) {
+    for (
+        const auto *source :
+        {"fn worker(value:i64)->i64:\n  return value\nfn run(value:i64)->i64 ! TaskError:\n  "
+         "return try parallel:\n    try await spawn worker(value)\nfn main()->i64:\n  "
+         "f=fn(value:i64):return run(value) catch fn(error):return 0\n  return f(42)\n",
+         "fn makeAdder(offset:i64)->fn(i64)->i64:\n  return fn(value:i64):return value+offset\nfn "
+         "apply(value:i64,f:fn(i64)->i64)->i64:\n  return f(value)\nfn main()->i64:\n  "
+         "add=makeAdder(10)\n  return apply(22,add)+add(0)\n",
+         "fn apply(value:i64,f:fn(i64)->i64)->i64:\n  return f(value)\nfn main()->i64:\n  "
+         "f:fn(i64)->i64=fn(value):return value*2\n  return apply(f(20),fn(value):return "
+         "value+2)\n",
+         "fn make(a:i64)->fn(i64)->fn(i64)->i64:\n  return fn(b:i64):return fn(c:i64):return "
+         "a+b+c\nfn main()->i64:\n  first=make(10)\n  second=first(20)\n  return second(12)\n",
+         "fn twice(value:i64)->i64:\n  return value*2\nfn make(f:fn(i64)->i64,offset:\n  "
+         "i64)->fn(i64)->i64:\n  return fn(value:i64):return f(value)+offset\nfn main()->i64:\n  "
+         "first=make(twice,10)\n  second=make(first,10)\n  return second(11)\n",
+         "fn double(value:i64)->i64:\n  return value*2\nfn make(offset:i64)->fn(i64)->i64:\n  "
+         "return "
+         "fn(value:i64):return value+offset\nfn choose(flag:bool)->fn(i64)->i64:\n  return if "
+         "flag:make(21)\n  "
+         "else:double\nfn main()->i64:\n  a=choose(true)\n  b=choose(false)\n  return "
+         "a(0)+b(10)+1\n",
+         "type Row:\n  text:String\n  values:[i64]\nfn make(row:Row)->fn(i64)->i64:\n  return "
+         "fn(value:i64):return row.values[0]+row.values[1]+length(row.text)+value\nfn "
+         "main()->i64:\n  f=make(Row {text:\"é\"+\"!\",values:[10,20]})\n  return f(10)\n",
+         "fn make(values:[i64])->fn(i64)->[i64]:\n  return fn(value:i64):return "
+         "concat(values,[value])\nfn "
+         "main()->i64:\n  values:[i64]=[10,20]\n  f=make(values)\n  result=f(12)\n  "
+         "return result[0]+result[1]+result[2]\n",
+         "fn make(values:Tensor[i64,?,?])->fn(i64)->Tensor[i64,?,?]:\n  return "
+         "fn(value:i64):return values+value\nfn main()->i64:\n  f=make(tensor([[10,10]]))\n  "
+         "return reduceSum(f(11))\n",
+         "fn make(value:String)->fn(String)->String:\n  return fn(suffix:String):return "
+         "value+suffix\nfn "
+         "main()->i64:\n  f=make(\"é\"+\"🙂\")\n  return length(f(\"!\"))+39\n",
+         "fn make(offset:i64)->fn(i64)->i64:\n  return fn(value:i64):return value+offset\nfn "
+         "main()->i64:\n  f=make(10)\n  values=map([10,12],f)\n  return values[0]+values[1]\n",
+         "fn make(offset:i64)->fn(i64)->i64:\n  return fn(value:i64):return value+offset\nfn "
+         "main()->i64:\n  f=make(10)\n  values=map([10,12],fn(value):return f(value))\n  return "
+         "values[0]+values[1]\n",
+         "fn make(offset:i64)->fn(i64)->i64:\n  return fn(value:i64):return value+offset\nfn "
+         "worker(value:i64)->i64:\n  f=make(value)\n  return f(21)\nfn main()->i64 ! TaskError:\n  "
+         "return try "
+         "parallel:\n    try await spawn worker(21)\n",
+         "fn worker(value:i64)->i64:\n  return value*2\nfn make(offset:i64)->fn(i64)->i64:\n  "
+         "return "
+         "fn(value:i64):return value+offset\nfn main()->i64 ! TaskError:\n  f=make(10)\n  return "
+         "try "
+         "parallel:\n    value=try await spawn worker(16)\n    f(value)\n",
+         "error E:\n  Bad:\n    value:i64\nfn check(value:i64,offset:i64)->i64 ! E:\n  if "
+         "value==0:fail E.Bad {value:offset}\n  return value+offset\nfn "
+         "make(offset:i64)->fn(i64)->i64 ! "
+         "E:\n  return fn(value):return check(value,offset)\nfn main()->i64:\n  f=make(21)\n  "
+         "a=f(0) catch "
+         "fn(error):\n    return match error:\n      E.Bad {value}:value\n  b=f(1) catch "
+         "fn(error):return 0\n  return "
+         "a+b-1\n",
+         "error E:\n  Bad:\n    value:i64\nfn check(value:i64,offset:i64)->i64 ! E:\n  if "
+         "value==0:fail E.Bad {value:offset}\n  return value+offset\nfn "
+         "make(offset:i64)->fn(i64)->i64:\n  return fn(value:i64):return check(value,offset) catch "
+         "fn(error):return offset\nfn main()->i64:\n  f=make(21)\n  return f(0)+f(1)-1\n",
+         "fn make(offset:i64)->fn()->i64:\n  return fn():return offset\nfn main()->i64:\n  "
+         "f=make(42)\n  return f()\n",
+         "fn make(value:i64)->fn(i64)->i64:\n  return fn(value:i64):return value*2\nfn "
+         "main()->i64:\n  f=make(100)\n  return f(21)\n",
+         "error E:\n  Bad\nfn make(offset:i64)->(fn(i64)->i64) ! E:\n  if offset==0:fail E.Bad\n  "
+         "return fn(value):return value+offset\nfn main()->i64:\n  f=make(21) catch "
+         "fn(error):return fn(value:i64):return value\n  return f(21)\n",
+         "fn main()->i64:\n  value:i64=42\n  f=fn(item:i64):return value/item\n  input:[i64]=[]\n  "
+         "result=map(input,f)\n  return value+length(result)\n",
+         "fn make(value:i64)->fn(i64)->i64:\n  return fn(x:i64):return value+value+x\nfn "
+         "main()->i64:\n  f=make(20)\n  return f(2)\n",
+         "error E:\n  Bad:\n    value:i64\nfn check(value:i64,offset:i64)->i64 ! E:\n  if "
+         "value==0:fail E.Bad {value:offset}\n  return value+offset\nfn "
+         "make(offset:i64)->fn(i64)->i64 ! "
+         "E:\n  return fn(value):return try check(value,offset)\nfn main()->i64:\n  f=make(21)\n  "
+         "a=f(0) catch "
+         "fn(error):\n    return match error:\n      E.Bad {value}:value\n  b=f(1) catch "
+         "fn(error):return 0\n  return "
+         "a+b-1\n",
+         "error E:\n  Bad\nfn make(offset:i64)->fn(i64)->i64 ! E:\n  return fn(value):return "
+         "value+offset\nfn "
+         "main()->i64:\n  f=make(21)\n  return f(21) catch fn(error):return 0\n",
+         "type Row:\n  text:String\n  values:[i64]\nerror E:\n  Bad:\n    row:Row\nfn "
+         "check(value:i64,row:Row)->i64 ! E:\n  if value==0:fail E.Bad {row:row}\n  "
+         "return value+row.values[0]\nfn make(row:Row)->fn(i64)->i64 ! E:\n  return "
+         "fn(value):return try "
+         "check(value,row)\nfn main()->i64:\n  f=make(Row {text:\"é\"+\"!\",values:[20,20]})\n  "
+         "return f(0) catch fn(error):\n    return match error:\n      E.Bad "
+         "{row}:length(row.text)+row.values[0]+row.values[1]\n",
+         "fn makeAdder(offset:i64)->fn(i64)->i64:\n  return fn(value:i64):return value+offset\nfn "
+         "apply(value:i64,f:fn(i64)->i64)->i64:\n  return f(value)\nfn main()->i64:\n  "
+         "add=makeAdder(10)\n  return (22->add())+add(0)\n",
+         "fn use(flags:[bool],words:[String],value:i64)->i64:\n  return if "
+         "flags[0]:length(words[0])+value\n  else:0\nfn "
+         "make(flags:[bool],words:[String])->fn(i64)->i64:\n  return fn(value:i64):return "
+         "use(flags,words,value)\nfn main()->i64:\n  f=make([true,false],[\"é\"+\"!\",\"x\"])\n  "
+         "return f(40)\n",
+         "fn make(offset:i64)->fn(i64)->i64:\n  return fn(value:i64):return value+offset\nfn "
+         "probe(input:i64)->i64:\n  f=make(input)\n  return f(2)\nfn main()->i64:\n  return "
+         "probe(40)\n",
+         "type Row:\n  text:String\n  values:[i64]\nfn make(row:Row)->fn(i64)->i64:\n  return "
+         "fn(value:i64):return row.values[0]+row.values[1]+length(row.text)+value\nfn "
+         "probe(input:i64)->i64:\n  f=make(Row {text:\"é\"+\"!\",values:[10,20]})\n  return "
+         "f(input)\nfn "
+         "main()->i64:\n  return probe(10)\n",
+         "type Row:\n  text:String\n  values:[i64]\nfn make(row:Row)->fn(i64)->Row:\n  return "
+         "fn(value:i64):return Row {text:row.text+\"!\",values:concat(row.values,[value])}\nfn "
+         "worker(value:i64)->Row:\n  f=make(Row {text:\"é\"+\"🙂\",values:[10,20]})\n  "
+         "return f(value)\nfn run()->i64 ! TaskError:\n  return try parallel:\n    task=spawn "
+         "worker(9)\n    "
+         "first=try await task\n    second=try await task\n    "
+         "first.values[0]+first.values[1]+second.values[2]+length(second.text)\nfn main()->i64 ! "
+         "TaskError:\n  return try run()\n"}) {
       auto result = analyze(source);
       if (!result.ok())
         for (const auto &d : result.diagnostics)
@@ -119,34 +142,37 @@ int main() {
     }
     // Worker aggregate transport now supports these former rejection cases.
     for (const auto *accepted :
-         {"fn make(value:int)->fn(int)->int:\n  targets=[fn(item:int):item+value]\n  "
-          "fn(item:int):targets[0](item)\nfn main()->int ! TaskError:\n  try parallel:\n    f=try "
+         {"fn make(value:i64)->fn(i64)->i64:\n  targets=[fn(item:i64):return item+value]\n  "
+          "return fn(item:i64):return targets[0](item)\nfn main()->i64 ! TaskError:\n  return try "
+          "parallel:\n    f=try "
           "await spawn make(21)\n    f(21)\n",
-          "fn apply(value:int,f:fn(int)->int)->int:\n  f(value)\nfn main()->int ! TaskError:\n  "
-          "targets=[fn(value:int):value*2]\n  f=fn(value:int):targets[0](value)\n  try parallel:\n "
-          "   try await spawn apply(21,f)\n"})
+          "fn apply(value:i64,f:fn(i64)->i64)->i64:\n  return f(value)\nfn main()->i64 ! "
+          "TaskError:\n  targets=[fn(value:i64):return value*2]\n  f=fn(value:i64):return "
+          "targets[0](value)\n  return try parallel:\n    try await spawn apply(21,f)\n"})
       require(analyze(accepted).ok(), "supported worker aggregate rejected");
     for (const auto *source :
-         {"fn main()->int:\n  f=fn(value):value+1\n  f(41)\n",
-          "fn main()->int:\n  f:fn(int)->int=fn(a,b):a+b\n  0\n",
-          "fn main()->int:\n  f:fn(int)->int=fn(value:float32):value\n  0\n",
-          "fn main()->int:\n  f:fn(int)->String=fn(value):value\n  0\n",
-          "fn main()->int:\n  f=fn(value:int):f(value)\n  0\n",
-          "fn main()->int:\n  f=fn(value:int,value:int):value\n  0\n",
-          "type A:\n  value:int\ntype B:\n  value:int\nfn main()->int:\n  "
-          "f:fn(A)->int=fn(value:B):value.value\n  0\n",
-          "error E:\n  Bad\nerror Other:\n  Bad\nfn checked(value:int)->int ! E:\n  fail E.Bad\nfn "
-          "main()->int:\n  f:fn(int)->int ! Other=fn(value):checked(value)\n  0\n",
-          "error E:\n  Bad\nfn checked()->int ! E:\n  fail E.Bad\nfn main()->int:\n  "
-          "result=checked()\n  f=fn(value:int):result\n  0\n",
+         {"fn main()->i64:\n  f=fn(value):return value+1\n  return f(41)\n",
+          "fn main()->i64:\n  f:fn(i64)->i64=fn(a,b):return a+b\n  return 0\n",
+          "fn main()->i64:\n  f:fn(i64)->i64=fn(value:f32):return value\n  return 0\n",
+          "fn main()->i64:\n  f:fn(i64)->String=fn(value):return value\n  return 0\n",
+          "fn main()->i64:\n  f=fn(value:i64):return f(value)\n  return 0\n",
+          "fn main()->i64:\n  f=fn(value:i64,value:i64):return value\n  return 0\n",
+          "type A:\n  value:i64\ntype B:\n  value:i64\nfn main()->i64:\n  "
+          "f:fn(A)->i64=fn(value:B):return value.value\n  return 0\n",
+          "error E:\n  Bad\nerror Other:\n  Bad\nfn checked(value:i64)->i64 ! E:\n  fail E.Bad\nfn "
+          "main()->i64:\n  f:fn(i64)->i64 ! Other=fn(value):return checked(value)\n  return 0\n",
+          "error E:\n  Bad\nfn checked()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  "
+          "result=checked()\n  f=fn(value:i64):return result\n  return 0\n",
 
-          "fn worker(value:int)->int:\n  value\nfn main()->int ! TaskError:\n  try parallel:\n    "
-          "task=spawn worker(42)\n    f=fn(value:int):task\n    try await task\n",
-          "error E:\n  Bad\nfn checked()->int ! E:\n  fail E.Bad\nfn main()->int:\n  "
-          "f=fn(value:int):checked()+value\n  0\n"})
+          "fn worker(value:i64)->i64:\n  return value\nfn main()->i64 ! TaskError:\n  return try "
+          "parallel:\n    "
+          "task=spawn worker(42)\n    f=fn(value:i64):return task\n    try await task\n",
+          "error E:\n  Bad\nfn checked()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  "
+          "f=fn(value:i64):return checked()+value\n  return 0\n"})
       require(!analyze(source).ok(), "invalid closure accepted");
-    auto fixture = analyze("fn make(value:int)->fn(int)->int:\n  fn(item:int):item+value+value\nfn "
-                           "main()->int:\n  f=make(20)\n  f(2)\n");
+    auto fixture = analyze(
+        "fn make(value:i64)->fn(i64)->i64:\n  return fn(item:i64):return item+value+value\nfn "
+        "main()->i64:\n  f=make(20)\n  return f(2)\n");
     require(fixture.ok(), "capture fixture failed");
     for (unsigned mode = 0; mode < 6; ++mode) {
       auto module = *fixture.module;

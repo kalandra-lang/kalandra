@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
             "shape failure exposed absent payload");
     else if (scenario == 7)
       check(failure.kind == TaskFailure::Fault && failure.code == 4 && failure.line == 2 &&
-                failure.column == 3 && !retained,
+                failure.column == 10 && !retained,
             "arithmetic failure lost kind/location");
     else if (mode == 3 && failure.kind != TaskFailure::None)
       check(((failure.kind == TaskFailure::Fault && (failure.code == 2 || failure.code == 4))

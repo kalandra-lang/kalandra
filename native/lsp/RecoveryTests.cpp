@@ -11,7 +11,7 @@ void require(bool value, const std::string &what) {
     throw std::runtime_error(what);
 }
 const std::string path = (std::filesystem::temp_directory_path() / "editing-recovery.k").string();
-const std::string add = "fn add(left:int,right:int)->int:\n  left+right\n";
+const std::string add = "fn add(left:i64,right:i64)->i64:\n  return left+right\n";
 std::pair<std::string, std::size_t> marked(std::string text) {
   const auto at = text.rfind('|');
   require(at != text.npos, "cursor required");
@@ -32,7 +32,7 @@ void signature(std::string source, bool expected = true) {
   auto result =
       lsp::signatureAt(path, text, at, {},
                        {{(std::filesystem::temp_directory_path() / "editing-helper.k").string(),
-                         "export fn imported(left:int,right:int)->int:\n  left\n"}});
+                         "export fn imported(left:i64,right:i64)->i64:\n  return left\n"}});
   require(bool(result) == expected, "signature: " + text);
   if (result)
     require(result->parameters.size() == 2 && result->activeParameter == 1,
@@ -41,7 +41,7 @@ void signature(std::string source, bool expected = true) {
 } // namespace
 int main() {
   try {
-    const std::string prefix = add + "fn consume(input:[int])->int:\n  length(input)\n" +
+    const std::string prefix = add + "fn consume(input:[i64])->i64:\n  return length(input)\n" +
                                "fn main():\n  value=2\n  values=[1,2]\n";
     completion(prefix + "  values[va|\n");
     completion(prefix + "  [va|,\n");
@@ -53,12 +53,12 @@ int main() {
     completion(prefix + "  not va|\n");
     completion("enum Choice:\n  Yes\n  No\nfn inspect(choice:Choice):\n  value=2\n  match "
                "choice:\n    Choice.Yes: va|\n");
-    completion(prefix + "  map(values,fn(item:int): va|\n");
-    completion(prefix + "  map(values,\nfn (item:int): va|\n");
+    completion(prefix + "  map(values,fn(item:i64): va|\n");
+    completion(prefix + "  map(values,\nfn (item:i64): va|\n");
     completion(prefix + "  if false: 0\n  else: va|\n");
     completion(prefix + "  tru|\n", true, "true");
     completion(prefix + "  if|\n", true, "if");
-    completion("type Item:\n  value:int\nfn main():\n  Item {va|\n", true);
+    completion("type Item:\n  value:i64\nfn main():\n  Item {va|\n", true);
 
     completion("fn broken():\n  add(1,\n" + prefix + "  va|\n");
     completion(prefix + "  va|\nfn broken():\n  value=\n");
@@ -69,14 +69,14 @@ int main() {
     signature(prefix + "  add(1,values[va|\n");
     signature(prefix + "  add(1,2+|\n");
     signature(prefix + "  while value<3:\n    add(1,va|\n");
-    signature("fn apply(left:int,action:fn(int)->int)->int:\n  action(left)\n" + prefix +
-              "  apply(1,fn(item:int): va|\n");
-    signature("fn choose(left:int,right:Bool)->int:\n  left\n" + prefix +
+    signature("fn apply(left:i64,action:fn(i64)->i64)->i64:\n  return action(left)\n" + prefix +
+              "  apply(1,fn(item:i64): va|\n");
+    signature("fn choose(left:i64,right:bool)->i64:\n  return left\n" + prefix +
               "  choose(1,true and va|\n");
     signature(
         "enum Choice:\n  Yes\n  No\n" + add +
         "fn inspect(choice:Choice):\n  value=2\n  match choice:\n    Choice.Yes: add(1,va|\n");
-    signature("fn broken(left:int,right:int)->int:\n  missing\n" + prefix + "  broken(1,va|\n",
+    signature("fn broken(left:i64,right:i64)->i64:\n  return missing\n" + prefix + "  broken(1,va|\n",
               false);
 
     signature(prefix + "  add(1,if true: 0\n  else: va|\n");

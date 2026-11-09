@@ -1,13 +1,13 @@
-fn total() -> float32 ! TaskError:
-  try parallel:
+fn total() -> f32 ! TaskError:
+  return try parallel:
     work = spawn compute()
     try await work
 
-fn compute() -> float32:
-  data: Tensor[float32, 2] = tensor([1, 2])
-  reduceSum(data)
+fn compute() -> f32:
+  data: Tensor[f32, 2] = tensor([1, 2])
+  return reduceSum(data)
 
-fn main() -> float32:
+fn main() -> f32:
   result = total()
-  handled = result catch fn(error): compute()
-  handled
+  handled = result catch fn(error): return compute()
+  return handled

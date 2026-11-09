@@ -22,9 +22,9 @@ a = p.parse_args()
 a.root.mkdir(parents=True, exist_ok=True)
 sources = {
     'finite': '''type Step:
-  value:int
-  enabled:Bool
-fn work(n:int)->int:
+  value:i64
+  enabled:bool
+fn work(n:i64)->i64:
   i=0
   total=0
   while i<n:
@@ -32,27 +32,26 @@ fn work(n:int)->int:
     step=Step {value:i,enabled:true}
     if step.enabled:
       total=total+step.value
-  total
+  return total
 ''',
-    'infinite': '''fn work(n:int)->int:
+    'infinite': '''fn work(n:i64)->i64:
   i=0
   while true:
     i=i+1
-  i
 ''',
-    'fault': '''fn work(n:int)->int:
+    'fault': '''fn work(n:i64)->i64:
   i=0
   total=0
   while i<n:
     total=total+1/(n-n)
     i=i+1
-  total
+  return total
 ''',
 }
 if a.arrays:
     from DeviceArrayCases import cases, fault_cases
     sources['finite'] = cases()['reclaim-dead-keep-alias'][0]
-    sources['infinite'] = "fn work(n:int)->int:\n  i=0\n  while true:\n    values=[i,n]\n    i=values[0]+1\n  i\n"
+    sources['infinite'] = 'fn work(n:i64)->i64:\n  i=0\n  while true:\n    values=[i,n]\n    i=values[0]+1\n'
     sources['fault'] = fault_cases()['bounds-before-rhs'][0]
 if a.records:
     assert a.arrays and not a.sort, '--records requires --arrays without --sort'
@@ -60,27 +59,26 @@ if a.records:
     sources = record_lifetime_cases()
 if a.sort:
     assert a.arrays, '--sort requires --arrays'
-    sources['finite'] = """fn work(n:int)->int:
-  values=generate(n,fn(i):n-i)
+    sources['finite'] = """fn work(n:i64)->i64:
+  values=generate(n,fn(i):return n-i)
   sort(values)
   total=0
   for value in values:
     total=total+value
-  total
+  return total
 """
-    sources['infinite'] = """fn work(n:int)->int:
+    sources['infinite'] = """fn work(n:i64)->i64:
   i=0
   while true:
     values=[n,i]
     sort(values)
     i=values[0]+1
-  i
 """
 shaders = []
 for name, helper in sources.items():
     source = a.root/(name+'.k')
-    source.write_text(helper + '''fn main()->int ! TaskError:
-  try parallel:
+    source.write_text(helper + '''fn main()->i64 ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
     try await spawn work(1000) on gpu
 ''')
@@ -107,7 +105,7 @@ assert 'PASS:' in result.stdout
 (a.root/'report.json').write_text(json.dumps({
     'backend': a.backend, 'gpuExecution': True,
     'sorting': a.sort,
-    'finiteStorage': 'invocation-local numeric arrays' if a.arrays else 'Step(value:int, enabled:Bool)',
+    'finiteStorage': 'invocation-local numeric arrays' if a.arrays else 'Step(value:i64, enabled:bool)',
     'driverChecks': ['prepared-reuse', 'distinct-concurrent-captures',
                      'infinite-cancellation', 'deadlines', 'fault-precedence',
                      'zero-retained-resources'],

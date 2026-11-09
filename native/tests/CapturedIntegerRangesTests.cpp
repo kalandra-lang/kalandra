@@ -18,12 +18,12 @@ struct Expected {
 };
 static Expected oracle(std::int64_t seed, std::int64_t rounds) {
   std::int64_t offset;
-  if (__builtin_add_overflow(seed, std::int64_t(7), &offset)) return {0,21,29};
+  if (__builtin_add_overflow(seed, std::int64_t(7), &offset)) return {0,21,36};
   auto value = seed;
   while (rounds) {
     std::int64_t product, sum;
-    if (__builtin_mul_overflow(value, std::int64_t(13), &product)) return {0,12,15};
-    if (__builtin_add_overflow(product, offset, &sum)) return {0,12,14};
+    if (__builtin_mul_overflow(value, std::int64_t(13), &product)) return {0,12,29};
+    if (__builtin_add_overflow(product, offset, &sum)) return {0,12,28};
     value = sum % 1000003;
     if (__builtin_sub_overflow(rounds, std::int64_t(1), &rounds)) return {0,18,44};
   }

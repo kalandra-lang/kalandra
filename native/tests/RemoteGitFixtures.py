@@ -152,7 +152,7 @@ def repository(name, source, dependencies='', extra=None):
 def request(name, url, revision):
     return f'{name}={{git={json.dumps(url)},rev={json.dumps(revision)}}}\n'
 
-simple = 'export fn next(n:int64)->int64:\n  n+1\n'
+simple = 'export fn next(n:i64)->i64:\n  return n+1\n'
 first = repository('geometry', simple)
 remote_geometry = repositories / 'geometry.git'
 git(remote_geometry, 'tag', '-a', 'release', first, '-m', 'release')
@@ -169,17 +169,17 @@ git(geometry_work, 'commit', '-m', 'next remote revision')
 second = git(geometry_work, 'rev-parse', 'HEAD')
 git(geometry_work, 'push', remote_geometry, 'HEAD:refs/heads/future')
 
-parent = repository('parent', 'from "geometry" import next\nexport fn compute(n:int64)->int64:\n  next(n)\n',
+parent = repository('parent', 'from "geometry" import next\nexport fn compute(n:i64)->i64:\n  return next(n)\n',
                     request('geometry', base + '/geometry.git', first))
-branch_parent = repository('branch-parent', 'from \"geometry\" import next\nexport fn compute(n:int64)->int64:\n  next(n)\n',
+branch_parent = repository('branch-parent', 'from "geometry" import next\nexport fn compute(n:i64)->i64:\n  return next(n)\n',
                            request('geometry', base + '/geometry.git', 'main'))
 large = repository('large', simple, extra=lambda path: (path / 'large.bin').write_bytes(os.urandom(1024 * 1024)))
 unsafe = repository('unsafe', simple, extra=lambda path: (path / 'link.k').symlink_to('public.k'))
 local = repository('local-dependency', simple, request('private', str(root / 'private'), first))
-numerical = repository('numerical', 'export fn shift(values:Tensor[float32,?])->Tensor[float32,?]:\n  values+1\n')
+numerical = repository('numerical', 'export fn shift(values:Tensor[f32,?])->Tensor[f32,?]:\n  return values+1\n')
 app = root / 'application'
 app.mkdir()
-(app / 'main.k').write_text('from "parent" import compute\nfn main()->int64 ! TaskError:\n  try parallel:\n    try await spawn compute(41)\n')
+(app / 'main.k').write_text('from "parent" import compute\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn compute(41)\n')
 manifest = app / 'kalandra.toml'
 manifest.write_text("format=1\n[project]\nentry='main.k'\n[dependencies]\n" + request('parent', base + '/parent.git', parent))
 
@@ -220,7 +220,7 @@ try:
     tls_app.mkdir()
     tls_manifest = tls_app / 'kalandra.toml'
     tls_manifest.write_text("format=1\n[project]\nentry='main.k'\n[dependencies]\n" + request('geometry', tls + '/geometry.git', 'main'))
-    (tls_app / 'main.k').write_text('from "geometry" import next\nfn main()->int64 ! TaskError:\n  try parallel:\n    try await spawn next(41)\n')
+    (tls_app / 'main.k').write_text('from "geometry" import next\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn next(41)\n')
     run(args.compiler, 'install', '--project', tls_manifest, ok=False)
     assert not (tls_app / 'kalandra.lock').exists()
     api('project', tls_manifest, tls + '/geometry.git', certificate=ca)
@@ -275,7 +275,7 @@ try:
         gpu_app.mkdir()
         gpu_manifest = gpu_app / 'kalandra.toml'
         gpu_manifest.write_text("format=1\n[project]\nentry='main.k'\n[dependencies]\n" + request('numerical', base + '/numerical.git', numerical))
-        (gpu_app / 'main.k').write_text('from "numerical" import shift\nfn main()->float32 ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n    values:Tensor[float32,3]=tensor([1,2,3])\n    resident=try await transfer(values,gpu)\n    changed=try await spawn shift(resident) on gpu\n    host=try await transfer(changed,devices.cpu())\n    reduceSum(host)\n')
+        (gpu_app / 'main.k').write_text('from "numerical" import shift\nfn main()->f32 ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    values:Tensor[f32,3]=tensor([1,2,3])\n    resident=try await transfer(values,gpu)\n    changed=try await spawn shift(resident) on gpu\n    host=try await transfer(changed,devices.cpu())\n    reduceSum(host)\n')
         run(args.compiler, 'install', '--project', gpu_manifest)
     if args.build:
         prefix = root / 'compiler installation'
@@ -316,9 +316,7 @@ try:
         request('other', base + '/geometry.git', 'main') +
         request('tagged', base + '/geometry.git', 'release') +
         request('parent', base + '/branch-parent.git', branch_parent))
-    (ref_app / 'main.k').write_text('from "geometry" import next\nfrom "parent" import compute\n'
-        'fn main()->[int64] ! TaskError:\n  try parallel:\n'
-        '    direct=try await spawn next(41)\n    private=try await spawn compute(41)\n    [direct,private]\n')
+    (ref_app / 'main.k').write_text('from "geometry" import next\nfrom "parent" import compute\nfn main()->[i64] ! TaskError:\n  return try parallel:\n    direct=try await spawn next(41)\n    private=try await spawn compute(41)\n    [direct,private]\n')
     run(args.compiler, 'install', '--project', ref_manifest)
     ref_lock = (ref_app / 'kalandra.lock').read_bytes()
     assert tomllib.loads(ref_lock.decode())['roots'][0]['commit'] == first
@@ -386,7 +384,7 @@ try:
             'geometry':second,'other':first,'tagged':first,'parent':branch_parent}
     # A newer commit downloads successfully but has an invalid import graph.
     # Mutate only fixture-owned Git data with injected configuration disabled.
-    (geometry_work / 'public.k').write_text('from "missing" import absent\nexport fn next(n:int64)->int64:\n  absent(n)\n')
+    (geometry_work / 'public.k').write_text('from "missing" import absent\nexport fn next(n:i64)->i64:\n  return absent(n)\n')
     for command in [('add','--all'),('commit','-m','broken update'),('push',str(remote_geometry),'HEAD:refs/heads/main')]:
         changed = subprocess.run(['/usr/bin/git','-C',str(geometry_work),*command],
             env={**env,'GIT_CONFIG_COUNT':'0'},capture_output=True,timeout=30)

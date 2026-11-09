@@ -4,17 +4,17 @@
 
 ```kalandra
 type Batch:
-  tag: uint16
-  values: [int8]
+  tag: u16
+  values: [i8]
 
 fn shift(batch: Batch) -> Batch:
-  batch with {values: map(batch.values, fn(value): value + 2)}
+  return batch with {values: map(batch.values, fn(value): return value + 2)}
 
-fn main() -> [int8] ! TaskError:
+fn main() -> [i8] ! TaskError:
   original = Batch {tag: 65535, values: [1, 2]}
   changed = try parallel:
     try await spawn shift(original)
-  changed.values
+  return changed.values
 ```
 
 The result is `[3, 4]`. `original` remains unchanged. Each `int8`/`uint8` element occupies one byte; each `int16`/`uint16` element occupies two bytes. Record layouts retain each field's exact type and target alignment, including padding between mixed-width fields. Record identities remain nominal.

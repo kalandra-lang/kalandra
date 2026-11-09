@@ -10,23 +10,23 @@ def run(cmd, expected=0):
  r=subprocess.run(list(map(str,cmd)),text=True,capture_output=True)
  if r.returncode!=expected:raise RuntimeError(str(cmd)+'\n'+r.stdout+r.stderr)
  return r.stdout
-entries=[(f'{s}int{w}',f'std::{s}int{w}_t',False) for s in ('','u') for w in (8,16,32,64)]+[('float32','float',True),('float64','double',True),('Bool','bool',False)]
+entries=[(f'{"i" if s=="" else "u"}{w}',f'std::{s}int{w}_t',False) for s in ('','u') for w in (8,16,32,64)]+[('f32','float',True),('f64','double',True),('bool','bool',False)]
 variants=[('debug',[],['-O0'],'native-runtime'),('optimized',['-O2'],['-O2'],'task-core-optimized'),('sanitized',['-O2','--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),('thread-sanitized',['-O2','--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]
 variants=qualified_variants(variants,a.compiler)
 records=[]
 for mode,extra,flags,library in variants:
  if windows and mode=='thread-sanitized':continue
  for language,cpp,floating in entries:
-  boolean=language=='Bool';name=mode+'-'+language;source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
+  boolean=language=='bool';name=mode+'-'+language;source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
   # Numeric additions exercise both success and checked failures. Identity
   # preserves floating payloads; Bool identity exercises false/true ABI extension.
   operation='a' if floating or boolean else 'a+b';main='false' if boolean else language+'(0)'
-  body=f'  {operation}'
+  body=f'  return {operation}'
   if a.buffer_entry:
-   body='  values=[a,b]\n  '+('values[0]' if floating or boolean else 'values[0]+values[1]')
+   body='  values=[a,b]\n  return '+('values[0]' if floating or boolean else 'values[0]+values[1]')
    # The pool handles numeric backing; exercise Bool's scalar ABI over it.
-   if boolean:body='  values=[1,2]\n  if a:\n    values[0] == 1\n  else:\n    values[1] == 0'
-  source.write_text(f'fn value(a:{language},b:{language})->{language}:\n{body}\nfn main()->{language}:\n  {main}\n')
+   if boolean:body='  values=[1,2]\n  return if a:\n    values[0] == 1\n  else:\n    values[1] == 0'
+  source.write_text(f'fn value(a:{language},b:{language})->{language}:\n{body}\nfn main()->{language}:\n  return {main}\n')
   run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
   assert '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text(),name
   text=r'''
@@ -110,11 +110,11 @@ int main(){verify<T>();std::printf("%llu ordinary exact/first-fault/payload case
 # Fault-producing projections cover both NaN widths and Bool's true sentinel.
 for mode,extra,flags,library in variants:
  if windows and mode=='thread-sanitized':continue
- for language,cpp,operation,main in [('Bool','bool','a+b>0','false'),('float32','float','float32(a+b)','float32(0)'),('float64','double','float64(a+b)','float64(0)')]:
+ for language,cpp,operation,main in [('bool','bool','a+b>0','false'),('f32','float','f32(a+b)','f32(0)'),('f64','double','f64(a+b)','f64(0)')]:
   name=mode+'-fault-'+language;source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
-  body='  '+operation
-  if a.buffer_entry:body='  values=[a,b]\n  '+operation.replace('a+b','values[0]+values[1]')
-  source.write_text(f'fn value(a:int64,b:int64)->{language}:\n{body}\nfn main()->{language}:\n  {main}\n')
+  body='  return '+operation
+  if a.buffer_entry:body='  values=[a,b]\n  return '+operation.replace('a+b','values[0]+values[1]')
+  source.write_text(f'fn value(a:i64,b:i64)->{language}:\n{body}\nfn main()->{language}:\n  return {main}\n')
   run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
   assert '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text(),name
   text=r'''

@@ -6,36 +6,38 @@ h2 { "Validate and recover" }
 
 codeblock { language = kalandra, """error InputError:
   Negative:
-    value: int
+    value: i64
 
-fn requireNonnegative(value: int) -> int ! InputError:
+fn requireNonnegative(value: i64) -> i64 ! InputError:
   if value < 0:
     fail InputError.Negative { value: value }
-  value
+  return value
 
-fn main() -> int:
-  requireNonnegative(-1) catch fn(error):
-    match error:
+fn main() -> i64:
+  return requireNonnegative(-1) catch fn(error):
+    return match error:
       InputError.Negative { value }: -value
 """ }
 
 This returns 1: the handler turns the rejected -1 into its positive counterpart. An early validation guard may omit else when its body ends in fail. catch receives the actual error family and must produce the original success type, or propagate through another declared channel. Payload bindings belong to their match branch.
+
+A catch handler is a function boundary: its return ends only the handler. Rebinding a captured value changes a private local binding and cannot reassign the caller’s binding. Shared array storage still follows the usual access rules. break, continue and yield cannot target a loop outside the handler.
 
 h2 { "Propagate through a helper" }
 
 codeblock { language = kalandra, """error InputError:
   Negative
 
-fn validated(value: int) -> int ! InputError:
+fn validated(value: i64) -> i64 ! InputError:
   if value < 0: fail InputError.Negative
-  value
+  return value
 
-fn adjusted(value: int) -> int ! InputError:
+fn adjusted(value: i64) -> i64 ! InputError:
   result = try validated(value)
-  result + 2
+  return result + 2
 
-fn main() -> int:
-  adjusted(40) catch fn(error): 0
+fn main() -> i64:
+  return adjusted(40) catch fn(error): return 0
 """ }
 
 This returns 42. try in adjusted propagates InputError; the call in main handles it if validation fails.
@@ -52,25 +54,25 @@ A GPU function can declare an application-error family. It can handle the error 
 
 codeblock { language = kalandra, """error InputError:
   Negative:
-    value: int
+    value: i64
 
-fn validate(value: int) -> int ! InputError:
+fn validate(value: i64) -> i64 ! InputError:
   if value < 0:
     fail InputError.Negative { value: value }
-  value
+  return value
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     result = await spawn validate(-42) on devices.gpu()
     result catch fn(error):
-      match error:
+      return match error:
         InputError.Negative { value }: -value
         _: 0
 """ }
 
 The handler recovers the value 42. The GPU executable prints it as 000000000000002a. The final match arm supplies a fallback for TaskError in this example. An application error handled inside the group leaves other children running. Propagating the error out of the group cancels unfinished siblings and waits for them to settle.
 
-Payloads can contain numeric and Bool values, supported records and enums, and supported arrays and tensors. The compiler rejects host-only fields such as String and task handles in a device error payload. TaskError belongs to the task boundary. Checked arithmetic and bounds faults bypass device-local application handlers.
+Payloads can contain numeric and bool values, supported records and enums, and supported arrays and tensors. The compiler rejects host-only fields such as String and task handles in a device error payload. TaskError belongs to the task boundary. Checked arithmetic and bounds faults bypass device-local application handlers.
 
 list {
   link { url = "/docs/gpu", "Build and run a GPU program" }

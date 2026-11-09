@@ -3,11 +3,11 @@
 The native CPU subset implements `map(values, transform)` and its pipeline form for [immutable numeric arrays](arrays.md), [Bool arrays](bool-arrays.md), [record arrays](record-arrays.md), and [String arrays](string-arrays.md). The transform is a named function or an inline anonymous function with one numeric scalar, Bool, record or String parameter and a numeric scalar, Bool, record or String result.
 
 ```kalandra
-fn double(value: int) -> int:
-  value * 2
+fn double(value: i64) -> i64:
+  return value * 2
 
-fn doubled(values: [int]) -> [int]:
-  values -> map(double)
+fn doubled(values: [i64]) -> [i64]:
+  return values -> map(double)
 ```
 
 `doubled([1, 2, 3])` produces `[2, 4, 6]`. The input remains unchanged and usable. `map([1, 2, 3], double)` means the same thing.
@@ -17,11 +17,11 @@ fn doubled(values: [int]) -> [int]:
 A named or explicitly annotated callback parameter gives literal array arguments their element context. Otherwise the input array establishes the anonymous parameter type. Already typed arrays must match that parameter exactly; map does not implicitly convert their elements. The callback result determines the output element type, which may differ from the input:
 
 ```kalandra
-fn asFloat(value: int) -> float:
-  float(value)
+fn asFloat(value: i64) -> f64:
+  return f64(value)
 
-fn converted(values: [int]) -> [float]:
-  map(values, asFloat)
+fn converted(values: [i64]) -> [f64]:
+  return map(values, asFloat)
 ```
 
 All 100 input/output combinations of the ten implemented CPU numeric scalar types can be represented by ordinary named functions, including [narrow integer arrays](narrow-arrays.md). Explicit conversion still follows the checked numeric conversion contract. Results remain homogeneous arrays of the same length as the input, including its private dynamic length identity. An expected result type does not change the callback's declared/inferred result type.
@@ -34,14 +34,14 @@ A runtime arithmetic fault stops the map at the first failing element. Its sourc
 
 ```kalandra
 type Reading:
-  value: int
-  samples: [int]
+  value: i64
+  samples: [i64]
 
-fn main() -> [int] ! TaskError:
-  readings = map([1, 2, 3], fn(value): Reading {value: value, samples: [value]})
+fn main() -> [i64] ! TaskError:
+  readings = map([1, 2, 3], fn(value): return Reading {value: value, samples: [value]})
   updated = try parallel:
-    try await spawn map(readings, fn(reading): reading with {value: reading.value + 10})
-  map(updated, fn(reading): reading.value)
+    try await spawn map(readings, fn(reading): return reading with {value: reading.value + 10})
+  return map(updated, fn(reading): return reading.value)
 ```
 
 This returns `[11, 12, 13]`. Maps can convert numbers into records, extract numbers from records, update records immutably, or return a different declared record type. Nested record fields and numeric array/tensor fields use the existing record ownership rules. A nested anonymous callback can capture its enclosing callback's record parameter.
@@ -53,8 +53,8 @@ Record-result storage uses the same checked target layout as record arrays. Each
 ## Anonymous callbacks and captures
 
 ```kalandra
-fn shifted(values: [int], offset: int) -> [int]:
-  values -> map(fn(value): value + offset)
+fn shifted(values: [i64], offset: i64) -> [i64]:
+  return values -> map(fn(value): return value + offset)
 ```
 
 `map(values, fn(value): value + offset)` is equivalent. The input establishes the element parameter type. Optional annotations can make it explicit: `map([], fn(value: int) -> float: float(value))`. An empty input without an annotated callback parameter has no element type to infer and is rejected.
@@ -70,8 +70,8 @@ Mapped arrays can feed [explicit rank-one tensor construction](arrays.md#explici
 Callbacks may call other synchronous functions, use CPU conditionals, construct temporary numeric collections/tensors and use the supported synchronous numeric operations. Worker kernel extraction imports the callback's synchronous helper graph with remapped function, value and symbol identities. A mapped result can be retained after its function or worker ends, shared by later calls and obtained from cached awaits.
 
 ```kalandra
-fn background(values: [int]) -> [int] ! TaskError:
-  try parallel:
+fn background(values: [i64]) -> [i64] ! TaskError:
+  return try parallel:
     work = spawn map(values, double)
     try await work
 ```

@@ -151,10 +151,10 @@ int main() {
     }
     // Error-family forwarding must agree on physical references even when
     // boxing is required only by the original family or only by a union user.
-    for (const auto &source : {"error E:\n  End\n  More:\n    next:E\nfn marker()->int ! (E | "
-                               "TaskError):\n  fail E.End\nfn main()->int:\n  0\n",
+    for (const auto &source : {"error E:\n  End\n  More:\n    next:E\nfn marker()->i64 ! (E | "
+                               "TaskError):\n  fail E.End\nfn main()->i64:\n  return 0\n",
                                "type Box:\n  cause:Errors\ntype Errors=A | B\nerror A:\n  Bad:\n   "
-                               " box:Box\nerror B:\n  End\nfn main()->int:\n  0\n"}) {
+                               " box:Box\nerror B:\n  End\nfn main()->i64:\n  return 0\n"}) {
       auto checked = check(parse(std::make_shared<SourceFile>("error-storage.k", source)));
       require(checked.ok(), "recursive error forwarding fixture rejected");
       auto storage = planRecordStorage(*checked.module);
@@ -195,10 +195,10 @@ int main() {
                 cycle.fields.back()[0] == RecordFieldStorage::ManagedReference,
             "deep cycle");
     auto checked = check(parse(
-        std::make_shared<SourceFile>("storage.k", "type Point:\n  x:int\nfn main()->int:\n  0\n")));
+        std::make_shared<SourceFile>("storage.k", "type Point:\n  x:i64\nfn main()->i64:\n  return 0\n")));
     require(checked.ok() && bool(planRecordStorage(*checked.module)), "checked source planning");
     auto rejected = check(parse(std::make_shared<SourceFile>(
-        "recursive.k", "enum List:\n  Cons:\n    tail:List\nfn main()->int:\n  0\n")));
+        "recursive.k", "enum List:\n  Cons:\n    tail:List\nfn main()->i64:\n  return 0\n")));
     require(!rejected.ok(), "unconstructible recursive source admitted");
     require(
         std::ranges::any_of(rejected.diagnostics, [](const auto &d) { return d.code == "S068"; }),

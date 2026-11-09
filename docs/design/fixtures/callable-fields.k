@@ -1,7 +1,7 @@
 type Config:
-  apply: fn(int)->int
-fn make(offset:int)->Config:
-  Config {apply:fn(value):value+offset}
-fn main()->int:
+  apply: fn(i64)->i64
+fn make(offset:i64)->Config:
+  return Config {apply:fn(value):return value+offset}
+fn main()->i64:
   config=make(20)
-  config.apply(22)
+  return config.apply(22)

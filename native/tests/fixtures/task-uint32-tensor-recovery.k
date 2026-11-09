@@ -1,33 +1,33 @@
-fn overflow(values:Tensor[uint32,?]) -> Tensor[uint32,?]:
-  values + 1
-fn identity(values:Tensor[uint32,?]) -> Tensor[uint32,?]:
-  values
-fn batch(values:Tensor[uint32,?]) -> Tensor[uint32,?] ! TaskError:
-  try parallel:
+fn overflow(values:Tensor[u32,?]) -> Tensor[u32,?]:
+  return values + 1
+fn identity(values:Tensor[u32,?]) -> Tensor[u32,?]:
+  return values
+fn batch(values:Tensor[u32,?]) -> Tensor[u32,?] ! TaskError:
+  return try parallel:
     work = spawn overflow(values)
     sibling = spawn identity(values)
     first = try await work
     try await sibling
     first
-fn probe() -> Tensor[uint32,?] ! TaskError:
-  original:Tensor[uint32,2] = tensor([1,4294967295])
-  fallback:Tensor[uint32,2] = tensor([0,0])
+fn probe() -> Tensor[u32,?] ! TaskError:
+  original:Tensor[u32,2] = tensor([1,4294967295])
+  fallback:Tensor[u32,2] = tensor([0,0])
   result = batch(original)
   recovered = result catch fn(error):
-    match error:
+    return match error:
       TaskError.Fault {kind:cause,message:detail}:
         match cause:
           FaultKind.Arithmetic: original
           FaultKind.Allocation: original
           _: fallback
       _: fallback
-  try parallel:
+  return try parallel:
     work = spawn identity(recovered)
     first = try await work
     again = try await work
     first + (again - original)
-fn failedProbe() -> Tensor[uint32,?] ! TaskError:
-  original:Tensor[uint32,2] = tensor([1,4294967295])
-  try batch(original)
-fn main() -> uint32:
-  0
+fn failedProbe() -> Tensor[u32,?] ! TaskError:
+  original:Tensor[u32,2] = tensor([1,4294967295])
+  return try batch(original)
+fn main() -> u32:
+  return 0

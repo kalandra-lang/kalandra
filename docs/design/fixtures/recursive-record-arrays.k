@@ -9,7 +9,7 @@ enum Forest:
     next: Forest
 
 fn first(forest: Forest) -> String:
-  match forest:
+  return match forest:
     Forest.End: ""
     Forest.More { roots }: roots[0].children[0].name
 
@@ -18,6 +18,6 @@ fn main() -> String:
   tree = Tree { name: "root", children: [leaf] }
   inner = Forest.More { roots: [tree], next: Forest.End }
   outer = Forest.More { roots: [], next: inner }
-  match outer:
+  return match outer:
     Forest.End: ""
     Forest.More { next }: first(next)

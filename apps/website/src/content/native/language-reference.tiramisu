@@ -9,7 +9,7 @@ list {
 
 h2 { "Values and types" }
 
-Numeric types are int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32 and float64. The aliases int, uint and float mean their 64-bit counterparts on every target. Bool has the values true and false; String holds UTF-8 text. Arrays use [T]; numerical tensors use Tensor[T, dimensions]. A scalar and a rank-zero tensor are different types. Define domain-specific values with records and enums.
+Numeric types are i8, i16, i32, i64, u8, u16, u32, u64, f32 and f64. bool has the values true and false. unit has the single value (). String holds UTF-8 text. Arrays use [T]; numerical tensors use Tensor[T, dimensions]. A scalar and a rank-zero tensor are different types. Define domain-specific values with records and enums.
 
 list {
   link { url = "/docs/syntax", "Lexical structure, bindings and expressions" },
@@ -26,9 +26,9 @@ Reassignment changes a local binding; an element write changes array storage. Th
 
 table {
   row = ["Operation", "Rule"],
-  row = ["Reassign a numeric or Bool scalar", "Allowed locally; the type stays fixed"],
-  row = ["Replace a numeric or Bool CPU array binding", "Allowed; existing aliases retain the previous array"],
-  row = ["Write a numeric or Bool array element", "Requires writable storage and no unfinished task readers"],
+  row = ["Reassign a numeric or bool scalar", "Allowed locally; the type stays fixed"],
+  row = ["Replace a numeric or bool CPU array binding", "Allowed; existing aliases retain the previous array"],
+  row = ["Write a numeric or bool array element", "Requires writable storage and no unfinished task readers"],
   row = ["Write through an array parameter", "The parameter must declare mut"],
   row = ["Edit a String or tensor in place", "Not supported; construct a new value"],
   row = ["Update a record", "Use with to construct a new record"]
@@ -41,7 +41,7 @@ list {
 
 h2 { "Functions and control flow" }
 
-Functions return their final expression. A function value can be passed to another function or retain values from its defining scope as a closure. if chooses a branch, while repeats a body, for visits array elements or integer ranges, and match selects a declared enum or error alternative. Conditions and loops support both statement and expression forms; break and continue control the nearest loop. Function signatures record parameter access and any expected-error channel.
+Functions return values explicitly with return. A function value can be passed to another function or retain values from its defining scope as a closure. if chooses a branch, while repeats a body, for visits array elements or integer ranges, and match selects a declared enum or error alternative. Conditions and loops support both statement and expression forms; break and continue control the nearest loop. Function signatures record parameter access and any expected-error channel.
 
 list {
   link { url = "/docs/functions", "Definitions, function values, closures and recursion" },
@@ -62,8 +62,8 @@ list {
 
 h2 { "Operators and evaluation" }
 
-Numeric expressions use +, -, *, / and integer remainder %. String concatenation uses +. Comparison operators are ==, !=, <, <=, > and >=; their accepted operands must have compatible types. Bool expressions use not, and and or. Conditions and Boolean and/or use lazy selection, so an unselected expression does not run. Comparison chaining requires explicit grouping rather than Python-style chained comparisons.
+Numeric expressions use +, -, *, / and integer remainder %. String concatenation uses +. Comparison operators are ==, !=, <, <=, > and >=; their accepted operands must have compatible types. bool expressions use not, and and or. Conditions and Boolean and/or use lazy selection, so an unselected expression does not run. Comparison chaining requires explicit grouping rather than Python-style chained comparisons.
 
 Multiplication, division and remainder bind more tightly than addition and subtraction. The -> pipeline passes its left expression as the first argument of the call on its right. Use parentheses to make the intended grouping explicit, especially when combining a pipeline with arithmetic or comparisons.
 
-Indexes are zero-based. Array and String indexing uses one index; tensor indexing uses one per dimension. Bounds are checked. An indexed expression reads a value. Numeric and Bool CPU arrays also permit checked element assignment when the caller has write access and no unfinished task readers share that storage. Strings and tensors do not support in-place edits.
+Indexes are zero-based. Array and String indexing uses one index; tensor indexing uses one per dimension. Bounds are checked. An indexed expression reads a value. Numeric and bool CPU arrays also permit checked element assignment when the caller has write access and no unfinished task readers share that storage. Strings and tensors do not support in-place edits.

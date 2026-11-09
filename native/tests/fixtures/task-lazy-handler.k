@@ -1,11 +1,11 @@
-fn success() -> float32 ! TaskError:
-  9
+fn success() -> f32 ! TaskError:
+  return 9
 
-fn recover(a: Tensor[float32, ?]) -> float32:
-  success() catch fn(error):
-    exact: Tensor[float32, 2] = a
-    reduceSum(exact)
+fn recover(a: Tensor[f32, ?]) -> f32:
+  return success() catch fn(error):
+    exact: Tensor[f32, 2] = a
+    return reduceSum(exact)
 
-fn main() -> float32:
-  a: Tensor[float32, 3] = tensor([1, 2, 3])
-  recover(a)
+fn main() -> f32:
+  a: Tensor[f32, 3] = tensor([1, 2, 3])
+  return recover(a)

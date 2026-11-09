@@ -23,18 +23,18 @@ static TypedModule checked(const std::string &source) {
   }
   return std::move(*result.module);
 }
-static const std::string foundation = R"k(fn double(value:int)->int:
-  value*2
-fn other(value:int)->int:
-  value+1
-fn floating(value:float)->float:
-  value
-fn floatFactory()->fn(float)->float:
-  floating
-fn run(value:int)->int:
-  execute(value) catch fn(error):0
-fn execute(value:int)->int ! TaskError:
-  try parallel:
+static const std::string foundation = R"k(fn double(value:i64)->i64:
+  return value*2
+fn other(value:i64)->i64:
+  return value+1
+fn floating(value:f64)->f64:
+  return value
+fn floatFactory()->fn(f64)->f64:
+  return floating
+fn run(value:i64)->i64:
+  return execute(value) catch fn(error):return 0
+fn execute(value:i64)->i64 ! TaskError:
+  return try parallel:
     try await spawn double(value)
 )k";
 static void transportTargets() {
@@ -45,12 +45,12 @@ static void transportTargets() {
     throw std::runtime_error("missing transport binding");
   };
   for (const auto &program : {
-           "fn main()->int:\n  callback=double\n  0\n",
-           "fn factory()->fn(int)->int:\n  double\n"
-           "fn main()->int:\n  callback=factory()\n  0\n",
-           "type Box:\n  integer:fn(int)->int\n  floating:fn(float)->float\n"
-           "fn main()->int:\n  box=Box {integer:double,floating:floating}\n"
-           "  callback=box.integer\n  0\n"}) {
+           "fn main()->i64:\n  callback=double\n  return 0\n",
+           "fn factory()->fn(i64)->i64:\n  return double\n"
+           "fn main()->i64:\n  callback=factory()\n  return 0\n",
+           "type Box:\n  integer:fn(i64)->i64\n  floating:fn(f64)->f64\n"
+           "fn main()->i64:\n  box=Box {integer:double,floating:floating}\n"
+           "  callback=box.integer\n  return 0\n"}) {
     auto module = checked(foundation + program);
     const auto root = binding(module, "callback");
     const auto flow = functionValueTargets(module, root);
@@ -70,8 +70,8 @@ static void transportTargets() {
             "numeric result became function provenance");
   }
   auto choice = checked(foundation +
-      "fn choose(flag:Bool)->fn(int)->int:\n  if flag:double\n  else:other\n"
-      "fn main()->int:\n  callback=choose(true)\n  0\n");
+      "fn choose(flag:bool)->fn(i64)->i64:\n  return if flag:double\n  else:other\n"
+      "fn main()->i64:\n  callback=choose(true)\n  return 0\n");
   auto flow = functionValueTargets(choice, binding(choice, "callback"));
   std::vector<FunctionId> expected{function(choice, "double"), function(choice, "other")};
   std::ranges::sort(expected);
@@ -87,9 +87,9 @@ static void transportTargets() {
   require(!functionValueTargets(choice, badBatch), "batch returned a partial provenance proof");
 
   auto nested = checked(foundation +
-      "fn wrap(f:fn(int)->int,values:[int])->fn(int)->int:\n"
-      "  fn(value:int):f(value)+values[0]\n"
-      "fn main()->int:\n  callback=wrap(double,[7])\n  0\n");
+      "fn wrap(f:fn(i64)->i64,values:[i64])->fn(i64)->i64:\n"
+      "  return fn(value:i64):return f(value)+values[0]\n"
+      "fn main()->i64:\n  callback=wrap(double,[7])\n  return 0\n");
   flow = functionValueTargets(nested, binding(nested, "callback"));
   require(flow && !flow->unknown && flow->targets.size() == 1 &&
               nested.functions[flow->targets[0]].captureCount == 2,
@@ -114,8 +114,8 @@ static void transportTargets() {
           "malformed environment became transport provenance");
 
   auto unknown = checked(foundation +
-      "fn unused(f:fn(int)->int,flag:Bool)->fn(int)->int:\n"
-      "  if flag:f\n  else:double\nfn main()->int:\n  0\n");
+      "fn unused(f:fn(i64)->i64,flag:bool)->fn(i64)->i64:\n"
+      "  return if flag:f\n  else:double\nfn main()->i64:\n  return 0\n");
   flow = functionValueTargets(unknown, unknown.functions[function(unknown, "unused")].result);
   require(flow && flow->unknown &&
               std::ranges::find(flow->targets, function(unknown, "double")) != flow->targets.end(),
@@ -124,14 +124,14 @@ static void transportTargets() {
   require(!planClosureTransfer(unknown, std::span(&unknownRoot, 1)),
           "unknown source was admitted as a transferable environment");
   auto hostCapture = checked(foundation +
-      "fn make(text:String)->fn(int)->int:\n  fn(value:int):value+length(text)\n"
-      "fn main()->int:\n  callback=make(\"hello\")\n  0\n");
+      "fn make(text:String)->fn(i64)->i64:\n  return fn(value:i64):return value+length(text)\n"
+      "fn main()->i64:\n  callback=make(\"hello\")\n  return 0\n");
   const auto hostRoot = binding(hostCapture, "callback");
   require(!planClosureTransfer(hostCapture, std::span(&hostRoot, 1)),
           "host-only lexical capture was admitted for device transport");
   auto separate = checked(foundation +
-      "fn makeHost(text:String)->fn(int)->int:\n  fn(value:int):value+length(text)\n"
-      "fn main()->int:\n  host=makeHost(\"hello\")\n  callback=double\n  0\n");
+      "fn makeHost(text:String)->fn(i64)->i64:\n  return fn(value:i64):return value+length(text)\n"
+      "fn main()->i64:\n  host=makeHost(\"hello\")\n  callback=double\n  return 0\n");
   const auto separateRoot = binding(separate, "callback");
   const auto separatePlan = planClosureTransfer(separate, std::span(&separateRoot, 1));
   require(separatePlan && separatePlan->environments.size() == 1 &&
@@ -154,25 +154,25 @@ int main() {
     transportTargets();
     unsigned cases = 0;
     for (const auto &program :
-         {"fn main()->int:\n  f=double\n  g=f\n  g(21)\n",
-          "fn apply(f:fn(int)->int,value:int)->int:\n  f(value)\n"
-          "fn main()->int:\n  apply(double,21)\n",
-          "fn factory()->fn(int)->int:\n  double\n"
-          "fn main()->int:\n  f=factory()\n  f(21)\n",
-          "fn select(flag:Bool)->fn(int)->int:\n  if flag:double\n  else:other\n"
-          "fn main()->int:\n  f=select(true)\n  f(21)\n",
-          "type Box:\n  f:fn(int)->int\n"
-          "fn main()->int:\n  box=Box {f:double}\n  box.f(21)\n",
-          "fn main()->int:\n  callbacks=[double,other]\n  callbacks[0](21)\n",
-          "fn factory(f:fn(int)->int)->fn(int)->int:\n  fn(value:int):f(value)\n"
-          "fn main()->int:\n  f=factory(double)\n  f(21)\n",
-          "fn apply(f:fn(int)->int,value:int)->int:\n  if value==0:f(21)\n"
+         {"fn main()->i64:\n  f=double\n  g=f\n  return g(21)\n",
+          "fn apply(f:fn(i64)->i64,value:i64)->i64:\n  return f(value)\n"
+          "fn main()->i64:\n  return apply(double,21)\n",
+          "fn factory()->fn(i64)->i64:\n  return double\n"
+          "fn main()->i64:\n  f=factory()\n  return f(21)\n",
+          "fn select(flag:bool)->fn(i64)->i64:\n  return if flag:double\n  else:other\n"
+          "fn main()->i64:\n  f=select(true)\n  return f(21)\n",
+          "type Box:\n  f:fn(i64)->i64\n"
+          "fn main()->i64:\n  box=Box {f:double}\n  return box.f(21)\n",
+          "fn main()->i64:\n  callbacks=[double,other]\n  return callbacks[0](21)\n",
+          "fn factory(f:fn(i64)->i64)->fn(i64)->i64:\n  return fn(value:i64):return f(value)\n"
+          "fn main()->i64:\n  f=factory(double)\n  return f(21)\n",
+          "fn apply(f:fn(i64)->i64,value:i64)->i64:\n  return if value==0:f(21)\n"
           "  else:apply(f,value-1)\n"
-          "fn main()->int:\n  apply(double,2)\n",
-          "fn main()->int:\n  callbacks=[double,other]\n"
-          "  values=slice(callbacks,0,1)\n  values[0](21)\n",
-          "fn factory()->[fn(int)->int]:\n  [double,other]\n"
-          "fn main()->int:\n  callbacks=factory()\n  callbacks[0](21)\n"}) {
+          "fn main()->i64:\n  return apply(double,2)\n",
+          "fn main()->i64:\n  callbacks=[double,other]\n"
+          "  values=slice(callbacks,0,1)\n  return values[0](21)\n",
+          "fn factory()->[fn(i64)->i64]:\n  return [double,other]\n"
+          "fn main()->i64:\n  callbacks=factory()\n  return callbacks[0](21)\n"}) {
       auto module = checked(foundation + program);
       auto baseline = functionInvocationFlow(module);
       require(bool(baseline), "valid invocation flow exhausted budget");
@@ -221,24 +221,24 @@ int main() {
     }
     auto handled = checked(R"k(error E:
   Bad:
-    value:int
-fn main()->int:
-  offset:int=21
-  failer=fn(value:int)->int ! E:fail E.Bad {value:offset}
-  callbacks:[fn(int)->int ! E]=[failer,failer]
-  evaluate=fn(callback:fn(int)->int ! E)->int:
-    callback(0) catch fn(error):
-      match error:
+    value:i64
+fn main()->i64:
+  offset:i64=21
+  failer=fn(value:i64)->i64 ! E:fail E.Bad {value:offset}
+  callbacks:[fn(i64)->i64 ! E]=[failer,failer]
+  evaluate=fn(callback:fn(i64)->i64 ! E)->i64:
+    return callback(0) catch fn(error):
+      return match error:
         E.Bad {value}:value
   values=map(callbacks,evaluate)
-  values[0]+values[1]
+  return values[0]+values[1]
 )k");
     require(bool(continuation::plan(handled)),
             "handled indirect errors escaped the synchronous calling convention");
     for (auto effect : continuation::coordinatingFunctions(handled))
       require(!effect, "expected-error handling became task coordination");
-    auto unknown = checked(foundation + "fn unused(f:fn(int)->int)->int:\n  f(21)\n"
-                                        "fn main()->int:\n  f=double\n  f(21)\n");
+    auto unknown = checked(foundation + "fn unused(f:fn(i64)->i64)->i64:\n  return f(21)\n"
+                                        "fn main()->i64:\n  f=double\n  return f(21)\n");
     const auto flow = functionInvocationFlow(unknown);
     require(bool(flow), "unknown parameter flow failed");
     bool seen = false;

@@ -1,19 +1,19 @@
-fn double(value:int)->int:
-  value*2
-fn triple(value:int)->int:
-  value*3
-fn apply(value:int,transform:fn(int)->int)->int:
-  transform(value)
-fn run(flag:Bool)->int ! TaskError:
+fn double(value:i64)->i64:
+  return value*2
+fn triple(value:i64)->i64:
+  return value*3
+fn apply(value:i64,transform:fn(i64)->i64)->i64:
+  return transform(value)
+fn run(flag:bool)->i64 ! TaskError:
   transform=if flag:
     alias=double
     alias
   else:
     alias=triple
     alias
-  try parallel:
+  return try parallel:
     try await spawn apply(14,transform)
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   a=try run(false)
   b=try run(true)
-  a+b-28
+  return a+b-28

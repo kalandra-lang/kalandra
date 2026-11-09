@@ -23,7 +23,7 @@ int main() {
       if (attempt && attempt <= allocations)
         require(context.status() == 2, "map callback lost allocation failure");
       else
-        require(context.status() == 4 && context.line() == 7 && context.column() == 34,
+        require(context.status() == 4 && context.line() == 7 && context.column() == 48,
                 "map callback lost original fault location");
       context.settle();
       require(!context.live() && context.allocations() == context.releases(),

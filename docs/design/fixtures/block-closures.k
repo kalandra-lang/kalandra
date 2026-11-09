@@ -1,7 +1,7 @@
-fn makeAdder(offset:int)->fn(int)->int:
-  fn(value):
+fn makeAdder(offset:i64)->fn(i64)->i64:
+  return fn(value):
     adjusted=value+offset
-    adjusted*2
-export fn main()->int:
+    return adjusted*2
+export fn main()->i64:
   addOne=makeAdder(1)
-  addOne(20)
+  return addOne(20)

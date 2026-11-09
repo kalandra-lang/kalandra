@@ -38,22 +38,22 @@ void spans(const TypeSyntax &type, const SourceFile &source) {
 void signatures() {
   auto parsed = syntax(
       "# π before the signatures\n"
-      "fn apply(value:int, transform:fn(int)->int)->int:\n  0\n"
-      "fn factory(offset:int)->fn(int)->int:\n  0\n"
-      "fn failingFactory()->(fn(int)->int) ! BuildError:\n  0\n"
-      "fn failingInvocation()->fn(int)->int ! ValidationError:\n  0\n"
-      "fn nested()->fn()->fn(int)->int ! InnerError:\n  0\n"
-      "fn grouped()->fn()->(fn(int)->int) ! OuterError:\n  0\n"
-      "fn both()->(fn(int)->int ! CallError) ! FactoryError:\n  0\n"
-      "fn combined()->fn()->int ! (A | B | TaskError):\n  0\n"
-      "fn unionFactory()->(fn()->int ! (A | B)) ! (C | TaskError):\n  0\n"
-      "fn complex(callback:fn(fn(int)->int, [String], Tensor[float32,?], Bool, Record,)->String,"
-      " other:int)->int:\n  0\n"
-      "fn groupedNumeric(value:(((int))))->(int):\n  value\n"
-      "fn expressions()->int:\n"
-      "  alias:fn(int)->int=double\n"
-      "  creator=fn(value:int)->fn(int)->int:fn(other:int):value+other\n"
-      "  consumer=fn(callback:fn(int)->int):callback(1)\n  0\n");
+      "fn apply(value:i64, transform:fn(i64)->i64)->i64:\n  return 0\n"
+      "fn factory(offset:i64)->fn(i64)->i64:\n  return 0\n"
+      "fn failingFactory()->(fn(i64)->i64) ! BuildError:\n  return 0\n"
+      "fn failingInvocation()->fn(i64)->i64 ! ValidationError:\n  return 0\n"
+      "fn nested()->fn()->fn(i64)->i64 ! InnerError:\n  return 0\n"
+      "fn grouped()->fn()->(fn(i64)->i64) ! OuterError:\n  return 0\n"
+      "fn both()->(fn(i64)->i64 ! CallError) ! FactoryError:\n  return 0\n"
+      "fn combined()->fn()->i64 ! (A | B | TaskError):\n  return 0\n"
+      "fn unionFactory()->(fn()->i64 ! (A | B)) ! (C | TaskError):\n  return 0\n"
+      "fn complex(callback:fn(fn(i64)->i64, [String], Tensor[f32,?], bool, Record,)->String,"
+      " other:i64)->i64:\n  return 0\n"
+      "fn groupedNumeric(value:(((i64))))->(i64):\n  return value\n"
+      "fn expressions()->i64:\n"
+      "  alias:fn(i64)->i64=double\n"
+      "  creator=fn(value:i64)->fn(i64)->i64:return fn(other:i64):return value+other\n"
+      "  consumer=fn(callback:fn(i64)->i64):return callback(1)\n  return 0\n");
   require(parsed.ok(), "valid function type rejected");
   const auto &functions = parsed.module.functions;
   require(functions.size() == 12, "declarations consumed by recursive type parsing");
@@ -61,7 +61,7 @@ void signatures() {
   require(apply.parameters.size() == 2 && apply.parameters[1].type.function &&
               apply.parameters[1].type.function->parameters.size() == 1 && !apply.taskError,
           "function parameter lost its signature");
-  require(parsed.module.source->slice(apply.parameters[1].type.span) == "fn(int)->int",
+  require(parsed.module.source->slice(apply.parameters[1].type.span) == "fn(i64)->i64",
           "callable parameter span changed");
   require(functions[1].result->function && !functions[1].taskError,
           "returned callable parsed as an outer result");
@@ -92,7 +92,7 @@ void signatures() {
               complex.parameters[1].array && complex.parameters[2].tensor &&
               functions[9].parameters.size() == 2,
           "nested parameters or trailing comma consumed the enclosing parameter");
-  require(parsed.module.source->slice(functions[10].parameters[0].type.span) == "(((int)))",
+  require(parsed.module.source->slice(functions[10].parameters[0].type.span) == "(((i64)))",
           "grouped type lost outer span");
   const auto &expressions = functions[11].body;
   require(expressions[0].annotation->function != nullptr, "binding annotation lost callable");
@@ -118,9 +118,9 @@ void limitsAndRecovery() {
   for (unsigned i = 0; i < 40; ++i) {
     if (i)
       many += ',';
-    many += i % 2 ? "String" : "int";
+    many += i % 2 ? "String" : "i64";
   }
-  many += ")->int)->int:\n  0\n";
+  many += ")->i64)->i64:\n  0\n";
   auto wide = syntax(many);
   require(wide.ok() &&
               wide.module.functions[0].parameters[0].type.function->parameters.size() == 40,
@@ -134,22 +134,22 @@ void limitsAndRecovery() {
   require(has(syntax(deep, limits), "P036"), "undelimited function nesting is not bounded");
   limits = {};
   limits.maxNodes = 4;
-  require(has(syntax("fn wide(callback:fn(int,int,int)->int):\n  0\n", limits), "P036"),
+  require(has(syntax("fn wide(callback:fn(i64,i64,i64)->i64):\n  return 0\n", limits), "P036"),
           "type node budget is not enforced");
   limits = {};
   limits.maxDepth = 2;
-  require(syntax("fn f()->fn()->int:\n  0\n", limits).ok(), "type depth boundary rejected");
+  require(syntax("fn f()->fn()->i64:\n  return 0\n", limits).ok(), "type depth boundary rejected");
   limits.maxDepth = 1;
-  require(has(syntax("fn f()->fn()->int:\n  0\n", limits), "P036"), "type depth boundary accepted");
+  require(has(syntax("fn f()->fn()->i64:\n  return 0\n", limits), "P036"), "type depth boundary accepted");
   for (const auto *text :
-       {"fn f()->fn()->int ! A ! B:\n  0\n", "fn f(callback:fn()->fn()->int ! A ! B):\n  0\n"})
+       {"fn f()->fn()->i64 ! A ! B:\n  return 0\n", "fn f(callback:fn()->fn()->i64 ! A ! B):\n  return 0\n"})
     require(has(syntax(text), "P006"), "ambiguous double error suffix accepted");
   for (const auto *type :
-       {"fn", "fn(int)", "fn(int) int", "fn()->", "fn(,int)->int", "fn(int,,int)->int",
-        "fn(value:int)->int", "fn()->()", "fn()->int !", "fn()->int ! A | B", "fn()->(int ! A)",
-        "fn()->int ! (A |)", "fn()->int ! A ! B", "(fn()->int,int)"}) {
+       {"fn", "fn(i64)", "fn(i64) i64", "fn()->", "fn(,i64)->i64", "fn(i64,,i64)->i64",
+        "fn(value:i64)->i64", "fn()->()", "fn()->i64 !", "fn()->i64 ! A | B", "fn()->(i64 ! A)",
+        "fn()->i64 ! (A |)", "fn()->i64 ! A ! B", "(fn()->i64,i64)"}) {
     auto malformed =
-        syntax(std::string("fn bad(callback:") + type + "):\n  0\nfn good()->int:\n  7\n");
+        syntax(std::string("fn bad(callback:") + type + "):\n  0\nfn good()->i64:\n  return 7\n");
     require(!malformed.ok(), "malformed callable type accepted");
     require(std::ranges::any_of(malformed.module.functions,
                                 [&](const auto &function) {
@@ -162,7 +162,7 @@ void limitsAndRecovery() {
               "invalid diagnostic span");
   }
   // Every truncated prefix must terminate with either a valid tree or bounded diagnostics.
-  const std::string seed = "fn use(callback:fn(fn(int)->int,)->(fn()->int) ! (A | B)):\n  0\n";
+  const std::string seed = "fn use(callback:fn(fn(i64)->i64,)->(fn()->i64) ! (A | B)):\n  return 0\n";
   limits = {};
   limits.maxDiagnostics = 1;
   for (std::size_t i = 0; i <= seed.size(); ++i) {
@@ -172,25 +172,25 @@ void limitsAndRecovery() {
 }
 void semanticBoundary() {
   for (const auto *text :
-       {"fn factory()->fn(int)->int:\n  0\n", "fn main()->int:\n  value:fn(int)->int=0\n  0\n",
-        "type Holder:\n  callback:fn(int)->int\nfn main()->int:\n  holder=Holder {callback:0}\n  "
-        "0\n",
-        "enum Choice:\n  Some:\n    callback:fn()->int\nfn main()->int:\n  value=Choice.Some "
-        "{callback:0}\n  0\n",
-        "fn main()->[int]:\n  map([1],fn(value)->fn(int)->int:0)\n"}) {
+       {"fn factory()->fn(i64)->i64:\n  return 0\n", "fn main()->i64:\n  value:fn(i64)->i64=0\n  return 0\n",
+        "type Holder:\n  callback:fn(i64)->i64\nfn main()->i64:\n  holder=Holder {callback:0}\n  "
+        "return 0\n",
+        "enum Choice:\n  Some:\n    callback:fn()->i64\nfn main()->i64:\n  value=Choice.Some "
+        "{callback:0}\n  return 0\n",
+        "fn main()->[i64]:\n  return map([1],fn(value)->fn(i64)->i64:return 0)\n"}) {
     auto parsed = syntax(text);
     require(parsed.ok(), "semantic boundary input failed to parse");
     auto checked = check(std::move(parsed));
     require(!checked.ok(), "invalid or unsupported callable use accepted");
   }
-  auto ordinary = check(syntax("fn identity(value:(((int))))->(int):\n  value\n"
-                               "fn main()->int:\n  identity(7)\n"));
+  auto ordinary = check(syntax("fn identity(value:(((i64))))->(i64):\n  return value\n"
+                               "fn main()->i64:\n  return identity(7)\n"));
   require(ordinary.ok(), "grouped ordinary types changed semantic identity");
 }
 void moduleOrigins() {
-  auto root = std::make_shared<const SourceFile>("root.k", "fn main()->int:\n  0\n");
+  auto root = std::make_shared<const SourceFile>("root.k", "fn main()->i64:\n  return 0\n");
   auto helper = std::make_shared<const SourceFile>(
-      "helper.k", "fn make()->(fn(int)->int ! CallError) ! BuildError:\n  0\n");
+      "helper.k", "fn make()->(fn(i64)->i64 ! CallError) ! BuildError:\n  return 0\n");
   auto combined = std::make_shared<const SourceFile>(
       "root.k", root->text() + helper->text(),
       std::vector<SourceFile::Part>{{0, root}, {root->text().size(), helper}});

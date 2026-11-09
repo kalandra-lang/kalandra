@@ -34,94 +34,73 @@ def qualify(compiler):
             return result
 
         cases = [("loop " + name, text, expected) for name, (text, expected) in LOOP_CASES.items()]
-        values = {"int8": "127", "uint8": "255", "int16": "32767", "uint16": "65535",
-                  "int32": "2147483647", "uint32": "4294967295",
-                  "int64": "9223372036854775807", "uint64": "18446744073709551615",
-                  "float32": "1.5", "float64": "1.5"}
+        values = {"i8": "127", "u8": "255", "i16": "32767", "u16": "65535",
+                  "i32": "2147483647", "u32": "4294967295",
+                  "i64": "9223372036854775807", "u64": "18446744073709551615",
+                  "f32": "1.5", "f64": "1.5"}
         rank8_values = "[" * 8 + "1,2" + "]" * 8
         for numeric, value in values.items():
-            cases += [(f"{numeric} scalar", f"fn main()->{numeric}:\n  {value}\n", value),
-                      (f"{numeric} array", f"fn main()->[{numeric}]:\n  [{value},0]\n", f"[{value}, 0]"),
-                      (f"{numeric} tensor", f"fn main()->Tensor[{numeric},2,2]:\n  tensor([[1,2],[3,4]])*2\n",
+            cases += [(f"{numeric} scalar", f'fn main()->{numeric}:\n  return {value}\n', value),
+                      (f"{numeric} array", f'fn main()->[{numeric}]:\n  return [{value},0]\n', f"[{value}, 0]"),
+                      (f"{numeric} tensor", f'fn main()->Tensor[{numeric},2,2]:\n  return tensor([[1,2],[3,4]])*2\n',
                        "tensor([2, 4, 6, 8], [2, 2])"),
-                      (f"{numeric} rank-zero tensor", f"fn main()->Tensor[{numeric}]:\n  tensor(1)*2\n",
+                      (f"{numeric} rank-zero tensor", f'fn main()->Tensor[{numeric}]:\n  return tensor(1)*2\n',
                        "tensor([2], [])"),
-                      (f"{numeric} rank-eight tensor", f"fn main()->Tensor[{numeric},1,1,1,1,1,1,1,2]:\n  tensor({rank8_values})*2\n",
+                      (f"{numeric} rank-eight tensor", f'fn main()->Tensor[{numeric},1,1,1,1,1,1,1,2]:\n  return tensor({rank8_values})*2\n',
                        "tensor([2, 4], [1, 1, 1, 1, 1, 1, 1, 2])"),
-                      (f"{numeric} worker", f"fn echo(value:{numeric})->{numeric}:\n  value\n"
-                       f"fn main()->{numeric} ! TaskError:\n  try parallel:\n"
-                       f"    work=spawn echo({value})\n    first=try await work\n    again=try await work\n"
-                       "    if first==again:again\n    else:0\n", value)]
-            cases.append((f"{numeric} recursive scalar", f"fn tree(v:{numeric},n:int)->{numeric}:\n"
-                          "  if n==0:v\n  else:tree(v,n-1)+tree(v,n-1)\n"
-                          f"fn main()->{numeric}:\n  tree(1,3)\n", "8"))
-        cases += [("recursive Bool", "fn tree(v:Bool,n:int)->Bool:\n  if n==0:v\n"
-                   "  else:tree(v,n-1)==tree(v,n-1)\nfn main()->Bool:\n  tree(false,7)\n", "true"),
-                  ("Bool", "fn main()->Bool:\n  true\n", "true"),
-                  ("String", 'fn main()->String:\n  "é"+"🙂"\n', "é🙂"),
-                  ("String array", 'fn main()->[String]:\n  ["é"+"🙂","retained"]\n', '["é🙂", "retained"]'),
+                      (f"{numeric} worker", f'fn echo(value:{numeric})->{numeric}:\n  return value\nfn main()->{numeric} ! TaskError:\n  return try parallel:\n    work=spawn echo({value})\n    first=try await work\n    again=try await work\n    if first==again:again\n    else:0\n', value)]
+            cases.append((f"{numeric} recursive scalar", f'fn tree(v:{numeric},n:i64)->{numeric}:\n  return if n==0:v\n  else:tree(v,n-1)+tree(v,n-1)\nfn main()->{numeric}:\n  return tree(1,3)\n', "8"))
+        cases += [("recursive Bool", 'fn tree(v:bool,n:i64)->bool:\n  return if n==0:v\n  else:tree(v,n-1)==tree(v,n-1)\nfn main()->bool:\n  return tree(false,7)\n', "true"),
+                  ("bool", 'fn main()->bool:\n  return true\n', "true"),
+                  ("String", 'fn main()->String:\n  return "é"+"🙂"\n', "é🙂"),
+                  ("String array", 'fn main()->[String]:\n  return ["é"+"🙂","retained"]\n', '["é🙂", "retained"]'),
                   ("record/enum ownership", """type Row:
-  tag:uint8
-  amount:uint64
+  tag:u8
+  amount:u64
   text:String
-  values:[int]
+  values:[i64]
 enum Reading:
   Missing
   Value:
     item:Row
 fn echo(value:Reading)->Reading:
-  value
-fn main()->int ! TaskError:
-  try parallel:
+  return value
+fn main()->i64 ! TaskError:
+  return try parallel:
     original=Reading.Value {item:Row {tag:255,amount:41,text:"é"+"🙂",values:[7,8]}}
     work=spawn echo(original)
     first=try await work
     again=try await work
     match again:
       Reading.Missing:0
-      Reading.Value {item}:int(item.tag)+int(item.amount)+length(item.text)+item.values[0]
+      Reading.Value {item}:i64(item.tag)+i64(item.amount)+length(item.text)+item.values[0]
 """, "305"),
-                  ("expected-error channel", """error ReadError:
-  Bad:
-    text:String
-fn read()->int ! ReadError:
-  fail ReadError.Bad {text:"é"+"🙂"}
-fn work()->int:
-  read() catch fn(error):
-    match error:
-      ReadError.Bad {text}:length(text)+40
-fn main()->int ! TaskError:
-  try parallel:
-    result=spawn work()
-    try await result
-""", "42")]
-        cases.append(("recursive signed remainder", """fn rem(a:int,b:int)->int:
-  a%b
-fn gcd(a:int,b:int)->int:
-  if b==0:a
+                  ("expected-error channel", 'error ReadError:\n  Bad:\n    text:String\nfn read()->i64 ! ReadError:\n  fail ReadError.Bad {text:"é"+"🙂"}\nfn work()->i64:\n  return read() catch fn(error):\n    return match error:\n      ReadError.Bad {text}:length(text)+40\nfn main()->i64 ! TaskError:\n  return try parallel:\n    result=spawn work()\n    try await result\n', "42")]
+        cases.append(("recursive signed remainder", """fn rem(a:i64,b:i64)->i64:
+  return a%b
+fn gcd(a:i64,b:i64)->i64:
+  return if b==0:a
   else:gcd(b,a%b)
-fn main()->[int]:
-  [rem(-9223372036854775808,-1),rem(-9223372036854775808,3),rem(9223372036854775807,-1),rem(-37,7),rem(37,-7),gcd(987654321,123456789)]
+fn main()->[i64]:
+  return [rem(-9223372036854775808,-1),rem(-9223372036854775808,3),rem(9223372036854775807,-1),rem(-37,7),rem(37,-7),gcd(987654321,123456789)]
 """, "[0, -2, 0, -2, 2, 9]"))
         # Pass values through parameters: the frontend must preserve every
         # comparison predicate rather than fold only literal expressions.
-        for numeric in ("int64", "float64"):
+        for numeric in ("i64", "f64"):
             for a, b in ((-1, 0), (0, 0), (1, 0)):
                 expected = "[" + ", ".join(str(v).lower() for v in
                     (a == b, a != b, a < b, a <= b, a > b, a >= b)) + "]"
-                text = (f"fn compare(a:{numeric},b:{numeric})->[Bool]:\n"
-                        "  [a==b,a!=b,a<b,a<=b,a>b,a>=b]\n"
-                        f"fn main()->[Bool]:\n  compare({a},{b})\n")
+                text = (f'fn compare(a:{numeric},b:{numeric})->[bool]:\n  return [a==b,a!=b,a<b,a<=b,a>b,a>=b]\nfn main()->[bool]:\n  return compare({a},{b})\n')
                 cases.append((f"{numeric} comparisons {a}/{b}", text, expected))
-        for numeric in ("float32", "float64"):
+        for numeric in ("f32", "f64"):
             cases += [(f"{numeric} static matrix product", f"""fn main()->{numeric}:
   a:Tensor[{numeric},1,2]=tensor([[2,3]])
   b:Tensor[{numeric},2,1]=tensor([[4],[5]])
-  reduceSum(matmul(a,b))
+  return reduceSum(matmul(a,b))
 """, "23"),
                       (f"{numeric} static fused reduction", f"""fn main()->{numeric}:
   a:Tensor[{numeric},3]=tensor([1,2,3])
-  reduceSum(a*3+1)
+  return reduceSum(a*3+1)
 """, "21")]
         compiled = 0
         for mode, flags in modes:
@@ -153,7 +132,7 @@ fn main()->[int]:
         library = work / "library source λ🙂"
         library.mkdir()
         (library / "kalandra.toml").write_text("format=1\n[package]\nname='numbers'\nversion='1.0.0'\nentry='public.k'\n", encoding="utf-8")
-        (library / "public.k").write_text("export fn answer()->int:\n  42\n", encoding="utf-8")
+        (library / "public.k").write_text('export fn answer()->i64:\n  return 42\n', encoding="utf-8")
         git_env = dict(os.environ, GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL="NUL" if windows else "/dev/null",
                        GIT_AUTHOR_NAME="Fixture", GIT_AUTHOR_EMAIL="fixture@example.invalid",
                        GIT_COMMITTER_NAME="Fixture", GIT_COMMITTER_EMAIL="fixture@example.invalid")
@@ -163,7 +142,7 @@ fn main()->[int]:
         manifest = project / "kalandra.toml"
         manifest.write_text("format=1\n[project]\nentry='main.k'\n[dependencies]\nnumbers={git=" + json.dumps(str(library), ensure_ascii=False) +
                             ",rev=" + json.dumps(commit) + "}\n", encoding="utf-8")
-        (project / "main.k").write_text('from "numbers" import answer\nfn main()->int:\n  answer()\n', encoding="utf-8")
+        (project / "main.k").write_text('from "numbers" import answer\nfn main()->i64:\n  return answer()\n', encoding="utf-8")
         run([compiler, "install", "--project", manifest])
         active = (project / "kalandra.lock").read_bytes()
         def remove_fixture_readonly(function, path, error):
@@ -194,7 +173,7 @@ fn main()->[int]:
         run([compiler, "--project", work / "independent starter/kalandra.toml", "-o", executable])
         # A failing build must preserve a previously working output.
         prior = executable.read_bytes()
-        source.write_text("fn main():\n  missing_value\n", encoding="utf-8")
+        source.write_text('fn main():\n  return missing_value\n', encoding="utf-8")
         run([compiler, source, "-o", executable], expected=1)
         assert executable.read_bytes() == prior
         if windows_arm64:
@@ -209,7 +188,7 @@ fn main()->[int]:
         private_clang = prefix / "libexec/kalandra" / ("clang++.exe" if windows else "clang++")
         if (prefix / "SHA256SUMS").is_file():
             # Missing bundled tools must not fall back to an ambient LLVM install.
-            source.write_text("fn main()->int:\n  42\n", encoding="utf-8")
+            source.write_text('fn main()->i64:\n  return 42\n', encoding="utf-8")
             unavailable_clang = private_clang.with_name(private_clang.name + ".unavailable")
             rename_after_process_exit(private_clang, unavailable_clang)
             try:

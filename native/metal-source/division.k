@@ -1,38 +1,38 @@
-fn reciprocal(value: float32) -> float32:
-  1 / value
+fn reciprocal(value: f32) -> f32:
+  return 1 / value
 
-fn quotient(left: Tensor[float32, ?, ?], right: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  left / right
+fn quotient(left: Tensor[f32, ?, ?], right: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return left / right
 
-fn scale(values: Tensor[float32, ?, ?], divisor: float32) -> Tensor[float32, ?, ?]:
-  values / divisor
+fn scale(values: Tensor[f32, ?, ?], divisor: f32) -> Tensor[f32, ?, ?]:
+  return values / divisor
 
-fn reverse(numerator: float32, values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  numerator / values
+fn reverse(numerator: f32, values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return numerator / values
 
-fn applyReciprocal(values: Tensor[float32, ?, ?], divisor: float32) -> Tensor[float32, ?, ?]:
-  values * reciprocal(divisor)
+fn applyReciprocal(values: Tensor[f32, ?, ?], divisor: f32) -> Tensor[f32, ?, ?]:
+  return values * reciprocal(divisor)
 
-fn vectorQuotient(left: Tensor[float32, ?], right: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  left / right
+fn vectorQuotient(left: Tensor[f32, ?], right: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return left / right
 
-fn vectorScale(values: Tensor[float32, ?], divisor: float32) -> Tensor[float32, ?]:
-  values / divisor
+fn vectorScale(values: Tensor[f32, ?], divisor: f32) -> Tensor[f32, ?]:
+  return values / divisor
 
-fn vectorReverse(numerator: float32, values: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  numerator / values
+fn vectorReverse(numerator: f32, values: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return numerator / values
 
-fn vectorApplyReciprocal(values: Tensor[float32, ?], divisor: float32) -> Tensor[float32, ?]:
-  values * reciprocal(divisor)
+fn vectorApplyReciprocal(values: Tensor[f32, ?], divisor: f32) -> Tensor[f32, ?]:
+  return values * reciprocal(divisor)
 
-fn add(left: Tensor[float32, ?, ?], right: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  left + right
+fn add(left: Tensor[f32, ?, ?], right: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return left + right
 
-fn main() -> Tensor[float32, 2, 3] ! TaskError:
-  try parallel:
+fn main() -> Tensor[f32, 2, 3] ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    left: Tensor[float32, 2, 3] = tensor([[2, 4, 8], [16, 32, 64]])
-    right: Tensor[float32, 2, 3] = tensor([[1, 2, 4], [8, 16, 32]])
+    left: Tensor[f32, 2, 3] = tensor([[2, 4, 8], [16, 32, 64]])
+    right: Tensor[f32, 2, 3] = tensor([[1, 2, 4], [8, 16, 32]])
     a = try await transfer(left, gpu)
     b = try await transfer(right, gpu)
     divided = try await spawn quotient(a, b) on gpu
@@ -40,7 +40,7 @@ fn main() -> Tensor[float32, 2, 3] ! TaskError:
     reversed = try await spawn reverse(8, scaled) on gpu
     result = try await spawn applyReciprocal(reversed, 2) on gpu
     remote = try await transfer(result, devices.cpu())
-    values: Tensor[float32, 3] = tensor([1, 2, 4])
+    values: Tensor[f32, 3] = tensor([1, 2, 4])
     uploaded = try await transfer(values, gpu)
     vq = try await spawn vectorQuotient(uploaded, uploaded) on gpu
     vs = try await spawn vectorScale(vq, 2) on gpu

@@ -1,7 +1,7 @@
-fn main()->int:
+fn main()->i64:
   callbacks=map([20],fn(offset):
-    fn(value:int):
+    return fn(value:i64):
       total=value+offset
-      total
+      return total
   )
-  callbacks[0](22)
+  return callbacks[0](22)

@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
   for (auto description : numericTypes) {
     auto type = description.type;
     const auto file =
-        std::string(argv[1]) + "/" + std::string(description.name) + "/kernel0.metallib";
+        std::string(argv[1]) + "/" + std::string(description.sourceName) + "/kernel0.metallib";
     auto kernel =
         type == NumericType::Float32
             ? rt.loadElementwiseKernel(file, *device, {1, 0}, std::array<std::uint32_t, 1>{0})

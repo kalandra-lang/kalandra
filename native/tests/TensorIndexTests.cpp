@@ -12,9 +12,9 @@ static CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
-    for (auto type : {"int32", "uint32", "int64", "uint64", "float32", "float64"}) {
+    for (auto type : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
       for (unsigned rank : {0u, 1u, 2u, 3u, 8u}) {
-        for (auto indexType : {"int32", "uint32", "int64", "uint64"}) {
+        for (auto indexType : {"i32", "u32", "i64", "u64"}) {
           std::string parameters = "values:Tensor[" + std::string(type);
           for (unsigned axis = 0; axis < rank; ++axis)
             parameters += ",?";
@@ -27,8 +27,8 @@ int main() {
               indices += ",";
             indices += name;
           }
-          auto typed = analyze("fn read(" + parameters + ")->" + type + ":\n  values[" + indices +
-                               "]\nfn main()->int:\n  0\n");
+          auto typed = analyze("fn read(" + parameters + ")->" + type + ":\n  return values[" +
+                               indices + "]\nfn main()->i64:\n  return 0\n");
           require(typed.ok(), "valid tensor read rejected");
           auto id = typed.module->functions[0].result;
           require(std::holds_alternative<TensorIndex>(typed.module->expressions[id].operation),
@@ -81,20 +81,24 @@ int main() {
       }
     }
     for (auto source :
-         {"fn main():\n  tensor([[1,2],[3,4]])[1,0]*2+1\n", "fn main():\n  tensor(7)[]\n",
-          "fn row()->int:\n  1\nfn column()->uint32:\n  0\nfn main() ! TaskError:\n  "
-          "values=tensor([[1,2],[3,4]])\n  try parallel:\n    a=spawn row()\n    b=spawn "
+         {"fn main():\n  return tensor([[1,2],[3,4]])[1,0]*2+1\n",
+          "fn main():\n  return tensor(7)[]\n",
+          "fn row()->i64:\n  return 1\nfn column()->u32:\n  return 0\nfn main() ! TaskError:\n  "
+          "values=tensor([[1,2],[3,4]])\n  return try parallel:\n    a=spawn row()\n    b=spawn "
           "column()\n    values[try await a,try await b]\n",
-          "fn main():\n  tensor([1,2])[1,]\n",
-          "fn read(values:Tensor[int,?,?],row:int,column:uint32):\n  map([1,2],fn(x): "
-          "values[row,column]+x)\nfn main()->int:\n  0\n",
-          "fn read(values:Tensor[int,?,?],row:int,column:uint32):\n  values[row,column]\nfn main() "
-          "! TaskError:\n  try parallel:\n    work=spawn read(tensor([[1,2],[3,4]]),1,0)\n    try "
+          "fn main():\n  return tensor([1,2])[1,]\n",
+          "fn read(values:Tensor[i64,?,?],row:i64,column:u32):\n  return map([1,2],fn(x): return "
+          "values[row,column]+x)\nfn main()->i64:\n  return 0\n",
+          "fn read(values:Tensor[i64,?,?],row:i64,column:u32):\n  return values[row,column]\nfn "
+          "main() "
+          "! TaskError:\n  return try parallel:\n    work=spawn read(tensor([[1,2],[3,4]]),1,0)\n  "
+          "  try "
           "await work\n",
-          "fn made()->Tensor[int,2,2]:\n  tensor([[1,2],[3,4]])\nfn main() ! TaskError:\n  try "
+          "fn made()->Tensor[i64,2,2]:\n  return tensor([[1,2],[3,4]])\nfn main() ! TaskError:\n  "
+          "return try "
           "parallel:\n    work=spawn made()\n    values=try await work\n    values[1,1]\n",
-          "fn read(flag:Bool,row:int,column:int):\n  values=if flag: tensor([[1,2]])\n  else: "
-          "tensor([[3,4],[5,6]])\n  values[row,column]\nfn main()->int:\n  0\n"}) {
+          "fn read(flag:bool,row:i64,column:i64):\n  values=if flag: tensor([[1,2]])\n  else: "
+          "tensor([[3,4],[5,6]])\n  return values[row,column]\nfn main()->i64:\n  return 0\n"}) {
       auto typed = analyze(source);
       require(typed.ok(), std::string("valid tensor program rejected: ") + source);
       require(bool(continuation::plan(*typed.module)), "tensor read import failed");
@@ -104,28 +108,30 @@ int main() {
 #endif
     }
     for (auto source :
-         {"fn main():\n  tensor([[1,2],[3,4]])[0]\n",
-          "fn main():\n  tensor([[1,2],[3,4]])[0,0,0]\n", "fn main():\n  tensor([1,2])[]\n",
-          "fn main():\n  tensor(7)[0]\n", "fn main():\n  tensor([[1,2],[3,4]])[2,0]\n",
-          "fn main():\n  tensor([[1,2],[3,4]])[0,-1]\n",
-          "fn main():\n  tensor([[1,2],[3,4]])[0,2]\n",
-          "fn main():\n  tensor([[1,2],[3,4]])[0,uint(18446744073709551615)]\n",
-          "fn main():\n  tensor([[1,2],[3,4]])[0,true]\n",
-          "fn main():\n  tensor([[1,2],[3,4]])[0,1.0]\n",
-          "fn read(values:Tensor[int,0,2],row:int,column:int):\n  values[row,column]\n",
+         {"fn main():\n  return tensor([[1,2],[3,4]])[0]\n",
+          "fn main():\n  return tensor([[1,2],[3,4]])[0,0,0]\n",
+          "fn main():\n  return tensor([1,2])[]\n", "fn main():\n  return tensor(7)[0]\n",
+          "fn main():\n  return tensor([[1,2],[3,4]])[2,0]\n",
+          "fn main():\n  return tensor([[1,2],[3,4]])[0,-1]\n",
+          "fn main():\n  return tensor([[1,2],[3,4]])[0,2]\n",
+          "fn main():\n  return tensor([[1,2],[3,4]])[0,u64(18446744073709551615)]\n",
+          "fn main():\n  return tensor([[1,2],[3,4]])[0,true]\n",
+          "fn main():\n  return tensor([[1,2],[3,4]])[0,1.0]\n",
+          "fn read(values:Tensor[i64,0,2],row:i64,column:i64):\n  return values[row,column]\n",
           "fn main():\n  values=tensor([[1,2],[3,4]])\n  values[0,0]=1\n  0\n",
-          "fn main() ! TaskError:\n  try parallel:\n    work=spawn tensor([[1,2],[3,4]])\n    "
+          "fn main() ! TaskError:\n  return try parallel:\n    work=spawn tensor([[1,2],[3,4]])\n  "
+          "  "
           "work[0,0]\n",
-          "fn main() ! TaskError:\n  try parallel:\n    device=devices.gpu()\n    "
+          "fn main() ! TaskError:\n  return try parallel:\n    device=devices.gpu()\n    "
           "work=transfer(tensor([[1,2],[3,4]]),device)\n    values=try await work\n    "
           "values[0,0]\n"})
       require(!analyze(source).ok(), std::string("invalid tensor read accepted: ") + source);
-    const std::string placementPrefix = "fn main()->float32 ! TaskError:\n  try parallel:\n"
-                                        "    values:Tensor[float32,2,2]=tensor([[1,2],[3,4]])\n"
+    const std::string placementPrefix = "fn main()->f32 ! TaskError:\n  return try parallel:\n"
+                                        "    values:Tensor[f32,2,2]=tensor([[1,2],[3,4]])\n"
                                         "    resident=try await transfer(values,devices.gpu())\n";
-    auto resident = check(parse(std::make_shared<SourceFile>(
-                              "resident.k", placementPrefix + "    resident[0,0]\n")),
-                          {}, {.placement = true});
+    auto resident = check(
+        parse(std::make_shared<SourceFile>("resident.k", placementPrefix + "    resident[0,0]\n")),
+        {}, {.placement = true});
     require(!resident.ok(), "host indexing silently downloaded a device tensor");
     bool residencyDiagnostic = false;
     for (const auto &diagnostic : resident.diagnostics)

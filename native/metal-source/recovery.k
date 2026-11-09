@@ -1,16 +1,16 @@
-fn scale(values: Tensor[float32, ?], factor: float32) -> Tensor[float32, ?]:
-  values * factor
+fn scale(values: Tensor[f32, ?], factor: f32) -> Tensor[f32, ?]:
+  return values * factor
 
-fn fixed(values: Tensor[float32, 2]) -> float32:
-  reduceSum(values)
+fn fixed(values: Tensor[f32, 2]) -> f32:
+  return reduceSum(values)
 
-fn forward(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  values
+fn forward(values: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return values
 
-fn main() -> float32 ! TaskError:
-  try parallel:
-    values: Tensor[float32, 3] = tensor([1, 2, 3])
-    fallback: Tensor[float32, 2] = tensor([10, 20])
+fn main() -> f32 ! TaskError:
+  return try parallel:
+    values: Tensor[f32, 3] = tensor([1, 2, 3])
+    fallback: Tensor[f32, 2] = tensor([10, 20])
     gpu = devices.gpu()
     outcome = parallel:
       uploaded = try await transfer(values, gpu)
@@ -21,7 +21,7 @@ fn main() -> float32 ! TaskError:
       try await sibling
       first
     recovered = outcome catch fn(error):
-      match error:
+      return match error:
         TaskError.Fault {kind: cause, message: detail}:
           match cause:
             FaultKind.Shape: reduceSum(fallback)

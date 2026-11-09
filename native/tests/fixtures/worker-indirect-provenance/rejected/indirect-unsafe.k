@@ -1,19 +1,19 @@
-fn double(value:int)->int:
-  value*2
-fn apply(value:int,f:fn(int)->int)->int:
-  f(value)
+fn double(value:i64)->i64:
+  return value*2
+fn apply(value:i64,f:fn(i64)->i64)->i64:
+  return f(value)
 type Outcome:
-  error:fn(int)->int
-fn unsafe(error:fn(int)->int)->fn(int)->int:
+  error:fn(i64)->i64
+fn unsafe(error:fn(i64)->i64)->fn(i64)->i64:
   outcome=Outcome {error:error}
-  fn(value:int):
-    outcome.error(value)
-fn identity(f:fn(int)->int)->fn(int)->int:
-  f
-fn consume(error:fn(int)->int)->int ! TaskError:
+  return fn(value:i64):
+    return outcome.error(value)
+fn identity(f:fn(i64)->i64)->fn(i64)->i64:
+  return f
+fn consume(error:fn(i64)->i64)->i64 ! TaskError:
   factory=identity
   f=factory(unsafe(error))
-  try parallel:
+  return try parallel:
     try await spawn apply(42,f)
-fn main()->int:
-  42
+fn main()->i64:
+  return 42

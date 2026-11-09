@@ -1,15 +1,15 @@
-fn overflow(values:Tensor[int8,?])->Tensor[int8,?]:
-  values + 1
-fn main()->Tensor[int8,?] ! TaskError:
-  try parallel:
+fn overflow(values:Tensor[i8,?])->Tensor[i8,?]:
+  return values + 1
+fn main()->Tensor[i8,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    values:Tensor[int8,1]=tensor([127])
+    values:Tensor[i8,1]=tensor([127])
     resident=try await transfer(values,gpu)
     outcome=parallel:
       result=try await spawn overflow(resident) on gpu
       try await transfer(result,devices.cpu())
     outcome catch fn(error):
-      match error:
+      return match error:
         TaskError.Fault {kind:cause,message:detail}:
           match cause:
             FaultKind.Arithmetic: tensor([42])

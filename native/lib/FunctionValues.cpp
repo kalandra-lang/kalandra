@@ -1,4 +1,5 @@
 #include "kalandra/Continuation.h"
+#include "NonCompleting.h"
 #include <algorithm>
 #include <limits>
 #include <unordered_map>
@@ -42,7 +43,7 @@ bool workerClosureCaptureTypeSupported(const TypedModule &module, const ValueTyp
     const auto value = pending.back();
     pending.pop_back();
     if (value.task || value.fallible || value.device || value.errorRecord ||
-        (value.builtin != BuiltinValue::Numeric && value.builtin != BuiltinValue::Bool &&
+        (value.builtin != BuiltinValue::Numeric && !isBooleanStorage(value) &&
          value.builtin != BuiltinValue::String && value.builtin != BuiltinValue::Record &&
          value.builtin != BuiltinValue::Function && value.builtin != BuiltinValue::TaskError))
       return false;
@@ -531,8 +532,8 @@ bool workerValueProvenance(const TypedModule &module, ValueId root) {
   return found;
 }
 } // namespace
-std::optional<FunctionValueTargets> functionValueTargets(const TypedModule &module,
-                                                         ValueId root, std::size_t budget) {
+std::optional<FunctionValueTargets> functionValueTargets(const TypedModule &module, ValueId root,
+                                                         std::size_t budget) {
   auto result = functionValueTargets(module, std::span(&root, 1), budget);
   if (!result)
     return {};
@@ -691,7 +692,7 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
       const auto &parameter = type.callable->parameters[i];
       if (type.callable->mutates(i) &&
           (!parameter.array || parameter.task || parameter.fallible || parameter.device ||
-           (parameter.builtin != BuiltinValue::Numeric && parameter.builtin != BuiltinValue::Bool)))
+           (parameter.builtin != BuiltinValue::Numeric && !isBooleanStorage(parameter))))
         return false;
     }
     visited += type.callable->parameters.size();
@@ -709,7 +710,7 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
                           (value.builtin == BuiltinValue::Numeric || isOwnedArray(value)))
                        : (!value.array && value.shape.empty());
       return collection && !value.task && !value.fallible && !value.device && !value.errorRecord &&
-             (value.builtin == BuiltinValue::Numeric || value.builtin == BuiltinValue::Bool ||
+             (value.builtin == BuiltinValue::Numeric || isBooleanStorage(value) ||
               value.builtin == BuiltinValue::String || value.builtin == BuiltinValue::Record ||
               value.builtin == BuiltinValue::TaskError ||
               value.builtin == BuiltinValue::FaultKind ||
@@ -734,10 +735,10 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
       if (!valid(valid, field.type, 0))
         return "invalid or unsupported function-valued field type";
   for (const auto &symbol : module.symbols) {
-    if (symbol.mutableAccess && (!symbol.parameter || !symbol.type.array || symbol.type.task ||
-                                 symbol.type.fallible || symbol.type.device ||
-                                 (symbol.type.builtin != BuiltinValue::Numeric &&
-                                  symbol.type.builtin != BuiltinValue::Bool)))
+    if (symbol.mutableAccess &&
+        (!symbol.parameter || !symbol.type.array || symbol.type.task || symbol.type.fallible ||
+         symbol.type.device ||
+         (symbol.type.builtin != BuiltinValue::Numeric && !isBooleanStorage(symbol.type))))
       return "invalid mutating parameter access";
     if (!valid(valid, symbol.type, 0))
       return "invalid or unsupported function-value type";
@@ -795,6 +796,11 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
          (fn.declaredResult && !sameStorageType(fn.resultType, *fn.declaredResult))))
       return "function changes its returned callable signature";
   }
+  const auto nonCompleting = nonCompletingValues(module);
+  const auto sameResult = [&](const ValueType &type, ValueId value) {
+    return nonCompleting[value] || sameStorageType(completed(type),
+                                                  completed(module.expressions[value].type));
+  };
   for (ValueId id = 0; id < module.expressions.size(); ++id) {
     const auto &expression = module.expressions[id];
     if (const auto *choice = std::get_if<ConditionalOperation>(&expression.operation);
@@ -830,37 +836,33 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
                              module.records[*input.record].fields[read->field].type))
           return "function field read changes its declared signature";
       } else if (const auto *loop = std::get_if<WhileOperation>(&expression.operation)) {
-        if ((!loop->normalResult && !loop->collecting) || loop->exitValues.empty())
+        if ((!loop->normalResult && !loop->collecting && !loop->functionBoundary) ||
+            loop->exitValues.empty())
           return "loop has no function result";
         for (auto result : loop->exitValues)
           if (result >= id ||
               !sameStorageType(loop->collecting ? recordArrayElement(expression.type)
                                                 : completed(expression.type),
-                                               completed(module.expressions[result].type)))
+                               completed(module.expressions[result].type)))
             return "loop changes a function-value signature";
       } else if (const auto *choice = std::get_if<ConditionalOperation>(&expression.operation)) {
         if (choice->trueResult >= id || choice->falseResult >= id ||
-            !sameStorageType(completed(expression.type),
-                             completed(module.expressions[choice->trueResult].type)) ||
-            !sameStorageType(completed(expression.type),
-                             completed(module.expressions[choice->falseResult].type)))
+            !sameResult(expression.type, choice->trueResult) ||
+            !sameResult(expression.type, choice->falseResult))
           return "conditional changes a function-value signature";
       } else if (const auto *group = std::get_if<ParallelOperation>(&expression.operation)) {
         if (group->result >= id ||
-            !sameStorageType(completed(expression.type),
-                             completed(module.expressions[group->result].type)))
+            !sameResult(expression.type, group->result))
           return "parallel group changes a returned function signature";
       } else if (const auto *caught = std::get_if<CatchOperation>(&expression.operation)) {
         if (caught->operand >= id || caught->result >= id ||
             !sameStorageType(completed(expression.type),
                              completed(module.expressions[caught->operand].type)) ||
-            !sameStorageType(completed(expression.type),
-                             completed(module.expressions[caught->result].type)))
+            !sameResult(expression.type, caught->result))
           return "catch changes a returned function signature";
       } else if (const auto *match = std::get_if<MatchOperation>(&expression.operation)) {
         for (const auto &arm : match->cases)
-          if (arm.result >= id || !sameStorageType(completed(expression.type),
-                                                   completed(module.expressions[arm.result].type)))
+          if (arm.result >= id || !sameResult(expression.type, arm.result))
             return "match changes a returned function signature";
       } else if (const auto *task = std::get_if<TaskOperation>(&expression.operation)) {
         if (task->operand >= id)

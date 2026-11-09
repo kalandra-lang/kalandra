@@ -16,17 +16,17 @@ root = Path(__file__).resolve().parents[2]
 compiler, clang = args.compiler.resolve(), args.clang.absolute()
 args.output.mkdir(parents=True, exist_ok=True)
 source = '''fn dot(a:Tensor[NUM,?],b:Tensor[NUM,?])->NUM:
-  reduceSum(a*b)
+  return reduceSum(a*b)
 fn axpy(a:Tensor[NUM,?],b:Tensor[NUM,?])->NUM:
-  reduceSum(a*3+b)
+  return reduceSum(a*3+b)
 fn matrix(a:Tensor[NUM,?,?],b:Tensor[NUM,?,?])->NUM:
-  reduceSum(matmul(a,b))
+  return reduceSum(matmul(a,b))
 fn divide(a:Tensor[NUM,?],b:Tensor[NUM,?])->NUM:
-  reduceSum((a+1)/(b+2))
+  return reduceSum((a+1)/(b+2))
 fn matrixCells(a:Tensor[NUM,?,?],b:Tensor[NUM,?,?])->Tensor[NUM,?,?]:
-  matmul(a,b)
+  return matmul(a,b)
 fn main()->NUM:
-  0
+  return 0
 '''
 
 def run(argv):
@@ -40,7 +40,7 @@ if not args.quick:
                  ('sanitized', '--sanitize', ['-O1', '-g', '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-fno-omit-frame-pointer'])]
     if sys.platform != 'win32':
         variants += [('thread-sanitized', '--thread-sanitize', ['-O1', '-g', '-fsanitize=thread', '-fno-omit-frame-pointer'])]
-for numeric in ('float32', 'float64'):
+for numeric in ('f32', 'f64'):
     path = args.output / (numeric + '.k')
     path.write_text(source.replace('NUM', numeric))
     for variant, flag, flags in variants:
@@ -56,12 +56,12 @@ for numeric in ('float32', 'float64'):
             runtime = compiler.parent / (('' if sys.platform == 'win32' else 'lib') + 'kalandra-native-runtime' +
                 ('-' + variant if 'sanitized' in variant else '') + ('.lib' if sys.platform == 'win32' else '.a'))
             run([clang, '-std=c++23', '-ffp-contract=off', '-Wno-override-module', '-pthread',
-                 *flags, *(['-fms-runtime-lib=static'] if sys.platform == 'win32' else []), '-DCASE=' + str(kind), *(['-DFLOAT32'] if numeric == 'float32' else []),
+                 *flags, *(['-fms-runtime-lib=static'] if sys.platform == 'win32' else []), '-DCASE=' + str(kind), *(['-DFLOAT32'] if numeric == 'f32' else []),
                  root / 'native/tests/CpuOptimizationRuntimeTests.cpp', ir, runtime, '-o', output])
             run([output])
             print(f'{numeric} {variant} {name}: passed', flush=True)
 print('Optimized CPU matrices: exact tree, per-cell/aggregate outputs, tails, strides, exceptional floats, allocation faults, cancellation and cleanup passed' if args.matrices_only else 'Optimized CPU loops: exact recursive tree reference, dense/positive/negative strides, exceptional floats, zero/odd/chunk tails, per-cell SIMD matrix results, seeded finite mantissas/exponents, rounding/FMA witnesses, isolated exceptional operands, allocation/shape faults and mid-loop cancellation passed')
-for numeric in (() if args.matrices_only else ('float32', 'float64')):
+for numeric in (() if args.matrices_only else ('f32', 'f64')):
     controls = [
         ('rank3', '?,?,?', 'tensor([1,2,3,4,5,6],[2,1,3])', '69'),
         ('empty-rank3', '?,?,?', 'tensor([],[2,0,3])', '0'),
@@ -69,12 +69,12 @@ for numeric in (() if args.matrices_only else ('float32', 'float64')):
     ]
     for name, dims, literal, expected in controls:
         path = args.output / f'{numeric}-{name}.k'
-        path.write_text(f'fn f(a:Tensor[{numeric},{dims}])->{numeric}:\n  reduceSum(a*3+1)\nfn main()->{numeric}:\n  f({literal})\n')
+        path.write_text(f'fn f(a:Tensor[{numeric},{dims}])->{numeric}:\n  return reduceSum(a*3+1)\nfn main()->{numeric}:\n  return f({literal})\n')
         output = path.with_suffix('')
         run([compiler, path, '-O2', '-o', output])
         assert run([output]).strip() == expected
     path = args.output / f'{numeric}-long.k'
-    path.write_text(f'fn f(a:Tensor[{numeric},?])->{numeric}:\n  reduceSum(a' + '+1'*40 + f')\nfn main()->{numeric}:\n  f(tensor([1,2,3]))\n')
+    path.write_text(f'fn f(a:Tensor[{numeric},?])->{numeric}:\n  return reduceSum(a' + '+1'*40 + f')\nfn main()->{numeric}:\n  return f(tensor([1,2,3]))\n')
     run([compiler, path, '-O2', '-o', path.with_suffix('')])
     assert run([path.with_suffix('')]).strip() == '126'
 if not args.matrices_only:

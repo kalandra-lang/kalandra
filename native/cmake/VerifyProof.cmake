@@ -64,7 +64,7 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E env KALANDRA_PROOF_FAIL_ALLOC=1 "$
 if(NOT "${STATUS}" STREQUAL "86" OR NOT STDOUT STREQUAL "" OR NOT STDERR MATCHES "AllocationFault")
   message(FATAL_ERROR "Injected allocation failure did not fault safely: ${STATUS}: ${STDERR}")
 endif()
-message(STATUS "49 float32 cases, 10000 allocations/releases, and allocation-failure check passed")
+message(STATUS "49 f32 cases, 10000 allocations/releases, and allocation-failure check passed")
 
 get_filename_component(VARIANT "${PROOF_BINARY}" NAME)
 set(REPORT [=[{

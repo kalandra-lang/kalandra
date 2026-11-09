@@ -29,7 +29,8 @@ int main(int argc, char **argv) {
   Invocation context;
   if (kalandra_collection_rank_v1 > cli::maximumCollectionRank ||
       (kalandra_collection_element_v1 > static_cast<unsigned>(NumericType::Float64) &&
-       kalandra_collection_element_v1 != cli::boolArrayElement) ||
+       kalandra_collection_element_v1 != cli::boolArrayElement &&
+       kalandra_collection_element_v1 != cli::unitArrayElement) ||
       kalandra_collection_array_v1 > 1) {
     context.fault(3);
     context.reportFailure();
@@ -37,7 +38,8 @@ int main(int argc, char **argv) {
   const auto rank = std::size_t(kalandra_collection_rank_v1);
   const auto element = static_cast<NumericType>(kalandra_collection_element_v1);
   const bool array = kalandra_collection_array_v1;
-  const bool boolean = kalandra_collection_element_v1 == cli::boolArrayElement;
+  const bool unit = kalandra_collection_element_v1 == cli::unitArrayElement;
+  const bool boolean = unit || kalandra_collection_element_v1 == cli::boolArrayElement;
   if ((boolean ? (!array || rank != 1)
                : !(array ? numericCollectionStorageAvailable(element, NumericTarget::Cpu)
                          : numericTensorElementwiseAvailable(element, NumericTarget::Cpu))) ||
@@ -55,6 +57,10 @@ int main(int argc, char **argv) {
     context.fault(3);
     context.reportFailure();
   }
+  if (unit && std::ranges::any_of(retained->data, [](auto cell) { return cell != std::byte{0}; })) {
+    context.fault(3);
+    context.reportFailure();
+  }
   context.settle();
   if (context.live() || context.allocations() != context.releases()) {
     std::fprintf(stderr, "collection display failed to settle result owners\n");
@@ -65,7 +71,7 @@ int main(int argc, char **argv) {
                  static_cast<unsigned long long>(context.live()),
                  static_cast<unsigned long long>(context.allocations()),
                  static_cast<unsigned long long>(context.releases()));
-  if (!(boolean ? printBoolArray(stdout, *retained, limit)
+  if (!(boolean ? printBoolArray(stdout, *retained, limit, unit)
                 : printCollection(stdout, *retained, {descriptor.dimensions.data(), rank}, element,
                                   array, limit))) {
     std::fprintf(stderr, "cannot write collection result\n");

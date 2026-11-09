@@ -1,38 +1,38 @@
-fn negate(value: float32) -> float32:
-  -value
+fn negate(value: f32) -> f32:
+  return -value
 
-fn difference(left: Tensor[float32, ?, ?], right: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  left - right
+fn difference(left: Tensor[f32, ?, ?], right: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return left - right
 
-fn lower(values: Tensor[float32, ?, ?], bias: float32) -> Tensor[float32, ?, ?]:
-  values - bias
+fn lower(values: Tensor[f32, ?, ?], bias: f32) -> Tensor[f32, ?, ?]:
+  return values - bias
 
-fn reverse(bias: float32, values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  bias - values
+fn reverse(bias: f32, values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return bias - values
 
-fn shift(values: Tensor[float32, ?, ?], bias: float32) -> Tensor[float32, ?, ?]:
-  values + negate(bias)
+fn shift(values: Tensor[f32, ?, ?], bias: f32) -> Tensor[f32, ?, ?]:
+  return values + negate(bias)
 
-fn vectorDifference(left: Tensor[float32, ?], right: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  left - right
+fn vectorDifference(left: Tensor[f32, ?], right: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return left - right
 
-fn vectorLower(values: Tensor[float32, ?], bias: float32) -> Tensor[float32, ?]:
-  values - bias
+fn vectorLower(values: Tensor[f32, ?], bias: f32) -> Tensor[f32, ?]:
+  return values - bias
 
-fn vectorReverse(bias: float32, values: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  bias - values
+fn vectorReverse(bias: f32, values: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return bias - values
 
-fn vectorShift(values: Tensor[float32, ?], bias: float32) -> Tensor[float32, ?]:
-  values + negate(bias)
+fn vectorShift(values: Tensor[f32, ?], bias: f32) -> Tensor[f32, ?]:
+  return values + negate(bias)
 
-fn total(values: Tensor[float32, ?]) -> float32:
-  reduceSum(values)
+fn total(values: Tensor[f32, ?]) -> f32:
+  return reduceSum(values)
 
-fn main() -> Tensor[float32, 2, 3] ! TaskError:
-  try parallel:
+fn main() -> Tensor[f32, 2, 3] ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    left: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
-    right: Tensor[float32, 2, 3] = tensor([[7, 8, 9], [10, 11, 12]])
+    left: Tensor[f32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+    right: Tensor[f32, 2, 3] = tensor([[7, 8, 9], [10, 11, 12]])
     a = try await transfer(left, gpu)
     b = try await transfer(right, gpu)
     delta = try await spawn difference(a, b) on gpu
@@ -40,8 +40,8 @@ fn main() -> Tensor[float32, 2, 3] ! TaskError:
     reversed = try await spawn reverse(0, lowered) on gpu
     shifted = try await spawn shift(reversed, 1) on gpu
     remote = try await transfer(shifted, devices.cpu())
-    x: Tensor[float32, 3] = tensor([1, 2, 3])
-    y: Tensor[float32, 3] = tensor([4, 5, 6])
+    x: Tensor[f32, 3] = tensor([1, 2, 3])
+    y: Tensor[f32, 3] = tensor([4, 5, 6])
     c = try await transfer(x, gpu)
     d = try await transfer(y, gpu)
     vd = try await spawn vectorDifference(c, d) on gpu

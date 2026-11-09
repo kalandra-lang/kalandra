@@ -26,19 +26,20 @@ struct NumericDescription {
   std::string_view name;
   NumericFamily family;
   unsigned bits;
+  std::string_view sourceName;
   constexpr unsigned bytes() const { return bits / 8; }
 };
 inline constexpr std::array numericTypes{
-    NumericDescription{NumericType::Int8, "int8", NumericFamily::SignedInteger, 8},
-    NumericDescription{NumericType::Int16, "int16", NumericFamily::SignedInteger, 16},
-    NumericDescription{NumericType::Int32, "int32", NumericFamily::SignedInteger, 32},
-    NumericDescription{NumericType::Int64, "int64", NumericFamily::SignedInteger, 64},
-    NumericDescription{NumericType::UInt8, "uint8", NumericFamily::UnsignedInteger, 8},
-    NumericDescription{NumericType::UInt16, "uint16", NumericFamily::UnsignedInteger, 16},
-    NumericDescription{NumericType::UInt32, "uint32", NumericFamily::UnsignedInteger, 32},
-    NumericDescription{NumericType::UInt64, "uint64", NumericFamily::UnsignedInteger, 64},
-    NumericDescription{NumericType::Float32, "float32", NumericFamily::BinaryFloat, 32},
-    NumericDescription{NumericType::Float64, "float64", NumericFamily::BinaryFloat, 64}};
+    NumericDescription{NumericType::Int8, "int8", NumericFamily::SignedInteger, 8, "i8"},
+    NumericDescription{NumericType::Int16, "int16", NumericFamily::SignedInteger, 16, "i16"},
+    NumericDescription{NumericType::Int32, "int32", NumericFamily::SignedInteger, 32, "i32"},
+    NumericDescription{NumericType::Int64, "int64", NumericFamily::SignedInteger, 64, "i64"},
+    NumericDescription{NumericType::UInt8, "uint8", NumericFamily::UnsignedInteger, 8, "u8"},
+    NumericDescription{NumericType::UInt16, "uint16", NumericFamily::UnsignedInteger, 16, "u16"},
+    NumericDescription{NumericType::UInt32, "uint32", NumericFamily::UnsignedInteger, 32, "u32"},
+    NumericDescription{NumericType::UInt64, "uint64", NumericFamily::UnsignedInteger, 64, "u64"},
+    NumericDescription{NumericType::Float32, "float32", NumericFamily::BinaryFloat, 32, "f32"},
+    NumericDescription{NumericType::Float64, "float64", NumericFamily::BinaryFloat, 64, "f64"}};
 constexpr std::optional<NumericDescription> describeNumeric(NumericType type) {
   for (auto description : numericTypes)
     if (description.type == type)
@@ -46,12 +47,13 @@ constexpr std::optional<NumericDescription> describeNumeric(NumericType type) {
   return {};
 }
 constexpr std::optional<NumericType> resolveNumeric(std::string_view name) {
-  if (name == "int")
-    return NumericType::Int64;
-  if (name == "uint")
-    return NumericType::UInt64;
-  if (name == "float")
-    return NumericType::Float64;
+  for (auto description : numericTypes)
+    if (description.sourceName == name)
+      return description.type;
+  return {};
+}
+// Resource and wire labels are independent of source-language spellings.
+constexpr std::optional<NumericType> resolveNumericStorage(std::string_view name) {
   for (auto description : numericTypes)
     if (description.name == name)
       return description.type;

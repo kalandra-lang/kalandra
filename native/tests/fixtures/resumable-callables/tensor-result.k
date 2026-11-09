@@ -1,10 +1,10 @@
-fn shift(values:Tensor[float32,?])->Tensor[float32,?]:
-  values+1
-fn run(values:Tensor[float32,?])->Tensor[float32,?] ! TaskError:
-  try parallel:
+fn shift(values:Tensor[f32,?])->Tensor[f32,?]:
+  return values+1
+fn run(values:Tensor[f32,?])->Tensor[f32,?] ! TaskError:
+  return try parallel:
     try await spawn shift(values)
-fn main()->float32 ! TaskError:
+fn main()->f32 ! TaskError:
   callback=run
-  input:Tensor[float32,2]=tensor([20,20])
+  input:Tensor[f32,2]=tensor([20,20])
   values=try callback(input)
-  reduceSum(values)
+  return reduceSum(values)

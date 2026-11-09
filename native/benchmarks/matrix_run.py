@@ -67,7 +67,7 @@ def main():
             directory = build / dtype
             directory.mkdir(exist_ok=True)
             source = directory / 'kernels.k'
-            source.write_text((src / 'kernels.k').read_text().replace('float64', dtype))
+            source.write_text((src / 'kernels.k').read_text().replace('f64', {'float32':'f32','float64':'f64'}[dtype]))
             host = directory / 'Driver.cpp'
             host.write_text(driver('Driver.cpp'))
             generated += [source, host]
@@ -84,7 +84,7 @@ def main():
                 artifacts.append(binary)
         directory = build / 'float32'
         gpu_source, gpu_host = directory / 'gpu.k', directory / 'GpuDriver.cpp'
-        gpu_source.write_text((src / 'gpu.k').read_text().replace('float64', 'float32'))
+        gpu_source.write_text((src / 'gpu.k').read_text().replace('f64', 'f32'))
         gpu_host.write_text(driver('GpuDriver.cpp'))
         bundle, gpu = directory / 'gpu-bundle', directory / 'gpu'
         p.run([compiler, gpu_source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '-o', bundle])

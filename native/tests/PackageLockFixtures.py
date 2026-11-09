@@ -46,12 +46,12 @@ def repository(name, source, dependencies=''):
 def request(name, source, revision):
     return f'{name}={{git={json.dumps(str(source))},rev={json.dumps(revision)}}}\n'
 
-geometry, first = repository('geometry', 'export fn next(n:int64)->int64:\n  n+1\n')
-(geometry / 'public.k').write_text('export fn next(n:int64)->int64:\n  n+2\n')
+geometry, first = repository('geometry', 'export fn next(n:i64)->i64:\n  return n+1\n')
+(geometry / 'public.k').write_text('export fn next(n:i64)->i64:\n  return n+2\n')
 second = commit(geometry)
-parent, third = repository('parent', 'from "geometry" import next\nexport fn compute(n:int64)->int64:\n  next(n)\n', request('geometry', geometry, first))
+parent, third = repository('parent', 'from "geometry" import next\nexport fn compute(n:i64)->i64:\n  return next(n)\n', request('geometry', geometry, first))
 configuration = "format=1\n[project]\nentry='main.k'\n[dependencies]\n" + request('geometry', geometry, second) + request('parent', parent, third)
-source = 'from "geometry" import next\nfrom "parent" import compute\nfn main()->[int64] ! TaskError:\n  old=try parallel:\n    try await spawn compute(10)\n  [next(10),old]\n'
+source = 'from "geometry" import next\nfrom "parent" import compute\nfn main()->[i64] ! TaskError:\n  old=try parallel:\n    try await spawn compute(10)\n  return [next(10),old]\n'
 
 def application(name, with_lock=None):
     path = root / name
@@ -193,7 +193,7 @@ for existing in [False, True]:
 # The lock namespace is reserved even without a cache or managed dependencies.
 plain = root / 'plain'
 plain.mkdir()
-(plain / 'main.k').write_text('fn main()->int64:\n  42\n')
+(plain / 'main.k').write_text('fn main()->i64:\n  return 42\n')
 (plain / 'kalandra.toml').write_text("format=1\n[project]\nentry='main.k'\n")
 run(args.compiler, '--project', plain / 'kalandra.toml', '-o', plain / 'kalandra.lock', ok=False)
 assert not (plain / 'kalandra.lock').exists()

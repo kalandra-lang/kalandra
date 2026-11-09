@@ -45,16 +45,16 @@ checks=0;records=[]
 for name,fmt,wire,width in types:
     if args.gpu and name=='Float64':ops=(0,)
     else:ops=(0,1,2) if fmt else (0,)
-    language=name.lower()
+    language=('f' if name.startswith('Float') else 'u' if name.startswith('UInt') else 'i')+str(width)
     for op in ops:
         operation=('transpose','softmaxRows','rmsNormRows')[op]
-        signature=f'fn work(x:Tensor[{language},?,?]'+(f',epsilon:{language}' if op==2 else '')+f')->Tensor[{language},?,?]:\n  {operation}(x'+(',epsilon' if op==2 else '')+')\n'
-        cpu_source=args.output/f'{name}-{operation}.k';cpu_source.write_text(signature+'fn main()->int64:\n  0\n')
+        signature=f'fn work(x:Tensor[{language},?,?]'+(f',epsilon:{language}' if op==2 else '')+f')->Tensor[{language},?,?]:\n  return {operation}(x'+(',epsilon' if op==2 else '')+')\n'
+        cpu_source=args.output/f'{name}-{operation}.k';cpu_source.write_text(signature+'fn main()->i64:\n  return 0\n')
         bundle=args.output/f'{name}-{operation}-bundle'
         if args.gpu:
             source=args.output/f'{name}-{operation}-gpu.k'
             source.write_text(signature+f'''fn main()->Tensor[{language},?,?] ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     cpu=devices.cpu()
     x:Tensor[{language},2,3]=tensor([[1,2,3],[4,5,6]])

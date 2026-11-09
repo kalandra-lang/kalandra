@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
     }
     if (mode == 5)
       check(failure.kind == TaskFailure::Fault && failure.code == 4 && failure.line == 2 &&
-                failure.column == 3 && !published,
+                failure.column == 10 && !published,
             "wrong conversion arithmetic fault/location");
     else if (mode == 1 || mode == 2)
       check(failure.kind == (mode == 1 ? TaskFailure::Cancelled : TaskFailure::DeadlineExceeded),
@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
   if (published)
     check(std::uint64_t(std::bit_cast<Raw>(out.value)) == expected,
           "value changed after owners destroyed");
-  std::cout << "Boolean task " << "Bool" << " workers " << workers << " mode " << mode
+  std::cout << "Boolean task " << "bool" << " workers " << workers << " mode " << mode
             << " allocation " << attempt
             << ": exact bits, typed cached layouts and settled owners passed\n";
 }

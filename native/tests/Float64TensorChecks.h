@@ -3,8 +3,8 @@ static void checkFloat64Tensors() {
   for (auto expression :
        {"a+b", "a-b", "a*b", "a/b", "a+1.5", "1.5-a", "a*2", "2/a", "-a", "+a", "a*b+a"}) {
     auto typed = analyze(
-        std::string("fn f(a:Tensor[float,?,?],b:Tensor[float64,?,?]) -> Tensor[float64,?,?]:\n  ") +
-        expression + "\nfn main() -> float:\n  0\n");
+        std::string("fn f(a:Tensor[f64,?,?],b:Tensor[f64,?,?]) -> Tensor[f64,?,?]:\n  return ") +
+        expression + "\nfn main() -> f64:\n  return 0\n");
     require(typed.ok(), expression);
 #ifndef KALANDRA_FLOAT64_FRONTEND_ONLY
     auto native = lowerNative(*typed.module, {}, {}, ArithmeticMode::Software);
@@ -25,8 +25,8 @@ static void checkFloat64Tensors() {
             ? "tensor([-0.0,1.0000000000000002,4.9406564584124654e-324,1.7976931348623157e308],[2,"
               "2,1])"
             : "tensor([-0.0,1.0000000000000002,4.9406564584124654e-324,1.7976931348623157e308])";
-    auto typed = analyze("fn values() -> Tensor[float" + std::string(shape) + "]:\n  " + values +
-                         "\nfn main() -> float:\n  0\n");
+    auto typed = analyze("fn values() -> Tensor[f64" + std::string(shape) + "]:\n  return " + values +
+                         "\nfn main() -> f64:\n  return 0\n");
     require(typed.ok(), "ranked binary64 tensor literal rejected");
 #ifndef KALANDRA_FLOAT64_FRONTEND_ONLY
     require(bool(lowerNative(*typed.module, {}, {}, ArithmeticMode::Software)),
@@ -34,8 +34,8 @@ static void checkFloat64Tensors() {
 #endif
   }
   for (auto shape : {"", ",?", ",?,?", ",?,?,?"}) {
-    auto typed = analyze("fn f(x:Tensor[float" + std::string(shape) +
-                         "]) -> float:\n  reduceSum(x)\nfn main() -> float:\n  0\n");
+    auto typed = analyze("fn f(x:Tensor[f64" + std::string(shape) +
+                         "]) -> f64:\n  return reduceSum(x)\nfn main() -> f64:\n  return 0\n");
     require(typed.ok(), "float64 reduction rejected");
 #ifndef KALANDRA_FLOAT64_FRONTEND_ONLY
     auto native = lowerNative(*typed.module, {}, {}, ArithmeticMode::Software);
@@ -54,17 +54,17 @@ static void checkFloat64Tensors() {
     const char *code;
   };
   for (auto test :
-       {Bad{"fn f(x:Tensor[float,?]) -> Tensor[float,?]:\n  x%2\n", "S019"},
-        Bad{"fn f(x:Tensor[float,?],y:Tensor[float32,?]) -> Tensor[float,?]:\n  x+y\n", "S017"},
-        Bad{"fn f() -> Tensor[float,1]:\n  tensor([1.8e308])\n", "S015"},
-        Bad{"fn f(x:Tensor[float,1152921504606846976]) -> float:\n  0\n", "S002"}}) {
+       {Bad{"fn f(x:Tensor[f64,?]) -> Tensor[f64,?]:\n  return x%2\n", "S019"},
+        Bad{"fn f(x:Tensor[f64,?],y:Tensor[f32,?]) -> Tensor[f64,?]:\n  return x+y\n", "S017"},
+        Bad{"fn f() -> Tensor[f64,1]:\n  return tensor([1.8e308])\n", "S015"},
+        Bad{"fn f(x:Tensor[f64,1152921504606846976]) -> f64:\n  return 0\n", "S002"}}) {
     auto typed = analyze(test.source);
     require(!typed.ok() && typed.diagnostics[0].code == test.code, test.source);
   }
-  auto limit = analyze("fn f(x:Tensor[float,1152921504606846975]) -> float:\n  0\n");
+  auto limit = analyze("fn f(x:Tensor[f64,1152921504606846975]) -> f64:\n  return 0\n");
   require(limit.ok(), "exact eight-byte static byte bound rejected");
-  auto matrix = analyze("fn f(a:Tensor[float,?,?],b:Tensor[float,?,?]) -> Tensor[float,?,?]:\n  "
-                        "matmul(a,b)\nfn main() -> float:\n  0\n");
+  auto matrix = analyze("fn f(a:Tensor[f64,?,?],b:Tensor[f64,?,?]) -> Tensor[f64,?,?]:\n  return "
+                        "matmul(a,b)\nfn main() -> f64:\n  return 0\n");
   require(matrix.ok(), "float64 matmul rejected");
 #ifndef KALANDRA_FLOAT64_FRONTEND_ONLY
   require(bool(lowerNative(*matrix.module)), "float64 matmul lowering rejected");
@@ -85,8 +85,8 @@ static void checkFloat64Tensors() {
     require(!lowerNative(forged), "unsupported matmul numerical policy admitted");
   }
   auto typed = analyze(
-      "fn f(x:Tensor[float,?]) -> Tensor[float,?]:\n  x+1\nfn main() -> float ! TaskError:\n  try "
-      "parallel:\n    x:Tensor[float,1]=tensor([1])\n    try await spawn f(x)\n    0\n");
+      "fn f(x:Tensor[f64,?]) -> Tensor[f64,?]:\n  return x+1\nfn main() -> f64 ! TaskError:\n  return try "
+      "parallel:\n    x:Tensor[f64,1]=tensor([1])\n    try await spawn f(x)\n    0\n");
   require(typed.ok(), "float64 tensor task rejected");
   auto native = lowerNative(*typed.module, {}, {}, ArithmeticMode::Software);
   require(bool(native) && native->llvm.find("value.layout.tensor.float64.1") != std::string::npos,

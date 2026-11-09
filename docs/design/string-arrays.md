@@ -4,11 +4,11 @@
 
 ```kalandra
 fn decorate(text: String) -> String:
-  text + "!"
+  return text + "!"
 
 fn main() -> [String] ! TaskError:
   names = ["north", "south"]
-  try parallel:
+  return try parallel:
     work = spawn map(names, decorate)
     first = try await work
     try await work

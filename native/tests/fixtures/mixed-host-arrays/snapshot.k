@@ -1,11 +1,11 @@
-fn twice(values:Tensor[int,?])->Tensor[int,?]:
-  values+values
-fn change(mut values:[int])->[int]:
+fn twice(values:Tensor[i64,?])->Tensor[i64,?]:
+  return values+values
+fn change(mut values:[i64])->[i64]:
   sort(values)
   values[0]=9
-  values
-fn main()->int ! TaskError:
-  try parallel:
+  return values
+fn main()->i64 ! TaskError:
+  return try parallel:
     values=[3,1,2]
     alias=values
     original=tensor(values)

@@ -76,8 +76,10 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   llvm::SmallVector<llvm::GlobalValue *, 16> descriptors;
   for (auto &global : candidate->globals())
     if (global.getName().starts_with("task.entry.") ||
-        global.getName().starts_with("value.layout.")) descriptors.push_back(&global);
-  if (!descriptors.empty()) llvm::appendToCompilerUsed(*candidate, descriptors);
+        global.getName().starts_with("value.layout."))
+      descriptors.push_back(&global);
+  if (!descriptors.empty())
+    llvm::appendToCompilerUsed(*candidate, descriptors);
   // Preserve the separately lowered task-controller IR. Its frame/state
   // layouts and checked entries have their own admission and optimization
   // policy; only synchronous native bodies and their adapters are optimized.
@@ -150,7 +152,8 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
         simplifyLeaf(fn, true);
   for (auto &fn : *candidate) {
     if (fn.isDeclaration() || fn.hasFnAttribute("kalandra.task.frame") ||
-        fn.hasFnAttribute(llvm::Attribute::OptimizeNone)) continue;
+        fn.hasFnAttribute(llvm::Attribute::OptimizeNone))
+      continue;
     // Promotion/simplification above changes value facts. Build fresh analyses
     // rather than consuming a cached range result from the module pipeline.
     llvm::FunctionAnalysisManager ranges;
@@ -159,13 +162,15 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
     auto &dom = ranges.getResult<llvm::DominatorTreeAnalysis>(fn);
     const bool changed = foldProvenIntegerComparisons(fn, lvi, dom);
     ranges.clear();
-    if (changed) simplifyLeaf(fn, true);
+    if (changed)
+      simplifyLeaf(fn, true);
   }
   // At the outermost callback there is no source caller left to unwind.
   // Return an explicit boundary failure instead. Keep the bit even if a host
   // resets its cancellation token before the runtime checks final readiness.
   for (auto &fn : *candidate) {
-    if (!fn.hasFnAttribute("kalandra.boundary")) continue;
+    if (!fn.hasFnAttribute("kalandra.boundary"))
+      continue;
     llvm::SmallVector<llvm::CallInst *, 4> aborts;
     for (auto &block : fn)
       for (auto &instruction : block)
@@ -179,11 +184,13 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
     for (auto *call : aborts) {
       auto *block = call->getParent();
       auto erase = call->getIterator();
-      while (erase != block->end()) erase = erase->eraseFromParent();
+      while (erase != block->end())
+        erase = erase->eraseFromParent();
       llvm::IRBuilder<> finish(block);
       finish.CreateRet(finish.getFalse());
     }
-    if (!aborts.empty()) fn.removeFnAttr(llvm::Attribute::NoReturn);
+    if (!aborts.empty())
+      fn.removeFnAttr(llvm::Attribute::NoReturn);
   }
   addBoundedEntries(*candidate, simplifyLeaf);
   addUnboundEntries(*candidate, simplifyLeaf);
@@ -199,29 +206,34 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   addOrdinaryBufferDirectEntries(*candidate, simplifyLeaf);
   specializeOrdinaryIntegerCases(*candidate, simplifyLeaf);
   lowerAArch64CheckedRemainders(*candidate);
-  if (auto error = normalizeWindowsTailPackets(*candidate)) return error;
+  if (auto error = normalizeWindowsTailPackets(*candidate))
+    return error;
   bool fits = !llvm::verifyModule(*candidate);
   for (auto &fn : *candidate) {
-    if (fn.isDeclaration() || fn.hasFnAttribute("kalandra.task.frame")) continue;
+    if (fn.isDeclaration() || fn.hasFnAttribute("kalandra.task.frame"))
+      continue;
     const auto name = fn.getName();
     // The numerical leaf allowance belongs to the computation worker, not
     // its checked entry, callback packet or mode dispatcher.
     const bool numericalWorker = name.starts_with("kalandra_fn_matmul_wide_") &&
-        (name.contains(".body.clear") || name.contains(".body.token") ||
-         name.contains(".body.observed"));
+                                 (name.contains(".body.clear") || name.contains(".body.token") ||
+                                  name.contains(".body.observed"));
     fits &= !nativeStackBudgetError(fn, candidate->getDataLayout(), numericalWorker);
   }
   // Optimization must not reject a previously admissible source program.
   if (fits)
     module = std::move(candidate);
-  else if (auto error = normalizeWindowsTailPackets(*module)) return error;
+  else if (auto error = normalizeWindowsTailPackets(*module))
+    return error;
   if (module->getTargetTriple().isOSWindows())
     for (auto &fn : *module)
       if (!fn.isDeclaration() && fn.getCallingConv() == llvm::CallingConv::Tail)
-        if (auto error = nativeStackBudgetError(fn, module->getDataLayout(),
-              fn.getName().starts_with("kalandra_fn_matmul_wide_") &&
-              (fn.getName().contains(".body.clear") || fn.getName().contains(".body.token") ||
-               fn.getName().contains(".body.observed")))) return error;
+        if (auto error = nativeStackBudgetError(
+                fn, module->getDataLayout(),
+                fn.getName().starts_with("kalandra_fn_matmul_wide_") &&
+                    (fn.getName().contains(".body.clear") || fn.getName().contains(".body.token") ||
+                     fn.getName().contains(".body.observed"))))
+          return error;
   for (auto &fn : *module)
     if (!fn.isDeclaration() && !fn.hasFnAttribute("kalandra.task.frame") &&
         !fn.hasFnAttribute(llvm::Attribute::AlwaysInline))
@@ -232,21 +244,25 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   // Call-site barriers preserve inlining among non-source task helpers.
   if (module->getTargetTriple().isOSDarwin() && module->getTargetTriple().isAArch64())
     for (auto &fn : *module)
-      if (!fn.isDeclaration() &&
-          (fn.hasFnAttribute("kalandra.native.pure-frame") || fn.hasFnAttribute("kalandra.boundary")))
+      if (!fn.isDeclaration() && (fn.hasFnAttribute("kalandra.native.pure-frame") ||
+                                  fn.hasFnAttribute("kalandra.boundary")))
         for (auto &block : fn)
           for (auto &instruction : block)
             if (auto *call = llvm::dyn_cast<llvm::CallBase>(&instruction))
-              if (auto *callee = call->getCalledFunction(); callee && !callee->isDeclaration() &&
+              if (auto *callee = call->getCalledFunction();
+                  callee && !callee->isDeclaration() &&
                   callee->hasFnAttribute("kalandra.task.frame"))
                 call->addFnAttr(llvm::Attribute::NoInline);
   for (auto &fn : *module) {
     if (fn.hasFnAttribute("kalandra.task.preserve")) {
       unsigned original = 0;
       fn.getFnAttribute("kalandra.task.preserve").getValueAsString().getAsInteger(10, original);
-      if (!(original & 1)) fn.removeFnAttr(llvm::Attribute::NoInline);
-      if (!(original & 2)) fn.removeFnAttr(llvm::Attribute::OptimizeNone);
-      if (original & 4) fn.addFnAttr(llvm::Attribute::AlwaysInline);
+      if (!(original & 1))
+        fn.removeFnAttr(llvm::Attribute::NoInline);
+      if (!(original & 2))
+        fn.removeFnAttr(llvm::Attribute::OptimizeNone);
+      if (original & 4)
+        fn.addFnAttr(llvm::Attribute::AlwaysInline);
       fn.removeFnAttr("kalandra.task.preserve");
     }
     fn.removeFnAttr("kalandra.task.frame");
@@ -259,7 +275,8 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
       // task-controller frames by a symbol-name approximation.
       fn.setSection("__TEXT,__kalandra,regular,pure_instructions");
       auto features = fn.getFnAttribute("target-features").getValueAsString().str();
-      if (!features.empty()) features += ',';
+      if (!features.empty())
+        features += ',';
       fn.addFnAttr("target-features", features + "+reserve-x28");
       fn.addFnAttr(llvm::Attribute::NoRedZone);
     }
@@ -279,8 +296,8 @@ class Lowerer {
 public:
   Lowerer(const TypedModule &input, MLIRContext &context, ArithmeticMode arithmetic,
           bool arrayTailLoops, const CpuTarget &target)
-      : arithmetic_(arithmetic), dataLayout_(target.dataLayout), arrayTailLoops_(arrayTailLoops), input_(input), builder_(&context),
-        module_(ModuleOp::create(builder_.getUnknownLoc())) {
+      : arithmetic_(arithmetic), dataLayout_(target.dataLayout), arrayTailLoops_(arrayTailLoops),
+        input_(input), builder_(&context), module_(ModuleOp::create(builder_.getUnknownLoc())) {
     mutableSymbols_.resize(input_.functions.size());
     for (SymbolId id = 0; id < input_.symbols.size(); ++id)
       if (input_.symbols[id].reassignable)
@@ -294,8 +311,8 @@ public:
     // callable values absent from main's inferred incoming-call graph.
     if (!openCallableInputs(testEntry, exports))
       invocationFlow_ = functionInvocationFlow(input_);
-    normalizeArrayInputs_ = managedNumericArrayInputFunctions(
-        input_, invocationFlow_ ? &*invocationFlow_ : nullptr);
+    normalizeArrayInputs_ =
+        managedNumericArrayInputFunctions(input_, invocationFlow_ ? &*invocationFlow_ : nullptr);
     recursiveClosures_ = hasRecursiveStorage(*planRecordStorage(input_));
     const TypedModule *ownership = &input_;
     if (recursiveClosures_) {
@@ -331,16 +348,22 @@ public:
         builder_.getFunctionType(
             {builder_.getI64Type(), builder_.getI64Type(), builder_.getI64Type()}, {}));
     fault.setPrivate();
-    if (std::ranges::any_of(input_.symbols, [](const auto &symbol) {
-          return symbol.type.array && symbol.type.builtin == BuiltinValue::Numeric;
-        }) || std::ranges::any_of(input_.expressions, [](const auto &expression) {
+    if (std::ranges::any_of(input_.symbols,
+                            [](const auto &symbol) {
+                              return symbol.type.array &&
+                                     symbol.type.builtin == BuiltinValue::Numeric;
+                            }) ||
+        std::ranges::any_of(input_.expressions, [](const auto &expression) {
           return expression.type.array && expression.type.builtin == BuiltinValue::Numeric;
         })) {
       const auto ptr = LLVM::LLVMPointerType::get(builder_.getContext());
       for (const auto &[name, signature] : std::vector<std::pair<std::string, FunctionType>>{
-               {"kalandra_array_import", builder_.getFunctionType({ptr, ptr, builder_.getI64Type()}, {})},
-               {"kalandra_array_validate", builder_.getFunctionType({ptr, builder_.getI64Type()}, {})}}) {
-        auto declaration = func::FuncOp::create(builder_, builder_.getUnknownLoc(), name, signature);
+               {"kalandra_array_import",
+                builder_.getFunctionType({ptr, ptr, builder_.getI64Type()}, {})},
+               {"kalandra_array_validate",
+                builder_.getFunctionType({ptr, builder_.getI64Type()}, {})}}) {
+        auto declaration =
+            func::FuncOp::create(builder_, builder_.getUnknownLoc(), name, signature);
         declaration.setPrivate();
       }
     }
@@ -431,11 +454,12 @@ public:
         parameters.push_back(type(input_.symbols[parameter].type));
       const auto result = type(function.declaredResult.value_or(function.resultType));
       const bool step = function.name.starts_with("__step_");
-      const bool referenceResult = function.resultType.array &&
-                                   (function.resultType.builtin == BuiltinValue::Numeric ||
-                                    isBoolArray(function.resultType));
+      const bool referenceResult =
+          function.resultType.array && (function.resultType.builtin == BuiltinValue::Numeric ||
+                                        isBoolArray(function.resultType));
       functions_[id] = func::FuncOp::create(builder_, location(function.declaration),
-                                            "kalandra_fn_" + std::to_string(id) + (step && referenceResult ? "_impl" : ""),
+                                            "kalandra_fn_" + std::to_string(id) +
+                                                (step && referenceResult ? "_impl" : ""),
                                             builder_.getFunctionType(parameters, {result}));
       if (referenceResult)
         functions_[id].setPrivate();
@@ -464,8 +488,7 @@ public:
     auto main =
         std::ranges::find_if(input_.functions, [](const auto &f) { return f.name == "main"; });
     if (main == input_.functions.end() || !main->parameters.empty() ||
-        (main->resultType.builtin != BuiltinValue::Numeric &&
-         main->resultType.builtin != BuiltinValue::Bool &&
+        (main->resultType.builtin != BuiltinValue::Numeric && !isBooleanStorage(main->resultType) &&
          main->resultType.builtin != BuiltinValue::String) ||
         (main->resultType.tensor && main->resultType.shape.size() > cli::maximumCollectionRank))
       throw LoweringFailure{
@@ -475,7 +498,8 @@ public:
     const auto entryName =
         main->resultType.tensor                            ? "kalandra_collection_entry"
         : main->resultType.builtin == BuiltinValue::String ? "kalandra_string_entry"
-        : main->resultType.builtin == BuiltinValue::Bool   ? "kalandra_bool_entry"
+        : main->resultType.builtin == BuiltinValue::Unit   ? "kalandra_unit_entry"
+        : isBooleanStorage(main->resultType)               ? "kalandra_bool_entry"
         : main->resultType.element == NumericType::Float64 ? "kalandra_float64_entry"
         : (main->resultType.element == NumericType::UInt64 ||
            main->resultType.element == NumericType::UInt8 ||
@@ -493,15 +517,16 @@ public:
         builder_.getFunctionType(
             {}, {isNarrowInteger(main->resultType.element) && !main->resultType.tensor
                      ? Type(builder_.getI64Type())
-                     : main->resultType.array && (main->resultType.builtin == BuiltinValue::Numeric || isBoolArray(main->resultType))
-                           ? recordDescriptor(main->resultType)
-                           : type(main->declaredResult.value_or(main->resultType))}));
+                 : main->resultType.array && (main->resultType.builtin == BuiltinValue::Numeric ||
+                                              isBoolArray(main->resultType))
+                     ? recordDescriptor(main->resultType)
+                     : type(main->declaredResult.value_or(main->resultType))}));
     entry->setAttr("llvm.emit_c_interface", builder_.getUnitAttr());
     builder_.setInsertionPointToStart(entry.addEntryBlock());
     const auto mainId = static_cast<FunctionId>(main - input_.functions.begin());
     auto call = func::CallOp::create(builder_, entry.getLoc(), functions_[mainId], ValueRange{});
-    if ((hasRecordBacking(input_) || hasOrdinaryStrings(input_) || usesArrayReferences_) && !main->resultType.tensor &&
-        main->resultType.builtin != BuiltinValue::String) {
+    if ((hasRecordBacking(input_) || hasOrdinaryStrings(input_) || usesArrayReferences_) &&
+        !main->resultType.tensor && main->resultType.builtin != BuiltinValue::String) {
       if (!module_->lookupSymbol<func::FuncOp>("kalandra_record_cleanup")) {
         OpBuilder::InsertionGuard insertion(builder_);
         builder_.setInsertionPointToStart(module_->getBody());
@@ -519,9 +544,11 @@ public:
       else
         result = arith::ExtSIOp::create(builder_, entry.getLoc(), builder_.getI64Type(), result);
       func::ReturnOp::create(builder_, entry.getLoc(), ValueRange{result});
-    } else if (main->resultType.array && (main->resultType.builtin == BuiltinValue::Numeric || isBoolArray(main->resultType)))
-      func::ReturnOp::create(builder_, entry.getLoc(),
-                            ValueRange{recordPack(entry.getLoc(), call.getResult(0), main->resultType)});
+    } else if (main->resultType.array &&
+               (main->resultType.builtin == BuiltinValue::Numeric || isBoolArray(main->resultType)))
+      func::ReturnOp::create(
+          builder_, entry.getLoc(),
+          ValueRange{recordPack(entry.getLoc(), call.getResult(0), main->resultType)});
     else
       func::ReturnOp::create(builder_, entry.getLoc(), call.getResults());
     if (testEntry)
@@ -537,7 +564,7 @@ private:
                                input_.source->origin(span.begin).first->path(), line, column);
   }
   bool openCallableInputs(const std::optional<std::string> &entry,
-                           const std::vector<std::string> &exports) const {
+                          const std::vector<std::string> &exports) const {
     std::unordered_set<std::string> names(exports.begin(), exports.end());
     if (entry)
       names.insert(*entry);
@@ -591,7 +618,7 @@ private:
                                                builder_.getI64Type(), builder_.getI64Type()});
     if (value.builtin == BuiltinValue::FaultKind)
       return builder_.getI32Type();
-    if (value.builtin == BuiltinValue::Bool && !value.tensor)
+    if (isBooleanStorage(value) && !value.tensor)
       return builder_.getI1Type();
     if (value.builtin == BuiltinValue::String) {
       const auto ptr = LLVM::LLVMPointerType::get(builder_.getContext());
@@ -612,8 +639,8 @@ private:
     if (value.array) {
       usesArrayReferences_ = true;
       return MemRefType::get({ShapedType::kDynamic}, element,
-          StridedLayoutAttr::get(builder_.getContext(), ShapedType::kDynamic,
-                                 {ShapedType::kDynamic}));
+                             StridedLayoutAttr::get(builder_.getContext(), ShapedType::kDynamic,
+                                                    {ShapedType::kDynamic}));
     }
     return RankedTensorType::get(shape, element);
   }
@@ -714,29 +741,35 @@ private:
   }
   Value recordPack(Location loc, Value input, const ValueType &field) {
     if (field.array) {
-      const auto name = "kalandra_array_hold_" + std::string(describeNumeric(storageElement(field))->name);
+      const auto name =
+          "kalandra_array_hold_" + std::string(describeNumeric(storageElement(field))->name);
       const auto reference = cast<MemRefType>(input.getType());
       const auto borrowed = MemRefType::get({ShapedType::kDynamic}, reference.getElementType(),
                                             reference.getLayout());
       if (!module_->lookupSymbol<func::FuncOp>(name)) {
         OpBuilder::InsertionGuard insertion(builder_);
         builder_.setInsertionPointToStart(module_->getBody());
-        auto declaration = func::FuncOp::create(builder_, loc, name,
-            builder_.getFunctionType({borrowed}, {}));
+        auto declaration =
+            func::FuncOp::create(builder_, loc, name, builder_.getFunctionType({borrowed}, {}));
         declaration.setPrivate();
       }
-      auto nonempty = compare(loc, arith::CmpIPredicate::ne, dimensions(loc, input)[0], index(loc, 0));
-      auto selected = scf::IfOp::create(builder_, loc, TypeRange{recordDescriptor(field)}, nonempty, true);
+      auto nonempty =
+          compare(loc, arith::CmpIPredicate::ne, dimensions(loc, input)[0], index(loc, 0));
+      auto selected =
+          scf::IfOp::create(builder_, loc, TypeRange{recordDescriptor(field)}, nonempty, true);
       {
         OpBuilder::InsertionGuard insertion(builder_);
         builder_.setInsertionPointToStart(&selected.getThenRegion().front());
         func::CallOp::create(builder_, loc, name, TypeRange{},
                              ValueRange{castTensor(loc, input, borrowed)});
         auto descriptor = UnrealizedConversionCastOp::create(
-            builder_, loc, TypeRange{recordDescriptor(field)}, ValueRange{input}).getResult(0);
+                              builder_, loc, TypeRange{recordDescriptor(field)}, ValueRange{input})
+                              .getResult(0);
         scf::YieldOp::create(builder_, loc, ValueRange{descriptor});
         builder_.setInsertionPointToStart(&selected.getElseRegion().front());
-        scf::YieldOp::create(builder_, loc, ValueRange{LLVM::ZeroOp::create(builder_, loc, recordDescriptor(field))});
+        scf::YieldOp::create(
+            builder_, loc,
+            ValueRange{LLVM::ZeroOp::create(builder_, loc, recordDescriptor(field))});
       }
       return selected.getResult(0);
     }
@@ -1019,7 +1052,8 @@ private:
         func::CallOp::create(builder_, loc, "kalandra_array_validate", TypeRange{},
                              ValueRange{slot, integer(loc, static_cast<unsigned>(field.element))});
       return UnrealizedConversionCastOp::create(builder_, loc, TypeRange{type(field)},
-                                                ValueRange{input}).getResult(0);
+                                                ValueRange{input})
+          .getResult(0);
     }
     auto ptr = LLVM::LLVMPointerType::get(builder_.getContext());
     Value address;
@@ -1116,8 +1150,8 @@ private:
   Value scalarComparison(Location loc, Value a, Value b, const ValueType &source,
                          ComparisonKind op) {
     using P = arith::CmpIPredicate;
-    if (source.builtin == BuiltinValue::Bool || isInteger(source.element)) {
-      const bool u = source.builtin == BuiltinValue::Bool || isUnsigned(source.element);
+    if (isBooleanStorage(source) || isInteger(source.element)) {
+      const bool u = isBooleanStorage(source) || isUnsigned(source.element);
       const auto predicate = op == ComparisonKind::Equal       ? P::eq
                              : op == ComparisonKind::NotEqual  ? P::ne
                              : op == ComparisonKind::Less      ? (u ? P::ult : P::slt)
@@ -1339,7 +1373,8 @@ private:
       auto allocation = memref::AllocOp::create(builder_, loc, dense, dynamic);
       return castTensor(loc, allocation, reference);
     }
-    return tensor::EmptyOp::create(builder_, loc, output.getShape(), output.getElementType(), dynamic);
+    return tensor::EmptyOp::create(builder_, loc, output.getShape(), output.getElementType(),
+                                   dynamic);
   }
   Value reductionScratch(Location loc, Value count, Type element = {}) {
     checkedCount(loc, {count}, element ? element.getIntOrFloatBitWidth() / 8 : 4);
@@ -1480,14 +1515,14 @@ private:
       auto first = arith::MulIOp::create(builder_, loc, groups, block);
       // Never pad missing leaves with zeros: signed zero and odd carry order
       // remain identical to the specified adjacent-pair tree.
-      auto value = reduction(loc, tail, scratch,
-                             [&](Value i) { return element(arith::AddIOp::create(builder_, loc, first, i)); },
-                             width);
+      auto value = reduction(
+          loc, tail, scratch,
+          [&](Value i) { return element(arith::AddIOp::create(builder_, loc, first, i)); }, width);
       scratchStore(loc, value, scratch, groups, width, base);
       // Result-free scf.if already owns its implicit yield.
     }
-    auto roots = arith::AddIOp::create(
-        builder_, loc, groups, arith::SelectOp::create(builder_, loc, hasTail, one, z));
+    auto roots = arith::AddIOp::create(builder_, loc, groups,
+                                       arith::SelectOp::create(builder_, loc, hasTail, one, z));
     return scratchReduction(loc, roots, scratch, width, base);
   }
   // Stream one short K-panel across all columns before visiting the next panel.
@@ -1508,56 +1543,68 @@ private:
       return arith::ConstantOp::create(builder_, loc, cell, builder_.getFloatAttr(cell, value));
     };
     if (kind == TensorTransformKind::RmsNormRows) {
-      auto positive = arith::CmpFOp::create(builder_, loc, arith::CmpFPredicate::OGT, epsilon, constant(0));
+      auto positive =
+          arith::CmpFOp::create(builder_, loc, arith::CmpFPredicate::OGT, epsilon, constant(0));
       auto finite = arith::CmpFOp::create(builder_, loc, arith::CmpFPredicate::OLT, epsilon,
-                                         constant(std::numeric_limits<double>::infinity()));
+                                          constant(std::numeric_limits<double>::infinity()));
       guard(loc, arith::AndIOp::create(builder_, loc, positive, finite), 4);
     }
     SmallVector<Value> dynamic;
     const auto rows = kind == TensorTransformKind::Transpose ? shape[1] : shape[0];
     const auto columns = kind == TensorTransformKind::Transpose ? shape[0] : shape[1];
-    if (output.isDynamicDim(0)) dynamic.push_back(rows);
-    if (output.isDynamicDim(1)) dynamic.push_back(columns);
+    if (output.isDynamicDim(0))
+      dynamic.push_back(rows);
+    if (output.isDynamicDim(1))
+      dynamic.push_back(columns);
     auto empty = tensor::EmptyOp::create(builder_, loc, output.getShape(), cell, dynamic);
     auto noCells = compare(loc, arith::CmpIPredicate::eq, cells, z);
     auto activeRows = arith::SelectOp::create(builder_, loc, noCells, z, shape[0]);
     if (kind == TensorTransformKind::Transpose) {
-      auto result = scf::ForOp::create(builder_, loc, z, activeRows, one, ValueRange{empty},
-          [&](OpBuilder &, Location, Value row, ValueRange outputs) {
-            auto line = scf::ForOp::create(builder_, loc, z, shape[1], one, outputs,
-                [&](OpBuilder &, Location, Value col, ValueRange values) {
-                  auto value = tensor::ExtractOp::create(builder_, loc, input, ValueRange{row, col});
-                  auto result = tensor::InsertOp::create(builder_, loc, value, values[0], ValueRange{col, row});
-                  scf::YieldOp::create(builder_, loc, ValueRange{result});
-                });
-            scf::YieldOp::create(builder_, loc, line.getResults());
-          });
+      auto result =
+          scf::ForOp::create(builder_, loc, z, activeRows, one, ValueRange{empty},
+                             [&](OpBuilder &, Location, Value row, ValueRange outputs) {
+                               auto line = scf::ForOp::create(
+                                   builder_, loc, z, shape[1], one, outputs,
+                                   [&](OpBuilder &, Location, Value col, ValueRange values) {
+                                     auto value = tensor::ExtractOp::create(builder_, loc, input,
+                                                                            ValueRange{row, col});
+                                     auto result = tensor::InsertOp::create(
+                                         builder_, loc, value, values[0], ValueRange{col, row});
+                                     scf::YieldOp::create(builder_, loc, ValueRange{result});
+                                   });
+                               scf::YieldOp::create(builder_, loc, line.getResults());
+                             });
       return result.getResult(0);
     }
     auto scratchCount = arith::SelectOp::create(builder_, loc, noCells, z, shape[1]);
     auto scratch = reductionScratch(loc, scratchCount, cell);
-    auto result = scf::ForOp::create(builder_, loc, z, activeRows, one, ValueRange{empty},
+    auto result = scf::ForOp::create(
+        builder_, loc, z, activeRows, one, ValueRange{empty},
         [&](OpBuilder &, Location, Value row, ValueRange outputs) {
           if (kind == TensorTransformKind::RmsNormRows) {
             auto sum = reduction(loc, shape[1], scratch, [&](Value col) -> Value {
               auto x = tensor::ExtractOp::create(builder_, loc, input, ValueRange{row, col});
               return arith::MulFOp::create(builder_, loc, x, x);
             });
-            auto count = arith::UIToFPOp::create(builder_, loc, cell,
+            auto count = arith::UIToFPOp::create(
+                builder_, loc, cell,
                 arith::IndexCastOp::create(builder_, loc, builder_.getI64Type(), shape[1]));
             auto mean = arith::DivFOp::create(builder_, loc, sum, count);
             auto shifted = arith::AddFOp::create(builder_, loc, mean, epsilon);
             auto denominator = math::SqrtOp::create(builder_, loc, shifted);
-            auto line = scf::ForOp::create(builder_, loc, z, shape[1], one, outputs,
+            auto line = scf::ForOp::create(
+                builder_, loc, z, shape[1], one, outputs,
                 [&](OpBuilder &, Location, Value col, ValueRange values) {
                   auto x = tensor::ExtractOp::create(builder_, loc, input, ValueRange{row, col});
                   auto y = arith::DivFOp::create(builder_, loc, x, denominator);
-                  auto value = tensor::InsertOp::create(builder_, loc, y, values[0], ValueRange{row, col});
+                  auto value =
+                      tensor::InsertOp::create(builder_, loc, y, values[0], ValueRange{row, col});
                   scf::YieldOp::create(builder_, loc, ValueRange{value});
                 });
             scf::YieldOp::create(builder_, loc, line.getResults());
           } else {
-            auto maximum = scf::ForOp::create(builder_, loc, z, shape[1], one,
+            auto maximum = scf::ForOp::create(
+                builder_, loc, z, shape[1], one,
                 ValueRange{constant(-std::numeric_limits<double>::infinity())},
                 [&](OpBuilder &, Location, Value col, ValueRange current) {
                   auto x = tensor::ExtractOp::create(builder_, loc, input, ValueRange{row, col});
@@ -1567,15 +1614,19 @@ private:
             auto infinity = constant(std::numeric_limits<double>::infinity());
             auto positiveInfinity = arith::CmpFOp::create(builder_, loc, arith::CmpFPredicate::OEQ,
                                                           maximum.getResult(0), infinity);
-            auto exponentials = scf::ForOp::create(builder_, loc, z, shape[1], one, outputs,
+            auto exponentials = scf::ForOp::create(
+                builder_, loc, z, shape[1], one, outputs,
                 [&](OpBuilder &, Location, Value col, ValueRange values) {
                   auto x = tensor::ExtractOp::create(builder_, loc, input, ValueRange{row, col});
-                  auto evaluate = scf::IfOp::create(builder_, loc, TypeRange{cell}, positiveInfinity, true, true);
+                  auto evaluate = scf::IfOp::create(builder_, loc, TypeRange{cell},
+                                                    positiveInfinity, true, true);
                   {
                     OpBuilder::InsertionGuard guard(builder_);
                     builder_.setInsertionPointToStart(&evaluate.getThenRegion().front());
-                    auto matches = arith::CmpFOp::create(builder_, loc, arith::CmpFPredicate::OEQ, x, infinity);
-                    auto value = arith::SelectOp::create(builder_, loc, matches, constant(1), constant(0));
+                    auto matches = arith::CmpFOp::create(builder_, loc, arith::CmpFPredicate::OEQ,
+                                                         x, infinity);
+                    auto value =
+                        arith::SelectOp::create(builder_, loc, matches, constant(1), constant(0));
                     scf::YieldOp::create(builder_, loc, ValueRange{value});
                     builder_.setInsertionPointToStart(&evaluate.getElseRegion().front());
                     auto shifted = arith::SubFOp::create(builder_, loc, x, maximum.getResult(0));
@@ -1584,15 +1635,19 @@ private:
                   }
                   auto value = evaluate.getResult(0);
                   scratchStore(loc, value, scratch, col, 1);
-                  auto next = tensor::InsertOp::create(builder_, loc, value, values[0], ValueRange{row, col});
+                  auto next = tensor::InsertOp::create(builder_, loc, value, values[0],
+                                                       ValueRange{row, col});
                   scf::YieldOp::create(builder_, loc, ValueRange{next});
                 });
             auto denominator = scratchReduction(loc, shape[1], scratch);
-            auto line = scf::ForOp::create(builder_, loc, z, shape[1], one, exponentials.getResults(),
+            auto line = scf::ForOp::create(
+                builder_, loc, z, shape[1], one, exponentials.getResults(),
                 [&](OpBuilder &, Location, Value col, ValueRange values) {
-                  auto value = tensor::ExtractOp::create(builder_, loc, values[0], ValueRange{row, col});
+                  auto value =
+                      tensor::ExtractOp::create(builder_, loc, values[0], ValueRange{row, col});
                   auto y = arith::DivFOp::create(builder_, loc, value, denominator);
-                  auto next = tensor::InsertOp::create(builder_, loc, y, values[0], ValueRange{row, col});
+                  auto next =
+                      tensor::InsertOp::create(builder_, loc, y, values[0], ValueRange{row, col});
                   scf::YieldOp::create(builder_, loc, ValueRange{next});
                 });
             scf::YieldOp::create(builder_, loc, line.getResults());
@@ -1617,13 +1672,16 @@ private:
     auto groups = arith::DivUIOp::create(builder_, loc, left[1], block);
     auto tail = arith::RemUIOp::create(builder_, loc, left[1], block);
     auto hasTail = compare(loc, arith::CmpIPredicate::ne, tail, z);
-    auto roots = arith::AddIOp::create(
-        builder_, loc, groups, arith::SelectOp::create(builder_, loc, hasTail, one, z));
+    auto roots = arith::AddIOp::create(builder_, loc, groups,
+                                       arith::SelectOp::create(builder_, loc, hasTail, one, z));
     auto rootCount = checkedCount(loc, {roots, right[1]}, cell.getIntOrFloatBitWidth() / 8);
     const auto temporary = blockSize * columns;
-    guard(loc, compare(loc, arith::CmpIPredicate::ule, rootCount,
-                       index(loc, std::numeric_limits<std::int64_t>::max() /
-                                          (cell.getIntOrFloatBitWidth() / 8) - temporary)), 2);
+    guard(loc,
+          compare(loc, arith::CmpIPredicate::ule, rootCount,
+                  index(loc, std::numeric_limits<std::int64_t>::max() /
+                                     (cell.getIntOrFloatBitWidth() / 8) -
+                                 temporary)),
+          2);
     auto scratch = reductionScratch(
         loc, arith::AddIOp::create(builder_, loc, rootCount, index(loc, temporary)), cell);
     auto layout = StridedLayoutAttr::get(builder_.getContext(), ShapedType::kDynamic,
@@ -1631,30 +1689,36 @@ private:
     auto sourceType = MemRefType::get(cast<RankedTensorType>(b.getType()).getShape(), cell, layout);
     auto buffer = bufferization::ToBufferOp::create(builder_, loc, sourceType, b, true);
     auto metadata = memref::ExtractStridedMetadataOp::create(builder_, loc, buffer);
-    auto denseType = MemRefType::get({ShapedType::kDynamic, ShapedType::kDynamic}, cell,
-        StridedLayoutAttr::get(builder_.getContext(), ShapedType::kDynamic,
-                              {ShapedType::kDynamic, 1}));
+    auto denseType =
+        MemRefType::get({ShapedType::kDynamic, ShapedType::kDynamic}, cell,
+                        StridedLayoutAttr::get(builder_.getContext(), ShapedType::kDynamic,
+                                               {ShapedType::kDynamic, 1}));
     auto dense = memref::ReinterpretCastOp::create(
         builder_, loc, denseType, metadata.getSource(), metadata.getOffset(),
         ArrayRef<OpFoldResult>{right[0], right[1]},
         ArrayRef<OpFoldResult>{metadata.getStrides()[0], builder_.getIndexAttr(1)});
     const auto vectorType = VectorType::get({columns}, cell);
     const auto offset = [&](Value root, Value col) -> Value {
-      return arith::AddIOp::create(builder_, loc, index(loc, temporary),
-          arith::AddIOp::create(builder_, loc,
-              arith::MulIOp::create(builder_, loc, root, right[1]), col));
+      return arith::AddIOp::create(
+          builder_, loc, index(loc, temporary),
+          arith::AddIOp::create(builder_, loc, arith::MulIOp::create(builder_, loc, root, right[1]),
+                                col));
     };
     const auto load = [&](Value root, Value col) -> Value {
-      return vector::LoadOp::create(builder_, loc, vectorType, scratch, ValueRange{offset(root, col)});
+      return vector::LoadOp::create(builder_, loc, vectorType, scratch,
+                                    ValueRange{offset(root, col)});
     };
     const auto store = [&](Value value, Value root, Value col) {
       vector::StoreOp::create(builder_, loc, value, scratch, ValueRange{offset(root, col)});
     };
     SmallVector<Value> dynamic;
-    if (output.isDynamicDim(0)) dynamic.push_back(left[0]);
-    if (output.isDynamicDim(1)) dynamic.push_back(right[1]);
+    if (output.isDynamicDim(0))
+      dynamic.push_back(left[0]);
+    if (output.isDynamicDim(1))
+      dynamic.push_back(right[1]);
     auto empty = tensor::EmptyOp::create(builder_, loc, output.getShape(), cell, dynamic);
-    auto result = scf::ForOp::create(builder_, loc, z, left[0], one, ValueRange{empty},
+    auto result = scf::ForOp::create(
+        builder_, loc, z, left[0], one, ValueRange{empty},
         [&](OpBuilder &, Location, Value row, ValueRange rowValues) {
           const auto product = [&](Value k, Value col) -> Value {
             auto x = tensor::ExtractOp::create(builder_, loc, a, ValueRange{row, k});
@@ -1662,14 +1726,17 @@ private:
             auto lhs = vector::BroadcastOp::create(builder_, loc, vectorType, x);
             return arith::MulFOp::create(builder_, loc, lhs, rhs);
           };
-          scf::ForOp::create(builder_, loc, z, groups, one, ValueRange{},
+          scf::ForOp::create(
+              builder_, loc, z, groups, one, ValueRange{},
               [&](OpBuilder &, Location, Value group, ValueRange) {
                 auto first = arith::MulIOp::create(builder_, loc, group, block);
-                scf::ForOp::create(builder_, loc, z, right[1], step, ValueRange{},
+                scf::ForOp::create(
+                    builder_, loc, z, right[1], step, ValueRange{},
                     [&](OpBuilder &, Location, Value col, ValueRange) {
                       const auto tree = [&](auto &&self, unsigned start, unsigned length) -> Value {
                         if (length == 1)
-                          return product(arith::AddIOp::create(builder_, loc, first, index(loc, start)), col);
+                          return product(
+                              arith::AddIOp::create(builder_, loc, first, index(loc, start)), col);
                         auto x = self(self, start, length / 2);
                         auto y = self(self, start + length / 2, length / 2);
                         return arith::AddFOp::create(builder_, loc, x, y);
@@ -1682,56 +1749,66 @@ private:
           scf::IfOp::create(builder_, loc, hasTail, [&](OpBuilder &, Location) {
             auto first = arith::MulIOp::create(builder_, loc, groups, block);
             scf::ForOp::create(builder_, loc, z, right[1], step, ValueRange{},
-                [&](OpBuilder &, Location, Value col, ValueRange) {
-                  auto value = reduction(loc, tail, scratch, [&](Value k) {
-                    return product(arith::AddIOp::create(builder_, loc, first, k), col);
-                  }, columns);
-                  store(value, groups, col);
-                  scf::YieldOp::create(builder_, loc);
-                });
+                               [&](OpBuilder &, Location, Value col, ValueRange) {
+                                 auto value = reduction(
+                                     loc, tail, scratch,
+                                     [&](Value k) {
+                                       return product(
+                                           arith::AddIOp::create(builder_, loc, first, k), col);
+                                     },
+                                     columns);
+                                 store(value, groups, col);
+                                 scf::YieldOp::create(builder_, loc);
+                               });
             scf::YieldOp::create(builder_, loc);
           });
-          scf::WhileOp::create(builder_, loc, TypeRange{builder_.getIndexType()}, ValueRange{roots},
+          scf::WhileOp::create(
+              builder_, loc, TypeRange{builder_.getIndexType()}, ValueRange{roots},
               [&](OpBuilder &, Location, ValueRange args) {
-                scf::ConditionOp::create(builder_, loc,
-                    compare(loc, arith::CmpIPredicate::ugt, args[0], one), args);
+                scf::ConditionOp::create(
+                    builder_, loc, compare(loc, arith::CmpIPredicate::ugt, args[0], one), args);
               },
               [&](OpBuilder &, Location, ValueRange args) {
                 auto pairs = arith::DivUIOp::create(builder_, loc, args[0], two);
                 auto odd = arith::RemUIOp::create(builder_, loc, args[0], two);
                 scf::ForOp::create(builder_, loc, z, pairs, one, ValueRange{},
-                    [&](OpBuilder &, Location, Value i, ValueRange) {
-                      auto first = arith::MulIOp::create(builder_, loc, i, two);
-                      auto second = arith::AddIOp::create(builder_, loc, first, one);
-                      scf::ForOp::create(builder_, loc, z, right[1], step, ValueRange{},
-                          [&](OpBuilder &, Location, Value col, ValueRange) {
-                            auto x = load(first, col), y = load(second, col);
-                            store(arith::AddFOp::create(builder_, loc, x, y), i, col);
-                            scf::YieldOp::create(builder_, loc);
-                          });
-                      scf::YieldOp::create(builder_, loc);
-                    });
+                                   [&](OpBuilder &, Location, Value i, ValueRange) {
+                                     auto first = arith::MulIOp::create(builder_, loc, i, two);
+                                     auto second = arith::AddIOp::create(builder_, loc, first, one);
+                                     scf::ForOp::create(
+                                         builder_, loc, z, right[1], step, ValueRange{},
+                                         [&](OpBuilder &, Location, Value col, ValueRange) {
+                                           auto x = load(first, col), y = load(second, col);
+                                           store(arith::AddFOp::create(builder_, loc, x, y), i,
+                                                 col);
+                                           scf::YieldOp::create(builder_, loc);
+                                         });
+                                     scf::YieldOp::create(builder_, loc);
+                                   });
                 scf::IfOp::create(builder_, loc, compare(loc, arith::CmpIPredicate::ne, odd, z),
-                    [&](OpBuilder &, Location) {
-                      auto last = arith::SubIOp::create(builder_, loc, args[0], one);
-                      scf::ForOp::create(builder_, loc, z, right[1], step, ValueRange{},
-                          [&](OpBuilder &, Location, Value col, ValueRange) {
-                            store(load(last, col), pairs, col);
-                            scf::YieldOp::create(builder_, loc);
-                          });
-                      scf::YieldOp::create(builder_, loc);
-                    });
+                                  [&](OpBuilder &, Location) {
+                                    auto last = arith::SubIOp::create(builder_, loc, args[0], one);
+                                    scf::ForOp::create(
+                                        builder_, loc, z, right[1], step, ValueRange{},
+                                        [&](OpBuilder &, Location, Value col, ValueRange) {
+                                          store(load(last, col), pairs, col);
+                                          scf::YieldOp::create(builder_, loc);
+                                        });
+                                    scf::YieldOp::create(builder_, loc);
+                                  });
                 scf::YieldOp::create(builder_, loc,
-                    ValueRange{arith::AddIOp::create(builder_, loc, pairs, odd)});
+                                     ValueRange{arith::AddIOp::create(builder_, loc, pairs, odd)});
               });
-          auto values = scf::ForOp::create(builder_, loc, z, right[1], step, rowValues,
+          auto values = scf::ForOp::create(
+              builder_, loc, z, right[1], step, rowValues,
               [&](OpBuilder &, Location, Value col, ValueRange outputs) {
                 auto value = load(z, col);
                 Value output = outputs[0];
                 for (unsigned c = 0; c < columns; ++c) {
                   auto scalar = vector::ExtractOp::create(builder_, loc, value, std::int64_t(c));
                   auto at = arith::AddIOp::create(builder_, loc, col, index(loc, c));
-                  output = tensor::InsertOp::create(builder_, loc, scalar, output, ValueRange{row, at});
+                  output =
+                      tensor::InsertOp::create(builder_, loc, scalar, output, ValueRange{row, at});
                 }
                 scf::YieldOp::create(builder_, loc, ValueRange{output});
               });
@@ -1794,28 +1871,33 @@ private:
       // Pack full column panels once. A contraction then streams a small
       // contiguous panel instead of walking the RHS at its full row pitch.
       auto panels = arith::DivUIOp::create(builder_, loc, right[1], panelStep);
-      packedRight = reductionScratch(
-          loc, checkedCount(loc, {panels, left[1], panelStep},
-                            output.getElementType().getIntOrFloatBitWidth() / 8),
-          output.getElementType());
-      scf::ForOp::create(builder_, loc, z, panels, one, ValueRange{},
-                        [&](OpBuilder &, Location, Value panel, ValueRange) {
-                          scf::ForOp::create(builder_, loc, z, left[1], one, ValueRange{},
-                                            [&](OpBuilder &, Location, Value k, ValueRange) {
-                                              auto first = arith::MulIOp::create(builder_, loc, panel, panelStep);
-                                              auto row = arith::AddIOp::create(
-                                                  builder_, loc, arith::MulIOp::create(builder_, loc, panel, left[1]), k);
-                                              auto base = arith::MulIOp::create(builder_, loc, row, panelStep);
-                                              for (unsigned c = 0; c < tileColumns; ++c) {
-                                                auto column = arith::AddIOp::create(builder_, loc, first, index(loc, c));
-                                                auto value = memref::LoadOp::create(builder_, loc, denseBuffer, ValueRange{k, column});
-                                                memref::StoreOp::create(builder_, loc, value, packedRight,
-                                                    ValueRange{arith::AddIOp::create(builder_, loc, base, index(loc, c))});
-                                              }
-                                              scf::YieldOp::create(builder_, loc);
-                                            });
-                          scf::YieldOp::create(builder_, loc);
-                        });
+      packedRight =
+          reductionScratch(loc,
+                           checkedCount(loc, {panels, left[1], panelStep},
+                                        output.getElementType().getIntOrFloatBitWidth() / 8),
+                           output.getElementType());
+      scf::ForOp::create(
+          builder_, loc, z, panels, one, ValueRange{},
+          [&](OpBuilder &, Location, Value panel, ValueRange) {
+            scf::ForOp::create(
+                builder_, loc, z, left[1], one, ValueRange{},
+                [&](OpBuilder &, Location, Value k, ValueRange) {
+                  auto first = arith::MulIOp::create(builder_, loc, panel, panelStep);
+                  auto row = arith::AddIOp::create(
+                      builder_, loc, arith::MulIOp::create(builder_, loc, panel, left[1]), k);
+                  auto base = arith::MulIOp::create(builder_, loc, row, panelStep);
+                  for (unsigned c = 0; c < tileColumns; ++c) {
+                    auto column = arith::AddIOp::create(builder_, loc, first, index(loc, c));
+                    auto value =
+                        memref::LoadOp::create(builder_, loc, denseBuffer, ValueRange{k, column});
+                    memref::StoreOp::create(
+                        builder_, loc, value, packedRight,
+                        ValueRange{arith::AddIOp::create(builder_, loc, base, index(loc, c))});
+                  }
+                  scf::YieldOp::create(builder_, loc);
+                });
+            scf::YieldOp::create(builder_, loc);
+          });
     }
     auto remainder = arith::RemUIOp::create(builder_, loc, right[1], four);
     auto tiledColumns = arith::SubIOp::create(builder_, loc, right[1], remainder);
@@ -1841,15 +1923,17 @@ private:
           auto col = arith::AddIOp::create(builder_, loc, column, index(loc, c));
           if (denseRight && columns == tileColumns) {
             auto panel = arith::DivUIOp::create(builder_, loc, column, panelStep);
-            auto packedRow = arith::AddIOp::create(builder_, loc,
-                arith::MulIOp::create(builder_, loc, panel, left[1]), k);
-            auto at = arith::AddIOp::create(builder_, loc,
-                arith::MulIOp::create(builder_, loc, packedRow, panelStep), index(loc, c));
+            auto packedRow = arith::AddIOp::create(
+                builder_, loc, arith::MulIOp::create(builder_, loc, panel, left[1]), k);
+            auto at = arith::AddIOp::create(
+                builder_, loc, arith::MulIOp::create(builder_, loc, packedRow, panelStep),
+                index(loc, c));
             values.push_back(memref::LoadOp::create(builder_, loc, packedRight, ValueRange{at}));
           } else
-            values.push_back(denseRight
-                                 ? Value(memref::LoadOp::create(builder_, loc, denseBuffer, ValueRange{k, col}))
-                                 : Value(tensor::ExtractOp::create(builder_, loc, b, ValueRange{k, col})));
+            values.push_back(
+                denseRight
+                    ? Value(memref::LoadOp::create(builder_, loc, denseBuffer, ValueRange{k, col}))
+                    : Value(tensor::ExtractOp::create(builder_, loc, b, ValueRange{k, col})));
         }
         if (lanes == 1) {
           return arith::MulFOp::create(builder_, loc, singleX, values[0]);
@@ -1937,8 +2021,8 @@ private:
       return rows.getResult(0);
     };
     if (wide) {
-      auto fullRows = arith::SubIOp::create(builder_, loc, rowCount,
-                                            arith::RemUIOp::create(builder_, loc, rowCount, rowStep));
+      auto fullRows = arith::SubIOp::create(
+          builder_, loc, rowCount, arith::RemUIOp::create(builder_, loc, rowCount, rowStep));
       auto fullColumns = arith::SubIOp::create(
           builder_, loc, right[1], arith::RemUIOp::create(builder_, loc, right[1], panelStep));
       auto main =
@@ -1947,7 +2031,8 @@ private:
                                auto cols = scf::ForOp::create(
                                    builder_, loc, z, fullColumns, panelStep, values,
                                    [&](OpBuilder &, Location, Value col, ValueRange outputs) {
-                                     auto result = tile(row, col, outputs[0], tileRows, tileColumns, true);
+                                     auto result =
+                                         tile(row, col, outputs[0], tileRows, tileColumns, true);
                                      scf::YieldOp::create(builder_, loc, ValueRange{result});
                                    });
                                scf::YieldOp::create(builder_, loc, cols.getResults());
@@ -2066,7 +2151,7 @@ private:
       // Specialize only a proven unit column stride. Row stride, offsets and
       // general/non-contiguous layouts retain their original descriptor meaning.
       auto layout = StridedLayoutAttr::get(builder_.getContext(), ShapedType::kDynamic,
-                                          {ShapedType::kDynamic, ShapedType::kDynamic});
+                                           {ShapedType::kDynamic, ShapedType::kDynamic});
       auto bufferType =
           MemRefType::get(cast<RankedTensorType>(helper.getArgument(1).getType()).getShape(),
                           output.getElementType(), layout);
@@ -2078,39 +2163,44 @@ private:
       Value stream = dense;
       auto inner = metadata.getSizes()[0], columns = metadata.getSizes()[1];
       auto block = index(loc, matmulReductionBlock(output.getElementType()));
-      auto roots = arith::AddIOp::create(builder_, loc,
-          arith::DivUIOp::create(builder_, loc, inner, block),
+      auto roots = arith::AddIOp::create(
+          builder_, loc, arith::DivUIOp::create(builder_, loc, inner, block),
           arith::SelectOp::create(builder_, loc,
-              compare(loc, arith::CmpIPredicate::ne,
-                  arith::RemUIOp::create(builder_, loc, inner, block), index(loc, 0)),
-              index(loc, 1), index(loc, 0)));
-      auto nonzeroColumns = arith::SelectOp::create(builder_, loc,
-          compare(loc, arith::CmpIPredicate::eq, columns, index(loc, 0)), index(loc, 1), columns);
+                                  compare(loc, arith::CmpIPredicate::ne,
+                                          arith::RemUIOp::create(builder_, loc, inner, block),
+                                          index(loc, 0)),
+                                  index(loc, 1), index(loc, 0)));
+      auto nonzeroColumns = arith::SelectOp::create(
+          builder_, loc, compare(loc, arith::CmpIPredicate::eq, columns, index(loc, 0)),
+          index(loc, 1), columns);
       // Bounded additional workspace; unsupported strides/columns/working sets
       // retain the original implementation. This is not a language shape cap.
       const unsigned streamColumns = output.getElementType().isF64() ? 8 : 16;
-      auto workspaceLimit = arith::DivUIOp::create(builder_, loc,
-          index(loc, 1024 * 1024 - streamColumns * matmulReductionBlock(output.getElementType())), nonzeroColumns);
-      for (auto condition : {
-             compare(loc, arith::CmpIPredicate::ult, rows, index(loc, 4)),
-             compare(loc, arith::CmpIPredicate::uge, rows, index(loc, 1)),
-             compare(loc, arith::CmpIPredicate::uge, inner, index(loc, 128)),
-             compare(loc, arith::CmpIPredicate::uge, columns, index(loc, 32)),
-             compare(loc, arith::CmpIPredicate::eq,
-                 arith::RemUIOp::create(builder_, loc, columns, index(loc, streamColumns)), index(loc, 0)),
-             compare(loc, arith::CmpIPredicate::ule, roots, workspaceLimit)})
+      auto workspaceLimit = arith::DivUIOp::create(
+          builder_, loc,
+          index(loc, 1024 * 1024 - streamColumns * matmulReductionBlock(output.getElementType())),
+          nonzeroColumns);
+      for (auto condition :
+           {compare(loc, arith::CmpIPredicate::ult, rows, index(loc, 4)),
+            compare(loc, arith::CmpIPredicate::uge, rows, index(loc, 1)),
+            compare(loc, arith::CmpIPredicate::uge, inner, index(loc, 128)),
+            compare(loc, arith::CmpIPredicate::uge, columns, index(loc, 32)),
+            compare(loc, arith::CmpIPredicate::eq,
+                    arith::RemUIOp::create(builder_, loc, columns, index(loc, streamColumns)),
+                    index(loc, 0)),
+            compare(loc, arith::CmpIPredicate::ule, roots, workspaceLimit)})
         stream = arith::AndIOp::create(builder_, loc, stream, condition);
-      for (auto condition : {
-             compare(loc, arith::CmpIPredicate::uge, rows, index(loc, 32)),
-             compare(loc, arith::CmpIPredicate::uge, metadata.getSizes()[0], index(loc, 128)),
-             compare(loc, arith::CmpIPredicate::uge, metadata.getSizes()[1], index(loc, 32))})
+      for (auto condition :
+           {compare(loc, arith::CmpIPredicate::uge, rows, index(loc, 32)),
+            compare(loc, arith::CmpIPredicate::uge, metadata.getSizes()[0], index(loc, 128)),
+            compare(loc, arith::CmpIPredicate::uge, metadata.getSizes()[1], index(loc, 32))})
         dense = arith::AndIOp::create(builder_, loc, dense, condition);
       auto streaming = scf::IfOp::create(builder_, loc, TypeRange{output}, stream, true, true);
       {
         OpBuilder::InsertionGuard guard(builder_);
         builder_.setInsertionPointToStart(&streaming.getThenRegion().front());
         auto result = streamingMatmulKernel(loc, helper.getArgument(0), helper.getArgument(1),
-                                           output, operation);
+                                            output, operation);
         scf::YieldOp::create(builder_, loc, ValueRange{result});
         builder_.setInsertionPointToStart(&streaming.getElseRegion().front());
         auto choice = scf::IfOp::create(builder_, loc, TypeRange{output}, dense, true, true);
@@ -2263,19 +2353,24 @@ private:
                           TensorTransformKind kind, Value epsilon) {
     func::FuncOp helper;
     SmallVector<Value> operands{input};
-    if (epsilon) operands.push_back(epsilon);
+    if (epsilon)
+      operands.push_back(epsilon);
     {
       OpBuilder::InsertionGuard restore(builder_);
       builder_.setInsertionPointToEnd(module_->getBody());
       SmallVector<Type> parameters;
-      for (auto value : operands) parameters.push_back(value.getType());
-      helper=func::FuncOp::create(builder_,loc,"kalandra_fn_tensor_transform_"+std::to_string(nextTransformHelper_++),builder_.getFunctionType(parameters,{output}));
+      for (auto value : operands)
+        parameters.push_back(value.getType());
+      helper = func::FuncOp::create(
+          builder_, loc, "kalandra_fn_tensor_transform_" + std::to_string(nextTransformHelper_++),
+          builder_.getFunctionType(parameters, {output}));
       helper.setPrivate();
       builder_.setInsertionPointToStart(helper.addEntryBlock());
-      auto result=transformTensor(loc,helper.getArgument(0),output,kind,epsilon?helper.getArgument(1):Value{});
-      func::ReturnOp::create(builder_,loc,ValueRange{result});
+      auto result = transformTensor(loc, helper.getArgument(0), output, kind,
+                                    epsilon ? helper.getArgument(1) : Value{});
+      func::ReturnOp::create(builder_, loc, ValueRange{result});
     }
-    return func::CallOp::create(builder_,loc,helper,operands).getResult(0);
+    return func::CallOp::create(builder_, loc, helper, operands).getResult(0);
   }
   Value outlinedMatmul(Location loc, Value a, Value b, RankedTensorType output,
                        const Matmul &operation, NumericType element) {
@@ -2283,13 +2378,16 @@ private:
     {
       OpBuilder::InsertionGuard restore(builder_);
       builder_.setInsertionPointToEnd(module_->getBody());
-      helper=func::FuncOp::create(builder_,loc,"kalandra_fn_matrix_dispatch_"+std::to_string(nextMatrixDispatch_++),builder_.getFunctionType({a.getType(),b.getType()},{output}));
+      helper = func::FuncOp::create(
+          builder_, loc, "kalandra_fn_matrix_dispatch_" + std::to_string(nextMatrixDispatch_++),
+          builder_.getFunctionType({a.getType(), b.getType()}, {output}));
       helper.setPrivate();
       builder_.setInsertionPointToStart(helper.addEntryBlock());
-      auto result=matmul(loc,helper.getArgument(0),helper.getArgument(1),output,operation,element);
-      func::ReturnOp::create(builder_,loc,ValueRange{result});
+      auto result =
+          matmul(loc, helper.getArgument(0), helper.getArgument(1), output, operation, element);
+      func::ReturnOp::create(builder_, loc, ValueRange{result});
     }
-    return func::CallOp::create(builder_,loc,helper,ValueRange{a,b}).getResult(0);
+    return func::CallOp::create(builder_, loc, helper, ValueRange{a, b}).getResult(0);
   }
   Value outlinedElementwise(Location loc, Value a, Value b, RankedTensorType output, TokenKind op,
                             NumericType element) {
@@ -2318,8 +2416,8 @@ private:
   // caller's floating-point environment are untouched.
   Value sortArray(Location loc, Value input, const ValueType &array, bool copying) {
     const bool boolean = isBoolArray(array);
-    Value count = checkedCount(loc, dimensions(loc, input),
-                                 describeNumeric(storageElement(array))->bytes());
+    Value count =
+        checkedCount(loc, dimensions(loc, input), describeNumeric(storageElement(array))->bytes());
     const auto load = [&](Value storage, Value position) -> Value {
       auto cell = collectionRead(loc, storage, ValueRange{position});
       return boolean ? booleanCell(loc, cell) : cell;
@@ -2487,26 +2585,29 @@ private:
     const auto &source = input_.functions[target];
     SmallVector<Value> arguments;
     for (std::size_t i = 0; i < values.size(); ++i)
-      arguments.push_back(castTensor(loc, expression(frame, values[i]),
-                                      functions_[target].getArgumentTypes()[i]));
+      arguments.push_back(
+          castTensor(loc, expression(frame, values[i]), functions_[target].getArgumentTypes()[i]));
     if (source.captureCount) {
       Value address = LLVM::ExtractValueOp::create(builder_, loc, closure, ArrayRef<int64_t>{1});
       if (recursiveClosures_) {
         llvm::LLVMContext llvmContext;
         LLVM::TypeToLLVMIRTranslator translator(llvmContext);
         llvm::DataLayout layout(dataLayout_);
-        auto bytes = layout.getTypeAllocSize(translator.translateType(closureEnvironment(target))).getFixedValue();
+        auto bytes = layout.getTypeAllocSize(translator.translateType(closureEnvironment(target)))
+                         .getFixedValue();
         address = func::CallOp::create(builder_, loc, "kalandra_recursive_environment_read",
-            TypeRange{LLVM::LLVMPointerType::get(builder_.getContext())},
-            ValueRange{address, integer(loc, bytes), callableCode(loc, callableEntry(target))}).getResult(0);
+                                       TypeRange{LLVM::LLVMPointerType::get(builder_.getContext())},
+                                       ValueRange{address, integer(loc, bytes),
+                                                  callableCode(loc, callableEntry(target))})
+                      .getResult(0);
       }
       Value environment = LLVM::LoadOp::create(builder_, loc, closureEnvironment(target), address);
       const auto explicitCount = source.parameters.size() - source.captureCount;
       for (std::size_t i = 0; i < source.captureCount; ++i) {
         Value capture = LLVM::ExtractValueOp::create(builder_, loc, environment,
-            ArrayRef<int64_t>{static_cast<int64_t>(i)});
-        arguments.push_back(callableUnpack(loc, capture,
-            input_.symbols[source.parameters[explicitCount + i]].type));
+                                                     ArrayRef<int64_t>{static_cast<int64_t>(i)});
+        arguments.push_back(callableUnpack(
+            loc, capture, input_.symbols[source.parameters[explicitCount + i]].type));
       }
     }
     auto call = func::CallOp::create(builder_, loc, functions_[target], arguments);
@@ -2868,7 +2969,8 @@ private:
           } else if constexpr (std::is_same_v<T, TensorTransform>) {
             auto input = expression(frame, operation.input);
             auto epsilon = operation.epsilon ? expression(frame, *operation.epsilon) : Value{};
-            return outlinedTransform(loc, input, cast<RankedTensorType>(type(node.type)), operation.kind, epsilon);
+            return outlinedTransform(loc, input, cast<RankedTensorType>(type(node.type)),
+                                     operation.kind, epsilon);
           } else if constexpr (std::is_same_v<T, TensorUnary>) {
             auto input = expression(frame, operation.operand);
             if (frame.outlineElementwise && node.type.element == NumericType::Float32)
@@ -2939,7 +3041,9 @@ private:
             for (auto id : indices)
               positions.push_back(expression(frame, id));
             auto shape = dimensions(loc, input);
-            checkedCount(loc, shape, describeNumeric(storageElement(input_.expressions[operation.input].type))->bytes());
+            checkedCount(
+                loc, shape,
+                describeNumeric(storageElement(input_.expressions[operation.input].type))->bytes());
             for (std::size_t axis = 0; axis < indices.size(); ++axis) {
               auto position = positions[axis];
               const auto element = input_.expressions[indices[axis]].type.element;
@@ -2958,7 +3062,7 @@ private:
                   arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(), position));
             }
             auto cell = collectionRead(loc, input, offsets);
-            return node.type.builtin == BuiltinValue::Bool ? booleanCell(loc, cell) : cell;
+            return isBooleanStorage(node.type) ? booleanCell(loc, cell) : cell;
           } else if constexpr (std::is_same_v<T, CollectionQuery>) {
             auto input = expression(frame, operation.input);
             const auto &array = input_.expressions[operation.input].type;
@@ -2971,13 +3075,11 @@ private:
             if (operation.kind == CollectionQueryKind::Length)
               return arith::IndexCastOp::create(builder_, loc, builder_.getI64Type(), shape[0]);
             const auto output = cast<ShapedType>(type(node.type));
-            Value result =
-                collectionEmpty(loc, output, ValueRange{index(loc, shape.size())});
+            Value result = collectionEmpty(loc, output, ValueRange{index(loc, shape.size())});
             for (std::size_t axis = 0; axis < shape.size(); ++axis) {
               auto extent =
                   arith::IndexCastOp::create(builder_, loc, builder_.getI64Type(), shape[axis]);
-              result = collectionInsert(loc, extent, result,
-                                                ValueRange{index(loc, axis)});
+              result = collectionInsert(loc, extent, result, ValueRange{index(loc, axis)});
             }
             return result;
           } else if constexpr (std::is_same_v<T, ArrayToTensor> ||
@@ -2991,8 +3093,8 @@ private:
             if (dimensionOperands) {
               auto input = expression(frame, operation.input);
               auto inputShape = dimensions(loc, input);
-              auto inputCount =
-                  checkedCount(loc, inputShape, describeNumeric(storageElement(node.type))->bytes());
+              auto inputCount = checkedCount(loc, inputShape,
+                                             describeNumeric(storageElement(node.type))->bytes());
               SmallVector<Value> shape, dynamic, evaluated;
               for (auto id : *dimensionOperands)
                 evaluated.push_back(expression(frame, id));
@@ -3036,7 +3138,8 @@ private:
                                 index(loc, output.getDimSize(axis))),
                         1);
               }
-              auto count = checkedCount(loc, shape, describeNumeric(storageElement(node.type))->bytes());
+              auto count =
+                  checkedCount(loc, shape, describeNumeric(storageElement(node.type))->bytes());
               // Even a zero-element tensor needs representable row-major strides.
               Value stride = index(loc, 1);
               for (auto axis = shape.rbegin(); axis != shape.rend(); ++axis) {
@@ -3084,8 +3187,7 @@ private:
                       indices[axis - 1] = arith::RemUIOp::create(builder_, loc, remaining, safe);
                       remaining = arith::DivUIOp::create(builder_, loc, remaining, safe);
                     }
-                    auto inserted =
-                        collectionInsert(loc, element, args[0], indices);
+                    auto inserted = collectionInsert(loc, element, args[0], indices);
                     scf::YieldOp::create(builder_, loc, ValueRange{inserted});
                   });
               return loop.getResult(0);
@@ -3102,8 +3204,7 @@ private:
                 builder_, loc, index(loc, 0), shape[0], index(loc, 1), ValueRange{empty},
                 [&](OpBuilder &, Location, Value i, ValueRange args) {
                   auto element = collectionRead(loc, input, ValueRange{i});
-                  auto inserted =
-                      collectionInsert(loc, element, args[0], ValueRange{i});
+                  auto inserted = collectionInsert(loc, element, args[0], ValueRange{i});
                   scf::YieldOp::create(builder_, loc, ValueRange{inserted});
                 });
             return loop.getResult(0);
@@ -3165,8 +3266,7 @@ private:
                       result = args[0];
                     } else {
                       auto value = collectionRead(loc, input, ValueRange{i});
-                      result = collectionInsert(loc, value, args[0],
-                                                        ValueRange{targetIndex});
+                      result = collectionInsert(loc, value, args[0], ValueRange{targetIndex});
                     }
                     scf::YieldOp::create(builder_, loc, ValueRange{result});
                   });
@@ -3242,8 +3342,7 @@ private:
                   } else {
                     auto source =
                         arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(), offset);
-                    auto value =
-                        collectionRead(loc, input, ValueRange{source});
+                    auto value = collectionRead(loc, input, ValueRange{source});
                     result = collectionInsert(loc, value, args[0], ValueRange{i});
                   }
                   scf::YieldOp::create(builder_, loc, ValueRange{result});
@@ -3322,8 +3421,7 @@ private:
                     arrayCellStore(loc, call.getResult(0), address, node.type);
                     result = args[0];
                   } else {
-                    result = collectionInsert(loc, call.getResult(0), args[0],
-                                                      ValueRange{i});
+                    result = collectionInsert(loc, call.getResult(0), args[0], ValueRange{i});
                   }
                   scf::YieldOp::create(builder_, loc, ValueRange{result});
                 });
@@ -3336,7 +3434,7 @@ private:
               return recordArrayLiteral(loc, node.type, elements);
             if (node.type.array) {
               auto result = collectionEmpty(loc, cast<ShapedType>(type(node.type)),
-                                              ValueRange{index(loc, elements.size())});
+                                            ValueRange{index(loc, elements.size())});
               for (std::size_t i = 0; i < elements.size(); ++i)
                 collectionInsert(loc, elements[i], result, ValueRange{index(loc, i)});
               return result;
@@ -3400,7 +3498,8 @@ private:
                 if (statement.binding)
                   bindScalar(branch, *statement.binding, value, location(statement.span));
               }
-              SmallVector<Value> values{castTensor(loc, expression(branch, result), type(node.type))};
+              SmallVector<Value> values{
+                  castTensor(loc, expression(branch, result), type(node.type))};
               auto state = arrayState(branch, bindings);
               values.append(state.begin(), state.end());
               scf::YieldOp::create(builder_, loc, values);
@@ -3432,9 +3531,8 @@ private:
             SmallVector<Type> results{type(node.type)};
             for (auto value : arrayState(frame, bindings))
               results.push_back(value.getType());
-            auto choice =
-                scf::IndexSwitchOp::create(builder_, loc, results, selector,
-                                           ArrayRef<std::int64_t>(tags), tags.size());
+            auto choice = scf::IndexSwitchOp::create(builder_, loc, results, selector,
+                                                     ArrayRef<std::int64_t>(tags), tags.size());
             OpBuilder::InsertionGuard insertion(builder_);
             const auto evaluate = [&](const MatchCase &arm, Region &region) {
               builder_.createBlock(&region);
@@ -3444,7 +3542,8 @@ private:
                 if (statement.binding)
                   bindScalar(branch, *statement.binding, value, location(statement.span));
               }
-              SmallVector<Value> values{castTensor(loc, expression(branch, arm.result), type(node.type))};
+              SmallVector<Value> values{
+                  castTensor(loc, expression(branch, arm.result), type(node.type))};
               auto state = arrayState(branch, bindings);
               values.append(state.begin(), state.end());
               scf::YieldOp::create(builder_, loc, values);
@@ -3501,25 +3600,30 @@ private:
             auto closure = expression(frame, operation.callee);
             // A typed call preserves array ownership through bufferization;
             // the opaque callable ABI conservatively retains escaped results.
-            if (typedArrayReferenceInvocation(node, invocationFlow_ ? &*invocationFlow_ : nullptr, id)) {
+            if (typedArrayReferenceInvocation(node, invocationFlow_ ? &*invocationFlow_ : nullptr,
+                                              id)) {
               // Evaluate arguments once, before selecting a target. Branches
               // reuse these enclosing SSA values, including their source effects.
               for (auto argument : operation.arguments)
                 expression(frame, argument);
               const auto &targets = invocationFlow_->targets[id];
-              Value code = LLVM::ExtractValueOp::create(builder_, loc, closure, ArrayRef<int64_t>{0});
+              Value code =
+                  LLVM::ExtractValueOp::create(builder_, loc, closure, ArrayRef<int64_t>{0});
               const auto dispatch = [&](auto &&self, std::size_t selected) -> Value {
                 const auto target = targets[selected];
                 if (selected + 1 == targets.size())
-                  return invokeArrayTarget(frame, loc, target, closure, operation.arguments, node.type);
-                Value matches = LLVM::ICmpOp::create(builder_, loc, LLVM::ICmpPredicate::eq,
-                                                     code, callableCode(loc, callableEntry(target)));
-                auto choice = scf::IfOp::create(builder_, loc, TypeRange{type(node.type)}, matches, true);
+                  return invokeArrayTarget(frame, loc, target, closure, operation.arguments,
+                                           node.type);
+                Value matches = LLVM::ICmpOp::create(builder_, loc, LLVM::ICmpPredicate::eq, code,
+                                                     callableCode(loc, callableEntry(target)));
+                auto choice =
+                    scf::IfOp::create(builder_, loc, TypeRange{type(node.type)}, matches, true);
                 {
                   OpBuilder::InsertionGuard restore(builder_);
                   builder_.setInsertionPointToStart(&choice.getThenRegion().front());
-                  scf::YieldOp::create(builder_, loc, invokeArrayTarget(frame, loc, target, closure,
-                                                                       operation.arguments, node.type));
+                  scf::YieldOp::create(builder_, loc,
+                                       invokeArrayTarget(frame, loc, target, closure,
+                                                         operation.arguments, node.type));
                   builder_.setInsertionPointToStart(&choice.getElseRegion().front());
                   scf::YieldOp::create(builder_, loc, self(self, selected + 1));
                 }
@@ -3560,8 +3664,10 @@ private:
           } else if constexpr (std::is_same_v<T, Matmul>) {
             auto a = expression(frame, operation.left), b = expression(frame, operation.right);
             if (frame.outlineMatrix)
-              return outlinedMatmul(loc, a, b, cast<RankedTensorType>(type(node.type)), operation, node.type.element);
-            return matmul(loc, a, b, cast<RankedTensorType>(type(node.type)), operation, node.type.element);
+              return outlinedMatmul(loc, a, b, cast<RankedTensorType>(type(node.type)), operation,
+                                    node.type.element);
+            return matmul(loc, a, b, cast<RankedTensorType>(type(node.type)), operation,
+                          node.type.element);
           } else if constexpr (std::is_same_v<T, ReduceSum>) {
             if (operation.order == ReductionOrder::BalancedAdjacent && operation.rowMajor)
               if (auto fused = fusedMapReduction(frame, operation.input, loc))
@@ -3610,19 +3716,22 @@ private:
     Frame frame;
     // Multiple matrix dispatches each contain a narrow kernel and a wide
     // helper. Keep conservative frame accounting local for longer graphs.
-    frame.outlineMatrix = std::ranges::count_if(input_.functions[id].expressions, [&](ValueId value) {
-      return std::holds_alternative<Matmul>(input_.expressions[value].operation);
-    }) >= 3;
+    frame.outlineMatrix =
+        std::ranges::count_if(input_.functions[id].expressions, [&](ValueId value) {
+          return std::holds_alternative<Matmul>(input_.expressions[value].operation);
+        }) >= 3;
     // Long float32 tensor expressions otherwise inline many allocation/shape/
     // loop bodies into one native frame. Outline operations into ordinary
     // checked, non-inlined helpers; every frame retains the same stack budget.
     frame.outlineElementwise =
-        std::ranges::count_if(input_.functions[id].expressions, [&](ValueId value) {
-          const auto &node = input_.expressions[value];
-          return node.type.element == NumericType::Float32 &&
-                 (std::holds_alternative<TensorBinary>(node.operation) ||
-                  std::holds_alternative<TensorUnary>(node.operation));
-        }) >= 16 || frame.outlineMatrix;
+        std::ranges::count_if(input_.functions[id].expressions,
+                              [&](ValueId value) {
+                                const auto &node = input_.expressions[value];
+                                return node.type.element == NumericType::Float32 &&
+                                       (std::holds_alternative<TensorBinary>(node.operation) ||
+                                        std::holds_alternative<TensorUnary>(node.operation));
+                              }) >= 16 ||
+        frame.outlineMatrix;
     for (std::size_t i = 0; i < input_.functions[id].parameters.size(); ++i) {
       const auto parameter = input_.functions[id].parameters[i];
       bindScalar(frame, parameter, entry->getArgument(i), function.getLoc());
@@ -3631,23 +3740,26 @@ private:
     const auto &source = input_.functions[id];
     const auto plainNumeric = [](const ValueType &t) {
       return !t.fallible && !t.task &&
-             (t.builtin == BuiltinValue::Numeric || (t.builtin == BuiltinValue::Bool && !t.tensor));
+             (t.builtin == BuiltinValue::Numeric || (isBooleanStorage(t) && !t.tensor));
     };
     // Keep the terminal branch before the loop condition and the recursive
     // branch after it. Each condition forwards the current arrays unchanged;
     // only a continuing iteration produces replacement buffers. Mixing a base
     // result and new allocations in one loop yield forces needless copies.
-    const auto *choice = source.body.size() == 1
-        ? std::get_if<ConditionalOperation>(&input_.expressions[source.body[0].value].operation)
-        : nullptr;
-    const auto *trueCall = choice
-        ? std::get_if<FunctionCall>(&input_.expressions[choice->trueResult].operation) : nullptr;
-    const auto *falseCall = choice
-        ? std::get_if<FunctionCall>(&input_.expressions[choice->falseResult].operation) : nullptr;
-    const bool trueTail = trueCall && trueCall->function == id &&
-        !choice->whenTrue.empty() && choice->whenTrue.back().value == choice->trueResult;
-    const bool falseTail = falseCall && falseCall->function == id &&
-        !choice->whenFalse.empty() && choice->whenFalse.back().value == choice->falseResult;
+    const auto *choice =
+        source.body.size() == 1
+            ? std::get_if<ConditionalOperation>(&input_.expressions[source.body[0].value].operation)
+            : nullptr;
+    const auto *trueCall =
+        choice ? std::get_if<FunctionCall>(&input_.expressions[choice->trueResult].operation)
+               : nullptr;
+    const auto *falseCall =
+        choice ? std::get_if<FunctionCall>(&input_.expressions[choice->falseResult].operation)
+               : nullptr;
+    const bool trueTail = trueCall && trueCall->function == id && !choice->whenTrue.empty() &&
+                          choice->whenTrue.back().value == choice->trueResult;
+    const bool falseTail = falseCall && falseCall->function == id && !choice->whenFalse.empty() &&
+                           choice->whenFalse.back().value == choice->falseResult;
     const bool arrayTail =
         arrayTailLoops_ && scalarCells_.empty() && mutableSymbols_[id].empty() &&
         (trueTail != falseTail) && !source.resultType.tensor && plainNumeric(source.resultType) &&
@@ -3692,50 +3804,55 @@ private:
         SmallVector<Value> next;
         for (std::size_t n = 0; n < call.arguments.size(); ++n)
           next.push_back(castTensor(loc, expression(current, call.arguments[n]),
-                                     function.getArgumentTypes()[n]));
+                                    function.getArgumentTypes()[n]));
         return next;
       };
       auto emitWhile = [&]() -> Value {
         Value zero = arith::ConstantOp::create(builder_, loc, builder_.getZeroAttr(resultType));
-        auto loop = scf::WhileOp::create(builder_, loc, stateTypes, initial,
-          [&](OpBuilder &, Location, ValueRange args) {
-            auto current = iteration(args);
-            Value active = expression(current, choice->condition);
-            if (!trueTail)
-              active = arith::XOrIOp::create(builder_, loc, active,
-                  arith::ConstantIntOp::create(builder_, loc, 1, 1));
-            auto completed = scf::IfOp::create(builder_, loc, TypeRange{resultType}, active, true);
-            {
-              OpBuilder::InsertionGuard guard(builder_);
-              builder_.setInsertionPointToStart(&completed.getThenRegion().front());
-              scf::YieldOp::create(builder_, loc, zero);
-              builder_.setInsertionPointToStart(&completed.getElseRegion().front());
-              for (const auto &statement : terminal) {
-                auto value = expression(current, statement.value);
-                if (statement.binding)
-                  bindScalar(current, *statement.binding, value, location(statement.span));
+        auto loop = scf::WhileOp::create(
+            builder_, loc, stateTypes, initial,
+            [&](OpBuilder &, Location, ValueRange args) {
+              auto current = iteration(args);
+              Value active = expression(current, choice->condition);
+              if (!trueTail)
+                active = arith::XOrIOp::create(builder_, loc, active,
+                                               arith::ConstantIntOp::create(builder_, loc, 1, 1));
+              auto completed =
+                  scf::IfOp::create(builder_, loc, TypeRange{resultType}, active, true);
+              {
+                OpBuilder::InsertionGuard guard(builder_);
+                builder_.setInsertionPointToStart(&completed.getThenRegion().front());
+                scf::YieldOp::create(builder_, loc, zero);
+                builder_.setInsertionPointToStart(&completed.getElseRegion().front());
+                for (const auto &statement : terminal) {
+                  auto value = expression(current, statement.value);
+                  if (statement.binding)
+                    bindScalar(current, *statement.binding, value, location(statement.span));
+                }
+                auto result = castTensor(loc, expression(current, terminalResult), resultType);
+                scf::YieldOp::create(builder_, loc, result);
               }
-              auto result = castTensor(loc, expression(current, terminalResult), resultType);
-              scf::YieldOp::create(builder_, loc, result);
-            }
-            SmallVector<Value> next(args);
-            next.push_back(completed.getResult(0));
-            scf::ConditionOp::create(builder_, loc, active, next);
-          },
-          [&](OpBuilder &, Location, ValueRange args) {
-            scf::YieldOp::create(builder_, loc, emitStep(args));
-          });
+              SmallVector<Value> next(args);
+              next.push_back(completed.getResult(0));
+              scf::ConditionOp::create(builder_, loc, active, next);
+            },
+            [&](OpBuilder &, Location, ValueRange args) {
+              scf::YieldOp::create(builder_, loc, emitStep(args));
+            });
         return loop.getResults().back();
       };
       const auto simpleOperand = [&](ValueId value) {
         const auto &node = input_.expressions[value];
-        return !node.type.tensor && plainNumeric(node.type) && std::visit([](const auto &op) {
-          using T = std::decay_t<decltype(op)>;
-          return std::is_same_v<T, SymbolRead> || std::is_same_v<T, Int32Literal> ||
-                 std::is_same_v<T, Int64Literal> || std::is_same_v<T, UInt32Literal> ||
-                 std::is_same_v<T, UInt64Literal> || std::is_same_v<T, Float32Literal> ||
-                 std::is_same_v<T, Float64Literal> || std::is_same_v<T, BoolLiteral>;
-        }, node.operation);
+        return !node.type.tensor && plainNumeric(node.type) &&
+               std::visit(
+                   [](const auto &op) {
+                     using T = std::decay_t<decltype(op)>;
+                     return std::is_same_v<T, SymbolRead> || std::is_same_v<T, Int32Literal> ||
+                            std::is_same_v<T, Int64Literal> || std::is_same_v<T, UInt32Literal> ||
+                            std::is_same_v<T, UInt64Literal> || std::is_same_v<T, Float32Literal> ||
+                            std::is_same_v<T, Float64Literal> || std::is_same_v<T, BoolLiteral>;
+                   },
+                   node.operation);
       };
       const auto *comparison =
           std::get_if<ScalarCompare>(&input_.expressions[choice->condition].operation);
@@ -3750,26 +3867,30 @@ private:
           const auto *literal = std::get_if<Int64Literal>(&input_.expressions[value].operation);
           return literal && literal->value == expected;
         };
-        auto candidate = isInteger(comparison->right, 0) ? comparison->left
-            : isInteger(comparison->left, 0) ? comparison->right : choice->condition;
+        auto candidate = isInteger(comparison->right, 0)  ? comparison->left
+                         : isInteger(comparison->left, 0) ? comparison->right
+                                                          : choice->condition;
         const auto *read = std::get_if<SymbolRead>(&input_.expressions[candidate].operation);
         if (read && input_.symbols[read->symbol].type.element == NumericType::Int64)
           for (std::size_t n = 0; n < source.parameters.size(); ++n) {
             const auto *subtract =
                 std::get_if<ScalarBinary>(&input_.expressions[call.arguments[n]].operation);
-            const auto *from = subtract
-                ? std::get_if<SymbolRead>(&input_.expressions[subtract->left].operation) : nullptr;
+            const auto *from =
+                subtract ? std::get_if<SymbolRead>(&input_.expressions[subtract->left].operation)
+                         : nullptr;
             if (source.parameters[n] == read->symbol && subtract && from &&
                 subtract->operation == TokenKind::Minus && from->symbol == read->symbol &&
-                isInteger(subtract->right, 1)) countdown = n;
+                isInteger(subtract->right, 1))
+              countdown = n;
           }
       }
       auto emitLoop = [&]() -> Value {
-        if (!countdown) return emitWhile();
+        if (!countdown)
+          return emitWhile();
         auto zero = arith::ConstantIntOp::create(builder_, loc, 0, 64);
         auto one = arith::ConstantIntOp::create(builder_, loc, 1, 64);
         auto negative = arith::CmpIOp::create(builder_, loc, arith::CmpIPredicate::slt,
-                                             initial[*countdown], zero);
+                                              initial[*countdown], zero);
         auto selected = scf::IfOp::create(builder_, loc, TypeRange{resultType}, negative, true);
         {
           OpBuilder::InsertionGuard guard(builder_);
@@ -3781,9 +3902,9 @@ private:
           // loop as writable owned buffers, rather than cloning borrowed input.
           auto first = emitStep(initial);
           auto loop = scf::ForOp::create(builder_, loc, one, initial[*countdown], one, first,
-              [&](OpBuilder &, Location, Value, ValueRange args) {
-                scf::YieldOp::create(builder_, loc, emitStep(args));
-              });
+                                         [&](OpBuilder &, Location, Value, ValueRange args) {
+                                           scf::YieldOp::create(builder_, loc, emitStep(args));
+                                         });
           auto completed = iteration(loop.getResults());
           for (const auto &statement : terminal) {
             auto value = expression(completed, statement.value);
@@ -3791,7 +3912,7 @@ private:
               bindScalar(completed, *statement.binding, value, location(statement.span));
           }
           scf::YieldOp::create(builder_, loc,
-              castTensor(loc, expression(completed, terminalResult), resultType));
+                               castTensor(loc, expression(completed, terminalResult), resultType));
         }
         return selected.getResult(0);
       };
@@ -3802,7 +3923,7 @@ private:
         Value active = expression(frame, choice->condition);
         if (!trueTail)
           active = arith::XOrIOp::create(builder_, loc, active,
-              arith::ConstantIntOp::create(builder_, loc, 1, 1));
+                                         arith::ConstantIntOp::create(builder_, loc, 1, 1));
         auto selected = scf::IfOp::create(builder_, loc, TypeRange{resultType}, active, true);
         {
           OpBuilder::InsertionGuard guard(builder_);
@@ -3816,7 +3937,7 @@ private:
               bindScalar(stopped, *statement.binding, value, location(statement.span));
           }
           scf::YieldOp::create(builder_, loc,
-              castTensor(loc, expression(stopped, terminalResult), resultType));
+                               castTensor(loc, expression(stopped, terminalResult), resultType));
         }
         func::ReturnOp::create(builder_, loc, selected.getResult(0));
       } else
@@ -3855,13 +3976,14 @@ private:
                             cast<RankedTensorType>(type(t)).getElementType()));
     }
     builder_.setInsertionPointToEnd(module_->getBody());
-    auto function =
-        func::FuncOp::create(builder_, location(found->declaration), symbol,
-                             builder_.getFunctionType(arguments,
-                                 {found->resultType.array &&
-                                          (found->resultType.builtin == BuiltinValue::Numeric || isBoolArray(found->resultType))
-                                      ? recordDescriptor(found->resultType)
-                                      : functions_[id].getResultTypes()[0]}));
+    auto function = func::FuncOp::create(
+        builder_, location(found->declaration), symbol,
+        builder_.getFunctionType(
+            arguments,
+            {found->resultType.array && (found->resultType.builtin == BuiltinValue::Numeric ||
+                                         isBoolArray(found->resultType))
+                 ? recordDescriptor(found->resultType)
+                 : functions_[id].getResultTypes()[0]}));
     function->setAttr("llvm.emit_c_interface", builder_.getUnitAttr());
     builder_.setInsertionPointToStart(function.addEntryBlock());
     SmallVector<Value> operands;
@@ -3878,7 +4000,8 @@ private:
         if (!t.array && t.shape[axis].constant)
           guard(function.getLoc(),
                 compare(function.getLoc(), arith::CmpIPredicate::eq, d,
-                        index(function.getLoc(), *t.shape[axis].constant)), 1);
+                        index(function.getLoc(), *t.shape[axis].constant)),
+                1);
       }
       checkedCount(function.getLoc(), shape, describeNumeric(t.element)->bytes());
     }
@@ -3899,21 +4022,27 @@ private:
         auto descriptor = recordDescriptor(t);
         auto source = descriptorSlot(function.getLoc(), descriptor);
         auto output = descriptorSlot(function.getLoc(), descriptor);
-        auto packed = UnrealizedConversionCastOp::create(builder_, function.getLoc(),
-            TypeRange{descriptor}, ValueRange{argument}).getResult(0);
+        auto packed = UnrealizedConversionCastOp::create(
+                          builder_, function.getLoc(), TypeRange{descriptor}, ValueRange{argument})
+                          .getResult(0);
         LLVM::StoreOp::create(builder_, function.getLoc(), packed, source);
-        func::CallOp::create(builder_, function.getLoc(), "kalandra_array_import", TypeRange{},
-            ValueRange{output, source, integer(function.getLoc(), static_cast<unsigned>(t.element))});
+        func::CallOp::create(
+            builder_, function.getLoc(), "kalandra_array_import", TypeRange{},
+            ValueRange{output, source,
+                       integer(function.getLoc(), static_cast<unsigned>(t.element))});
         auto imported = LLVM::LoadOp::create(builder_, function.getLoc(), descriptor, output);
         argument = UnrealizedConversionCastOp::create(builder_, function.getLoc(),
-            TypeRange{type(t)}, ValueRange{imported}).getResult(0);
+                                                      TypeRange{type(t)}, ValueRange{imported})
+                       .getResult(0);
       }
       operands.push_back(argument);
     }
     auto call = func::CallOp::create(builder_, function.getLoc(), functions_[id], operands);
-    if (found->resultType.array && (found->resultType.builtin == BuiltinValue::Numeric || isBoolArray(found->resultType)))
-      func::ReturnOp::create(builder_, function.getLoc(),
-                            ValueRange{recordPack(function.getLoc(), call.getResult(0), found->resultType)});
+    if (found->resultType.array &&
+        (found->resultType.builtin == BuiltinValue::Numeric || isBoolArray(found->resultType)))
+      func::ReturnOp::create(
+          builder_, function.getLoc(),
+          ValueRange{recordPack(function.getLoc(), call.getResult(0), found->resultType)});
     else
       func::ReturnOp::create(builder_, function.getLoc(), call.getResults());
   }
@@ -3937,12 +4066,10 @@ private:
            nextTransformHelper_ = 0, nextMatrixDispatch_ = 0;
 };
 } // namespace
-static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModule &input,
-                                                      std::optional<std::string> testEntry,
-                                                      const std::vector<std::string> &exports,
-                                                      ArithmeticMode arithmetic,
-                                                      bool deferCallFinalization,
-                                                      bool arrayTailLoops, const CpuTarget &target) {
+static std::expected<BackendOutput, std::string>
+lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
+                const std::vector<std::string> &exports, ArithmeticMode arithmetic,
+                bool deferCallFinalization, bool arrayTailLoops, const CpuTarget &target) {
   if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
     return std::unexpected(*error);
   const auto storage = planRecordStorage(input);
@@ -4009,7 +4136,8 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
         (referenceArrays ? "{private-function-dynamic-ownership=true}" : "") +
         ",convert-bufferization-to-memref";
     llvm::SmallPtrSet<Operation *, 32> originalFunctions;
-    for (auto fn : module->getOps<func::FuncOp>()) originalFunctions.insert(fn);
+    for (auto fn : module->getOps<func::FuncOp>())
+      originalFunctions.insert(fn);
     if (failed(parsePassPipeline(passes, pipeline)))
       return std::unexpected("cannot construct pinned lowering pipeline");
     if (failed(pipeline.run(*module)))
@@ -4020,12 +4148,13 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
     llvm::SmallPtrSet<Operation *, 8> deallocationHelpers;
     for (auto fn : module->getOps<func::FuncOp>())
       if (arrayTailLoops && !originalFunctions.contains(fn) && fn.isPrivate() &&
-          fn.getName().starts_with("dealloc_helper")) deallocationHelpers.insert(fn);
+          fn.getName().starts_with("dealloc_helper"))
+        deallocationHelpers.insert(fn);
     SmallVector<memref::AllocOp> scratch;
     module->walk([&](memref::AllocOp op) {
       auto t = op.getType();
-      if (arrayTailLoops && op.getSymbolOperands().empty() &&
-          t.hasStaticShape() && t.getRank() == 1 && t.getNumElements() <= 32 &&
+      if (arrayTailLoops && op.getSymbolOperands().empty() && t.hasStaticShape() &&
+          t.getRank() == 1 && t.getNumElements() <= 32 &&
           (t.getElementType().isIndex() || t.getElementType().isInteger(1)))
         scratch.push_back(op);
     });
@@ -4037,25 +4166,34 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
       while (!pending.empty() && safe) {
         auto value = pending.pop_back_val();
         for (auto *user : value.getUsers()) {
-          if (!seen.insert(user).second) continue;
-          if (auto cast = dyn_cast<memref::CastOp>(user)) pending.push_back(cast.getResult());
-          else if (auto release = dyn_cast<memref::DeallocOp>(user)) releases.push_back(release);
-          else if (auto load = dyn_cast<memref::LoadOp>(user)) safe &= load.getMemRef() == value;
-          else if (auto store = dyn_cast<memref::StoreOp>(user)) safe &= store.getMemRef() == value;
+          if (!seen.insert(user).second)
+            continue;
+          if (auto cast = dyn_cast<memref::CastOp>(user))
+            pending.push_back(cast.getResult());
+          else if (auto release = dyn_cast<memref::DeallocOp>(user))
+            releases.push_back(release);
+          else if (auto load = dyn_cast<memref::LoadOp>(user))
+            safe &= load.getMemRef() == value;
+          else if (auto store = dyn_cast<memref::StoreOp>(user))
+            safe &= store.getMemRef() == value;
           else if (auto call = dyn_cast<func::CallOp>(user)) {
             auto target = module->lookupSymbol<func::FuncOp>(call.getCallee());
             safe &= target && deallocationHelpers.contains(target);
             usedByHelper = true;
-          } else safe = false;
+          } else
+            safe = false;
         }
       }
-      if (!safe || !usedByHelper) continue;
+      if (!safe || !usedByHelper)
+        continue;
       auto fn = allocation->getParentOfType<func::FuncOp>();
-      if (!fn || fn.empty()) continue;
+      if (!fn || fn.empty())
+        continue;
       OpBuilder entry(&fn.front(), fn.front().begin());
       auto local = memref::AllocaOp::create(entry, allocation.getLoc(), allocation.getType());
       allocation.replaceAllUsesWith(local.getResult());
-      for (auto release : releases) release.erase();
+      for (auto release : releases)
+        release.erase();
       allocation.erase();
     }
     SmallVector<memref::CopyOp> copies;
@@ -4099,26 +4237,28 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
       return std::unexpected("LLVM translation failed");
     // A retained relocation makes a new-layout module fail to link against an
     // older runtime, without adding an entry call or a mutable global context.
-    auto *layout = new llvm::GlobalVariable(*native, llvm::Type::getInt8Ty(llvmContext),
-        true, llvm::GlobalValue::ExternalLinkage, nullptr, "kalandra_invocation_layout_v4");
+    auto *layout = new llvm::GlobalVariable(*native, llvm::Type::getInt8Ty(llvmContext), true,
+                                            llvm::GlobalValue::ExternalLinkage, nullptr,
+                                            "kalandra_invocation_layout_v4");
     auto *requiredLayout = new llvm::GlobalVariable(*native, layout->getType(), true,
-        llvm::GlobalValue::PrivateLinkage, layout, "kalandra.required.invocation.layout");
+                                                    llvm::GlobalValue::PrivateLinkage, layout,
+                                                    "kalandra.required.invocation.layout");
     llvm::appendToUsed(*native, {requiredLayout});
     // LLVM's signless i8/i16 type does not describe the platform C return
     // extension. Packet loads naturally zero-extend, so preserve signedness
     // explicitly at checked/foreign entries instead of relying on arithmetic
     // accidentally leaving the upper register bits in the expected state.
     auto resultABI = [&](const std::string &symbol, const ValueType &value) {
-      if (value.tensor) return;
-      const bool boolean = value.builtin == BuiltinValue::Bool;
-      if (!boolean && (value.builtin != BuiltinValue::Numeric ||
-                       !isNarrowInteger(value.element))) return;
+      if (value.tensor)
+        return;
+      const bool boolean = isBooleanStorage(value);
+      if (!boolean && (value.builtin != BuiltinValue::Numeric || !isNarrowInteger(value.element)))
+        return;
       const unsigned width = boolean ? 1 : describeNumeric(value.element)->bits;
       for (const auto &name : {symbol, "_mlir_ciface_" + symbol})
-        if (auto *fn = native->getFunction(name);
-            fn && fn->getReturnType()->isIntegerTy(width))
-          fn->addRetAttr(boolean || isUnsigned(value.element) ? llvm::Attribute::ZExt :
-                                                               llvm::Attribute::SExt);
+        if (auto *fn = native->getFunction(name); fn && fn->getReturnType()->isIntegerTy(width))
+          fn->addRetAttr(boolean || isUnsigned(value.element) ? llvm::Attribute::ZExt
+                                                              : llvm::Attribute::SExt);
     };
     for (FunctionId id = 0; id != input.functions.size(); ++id) {
       const auto &fn = input.functions[id];
@@ -4127,9 +4267,11 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
       resultABI("kalandra_callable_" + std::to_string(id), value);
       if (testEntry && fn.name == *testEntry)
         resultABI("kalandra_test_entry", value);
-      if (fn.name == "main") resultABI("kalandra_bool_entry", value);
+      if (fn.name == "main")
+        resultABI("kalandra_bool_entry", value);
       for (std::size_t n = 0; n != exports.size(); ++n)
-        if (exports[n] == fn.name) resultABI("kalandra_cpu_" + std::to_string(n), value);
+        if (exports[n] == fn.name)
+          resultABI("kalandra_cpu_" + std::to_string(n), value);
     }
     const bool functionValues = std::ranges::any_of(input.expressions, [](const auto &value) {
       return std::holds_alternative<FunctionReference>(value.operation) ||
@@ -4144,7 +4286,8 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
         if (function.name == "main" && function.resultType.tensor)
           collectionMetadata(*native, function.resultType);
     if (!deferCallFinalization)
-      if (auto error = optimizeNativeCalls(native)) return std::unexpected(*error);
+      if (auto error = optimizeNativeCalls(native))
+        return std::unexpected(*error);
     std::string errors;
     llvm::raw_string_ostream errorStream(errors);
     if (llvm::verifyModule(*native, &errorStream))
@@ -4158,11 +4301,10 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
     return std::unexpected(failure.message);
   }
 }
-std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
-                                                      std::optional<std::string> testEntry,
-                                                      const std::vector<std::string> &exports,
-                                                      ArithmeticMode arithmetic,
-                                                      bool deferCallFinalization, CpuTarget target) {
+std::expected<BackendOutput, std::string>
+lowerNative(const TypedModule &input, std::optional<std::string> testEntry,
+            const std::vector<std::string> &exports, ArithmeticMode arithmetic,
+            bool deferCallFinalization, CpuTarget target) {
   if (target.triple.empty() && target.dataLayout.empty())
     target = {KALANDRA_NATIVE_CPU_TARGET_TRIPLE, nativeCpuDataLayout};
   target.triple = llvm::Triple::normalize(target.triple);
@@ -4173,12 +4315,15 @@ std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
       (triple.isOSDarwin() && !triple.isAArch64()) || target.dataLayout.empty())
     return std::unexpected("unsupported or incomplete CPU target ABI");
   auto layout = llvm::DataLayout::parse(target.dataLayout);
-  if (!layout) return std::unexpected(llvm::toString(layout.takeError()));
+  if (!layout)
+    return std::unexpected(llvm::toString(layout.takeError()));
   if (!layout->isLittleEndian() || layout->getPointerSizeInBits() != 64)
     return std::unexpected("CPU target requires a little-endian 64-bit layout");
-  auto result = lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, true, target);
+  auto result =
+      lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, true, target);
   if (!result && result.error().find("native stack budget") != std::string::npos)
-    return lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, false, target);
+    return lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, false,
+                           target);
   return result;
 }
 } // namespace kalandra

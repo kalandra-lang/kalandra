@@ -1,6 +1,6 @@
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   offsets=[40]
-  callbacks=[fn(value:int):offsets[0]+value]
-  try parallel:
-    values=try await spawn map(callbacks,fn(callback):callback(2))
+  callbacks=[fn(value:i64):return offsets[0]+value]
+  return try parallel:
+    values=try await spawn map(callbacks,fn(callback):return callback(2))
     values[0]

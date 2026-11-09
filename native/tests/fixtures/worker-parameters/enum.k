@@ -1,19 +1,19 @@
-fn double(value:int)->int:
-  value*2
-fn apply(value:int,f:fn(int)->int)->int:
-  f(value)
+fn double(value:i64)->i64:
+  return value*2
+fn apply(value:i64,f:fn(i64)->i64)->i64:
+  return f(value)
 enum Job:
   Empty
   Run:
-    callback:fn(int)->int
+    callback:fn(i64)->i64
 fn forward(job:Job)->Job:
-  job
-fn execute(job:Job)->int:
-  match job:
+  return job
+fn execute(job:Job)->i64:
+  return match job:
     Job.Empty:0
     Job.Run {callback}:callback(21)
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   job=try parallel:
     try await spawn forward(Job.Run {callback:double})
-  try parallel:
+  return try parallel:
     try await spawn execute(job)

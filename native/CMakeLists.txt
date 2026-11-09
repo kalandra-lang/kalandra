@@ -1343,7 +1343,7 @@ if(BUILD_TESTING)
     add_test(NAME native-checked-inlining-source-float32-${POLICY}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CheckedInliningSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
-        --arithmetic "${POLICY}" --numeric float32 --output "${CMAKE_CURRENT_BINARY_DIR}/checked-inlining-float32-${POLICY}")
+        --arithmetic "${POLICY}" --numeric f32 --output "${CMAKE_CURRENT_BINARY_DIR}/checked-inlining-float32-${POLICY}")
     set_tests_properties(native-checked-inlining-source-float32-${POLICY} PROPERTIES TIMEOUT 900)
   endforeach()
   add_test(NAME native-tail-calls
@@ -1403,6 +1403,19 @@ endforeach()
 if(BUILD_TESTING)
   add_test(NAME native-cross-toolchain-validation COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/CrossToolchainTests.py" --compiler "$<TARGET_FILE:kalandra>")
+  add_test(NAME native-explicit-returns
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ExplicitReturnTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --checker "$<TARGET_FILE:kalandra-check>"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/explicit-returns")
+  set_tests_properties(native-explicit-returns PROPERTIES TIMEOUT 900)
+  if(KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
+    add_test(NAME native-explicit-returns-metal
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ExplicitReturnGpuTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --target metal
+        --output "${CMAKE_CURRENT_BINARY_DIR}/explicit-returns-metal")
+    set_tests_properties(native-explicit-returns-metal PROPERTIES
+      TIMEOUT 900 RESOURCE_LOCK apple-metal-gpu LABELS "gpu")
+  endif()
   add_test(NAME native-cli-version COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/packaging/VersionTests.py"
     "${KALANDRA_VERSION}" "$<TARGET_FILE:kalandra>" "$<TARGET_FILE:kalandra-check>"

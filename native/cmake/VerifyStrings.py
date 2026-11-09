@@ -34,12 +34,12 @@ cases = [(literal(c['text']),c['text']) for c in fixtures['text_cases']]
 cases += [(c['source'],c['decoded']) for c in fixtures['valid_literal_cases']]
 cases += [(r'"\u{7f}\u{80}\u{7ff}\u{800}\u{ffff}\u{10000}"', ''.join(map(chr,[0x7f,0x80,0x7ff,0x800,0xffff,0x10000])))]
 for index,(spelling,decoded) in enumerate(cases):
-    exe=compile('literal-'+str(index),'fn identity(value:String)->String:\n  value\nfn main()->String:\n  identity('+spelling+')\n')
+    exe=compile('literal-'+str(index),'fn identity(value:String)->String:\n  return value\nfn main()->String:\n  return identity('+spelling+')\n')
     run([exe],decoded.encode()+b'\n')
 
 helper = output/'text.k'
-helper.write_text('export fn select(flag:Bool,a:String,b:String)->String:\n  if flag:\n    a\n  else:\n    b\n')
-exe=compile('module','from "./text.k" import select\nfn main()->String:\n  select(false,"unused","سلام\\0👩‍💻")\n')
+helper.write_text('export fn select(flag:bool,a:String,b:String)->String:\n  return if flag:\n    a\n  else:\n    b\n')
+exe=compile('module','from "./text.k" import select\nfn main()->String:\n  return select(false,"unused","سلام\\0👩\u200d💻")\n')
 run([exe],'سلام\0👩‍💻\n'.encode())
 run([clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*flags,
      source_dir/'tests/StringGeneratedTests.cpp',str(exe)+'.ll',runtime,'-o',output/'generated-harness'])
@@ -54,9 +54,9 @@ for failure in range(1,9):
     else:
         assert result.stdout == 'سلام\0👩‍💻\n'.encode() and not result.stderr, result
 
-for name,returned,expected in [('integer','int64',b'7\n'),('boolean','Bool',b'true\n'),('array','[int64]',b'[1, 2]\n')]:
+for name,returned,expected in [('integer','i64',b'7\n'),('boolean','bool',b'true\n'),('array','[i64]',b'[1, 2]\n')]:
     expr={'integer':'7','boolean':'true','array':'[1,2]'}[name]
-    exe=compile(name,'fn main()->'+returned+':\n  ignored="owned text"\n  '+expr+'\n')
+    exe=compile(name,'fn main()->'+returned+':\n  ignored="owned text"\n  return '+expr+'\n')
     run([exe],expected)
 
 bad_sources=list(fixtures['invalid_literal_sources'])+['"\\u{123456','"a\rb"']
@@ -85,14 +85,14 @@ operation_cases = list(fixtures['equality_cases']) + [
 for index,case in enumerate(operation_cases):
     for operator,invert in [('==',False),('!=',True)]:
         name='equal-'+str(index)+('ne' if invert else 'eq')
-        exe=compile(name,'fn same(a:String,b:String)->Bool:\n  a '+operator+' b\nfn main()->Bool:\n  same('+literal(case['left'])+','+literal(case['right'])+')\n')
+        exe=compile(name,'fn same(a:String,b:String)->bool:\n  return a '+operator+' b\nfn main()->bool:\n  return same('+literal(case['left'])+','+literal(case['right'])+')\n')
         run([exe],b'true\n' if case['equal'] != invert else b'false\n')
 for index,case in enumerate(fixtures['concatenation_cases']):
-    exe=compile('concat-'+str(index),'fn append(a:String,b:String)->String:\n  a+b\nfn main()->String:\n  append('+literal(case['left'])+','+literal(case['right'])+')\n')
+    exe=compile('concat-'+str(index),'fn append(a:String,b:String)->String:\n  return a+b\nfn main()->String:\n  return append('+literal(case['left'])+','+literal(case['right'])+')\n')
     run([exe],case['result'].encode()+b'\n')
 
-(output/'operations.k').write_text('export fn append(a:String,b:String)->String:\n  a+b\n')
-exe=compile('concat-owned','from "./operations.k" import append\nfn main()->String:\n  append(append("سلام","\\0"),append("👩‍💻",""))\n')
+(output/'operations.k').write_text('export fn append(a:String,b:String)->String:\n  return a+b\n')
+exe=compile('concat-owned','from "./operations.k" import append\nfn main()->String:\n  return append(append("سلام","\\0"),append("👩\u200d💻",""))\n')
 run([exe],'سلام\0👩‍💻\n'.encode())
 run([clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*flags,
      '-DSTRING_FAILURE_POSITIONS=32',source_dir/'tests/StringGeneratedTests.cpp',str(exe)+'.ll',runtime,'-o',output/'operations-harness'])
@@ -111,12 +111,12 @@ for name,expr,expected in [
     ('short-and','false and explode(0)=="x"',b'false\n'),
     ('short-or','true or explode(0)=="x"',b'true\n'),
 ]:
-    exe=compile(name,'fn explode(value:int64)->String:\n  fault=1/value\n  "x"\nfn main()->Bool:\n  '+expr+'\n')
+    exe=compile(name,'fn explode(value:i64)->String:\n  fault=1/value\n  return "x"\nfn main()->bool:\n  return '+expr+'\n')
     run([exe],expected)
-exe=compile('fault-order','fn explode(value:int64)->String:\n  fault=1/value\n  "x"\nfn main()->String:\n  explode(0)+explode(1)\n')
+exe=compile('fault-order','fn explode(value:i64)->String:\n  fault=1/value\n  return "x"\nfn main()->String:\n  return explode(0)+explode(1)\n')
 result=subprocess.run([exe],capture_output=True)
 assert result.returncode and result.stdout==b'' and b'ArithmeticFault' in result.stderr,result
 # String work inside a synchronous numeric/Bool callback still uses the ordinary CPU backend.
-exe=compile('callback','fn positive(value:int64)->Bool:\n  "a"+"b"=="ab" and value>0\nfn main():\n  [-1,2]->map(positive)\n')
+exe=compile('callback','fn positive(value:i64)->bool:\n  return "a"+"b"=="ab" and value>0\nfn main():\n  return [-1,2]->map(positive)\n')
 run([exe],b'[false, true]\n')
 print(f'{variant}: {len(operation_cases)*2} exact equality cases, {len(fixtures["concatenation_cases"])} concatenation vectors, imported/chained ownership, 32 allocation positions, fault order and short-circuit/callback composition passed')

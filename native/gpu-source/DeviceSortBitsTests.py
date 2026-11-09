@@ -38,17 +38,17 @@ else:
     assert a.driver
     driver = a.driver.resolve()
 results = []
-for typ in ('int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64', 'float32', 'float64'):
+for typ in ('i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64'):
     for operation in ('sort', 'sorted'):
         root = a.root/(typ+'-'+operation)
         root.mkdir(exist_ok=True)
         source = root/'source.k'
-        source.write_text(f'''fn work(a:{typ},b:{typ},c:{typ},d:{typ},index:int)->{typ}:
+        source.write_text(f'''fn work(a:{typ},b:{typ},c:{typ},d:{typ},index:i64)->{typ}:
   values=[a,b,c,d]
   ordered={operation}(values)
-  ordered[index]
+  return ordered[index]
 fn main()->{typ} ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     try await spawn work({typ}(0),{typ}(1),{typ}(2),{typ}(3),1) on gpu
 ''')
@@ -73,9 +73,12 @@ fn main()->{typ} ! TaskError:
                 frame = (words-2)//2
             elif words in (3, 4):
                 constants[signature[1]] = file
-        assert control and typ in constants and 'int64' in constants, (typ, constants, control)
+        # Kernel resource labels retain their storage spellings; source and
+        # raw-driver arguments use the canonical language primitive names.
+        storage = {'i': 'int', 'u': 'uint', 'f': 'float'}[typ[0]] + typ[1:]
+        assert control and storage in constants and 'int64' in constants, (typ, constants, control)
         extension = {'metal': '.metallib', 'vulkan': '.spv', 'cuda': '.ptx'}[a.backend]
-        files = [constants[typ].with_suffix(extension), constants['int64'].with_suffix(extension),
+        files = [constants[storage].with_suffix(extension), constants['int64'].with_suffix(extension),
                  control.with_suffix(extension)]
         output = run([driver, typ, frame, *files])
         assert 'PASS: 320 raw-bit source sorts' in output, output

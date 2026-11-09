@@ -41,7 +41,7 @@ def main():
         for name,library in [('baseline',args.baseline_metal),('current',metal)]:
             binary=build/name
             p.run([p.CLANG,*flags,'-DBENCH_FLOAT32',fair/'PipelineGpu.cpp',library,runtime,'-framework','Foundation','-framework','Metal','-o',binary]);artifacts.append(binary)
-        cpu_source=build/'cpu.k';cpu_source.write_text((src/'Pipeline.k').read_text().split('fn main()')[0]+'fn main()->float32:\n  0\n')
+        cpu_source=build/'cpu.k';cpu_source.write_text((src/'Pipeline.k').read_text().split('fn main()')[0]+'fn main()->f32:\n  return 0\n')
         ir=build/'cpu.ll';p.run([compiler,cpu_source,'--arithmetic','hardware','--test-entry','project','--emit-llvm',ir,'-O2','-o',build/'cpu-standalone'])
         p.run([p.CLANG,*flags,fair/'PipelineCpu.cpp',ir,runtime,'-o',build/'cpu']);artifacts.append(build/'cpu');generated += [cpu_source,ir]
         for name,link in [('openblas',['-I'+str(openblas/'include'),'-L'+str(openblas/'lib'),'-lopenblas','-Wl,-rpath,'+str(openblas/'lib')]),('accelerate',['-DACCELERATE','-DACCELERATE_NEW_LAPACK','-framework','Accelerate'])]:
