@@ -1108,6 +1108,7 @@ endif()
 
 include(cmake/Booleans.cmake)
 include(cmake/Strings.cmake)
+include(cmake/ApplicationIO.cmake)
 
 include(cmake/ControlFlow.cmake)
 
