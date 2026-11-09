@@ -11,7 +11,13 @@ RUNNER = REPO/'scripts/test-native.py'
 
 
 class WorkflowTests(unittest.TestCase):
-    def test_real_selection_and_unchanged_contracts(self):
+    def test_single_configuration(self):
+        self.check_fixture('Ninja')
+
+    def test_multiple_configurations(self):
+        self.check_fixture('Ninja Multi-Config')
+
+    def check_fixture(self, generator):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root/'child').mkdir()
@@ -32,9 +38,11 @@ add_test(NAME native-device-array-thread-sanitized COMMAND "${CMAKE_COMMAND}" -E
 ''')
             build = root/'build'
             def configure(enabled):
-                subprocess.run(['cmake','-S',str(root),'-B',str(build),f'-DLABEL_TESTS={enabled}'],check=True,capture_output=True)
-                return json.loads(subprocess.check_output(['ctest','--test-dir',str(build),'--show-only=json-v1']))['tests']
+                subprocess.run(['cmake','-G',generator,'-S',str(root),'-B',str(build),f'-DLABEL_TESTS={enabled}'],check=True,capture_output=True)
+                return json.loads(subprocess.check_output(['ctest','--test-dir',str(build),'-C','Debug','--show-only=json-v1']))['tests']
             before, after = configure('OFF'), configure('ON')
+            self.assertEqual(len(before), 4)
+            self.assertEqual(len(after), 4)
             def contracts(tests):
                 return {t['name']: {'command':t['command'], 'properties':[p for p in t['properties'] if p['name']!='LABELS']} for t in tests}
             self.assertEqual(contracts(before), contracts(after))
@@ -45,7 +53,7 @@ add_test(NAME native-device-array-thread-sanitized COMMAND "${CMAKE_COMMAND}" -E
             self.assertNotIn('variant-sanitized', labels['native-device-array-thread-sanitized'])
             def select(*options):
                 report = root/'selected.json'
-                result = subprocess.run([sys.executable,str(RUNNER),'--build-dir',str(build),'--report',str(report),*options],capture_output=True,text=True)
+                result = subprocess.run([sys.executable,str(RUNNER),'--build-dir',str(build),'--config','Debug','--report',str(report),*options],capture_output=True,text=True)
                 return result, json.loads(report.read_text()) if report.exists() else None
             result, report = select('--list','--feature','frontend','--feature','control','--variant','sanitized')
             self.assertEqual(result.returncode,0,result.stderr)

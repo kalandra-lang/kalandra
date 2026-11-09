@@ -27,6 +27,7 @@ def selection_args(features, variants, regex):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build-dir', type=Path, default=Path('build/native'))
+    parser.add_argument('--config', help='Build configuration for multi-config generators, e.g. Debug')
     parser.add_argument('--feature', choices=FEATURES, action='append', default=[])
     parser.add_argument('--variant', choices=VARIANTS, action='append', default=[])
     parser.add_argument('--match', help='Further restrict test names with a CTest regular expression')
@@ -37,6 +38,7 @@ def main(argv=None):
     if not (args.build_dir/'CTestTestfile.cmake').is_file():
         parser.error('configure a BUILD_TESTING=ON build directory first')
     command = ['ctest', '--test-dir', str(args.build_dir),
+               *(['-C', args.config] if args.config else []),
                *selection_args(args.feature, args.variant, args.match)]
     discovered = subprocess.run([*command, '--show-only=json-v1'], capture_output=True, text=True)
     if discovered.returncode:
@@ -44,7 +46,7 @@ def main(argv=None):
         return discovered.returncode
     tests = json.loads(discovered.stdout)['tests']
     if not tests:
-        parser.error('selection matched no tests; nothing was run')
+        parser.error('selection matched no tests; nothing was run (multi-config builds may need --config)')
     if any('feature-full' not in next((p['value'] for p in t['properties'] if p['name']=='LABELS'), []) for t in tests):
         parser.error('build lacks current test labels; rerun CMake configuration')
     if args.report:

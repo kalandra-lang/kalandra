@@ -41,7 +41,8 @@ python3 scripts/test-native.py --feature control --feature tasks --variant sanit
 python3 scripts/test-native.py --feature control --match 'return|loop' --list
 ```
 
-Use `--build-dir build/your-build` for another configured tree. Build the relevant
+Use `--build-dir build/your-build` for another configured tree and `--config Debug`
+for a multi-configuration generator. Build the relevant
 test executables before running them. `--list` shows the exact selection;
 `--report selection.json` saves commands and test properties, and `--junit
 results.xml` saves execution results. An empty selection is an error. Repeated

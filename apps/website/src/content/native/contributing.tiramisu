@@ -35,7 +35,7 @@ python3 scripts/test-native.py --feature frontend
 python3 scripts/test-native.py --feature control --feature tasks --variant sanitized
 """ }
 
-Use --build-dir for another configured build tree. Available families are frontend, tooling, control, tasks, numerics, gpu, packaging, runtime and full. Repeated features select their union. A variant filter restricts that selection; omitting it includes every variant. Use --match to narrow test names further, --report to save the selected commands and --junit to save execution results. Empty selections fail instead of reporting success.
+Use --build-dir for another configured build tree and --config Debug for a multi-configuration generator. Available families are frontend, tooling, control, tasks, numerics, gpu, packaging, runtime and full. Repeated features select their union. A variant filter restricts that selection; omitting it includes every variant. Use --match to narrow test names further, --report to save the selected commands and --junit to save execution results. Empty selections fail instead of reporting success.
 
 These labels classify test families; they do not automatically determine every consequence of a source change. Include neighboring regressions, sanitizer coverage and applicable GPU checks. The unfiltered runner executes the full registered corpus. Focused runs shorten development feedback; full platform and package qualification remains necessary before merging.
 
