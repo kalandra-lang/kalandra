@@ -16,7 +16,13 @@ p.add_argument('--variant', choices=('debug', 'optimized', 'sanitized', 'thread-
 p.add_argument('--root', type=Path, required=True)
 p.add_argument('--compile-only', action='store_true')
 p.add_argument('--case', action='append', default=[], help='Run named discovery cases; omit for the full qualification corpus')
+p.add_argument('--shard-index', type=int, default=0, help='Zero-based deterministic qualification batch')
+p.add_argument('--shard-count', type=int, default=1, help='Number of disjoint qualification batches')
 a = p.parse_args()
+if a.shard_count < 1 or not 0 <= a.shard_index < a.shard_count:
+    p.error('shard count must be positive and index must be within the count')
+if a.case and a.shard_count != 1:
+    p.error('explicit cases and qualification sharding cannot be combined')
 a.compiler = a.compiler.resolve()
 a.root = a.root.resolve()
 a.root.mkdir(parents=True, exist_ok=True)
@@ -586,9 +592,12 @@ known |= {'reject-device-string-body','reject-device-host-only-record-result',
           'reject-closure-write', 'reject-closure-sort', 'reject-closure-string-capture'}
 if set(a.case)-known:
     p.error('unknown case: '+', '.join(sorted(set(a.case)-known)))
+requested = set(a.case) or known
+selected = {name for index, name in enumerate(sorted(requested))
+            if index % a.shard_count == a.shard_index}
 results = []
 for name,(source,expected) in cases.items():
-    if a.case and name not in a.case:
+    if name not in selected:
         continue
     root = a.root/name
     root.mkdir(exist_ok=True)
@@ -648,7 +657,7 @@ for name,mutation in [(prefix+name,mutation) for prefix in ('record-','gpu-recor
                       for name,mutation in [('field','batch.values[0]=9'),
                                             ('field-alias','alias[0]=9'),
                                             ('field-sort','sort(batch.values)')]]:
-    if a.case and 'reject-'+name not in a.case:
+    if 'reject-'+name not in selected:
         continue
     root=a.root/('reject-'+name)
     root.mkdir(exist_ok=True)
@@ -661,7 +670,7 @@ for name,mutation in [(prefix+name,mutation) for prefix in ('record-','gpu-recor
     print('reject-'+name,'rejected S077',flush=True)
 for mutation in ('values[0]=99', 'sort(values)'):
     name = 'reject-closure-' + ('write' if mutation.startswith('values') else 'sort')
-    if a.case and name not in a.case:
+    if name not in selected:
         continue
     root = a.root/name
     root.mkdir(exist_ok=True)
@@ -689,7 +698,7 @@ fn main()->i64 ! TaskError:
     length(value.text)
 ''',
 }.items():
-    if a.case and 'reject-'+name not in a.case:
+    if 'reject-'+name not in selected:
         continue
     root=a.root/('reject-'+name)
     root.mkdir(exist_ok=True)
@@ -701,6 +710,8 @@ fn main()->i64 ! TaskError:
         assert "capture 'text'" in r.stderr and 'String' in r.stderr, r.stderr
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'G001'})
     print('reject-'+name,'rejected G001',flush=True)
-(a.root/'report.json').write_text(json.dumps({'complete':True,'fullCorpus':not bool(a.case),'selectedCases':a.case,'gpuExecution':not a.compile_only,
+assert len(results) == len(selected) and {r['case'] for r in results} == selected, 'Incomplete qualification batch'
+(a.root/'report.json').write_text(json.dumps({'complete':True,'fullCorpus':not bool(a.case) and a.shard_count == 1,'selectedCases':a.case,
+    'shardIndex':a.shard_index,'shardCount':a.shard_count,'expectedCases':sorted(selected),'allCases':sorted(known),'gpuExecution':not a.compile_only,
     'backend':a.backend,'variant':a.variant,'scope':'native host aggregates and typed whole-record GPU inputs and results',
     'results':results},indent=2)+'\n')
