@@ -12,7 +12,12 @@ def run(args):
  assert r.returncode==0,(args,r.returncode,r.stdout,r.stderr)
  return r.stdout
 bundle=a.output/'bundle'
-run([compiler,root/'native/benchmarks/Pipeline.k','--target','metal','--arithmetic','hardware','-O2','-o',bundle])
+# The register/legacy oracle specifies the historical adjacent contraction tree.
+run([compiler,root/'native/benchmarks/Pipeline.k','--target','metal','--arithmetic','hardware','--matmul-policy','fixed-tree','-O2','-o',bundle])
+optimized_bundle=a.output/'optimized-bundle'
+run([compiler,root/'native/benchmarks/Pipeline.k','--target','metal','--arithmetic','hardware','-O2','-o',optimized_bundle])
+assert 'matmul_policy=fixed-tree' in (bundle/'manifest.txt').read_text()
+assert 'matmul_policy=optimized' in (optimized_bundle/'manifest.txt').read_text()
 assert 'kalandra_matmul_hardware_grouped16' in (bundle/'kernel0.metal').read_text(), 'compiler must include grouped kernel'
 assert 'kalandra_matmul_hardware_skinny32' in (bundle/'kernel0.metal').read_text(), 'compiler must include skinny kernel'
 assert 'kalandra_matmul_hardware_register16' in (bundle/'kernel0.metal').read_text(), 'compiler must include current register kernel'
@@ -53,6 +58,7 @@ for name,flags,runtime in variants:
   binary=a.output/(name+'-'+harness)
   run([clang,'-std=c++23','-ffp-contract=off','-pthread','-Wall','-Wextra','-Werror',*flags,'-isystem',llvm/'include',root/('native/tests/'+harness+'.cpp'),compiler.parent/'metal'/('libkalandra-metal-'+name+'.a'),compiler.parent/runtime,'-L'+str(llvm/'lib'),'-lLLVM','-Wl,-rpath,'+str(llvm/'lib'),'-framework','Foundation','-framework','Metal','-o',binary])
   print(name+': '+run([binary,bundle]).strip(),flush=True)
+  if harness=='PipelineGpu':print(name+' optimized policy: '+run([binary,optimized_bundle,'--optimized']).strip(),flush=True)
   if name=='optimized':print(name+' old-bundle: '+run([binary,old_bundle]).strip(),flush=True)
   if name=='optimized' and harness=='PipelineGpu':print(name+' mixed-bundle: '+run([binary,mixed]).strip(),flush=True)
   if harness=='PipelineGpu':print(name+' legacy: '+run([binary,legacy,'--legacy']).strip(),flush=True)
