@@ -94,7 +94,12 @@ jobs:
       - name: Qualify application entries, console I/O and formatting
         run: |
           $variants = @('debug', 'optimized')
-          if ('${{ matrix.arch }}' -eq 'x86_64') { $variants += 'sanitized' }
+          if ('${{ matrix.arch }}' -eq 'x86_64') {
+            $variants += 'sanitized'
+            $sanitizerRuntime = @(Get-ChildItem "$env:KALANDRA_LLVM_ROOT/lib/clang/*/lib/windows" -Directory)
+            if ($sanitizerRuntime.Count -ne 1) { throw 'Expected one pinned Windows sanitizer runtime directory' }
+            $env:PATH = "$($sanitizerRuntime[0].FullName);$env:PATH"
+          }
           foreach ($variant in $variants) {
             foreach ($suite in @('ApplicationSourceTests', 'ConsoleSourceTests', 'FormatSourceTests')) {
               python "native/tests/$suite.py" --compiler build/windows/native/kalandra.exe --variant $variant --output "build/windows/io/$suite-$variant"
