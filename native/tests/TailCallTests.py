@@ -153,7 +153,7 @@ def main():
                 path = binary.with_suffix('.k')
                 ir = binary.with_suffix('.ll')
                 path.write_text(source)
-                run([compiler, path, '--arithmetic', a.arithmetic, flag,
+                run([compiler, '--test-entry', 'main', path, '--arithmetic', a.arithmetic, flag,
                      '--emit-llvm', ir, '-o', binary])
                 text = ir.read_text()
                 if version == 'current':

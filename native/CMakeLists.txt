@@ -1303,12 +1303,12 @@ if(BUILD_TESTING)
   set_tests_properties(native-windows-tail-codegen PROPERTIES TIMEOUT 300)
   add_test(NAME native-call-foundation-source
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CallFoundationTests.py"
-      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/call-foundation")
   set_tests_properties(native-call-foundation-source PROPERTIES TIMEOUT 900)
   add_test(NAME native-cancellation-source
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/NativeCancellationSourceTests.py"
-      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/native-cancellation-source")
   set_tests_properties(native-cancellation-source PROPERTIES TIMEOUT 900)
   add_test(NAME native-arithmetic-policy
@@ -1322,12 +1322,12 @@ if(BUILD_TESTING)
   set_tests_properties(native-cpu-benchmark-cells PROPERTIES TIMEOUT 180)
   add_test(NAME native-recursive-scalars
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/RecursiveScalarTests.py"
-      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/recursive-scalars")
   set_tests_properties(native-recursive-scalars PROPERTIES TIMEOUT 900)
   add_test(NAME native-signed-remainder
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/SignedRemainderTests.py"
-      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/signed-remainder")
   set_tests_properties(native-signed-remainder PROPERTIES TIMEOUT 900)
   add_test(NAME native-fast-calls
@@ -1338,23 +1338,23 @@ if(BUILD_TESTING)
   foreach(POLICY IN ITEMS hardware software)
     add_test(NAME native-checked-inlining-source-${POLICY}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CheckedInliningSourceTests.py"
-        --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
         --arithmetic "${POLICY}" --output "${CMAKE_CURRENT_BINARY_DIR}/checked-inlining-${POLICY}")
     set_tests_properties(native-checked-inlining-source-${POLICY} PROPERTIES TIMEOUT 900)
     add_test(NAME native-checked-inlining-source-float32-${POLICY}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CheckedInliningSourceTests.py"
-        --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
         --arithmetic "${POLICY}" --numeric f32 --output "${CMAKE_CURRENT_BINARY_DIR}/checked-inlining-float32-${POLICY}")
     set_tests_properties(native-checked-inlining-source-float32-${POLICY} PROPERTIES TIMEOUT 900)
   endforeach()
   add_test(NAME native-tail-calls
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TailCallTests.py"
-      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/tail-calls")
   set_tests_properties(native-tail-calls PROPERTIES TIMEOUT 900)
   add_test(NAME native-tail-calls-software
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TailCallTests.py"
-      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --arithmetic software --output "${CMAKE_CURRENT_BINARY_DIR}/tail-calls-software")
   set_tests_properties(native-tail-calls-software PROPERTIES TIMEOUT 900)
   add_test(NAME native-total-hardware-casts

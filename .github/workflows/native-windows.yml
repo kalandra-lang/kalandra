@@ -131,7 +131,7 @@ jobs:
       - name: Verify recursive scalar values and checked state
         run: >-
           python native/tests/RecursiveScalarTests.py
-          --compiler build/windows/native/kalandra-test-observer.exe
+          --compiler build/windows/native/kalandra.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/recursive-scalars
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
@@ -147,7 +147,7 @@ jobs:
       - name: Verify deep internal calls and physical stack safety
         run: >-
           python native/tests/CallFoundationTests.py
-          --compiler build/windows/native/kalandra-test-observer.exe
+          --compiler build/windows/native/kalandra.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/call-foundation
       - uses: actions/upload-artifact@v4
