@@ -76,6 +76,9 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     run([sys.executable, fixtures.parent / "tests/ParseSourceTests.py",
          "--compiler", compiler, "--output", cwd / "parsing applications",
          "--target", "metal", "--variant", "optimized"], cwd)
+    run([sys.executable, fixtures.parent / "tests/PathSourceTests.py",
+         "--compiler", compiler, "--output", cwd / "path applications",
+         "--target", "metal", "--variant", "optimized"], cwd)
     (cwd / "cpu.k").write_text('fn main() -> i64:\n  return 42\n')
     run([compiler, "--test-entry", "main", cwd / "cpu.k", "-o", cwd / "cpu"], cwd)
     assert run([cwd / "cpu"], cwd).stdout.strip() == "42"

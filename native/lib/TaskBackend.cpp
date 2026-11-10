@@ -6,6 +6,7 @@
 #include "NativeLayout.h"
 #include "NativeStack.h"
 #include "ParseLowering.h"
+#include "PathLowering.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
 #include "TaskCallableOps.h"
@@ -63,7 +64,8 @@ class Emitter {
   std::vector<llvm::GlobalVariable *> scopeTables;
   std::vector<Function *> frameDestroyers;
   std::vector<llvm::GlobalVariable *> entries;
-  std::map<Function *, Value *> consoleScratch, fileScratch, fileArguments, parseScratch;
+  std::map<Function *, Value *> consoleScratch, fileScratch, fileArguments, parseScratch,
+      pathScratch;
   Function *closedApplication = nullptr;
   std::optional<std::size_t> closedApplicationId;
   Function *destroy;
@@ -2129,6 +2131,26 @@ private:
         break;
       }
       case Code::Kernel: {
+        if (const auto *path = std::get_if<PathOperation>(
+                &planner.input.expressions[instruction.source].operation)) {
+          auto *&scratch = pathScratch[resume];
+          if (!scratch) {
+            llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+            scratch = entry.CreateAlloca(pathStringType(*taskTypes), nullptr, "path.result");
+          }
+          auto *value = emitPathCall(builder, module, *taskTypes, path->action,
+                                     payload(instruction.args.at(0)), scratch, ctx);
+          auto ready = module.getOrInsertFunction("kalandra_invocation_ready_v1",
+                                                  builder.getInt1Ty(), pointer);
+          auto *success = Block::Create(context, "path.ready", resume);
+          builder.CreateCondBr(builder.CreateCall(ready, {ctx}), success, abort);
+          builder.SetInsertPoint(success);
+          builder.CreateStore(llvm::Constant::getNullValue(valueType(type)),
+                              slot(instruction.output));
+          builder.CreateStore(value, payload(instruction.output));
+          builder.CreateBr(next);
+          break;
+        }
         if (const auto *parse = std::get_if<ParseOperation>(
                 &planner.input.expressions[instruction.source].operation)) {
           auto *&scratch = parseScratch[resume];

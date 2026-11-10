@@ -22,6 +22,7 @@ list {
   link { url = "/docs/library", "Built-in functions — alphabetical index" },
   link { url = "/docs/filesystem", "Files — owned handles and buffered byte/text I/O" },
   link { url = "/docs/parsing", "std/parse — convert text to typed numbers and booleans" },
+  link { url = "/docs/paths", "std/path — join paths and inspect their components" },
   link { url = "/docs/console", "Console I/O and formatting — standard modules" },
   link { url = "/docs/applications", "Applications — arguments and exit status" },
   link { url = "/docs/collection-functions", "Collection functions — arrays, Strings and tensor construction" },

@@ -3,6 +3,7 @@
 #include "kalandra/FormatTemplate.h"
 #include "kalandra/NumericType.h"
 #include "kalandra/ParseABI.h"
+#include "kalandra/PathOperations.h"
 #include "kalandra/Syntax.h"
 #include "kalandra/TensorTransform.h"
 #include <span>
@@ -209,6 +210,10 @@ struct FileOperation {
   FileAction action;
   std::vector<ValueId> arguments;
   std::optional<FunctionId> declaration = {};
+};
+struct PathOperation {
+  PathAction action;
+  ValueId input;
 };
 struct ParseOperation {
   runtime::ParseScalarKind kind;
@@ -460,7 +465,7 @@ struct TypedExpr {
   ValueType type; // Concrete scalar/tensor numeric identity; builtins retain explicit tags.
   std::variant<Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal,
                UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
-               FormatOperation, ConsoleOperation, FileOperation, ParseOperation,
+               FormatOperation, ConsoleOperation, FileOperation, ParseOperation, PathOperation,
                ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary,
                TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall,
                Matmul, ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape,

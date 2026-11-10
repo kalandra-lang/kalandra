@@ -1,0 +1,101 @@
+meta { title = "Paths", description = "Join file paths and inspect filenames, parents, extensions and absolute roots with std/path.", order = 8, group = "Library reference" }
+
+Use std/path to compose and inspect paths before passing them to std/fs. Paths are ordinary immutable Strings. These functions operate on text and use the executable's target platform rules: POSIX rules on Linux and macOS, Windows rules on Windows. A cross-compiled Windows executable uses Windows rules even when built on Linux.
+
+h2 { "Build a path" }
+
+codeblock { language = kalandra, """from "std/path" import join, fileName, parentPath, extension, isAbsolute
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  path = join(["data", "runs", "output.csv"])
+  try println(path)
+  try println(fileName(path))
+  try println(parentPath(path))
+  try println(extension(path))
+  try println(format("{}", isAbsolute(path)))
+  return ()
+""" }
+
+On Linux and macOS, this prints data/runs/output.csv, output.csv, data/runs, .csv and false on separate lines. Windows inserts backslashes between the joined components. Windows accepts both ordinary separator forms; POSIX treats a backslash as a normal filename character.
+
+h2 { "Lexical operations and filesystem operations" }
+
+Path operations do not access the filesystem, inspect the current working directory, check permissions or resolve symbolic links. They return Strings or a bool directly, without a declared error channel. Filesystem operations such as open remain fallible and report FsError.
+
+The functions preserve spelling, Unicode, existing separator runs, dot components and parent components. join inserts the native separator only where adjoining components need one. It does not canonicalize the path, expand environment variables, normalize case or test whether a path exists.
+
+In particular, removing a parent component can change which file is reached through a symbolic link. join(["link", "..", "file.txt"]) preserves that traversal instead of reducing it to file.txt. A path ending in a separator can also have different filesystem requirements from a path without one; join preserves nonempty components' trailing separators.
+
+These utilities do not validate OS filename restrictions or confine a path to a directory. Embedded zero characters are preserved as text; std/fs rejects them when opening a file. An absolute path describes an anchor, not proof that a path is usable or exists.
+
+link { url = "/docs/filesystem", "Open files and handle filesystem errors" }
+
+h2 { "Roots and relative paths" }
+
+On POSIX, a leading slash makes a path absolute. Leading slash runs are retained, including a double slash. Otherwise, a path is relative.
+
+On Windows, a drive letter plus a root separator is fully qualified; a drive letter alone or a single leading separator still depends on a current drive or directory. A complete UNC server/share volume is absolute. Drive letters are compared without ASCII case sensitivity when joining same-drive relative components; their earlier spelling is retained.
+
+The Windows verbatim question-mark and dot device namespaces use backslashes as separators. A forward slash inside such a path stays a literal character. A new fully qualified component can replace a verbatim base. Complete drive, UNC and named-device anchors are recognized; incomplete UNC or device prefixes are not reported as absolute. Incomplete UNC server prefixes are treated as anchors, with no filename, until a share is supplied. Malformed root spellings are retained without being repaired or validated as filesystem names.
+
+link { url = "https://learn.microsoft.com/en-us/dotnet/standard/io/file-path-formats", "Windows path formats and namespaces" }
+
+h2 { "join" }
+
+code { "join(parts: [String]) -> String" }
+
+Join any number of components using the target platform's path rules. Empty components are ignored; an empty array or an array of empty Strings produces an empty String. Existing separators and dot/parent components are preserved. A fully absolute component replaces everything accumulated before it.
+
+On Windows, a root-relative component retains the accumulated volume while replacing its directory portion. A same-drive relative component appends its tail; a different drive-relative component replaces the preceding path. A bare same-drive component contributes no extra separator. A bare drive followed by a relative name remains drive-relative. Explicit UNC/device anchors replace an earlier path, including incomplete prefixes. These operations never look up a drive's current directory.
+
+codeblock { language = kalandra, """from "std/path" import join, fileName
+from "std/io" import println, IoError
+
+fn main() -> unit ! IoError:
+  path = join(["link", "..", "file.txt"])
+  try println(fileName(path))
+  try println(fileName(join(["old", "/new", "final.txt"])))
+  return ()
+""" }
+
+This prints file.txt and final.txt on both platform families. On POSIX the absolute /new component replaces old. On Windows it is root-relative and keeps an earlier volume if one is present. Neither form looks up a file.
+
+h2 { "fileName" }
+
+code { "fileName(path: String) -> String" }
+
+Return the final nonempty component, ignoring trailing separators. Empty paths and roots have no filename and return an empty String. A path ending in a dot or parent component returns that component unchanged. This is a lexical filename, which may refer to a directory when used with std/fs.
+
+h2 { "parentPath" }
+
+code { "parentPath(path: String) -> String" }
+
+Drop the final nonempty component, ignoring trailing separators. A relative filename with no parent returns a single dot. An empty input also returns a single dot. A root returns itself, retaining its spelling and trailing root separators. A bare Windows drive returns itself.
+
+For example, parentPath("data/input.csv") is data and parentPath("input.csv") is a single dot. parentPath("data/../input.csv") retains data/.. rather than resolving the parent component.
+
+h2 { "extension" }
+
+code { "extension(path: String) -> String" }
+
+Return the filename's final dot and suffix. Leading dots alone do not start an extension: .gitignore, ..hidden and all-dot names have no extension. .config.json has extension .json; archive.tar.gz has .gz. A filename ending in a dot has extension consisting of that dot. Empty paths and roots return an empty String.
+
+h2 { "isAbsolute" }
+
+code { "isAbsolute(path: String) -> bool" }
+
+Return whether the path is fully anchored under the target platform's rules. Relative directory components can remain inside an absolute path. Empty input returns false. On Windows, a drive-relative path or a root-relative path returns false; use a full drive/root, complete UNC volume or complete device anchor to avoid a dependency on the current drive or directory.
+
+h2 { "Execution and resources" }
+
+Path operations run on the CPU, including CPU tasks and host code in GPU applications. They are ordinary function values. Calling a path utility inside a device kernel is a compilation error; GPU numerical work can use values prepared by the surrounding host application.
+
+Long inputs have no path-specific length limit. Scans and copies check cancellation, and output sizes are checked against the String size domain and ordinary runtime allocation limits. join reserves bounded output capacity after discarding components before its last independently absolute part. Existing runtime faults and cancellation take precedence over publishing a result.
+
+list {
+  link { url = "/docs/strings", "String values and Unicode indexing" },
+  link { url = "/docs/parsing", "Convert text to typed values" },
+  link { url = "/docs/filesystem", "Files and buffered I/O" }
+}

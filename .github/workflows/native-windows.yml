@@ -105,6 +105,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Parsing runtime qualification failed' }
           python native/tests/ParseOracleTests.py --driver build/windows/parse-runtime-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Parsing exact rational oracle failed' }
+      - name: Qualify lexical paths and independent platform oracles
+        run: |
+          & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/PathRuntimeTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/path-runtime-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Path runtime driver failed to compile' }
+          & build/windows/path-runtime-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Path runtime qualification failed' }
+          python native/tests/PathOracleTests.py --driver build/windows/path-runtime-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Path platform oracle failed' }
       - name: Qualify application entries, console I/O and formatting
         run: |
           $env:PYTHONUTF8 = '1'
@@ -116,7 +124,7 @@ jobs:
             $env:PATH = "$($sanitizerRuntime[0].FullName);$env:PATH"
           }
           foreach ($variant in $variants) {
-            foreach ($suite in @('ApplicationSourceTests', 'ConsoleSourceTests', 'FormatSourceTests', 'FileSystemSourceTests', 'ParseSourceTests')) {
+            foreach ($suite in @('ApplicationSourceTests', 'ConsoleSourceTests', 'FormatSourceTests', 'FileSystemSourceTests', 'ParseSourceTests', 'PathSourceTests')) {
               python "native/tests/$suite.py" --compiler build/windows/native/kalandra.exe --variant $variant --output "build/windows/io/$suite-$variant"
               if ($LASTEXITCODE -ne 0) { throw "$suite $variant failed" }
             }

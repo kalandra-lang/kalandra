@@ -47,9 +47,13 @@ def command(argv, cwd, expected=None):
     return result.stdout.strip()
 
 
+def expected_text(plan):
+    return plan.get('expectedWindows', plan['expected']) if os.name == 'nt' else plan['expected']
+
+
 def expected_output(actual, plan):
     if 'float32Ulps' not in plan:
-        return actual.strip() == plan['expected']
+        return actual.strip() == expected_text(plan)
     # This example sums approximate softmax rows. The documented contract does
     # not promise cross-device bit identity; keep a narrow explicit float32
     # bound for this example only, rather than weakening all output checks.
@@ -168,7 +172,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
             assert execution.returncode == 0 and not execution.stderr, (page, ordinal, execution)
             outputs[mode] = execution.stdout.strip()
             assert expected_output(outputs[mode], plan), (page, ordinal, mode, plan, outputs[mode])
-        return {'page': page, 'block': index, 'kind': 'gpu' if plan['kind'] == 'gpu' else 'cpu', 'status': 'passed', 'expected': plan['expected'], 'outputs': outputs}
+        return {'page': page, 'block': index, 'kind': 'gpu' if plan['kind'] == 'gpu' else 'cpu', 'status': 'passed', 'expected': expected_text(plan), 'outputs': outputs}
 
     items = [(page, n, i, source, PLAN[page][n]) for page in PAGES
              for n, (i, source) in enumerate(blocks(page, 'kalandra'))]

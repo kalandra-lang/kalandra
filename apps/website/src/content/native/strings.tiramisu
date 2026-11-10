@@ -53,9 +53,11 @@ h2 { "Equality and lifetime" }
 
 == and != compare exact scalar sequences. No normalization or locale-dependent collation is inserted. Strings can be used in CPU workers, closures, arrays and supported record or enum fields. Their text remains valid while those values need it. GPU numerical functions do not accept Strings.
 
-Escapes include a quoted double quote, a backslash, newline, carriage return, tab, zero and Unicode-scalar escapes. Invalid UTF-8 and invalid escapes are diagnosed. String interpolation, raw multiline strings and general text parsing are not supported.
+Escapes include a quoted double quote, a backslash, newline, carriage return, tab, zero and Unicode-scalar escapes. Invalid UTF-8 and invalid escapes are diagnosed. String interpolation and raw multiline strings are not supported. Convert numeric and Boolean text with std/parse; use std/path for lexical path operations.
 
 list {
+  link { url = "/docs/parsing", "Convert text to numbers and booleans" },
+  link { url = "/docs/paths", "Work with path strings" },
   link { url = "/docs/arrays", "Store and transform String arrays" },
   link { url = "/docs/collection-functions", "Collection function reference" }
 }

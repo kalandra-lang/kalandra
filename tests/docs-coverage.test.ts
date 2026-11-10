@@ -115,6 +115,7 @@ test("standard-module callables have individual public reference entries", async
     Process: "applications",
     Filesystem: "filesystem",
     Parse: "parsing",
+    Path: "paths",
   };
   let count = 0;
   for (const module of declarations.matchAll(
@@ -132,7 +133,7 @@ test("standard-module callables have individual public reference entries", async
       expect(reference).toContain(`code { "${fn[1]}(`);
     }
   }
-  expect(count).toBe(32);
+  expect(count).toBe(37);
   const console = await readFile(new URL("console.tiramisu", content), "utf8");
   expect(console).toContain('h2 { "IoError" }');
   const applications = await readFile(
