@@ -36,7 +36,7 @@ def run(name, source, data, expected, args=(), status=0):
     directory = a.output / name
     directory.mkdir(exist_ok=True)
     path = directory / 'main.k'
-    path.write_text(prelude + source)
+    path.write_text(prelude + source, encoding='utf-8')
     bundle = directory / 'bundle'
     built = subprocess.run([a.compiler.resolve(), path.resolve(), '--target', a.target,
                             flag, '-o', bundle.resolve()], capture_output=True, timeout=180)
@@ -137,7 +137,7 @@ fn main()->unit ! (IoError | TaskError):
     try await computation
     try await pending
     ()
-''')
+''', encoding='utf-8')
     bundle = directory / 'bundle'
     built = subprocess.run([a.compiler.resolve(), path.resolve(), '--target', a.target,
                             flag, '-o', bundle.resolve()], capture_output=True, timeout=180)

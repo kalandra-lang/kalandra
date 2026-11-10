@@ -13,7 +13,7 @@ flags={'debug':['-O0'],'optimized':['-O2'],'sanitized':['--sanitize'],'thread-sa
 prelude='from "std/io" import print, println, eprint, eprintln, readLine, Line, IoError\nfrom "std/fmt" import format\n'
 def build(name,source):
     directory=a.output/name;directory.mkdir(exist_ok=True)
-    path=directory/'main.k';path.write_text(prelude+source)
+    path=directory/'main.k';path.write_text(prelude+source, encoding='utf-8')
     exe=directory/('program.exe' if os.name=='nt' else 'program')
     result=subprocess.run(list(map(str,[a.compiler,path,'--test-entry','main',*flags,'-o',exe])),capture_output=True,timeout=180)
     (directory/'build.log').write_bytes(result.stdout+result.stderr)

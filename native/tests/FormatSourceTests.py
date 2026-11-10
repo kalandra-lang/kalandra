@@ -79,20 +79,20 @@ for name,(source,expected) in cases.items():
     folder=a.output/name
     folder.mkdir(exist_ok=True)
     path=folder/'main.k'
-    path.write_text(source if name=='ordinary-format' else prelude+source)
+    path.write_text(source if name=='ordinary-format' else prelude+source, encoding='utf-8')
     if name=='reexport':
-        (folder/'helper.k').write_text('export from "std/fmt" import format as fmt\n')
+        (folder/'helper.k').write_text('export from "std/fmt" import format as fmt\n', encoding='utf-8')
     output=folder/('program.exe' if os.name=='nt' else 'program')
     command=[a.compiler,path,'--test-entry','main',*flags,'-o',output]
-    built=subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=180)
-    (folder/'build.log').write_text(built.stdout+built.stderr)
+    built=subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=180, encoding='utf-8')
+    (folder/'build.log').write_text(built.stdout+built.stderr, encoding='utf-8')
     assert built.returncode==0,(name,built.stdout,built.stderr)
     for workers in ((1,4) if name=='cpu-task' else (1,)):
         run=subprocess.run([output],capture_output=True,text=True,encoding='utf-8',timeout=30,
                            env=dict(os.environ,KALANDRA_WORKERS=str(workers)))
         record={'case':name,'workers':workers,'compiled':True,'status':run.returncode,'stdout':run.stdout,'stderr':run.stderr}
         results.append(record)
-        (a.output/'results.json').write_text(json.dumps(results,indent=2)+'\n')
+        (a.output/'results.json').write_text(json.dumps(results,indent=2)+'\n', encoding='utf-8')
         assert run.returncode==0 and not run.stderr and run.stdout==expected,(name,record,expected)
         print('PASS:',name,workers,flush=True)
 
@@ -125,17 +125,17 @@ fn main()->String ! TaskError:
         folder=a.output/('reject-'+name)
         folder.mkdir(exist_ok=True)
         path=folder/'main.k'
-        path.write_text(prelude+source)
+        path.write_text(prelude+source, encoding='utf-8')
         output=folder/('program.exe' if os.name=='nt' else 'program')
-        result=subprocess.run(list(map(str,[a.compiler,path,'--test-entry','main',*flags,'-o',output])),capture_output=True,text=True,timeout=30)
-        (folder/'diagnostic.log').write_text(result.stdout+result.stderr)
+        result=subprocess.run(list(map(str,[a.compiler,path,'--test-entry','main',*flags,'-o',output])),capture_output=True,text=True,timeout=30, encoding='utf-8')
+        (folder/'diagnostic.log').write_text(result.stdout+result.stderr, encoding='utf-8')
         assert result.returncode and f'[{code}]' in result.stderr and not output.exists(),(name,result)
         print('PASS: rejected',name,code,flush=True)
 
 if a.clang and a.runtime:
     folder=a.output/'generated-failure';folder.mkdir(exist_ok=True)
     path=folder/'main.k'
-    path.write_text(prelude+'fn probe(divisor:i64)->String:\n  return format("{} {}",1,100/divisor)\nfn main()->String:\n  return probe(2)\n')
+    path.write_text(prelude+'fn probe(divisor:i64)->String:\n  return format("{} {}",1,100/divisor)\nfn main()->String:\n  return probe(2)\n', encoding='utf-8')
     llvm=folder/'program.ll'
     exe=folder/('program.exe' if os.name=='nt' else 'program')
     result=subprocess.run(list(map(str,[a.compiler,path,'--test-entry','probe','--emit-llvm',llvm,*flags,'-o',exe])),capture_output=True,timeout=180)

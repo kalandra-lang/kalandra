@@ -12,7 +12,7 @@ a=p.parse_args();a.compiler=a.compiler.resolve();a.output.mkdir(parents=True,exi
 flags={'debug':['-O0'],'optimized':['-O2'],'sanitized':['--sanitize'],'thread-sanitized':['--thread-sanitize']}[a.variant]
 def build(name,source):
     directory=a.output/name;directory.mkdir(exist_ok=True)
-    path=directory/'main.k';path.write_text(source)
+    path=directory/'main.k';path.write_text(source, encoding='utf-8')
     exe=directory/('program.exe' if os.name=='nt' else 'program')
     result=subprocess.run(list(map(str,[a.compiler,path,*flags,'-o',exe])),capture_output=True,timeout=180)
     (directory/'build.log').write_bytes(result.stdout+result.stderr)
@@ -140,13 +140,13 @@ if a.variant=='debug':
         'wrong-args':'fn main(args:[i64])->unit:\n  return ()\n',
     }.items():
         directory=a.output/('reject-'+name);directory.mkdir(exist_ok=True)
-        path=directory/'main.k';path.write_text(source)
+        path=directory/'main.k';path.write_text(source, encoding='utf-8')
         exe=directory/('program.exe' if os.name=='nt' else 'program');exe.write_bytes(b'preserved')
         result=subprocess.run(list(map(str,[a.compiler,path,'-o',exe])),capture_output=True,timeout=30)
         assert result.returncode and b'[S081]' in result.stderr and exe.read_bytes()==b'preserved',result
     # Numerical observation remains explicit and keeps its original output ABI.
     directory=a.output/'observer';directory.mkdir(exist_ok=True)
-    path=directory/'main.k';path.write_text('fn main()->i64:\n  return 42\n')
+    path=directory/'main.k';path.write_text('fn main()->i64:\n  return 42\n', encoding='utf-8')
     exe=directory/('program.exe' if os.name=='nt' else 'program')
     result=subprocess.run(list(map(str,[a.compiler,path,'--test-entry','main','-o',exe])),capture_output=True,timeout=180)
     assert result.returncode==0,result
