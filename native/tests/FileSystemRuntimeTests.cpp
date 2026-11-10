@@ -8,8 +8,10 @@
 #include <filesystem>
 #include <string>
 #include <thread>
+#include <vector>
 #ifndef _WIN32
 #include <fcntl.h>
+#include <pthread.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -222,6 +224,44 @@ static void serviceRetirement() {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
+static void deepResourceScopesBody(const std::filesystem::path &root) {
+  Invocation ctx;
+  auto file = open(ctx, root / "deep-owned-scopes", FileMode::Create);
+  const FileDescriptor *owned[] = {&file};
+  std::vector<void *> scopes;
+  scopes.reserve(50000);
+  for (unsigned n = 0; n < 50000; ++n) {
+    auto *scope = kalandra_file_scope_enter_v1(&ctx, owned, 1);
+    CHECK(scope);
+    scopes.push_back(scope);
+  }
+  for (auto it = scopes.rbegin(); it != scopes.rend(); ++it)
+    kalandra_file_scope_leave_v1(&ctx, *it, nullptr);
+  // A retained file must not keep all retired scope ancestors alive, turning
+  // final backing release into native recursion proportional to source depth.
+  ctx.settle();
+  CHECK(!ctx.live());
+}
+static void deepResourceScopes(const std::filesystem::path &root) {
+#ifdef _WIN32
+  std::thread([&] { deepResourceScopesBody(root); }).join();
+#else
+  pthread_attr_t attributes;
+  CHECK(pthread_attr_init(&attributes) == 0);
+  CHECK(pthread_attr_setstacksize(&attributes, 512 * 1024) == 0);
+  auto path = root;
+  pthread_t thread;
+  CHECK(pthread_create(
+            &thread, &attributes,
+            [](void *value) -> void * {
+              deepResourceScopesBody(*static_cast<std::filesystem::path *>(value));
+              return nullptr;
+            },
+            &path) == 0);
+  CHECK(pthread_attr_destroy(&attributes) == 0);
+  CHECK(pthread_join(thread, nullptr) == 0);
+#endif
+}
 static void errorsAndFailures(const std::filesystem::path &root) {
   {
     Invocation ctx;
@@ -360,6 +400,7 @@ int main(int argc, char **argv) {
   logicalOwnership(root / "cases");
   workerOwnershipHandoff(root / "cases");
   largeTextWrites(root / "cases");
+  deepResourceScopes(root / "cases");
 #ifndef _WIN32
   dependentFileOperations(root / "cases");
   blockedReadCancellation(root / "cases");

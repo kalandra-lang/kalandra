@@ -112,6 +112,10 @@ struct ResourceControl {
     while (scope->first) {
       auto *file = scope->first;
       file->detach();
+      // This control still owns the scope until its storage retires. Drop the
+      // file's metadata lease now, rather than retaining an inactive ancestor
+      // chain until a request releases the final physical file backing.
+      file->scopeOwner = {};
       file->retired.store(true, std::memory_order_release);
       // An in-flight service owns its lease and closes after its OS operation.
       // Source cleanup must never wait for that operation's native mutex.
