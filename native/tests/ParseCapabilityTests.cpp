@@ -17,8 +17,11 @@ int main() {
   TypedRecord error{"ParseError", {}, {}};
   error.standard = StandardRecord::ParseError;
   error.error = true;
+  ValueType tag;
+  tag.element = NumericType::Int64;
+  error.fields.push_back({"$tag", tag, {}});
   error.fields.push_back({"offset", offset, {}});
-  error.variants.push_back({"Invalid", {}, {0}});
+  error.variants.push_back({"Invalid", {}, {1}});
   error.variants.push_back({"OutOfRange", {}, {}});
   module.records.push_back(error);
   ValueType text;
@@ -64,7 +67,13 @@ int main() {
     module.records[0].standard.reset();
     CHECK(parseCapabilityError(module, expression, NumericTarget::Cpu));
     module.records[0] = error;
-    module.records[0].fields[0].type.element = NumericType::Int64;
+    module.records[0].fields[1].type.element = NumericType::Int64;
+    CHECK(parseCapabilityError(module, expression, NumericTarget::Cpu));
+    module.records[0] = error;
+    module.records[0].fields[0].type.element = NumericType::UInt32;
+    CHECK(parseCapabilityError(module, expression, NumericTarget::Cpu));
+    module.records[0] = error;
+    module.records[0].variants[0].fields = {0};
     CHECK(parseCapabilityError(module, expression, NumericTarget::Cpu));
     module.records[0] = error;
     module.records[0].variants[0].fields = {999};

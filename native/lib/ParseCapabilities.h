@@ -25,10 +25,13 @@ parseCapabilityError(const TypedModule &module, const TypedExpr &expression, Num
   const auto &error = module.records[*result.errorRecord];
   if (error.standard != StandardRecord::ParseError || !error.error || error.variants.size() != 2 ||
       error.variants[0].name != "Invalid" || error.variants[1].name != "OutOfRange" ||
-      error.variants[0].fields.size() != 1 || !error.variants[1].fields.empty())
+      error.variants[0].fields.size() != 1 || !error.variants[1].fields.empty() ||
+      error.fields.size() != 2 || error.fields[0].name != "$tag" || !plain(error.fields[0].type) ||
+      error.fields[0].type.builtin != BuiltinValue::Numeric ||
+      error.fields[0].type.element != NumericType::Int64)
     return bad("has an invalid ParseError layout");
   const auto offset = error.variants[0].fields[0];
-  if (offset >= error.fields.size() || error.fields[offset].name != "offset" ||
+  if (offset != 1 || offset >= error.fields.size() || error.fields[offset].name != "offset" ||
       !plain(error.fields[offset].type) ||
       error.fields[offset].type.builtin != BuiltinValue::Numeric ||
       error.fields[offset].type.element != NumericType::UInt64)
