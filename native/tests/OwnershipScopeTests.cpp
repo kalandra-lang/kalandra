@@ -321,7 +321,71 @@ static void expectedErrors() {
     CHECK(ctx.hasExpectedError() && !ctx.status());
   }
 }
+struct ResourceProbe {
+  std::atomic<unsigned> *closed;
+  static void cleanup(void *p) noexcept {
+    auto *probe = static_cast<ResourceProbe *>(p);
+    probe->closed->fetch_add(1, std::memory_order_relaxed);
+    probe->~ResourceProbe();
+  }
+};
+static void scopedResources() {
+  std::atomic<unsigned> closed{0};
+  for (unsigned mode = 0; mode < 4; ++mode) {
+    Invocation source, destination;
+    Scope local(source);
+    void *resource;
+    {
+      Select select(local);
+      resource = source.allocateResource(sizeof(ResourceProbe), ResourceProbe::cleanup);
+      CHECK(resource);
+      new (resource) ResourceProbe{&closed};
+    }
+    auto lease = source.lease(resource);
+    CHECK(lease);
+    CHECK(destination.retainFrom(source, resource));
+    local.reset();
+    CHECK(closed == mode);
+    if (mode == 1)
+      destination.fault(1, 12, 3);
+    else if (mode == 2)
+      destination.expectedTaskError(2, 0, 0, 0);
+    else if (mode == 3) {
+      static std::atomic<bool> cancelled{true};
+      destination.bindCancellation(&cancelled);
+      CHECK(destination.poll() == -1);
+    }
+    source.settle();
+    destination.settle();
+    CHECK(!source.live() && !destination.live() && closed == mode);
+    // The final lease may retire on a different worker; cleanup is exactly once.
+    std::thread worker([keep = std::move(*lease)] {});
+    worker.join();
+    CHECK(closed == mode + 1);
+  }
+  // Failed allocation never publishes a resource or calls its cleanup.
+  Invocation failed;
+  failed.failAllocationAt(1);
+  CHECK(!failed.allocateResource(sizeof(ResourceProbe), ResourceProbe::cleanup));
+  failed.settle();
+  CHECK(closed == 4 && failed.status() == 2 && !failed.live());
+  // Repeated scoped resources cannot leak into the small numeric-backing cache.
+  Invocation repeated;
+  for (unsigned n = 0; n < 10000; ++n) {
+    Scope local(repeated);
+    {
+      Select select(local);
+      auto *p = repeated.allocateResource(sizeof(ResourceProbe), ResourceProbe::cleanup);
+      CHECK(p);
+      new (p) ResourceProbe{&closed};
+    }
+    local.reset();
+    CHECK(closed == n + 5 && !repeated.live());
+  }
+  repeated.settle();
+}
 int main() {
+  scopedResources();
   repeatedReplacement();
   graphPublication();
   faultAttempts();

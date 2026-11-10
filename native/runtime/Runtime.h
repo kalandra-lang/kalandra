@@ -76,6 +76,11 @@ public:
   void leaveCall() noexcept;
   std::uint64_t callDepth() const noexcept { return flags_ & ControlReady ? callDepth_ : 0; }
   void *allocate(std::uint64_t bytes) noexcept;
+  // Owned host resources use the ordinary scoped backing ledger. Construction
+  // must be infallible after allocation; cleanup runs exactly once when the last
+  // retained owner retires, including fault/cancellation settlement. Resource
+  // backing is never recycled as numeric storage.
+  void *allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept;
   // Private compiler frame metadata, never source-visible or leaseable. The
   // caller completes infallible construction before returning to source code.
   // Cleanup does not enter source code; descendants retire before their parent.
