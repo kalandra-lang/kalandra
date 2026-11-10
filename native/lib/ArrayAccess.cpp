@@ -504,7 +504,8 @@ private:
             if (op.action == FileAction::ReadInto)
               write(op.arguments[1], args[1], env, spawned);
             return storage(node.type) ? fresh(id) : Roots{};
-          } else if constexpr (std::is_same_v<T, ConsoleOperation>) {
+          } else if constexpr (std::is_same_v<T, ConsoleOperation> ||
+                               std::is_same_v<T, ParseOperation>) {
             input(op.input);
             return {};
           } else if constexpr (std::is_same_v<T, FormatOperation>) {

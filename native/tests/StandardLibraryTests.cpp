@@ -21,18 +21,19 @@ int main(int argc, char **argv) {
       stream << text;
       require(bool(stream), "cannot write module fixture");
     };
-    write("main.k", "from \"std/io\" import println, IoError, Line\nfrom \"std/fmt\" import format "
-                    "as fmt\nfrom \"std/process\" import ExitStatus\nfrom \"std/fs\" import File, "
-                    "open\nfrom \"./helper.k\" import "
-                    "helper\nfn main()->unit:\n  return\n");
+    write("main.k",
+          "from \"std/io\" import println, IoError, Line\nfrom \"std/fmt\" import format "
+          "as fmt\nfrom \"std/process\" import ExitStatus\nfrom \"std/fs\" import File, "
+          "open\nfrom \"std/parse\" import parseI64, ParseError\nfrom \"./helper.k\" import "
+          "helper\nfn main()->unit:\n  return\n");
     write("helper.k", "from \"std/io\" import println\nexport fn helper()->unit:\n  return\n");
     auto loaded = loadModules((root / "main.k").string());
     require(loaded && loaded->ok(), "standard imports did not parse");
     const auto &module = loaded->module;
-    require(module.standardModules.size() == 6, "standard modules were duplicated or omitted");
+    require(module.standardModules.size() == 7, "standard modules were duplicated or omitted");
     require(!module.standardModules[0], "ordinary root acquired standard identity");
     for (const auto kind : {StandardModule::Io, StandardModule::Format, StandardModule::Process,
-                            StandardModule::Filesystem}) {
+                            StandardModule::Filesystem, StandardModule::Parse}) {
       require(std::ranges::count(module.standardModules, std::optional(kind)) == 1,
               "standard module identity not canonical");
     }

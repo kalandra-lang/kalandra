@@ -497,8 +497,8 @@ int main() {
         {(pathRoot / "main.k").string(), ""},
         {(pathRoot / "foreign" / "hidden.k").string(), ""}};
     info = pathQuery("from \"std/|\" import println\nfn main():\n  return ()\n", {});
-    require(info.names.size() == 4 && has(info, "std/fs") && has(info, "std/io") &&
-                has(info, "std/fmt") && has(info, "std/process"),
+    require(info.names.size() == 5 && has(info, "std/parse") && has(info, "std/fs") &&
+                has(info, "std/io") && has(info, "std/fmt") && has(info, "std/process"),
             "standard modules complete without installed files or workspace overlays");
     info = pathQuery("from \"std/i|Suffix\" import println\nfn main():\n  return ()\n", {});
     require(info.names.size() == 1 && has(info, "std/io") &&

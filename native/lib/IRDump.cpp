@@ -1,6 +1,7 @@
 #include "ErrorFamilies.h"
 #include "FileCapabilities.h"
 #include "NonCompleting.h"
+#include "ParseCapabilities.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
 #include "kalandra/Continuation.h"
@@ -704,6 +705,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           r.shape[0].constant || r.task || r.fallible || r.device)
         return "application arguments require a completed host [String] array";
     }
+    if (auto invalid = parseCapabilityError(module, expression, target))
+      return invalid;
     if (auto invalid = fileCapabilityError(module, expression, target))
       return invalid;
     if (const auto *console = std::get_if<ConsoleOperation>(&expression.operation)) {
@@ -1186,6 +1189,8 @@ std::string dumpTypedIR(const TypedModule &module) {
                                                                    : "eprintln")
                   << " ";
               value(operation.input);
+            } else if constexpr (std::is_same_v<T, ParseOperation>) {
+              out << "parse.scalar " << unsigned(operation.kind) << " %" << operation.input;
             } else if constexpr (std::is_same_v<T, FormatOperation>) {
               out << "string.format parts=[";
               for (const auto &part : operation.parts) {

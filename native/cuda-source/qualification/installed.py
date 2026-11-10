@@ -67,6 +67,12 @@ filesystem = [sys.executable, repo/'native/tests/FileSystemSourceTests.py',
 if not a.execute:
     filesystem.append('--compile-only')
 subprocess.run(filesystem, check=True, timeout=900)
+parsing = [sys.executable, repo/'native/tests/ParseSourceTests.py',
+              '--compiler', compiler, '--target', 'cuda', '--variant', 'optimized',
+              '--output', a.root/'parsing-applications']
+if not a.execute:
+    parsing.append('--compile-only')
+subprocess.run(parsing, check=True, timeout=900)
 
 subprocess.run([sys.executable,Path(__file__).with_name('applications.py'),
     '--build',a.root,'--compiler',compiler,'--output',a.root/'applications',

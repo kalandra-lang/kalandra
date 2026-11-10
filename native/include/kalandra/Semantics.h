@@ -2,6 +2,7 @@
 #include "kalandra/FileOperations.h"
 #include "kalandra/FormatTemplate.h"
 #include "kalandra/NumericType.h"
+#include "kalandra/ParseABI.h"
 #include "kalandra/Syntax.h"
 #include "kalandra/TensorTransform.h"
 #include <span>
@@ -208,6 +209,10 @@ struct FileOperation {
   FileAction action;
   std::vector<ValueId> arguments;
   std::optional<FunctionId> declaration = {};
+};
+struct ParseOperation {
+  runtime::ParseScalarKind kind;
+  ValueId input;
 };
 struct FormatOperation {
   std::vector<FormatPart> parts;
@@ -434,7 +439,8 @@ enum class StandardRecord {
   BufferedReader,
   BufferedWriter,
   OpenMode,
-  FsError
+  FsError,
+  ParseError
 };
 struct TypedRecord {
   std::string name;
@@ -452,17 +458,18 @@ struct TypedRecord {
 struct TypedExpr {
   SourceSpan span;
   ValueType type; // Concrete scalar/tensor numeric identity; builtins retain explicit tags.
-  std::variant<
-      Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal, UInt64Literal,
-      StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral, FormatOperation,
-      ConsoleOperation, FileOperation, ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead,
-      ScalarUnary, TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert,
-      FunctionCall, Matmul, ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape,
-      TensorToArray, ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck,
-      DeviceSelection, Transfer, TaskOperation, ParallelOperation, ConditionalOperation,
-      WhileOperation, LoopTransferOperation, IntegerRangeOperation, YieldOperation, CatchOperation,
-      MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue, RecordFieldRead,
-      ErrorNarrow, FunctionReference, FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort>
+  std::variant<Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal,
+               UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
+               FormatOperation, ConsoleOperation, FileOperation, ParseOperation,
+               ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary,
+               TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall,
+               Matmul, ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape,
+               TensorToArray, ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery,
+               ShapeCheck, DeviceSelection, Transfer, TaskOperation, ParallelOperation,
+               ConditionalOperation, WhileOperation, LoopTransferOperation, IntegerRangeOperation,
+               YieldOperation, CatchOperation, MatchOperation, ErrorFieldRead, FailOperation,
+               GuardOperation, RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference,
+               FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort>
       operation;
 };
 struct ShapeEquality {

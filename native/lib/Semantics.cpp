@@ -961,6 +961,8 @@ private:
           header.standard = StandardRecord::IoError;
         if (syntax_.standardModules[origin] == StandardModule::Io && label == "Line")
           header.standard = StandardRecord::Line;
+        if (syntax_.standardModules[origin] == StandardModule::Parse && label == "ParseError")
+          header.standard = StandardRecord::ParseError;
         if (syntax_.standardModules[origin] == StandardModule::Filesystem) {
           if (label == "File")
             header.standard = StandardRecord::File;
@@ -1419,6 +1421,46 @@ private:
         {*statement.binding, symbol.definition.value_or(symbol.declaration), symbol.type, {}});
     return found->second;
   }
+  std::optional<runtime::ParseScalarKind> standardParse(FunctionId id) const {
+    if (id >= syntax_.functions.size())
+      return {};
+    const auto &fn = syntax_.functions[id];
+    if (fn.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[fn.moduleIndex] != StandardModule::Parse)
+      return {};
+    const auto label = name(fn.name);
+    if (label == "parseI8")
+      return runtime::ParseScalarKind::I8;
+    if (label == "parseI16")
+      return runtime::ParseScalarKind::I16;
+    if (label == "parseI32")
+      return runtime::ParseScalarKind::I32;
+    if (label == "parseI64")
+      return runtime::ParseScalarKind::I64;
+    if (label == "parseU8")
+      return runtime::ParseScalarKind::U8;
+    if (label == "parseU16")
+      return runtime::ParseScalarKind::U16;
+    if (label == "parseU32")
+      return runtime::ParseScalarKind::U32;
+    if (label == "parseU64")
+      return runtime::ParseScalarKind::U64;
+    if (label == "parseF32")
+      return runtime::ParseScalarKind::F32;
+    if (label == "parseF64")
+      return runtime::ParseScalarKind::F64;
+    if (label == "parseBool")
+      return runtime::ParseScalarKind::Bool;
+    return {};
+  }
+  std::optional<ValueId> parseBody(Frame &frame, FunctionId id, runtime::ParseScalarKind kind) {
+    const auto &fn = output_.functions[id];
+    auto input = add(frame, output_.symbols[fn.parameters[0]].type, fn.declaration,
+                     SymbolRead{fn.parameters[0]});
+    if (!input)
+      return {};
+    return add(frame, *fn.declaredResult, fn.declaration, ParseOperation{kind, *input});
+  }
   bool standardFormat(FunctionId id) const {
     if (id >= syntax_.functions.size())
       return false;
@@ -1649,12 +1691,14 @@ private:
     output_.functions[id].compileTimeOnly = standardFormat(id);
     auto result = standardFormat(id) ? add(frame, *output_.functions[id].declaredResult,
                                            syntax_.functions[id].span, StringLiteral{std::string{}})
-                  : standardFile(id) ? fileBody(frame, id, *standardFile(id))
+                  : standardParse(id) ? parseBody(frame, id, *standardParse(id))
+                  : standardFile(id)  ? fileBody(frame, id, *standardFile(id))
                   : standardConsole(id)
                       ? consoleBody(frame, id, *standardConsole(id))
                       : functionSuite(frame, body, output_.functions[id].declaredResult, statements,
                                       syntax_.functions[id].span, parameters);
-    if ((standardFormat(id) || standardConsole(id) || standardFile(id)) && result)
+    if ((standardFormat(id) || standardConsole(id) || standardFile(id) || standardParse(id)) &&
+        result)
       statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);
     if (!result)

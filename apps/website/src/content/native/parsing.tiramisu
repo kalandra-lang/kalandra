@@ -1,0 +1,141 @@
+meta { title = "Parsing text", description = "Convert strings to checked integers, floating-point numbers and booleans with std/parse.", order = 7, group = "Library reference" }
+
+Import parsers from std/parse to turn user input, configuration values and text fields into typed values. Every parser consumes the entire string and returns either a value of its named type or ParseError. Standard modules are included with the compiler.
+
+h2 { "Start with typed input" }
+
+codeblock { language = kalandra, """from "std/parse" import parseI64, parseF32, parseBool, ParseError
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! (ParseError | IoError):
+  count = try parseI64("1024")
+  gain = try parseF32("0.125")
+  enabled = try parseBool("true")
+  try println(format("{}:{}:{}", count, gain, enabled))
+  return ()
+""" }
+
+This program prints 1024:0.125:true. Use try to propagate a parsing error or catch to handle it locally. Choose the parser for the destination type: parsing to i64 and then converting to i8 does not perform the same range check as parseI8.
+
+h2 { "Accepted text" }
+
+list {
+  "Integers use decimal ASCII digits. Signed parsers accept an optional leading + or -. Unsigned parsers accept an optional +; any minus sign, including -0, is invalid.",
+  "Floating-point parsers accept decimal digits with an optional point, and an optional e or E exponent with its own optional sign. At least one digit is required before or after the point. Examples include 12, -0.5, .5, 1. and 1.25e+2.",
+  "The exact lowercase floating-point spellings inf and nan are also accepted, with an optional + or - sign. Infinity, NaN and hexadecimal floating-point spellings are invalid.",
+  "Boolean input is exactly true or false, in lowercase. Numbers, alternate capitalizations and surrounding whitespace are invalid.",
+  "No parser trims whitespace or accepts separators, radix prefixes, locale-specific digits or trailing text. Empty input and a sign without digits are invalid."
+}
+
+Parsing does not modify its input. Normalize input explicitly when the application permits whitespace or another external representation. Parsing an oversized value with trailing invalid text reports Invalid rather than OutOfRange: lexical validity is checked before numeric range.
+
+h2 { "ParseError" }
+
+ParseError is an error enum with two variants. Invalid carries an offset of type u64: the zero-based byte position of the first invalid character. When a required character is missing, the offset is the byte length of the string. Offsets count UTF-8 bytes, not Unicode characters. OutOfRange means the text has valid syntax but its value cannot be represented under the destination type's rules.
+
+codeblock { language = kalandra, """from "std/parse" import parseU8, ParseError
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn describe(text: String) -> String ! ParseError:
+  value = try parseU8(text)
+  return format("byte={}", value)
+
+fn main() -> unit ! IoError:
+  for text in ["12x", "256", "12"]:
+    message = describe(text) catch fn(error):
+      return match error:
+        ParseError.Invalid {offset}: format("invalid at byte {}", offset)
+        ParseError.OutOfRange: "out of range"
+    try println(message)
+  return ()
+""" }
+
+The output is invalid at byte 2, then out of range, then byte=12. Parsing errors are ordinary typed errors; they can be matched, propagated through functions, or returned from tasks. See the error-handling guide for combining error channels.
+
+link { url = "/docs/errors", "Typed errors, try and catch" }
+
+h2 { "Floating-point rounding and range" }
+
+Decimal values are rounded directly to the destination's IEEE 754 precision using round-to-nearest, ties-to-even. parseF32 does not parse through f64, so there is no intermediate double rounding. Parsing is independent of the host's current floating-point rounding mode and leaves that mode and its exception flags unchanged.
+
+Finite input that rounds to infinity is OutOfRange. Nonzero input that rounds to zero is also OutOfRange. Representable subnormal results are accepted. An exact zero preserves its sign, including with a large exponent. Explicit inf and nan input is accepted; nan produces a quiet NaN. A textual NaN does not carry a custom payload.
+
+For example, parseF32("16777217") produces 16777216, the even neighbor at that halfway point. parseF64("0.1") produces the nearest representable f64, rather than an exact decimal fraction. Use the numeric reference for arithmetic and conversion rules.
+
+link { url = "/docs/numbers", "Numeric types and arithmetic" }
+
+h2 { "Execution and resources" }
+
+Parsers run on the CPU. Call them in ordinary CPU functions or host tasks, then pass the resulting numbers and booleans to GPU work. Calling a parser inside a GPU function is a compilation error. Parsing does not schedule blocking I/O and does not need an I/O worker.
+
+Input length has no parser-specific limit. Conversion uses bounded scratch storage and checks cancellation while scanning long input. Ordinary string allocation and application resource limits still apply. Cancellation or an existing runtime fault takes precedence over a parsing result.
+
+With --target cpu, parsers are ordinary function values and can be passed to other CPU functions. Mixed CPU/GPU applications currently require direct host parser calls; taking a parser as a function value is unsupported in that compilation mode. Integer results use the exact bounds below; none silently wrap or saturate.
+
+h2 { "parseI8" }
+
+code { "parseI8(text: String) -> i8 ! ParseError" }
+
+Signed 8-bit integer, from -128 to 127.
+
+h2 { "parseI16" }
+
+code { "parseI16(text: String) -> i16 ! ParseError" }
+
+Signed 16-bit integer, from -32768 to 32767.
+
+h2 { "parseI32" }
+
+code { "parseI32(text: String) -> i32 ! ParseError" }
+
+Signed 32-bit integer, from -2147483648 to 2147483647.
+
+h2 { "parseI64" }
+
+code { "parseI64(text: String) -> i64 ! ParseError" }
+
+Signed 64-bit integer, from -9223372036854775808 to 9223372036854775807.
+
+h2 { "parseU8" }
+
+code { "parseU8(text: String) -> u8 ! ParseError" }
+
+Unsigned 8-bit integer, from 0 to 255.
+
+h2 { "parseU16" }
+
+code { "parseU16(text: String) -> u16 ! ParseError" }
+
+Unsigned 16-bit integer, from 0 to 65535.
+
+h2 { "parseU32" }
+
+code { "parseU32(text: String) -> u32 ! ParseError" }
+
+Unsigned 32-bit integer, from 0 to 4294967295.
+
+h2 { "parseU64" }
+
+code { "parseU64(text: String) -> u64 ! ParseError" }
+
+Unsigned 64-bit integer, from 0 to 18446744073709551615.
+
+h2 { "parseF32" }
+
+code { "parseF32(text: String) -> f32 ! ParseError" }
+
+IEEE 754 binary32, rounded directly to 24 significant binary digits. The floating-point syntax, rounding and range rules above apply.
+
+h2 { "parseF64" }
+
+code { "parseF64(text: String) -> f64 ! ParseError" }
+
+IEEE 754 binary64, rounded directly to 53 significant binary digits. The floating-point syntax, rounding and range rules above apply.
+
+h2 { "parseBool" }
+
+code { "parseBool(text: String) -> bool ! ParseError" }
+
+Boolean value: true or false. Input must use the exact lowercase spelling.

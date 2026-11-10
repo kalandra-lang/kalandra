@@ -30,9 +30,9 @@ install(FILES gpu-runtime/ControlExport.h gpu-runtime/ControlArena.h
               gpu-runtime/ControlTensorInputs.h gpu-runtime/ControlTensorExport.h gpu-runtime/ProgramDecl.inc gpu-runtime/TensorBridgeDecl.inc
               gpu-runtime/AsyncDecl.inc gpu-runtime/LanguageDecl.inc gpu-runtime/ExecutablePath.inc
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/gpu-runtime" COMPONENT NativeCudaCompiler)
-install(FILES runtime/FileSystem.h runtime/Console.h runtime/Format.h runtime/String.h runtime/StringArray.h runtime/Application.h runtime/Runtime.h runtime/Tasks.h runtime/Tensor.h runtime/NumericStorage.h runtime/ValueScopes.h runtime/HostArrays.h runtime/DeviceArrayABI.h runtime/DeviceArrayWire.h runtime/DeviceArrayInputJob.h runtime/DeviceArrayResultWire.h runtime/DeviceAggregateResult.h runtime/DeviceGraphCapture.h runtime/DeviceGraphPack.h runtime/DeviceGraphArena.h runtime/DeviceGraphWire.h runtime/DeviceGraphResult.h runtime/DeviceGraphMaterialize.h runtime/DeviceGraphOrigins.h
+install(FILES runtime/Parse.h runtime/FileSystem.h runtime/Console.h runtime/Format.h runtime/String.h runtime/StringArray.h runtime/Application.h runtime/Runtime.h runtime/Tasks.h runtime/Tensor.h runtime/NumericStorage.h runtime/ValueScopes.h runtime/HostArrays.h runtime/DeviceArrayABI.h runtime/DeviceArrayWire.h runtime/DeviceArrayInputJob.h runtime/DeviceArrayResultWire.h runtime/DeviceAggregateResult.h runtime/DeviceGraphCapture.h runtime/DeviceGraphPack.h runtime/DeviceGraphArena.h runtime/DeviceGraphWire.h runtime/DeviceGraphResult.h runtime/DeviceGraphMaterialize.h runtime/DeviceGraphOrigins.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/runtime" COMPONENT NativeCudaCompiler)
-install(FILES include/kalandra/FileOperations.h include/kalandra/NumericType.h include/kalandra/TensorTransform.h
+install(FILES include/kalandra/ParseABI.h include/kalandra/FormatABI.h include/kalandra/FileOperations.h include/kalandra/NumericType.h include/kalandra/TensorTransform.h
               include/kalandra/GpuProgram.h include/kalandra/GpuTransform.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/include/kalandra" COMPONENT NativeCudaCompiler)
 # Only project-owned PTX and audited MIT/BSD-3-derived kernels are runtime resources.

@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / 'native/packaging'))
 from WindowsPlatform import pe_machine, MACHINES, coff_archive_machines
 from LoopCases import CASES as LOOP_CASES
 from FileSystemCases import SOURCE as FILESYSTEM_SOURCE, EXPECTED as FILESYSTEM_EXPECTED
+from ParseCases import SOURCE as PARSE_SOURCE, EXPECTED as PARSE_EXPECTED
 
 
 def digest(path):
@@ -59,6 +60,7 @@ def program_cases():
         '  try println(format("answer={}, arguments={}",42,length(args)))\n'
         '  return ()\n'), output='answer=42, arguments=0\n', application=True)
     cases['filesystem-application'] = dict(source=FILESYSTEM_SOURCE, output=FILESYSTEM_EXPECTED, application=True, filesystem=True)
+    cases['parsing-application'] = dict(source=PARSE_SOURCE, output=PARSE_EXPECTED, application=True)
     cases.update({'loop-' + name: dict(source=text, output=expected + '\n')
                   for name, (text, expected) in LOOP_CASES.items()})
     numeric_values = {'i8': '-42', 'u8': '255', 'i16': '-30000', 'u16': '65535',

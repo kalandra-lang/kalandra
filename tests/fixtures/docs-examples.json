@@ -482,5 +482,15 @@
       "kind": "cpu",
       "expected": "3:97:9"
     }
+  ],
+  "parsing": [
+    {
+      "kind": "cpu",
+      "expected": "1024:0.125:true"
+    },
+    {
+      "kind": "cpu",
+      "expected": "invalid at byte 2\nout of range\nbyte=12"
+    }
   ]
 }
