@@ -57,7 +57,7 @@ fn main() -> unit ! (FsError | IoError):
 
 The program displays 3. countPrefix advances the cursor but leaves ownership with its caller. passAlong consumes input, so only owned can be used afterward.
 
-Handles close automatically when their owning function exits, including on early return, propagated errors, faults and cancellation. A returned handle remains open in its new owner. Explicit close and finish let the application observe close and flush errors; automatic cleanup does not replace an existing error with a cleanup error.
+Handles become unusable automatically when their owning function exits, including on early return, propagated errors, faults and cancellation. A returned handle remains open in its new owner. Automatic cleanup schedules the operating-system close on the I/O service, so source cleanup does not wait for it. Explicit close and finish wait for completion and let the application observe close and flush errors; automatic cleanup does not replace an existing error with a cleanup error.
 
 Automatic cleanup discards pending buffered output. Use finish when output must be delivered, rather than relying on scope exit to flush it. Writes already accepted by the operating system are observable effects and cannot be rolled back.
 
@@ -230,6 +230,8 @@ h2 { "Tasks and GPU programs" }
 A file's cursor is mutable, including during a read. A task temporarily using a handle excludes all other access to that handle until it is awaited or its group settles. Concurrent reads on the same cursor are rejected too. Open independent handles for independent readers. The compiler also protects a readInto destination from overlapping task access.
 
 Pending OS work runs independently of source workers. A blocked read does not stop a sibling task from running, failing or triggering cancellation. Task cleanup can retire source values while an OS call is still outstanding; the I/O service retains only its own request storage and resource ownership. Already-started I/O may complete after cancellation, with partial external effects.
+
+File requests and pending closes use bounded service storage. An application can own at most 65,536 open or retiring handles in one process, and operating-system limits may be lower. Exhausting runtime service capacity raises a resource fault; an operating-system open failure is FsError.System. A blocked native operation can keep its service slot occupied after source cancellation until the operation returns.
 
 Filesystem calls execute on the host CPU, including around Metal, Vulkan and CUDA computations. File handles cannot be transferred to devices and filesystem calls cannot run in kernels. Call std/fs operations directly, or wrap them in named host functions. The polymorphic std/fs operations themselves are call forms rather than first-class function values. Coordinating function values in mixed GPU programs retain the same restrictions as console I/O.
 

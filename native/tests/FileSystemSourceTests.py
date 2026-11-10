@@ -120,6 +120,27 @@ fn main(args:[String])->unit ! (FsError | IoError):
   return ()
 ''',b'3:90:66:88:68\nshort:10:4\n81\n',b'QBXD')
 
+run('large-text','''fn payload(depth:i64)->String:
+  if depth==0:
+    return "x"
+  part=payload(depth-1)
+  return part+part
+fn main(args:[String])->unit ! (FsError | IoError):
+  text=payload(17)+"z"
+  file=try open(args[0],OpenMode.Create)
+  try writeText(file,text)
+  try close(file)
+  append=try open(args[0],OpenMode.Append)
+  writer=try bufferedWriter(append,7)
+  try writeLine(writer,text)
+  try finish(writer)
+  input=try open(args[0],OpenMode.Read)
+  bytes=try readExact(input,262147)
+  try println(format("{}:{}:{}:{}",length(bytes),bytes[131072],bytes[262145],bytes[262146]))
+  try close(input)
+  return ()
+''',b'262147:122:122:10\n',b'x'*131072+b'z'+b'x'*131072+b'z\n')
+
 run('unicode-text','''fn main(args:[String])->unit ! (FsError | IoError):
   file=try open(args[0],OpenMode.Create)
   writer=try bufferedWriter(file)

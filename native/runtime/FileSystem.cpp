@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <charconv>
+#include <chrono>
 #include <condition_variable>
 #include <cstring>
 #include <mutex>
@@ -49,6 +50,10 @@ std::int32_t closeNative(NativeFile file) noexcept {
   return ::close(file) == 0 ? 0 : lastError();
 #endif
 }
+constexpr std::size_t fileSlots = 65536, noFileSlot = fileSlots;
+std::size_t reserveFileSlot();
+void releaseFileSlot(std::size_t) noexcept;
+void deferClose(NativeFile &, std::size_t &) noexcept;
 struct FileState;
 struct ResourceScope {
   FileState *first = nullptr;
@@ -65,6 +70,7 @@ std::mutex &resourceMutex() {
 struct FileState {
   std::mutex mutex;
   NativeFile file = invalidFile;
+  std::size_t closeSlot = noFileSlot;
   ResourceScope *scope = nullptr;
   AllocationLease scopeOwner;
   FileState *previous = nullptr, *next = nullptr;
@@ -90,7 +96,7 @@ struct FileState {
       std::lock_guard lock(resourceMutex());
       detach();
     }
-    (void)closeNative(file);
+    deferClose(file, closeSlot);
   }
   static void cleanup(void *p) noexcept { static_cast<FileState *>(p)->~FileState(); }
 };
@@ -111,7 +117,7 @@ struct ResourceControl {
       // Source cleanup must never wait for that operation's native mutex.
       std::unique_lock native(file->mutex, std::try_to_lock);
       if (native)
-        (void)closeNative(std::exchange(file->file, invalidFile));
+        deferClose(file->file, file->closeSlot);
     }
   }
   static void cleanup(void *p) noexcept { static_cast<ResourceControl *>(p)->~ResourceControl(); }
@@ -287,7 +293,18 @@ std::uint64_t write(Job &job, FileState &file, const unsigned char *bytes,
   file.end += n;
   return n;
 }
+std::int32_t closeFile(FileState &file) noexcept {
+  const auto result = closeNative(std::exchange(file.file, invalidFile));
+  releaseFileSlot(std::exchange(file.closeSlot, noFileSlot));
+  return result;
+}
 void open(Job &job) noexcept {
+  const auto slot = reserveFileSlot();
+  if (slot == noFileSlot) {
+    job.kind = FileKind::ResourceLimit;
+    return;
+  }
+  job.output->closeSlot = slot;
 #ifdef _WIN32
   // Source paths are validated UTF-8; allocate no uncharged variable storage in
   // the worker. The request reserves this fixed Windows path conversion space.
@@ -350,8 +367,10 @@ void open(Job &job) noexcept {
     job.output->file = ::open(reinterpret_cast<const char *>(job.data()), flags | O_CLOEXEC, 0666);
   } while (job.output->file == invalidFile && errno == EINTR && !job.abandoned);
 #endif
-  if (job.output->file == invalidFile)
+  if (job.output->file == invalidFile) {
     job.system(lastError());
+    releaseFileSlot(std::exchange(job.output->closeSlot, noFileSlot));
+  }
 }
 void execute(Job &job) noexcept {
   if (job.abandoned)
@@ -373,10 +392,11 @@ void execute(Job &job) noexcept {
   case FileAction::BufferedWriter:
     if (file.buffer != FileState::Buffer::None || !job.value) {
       job.kind = FileKind::InvalidArgument;
-      (void)closeNative(std::exchange(file.file, invalidFile));
+      (void)closeFile(file);
       break;
     }
     job.output->file = std::exchange(file.file, invalidFile);
+    job.output->closeSlot = std::exchange(file.closeSlot, noFileSlot);
     job.output->buffer = job.action == FileAction::BufferedReader ? FileState::Buffer::Read
                                                                   : FileState::Buffer::Write;
     break;
@@ -387,6 +407,8 @@ void execute(Job &job) noexcept {
       job.kind = FileKind::InvalidArgument;
       break;
     }
+    if (!job.size)
+      break;
     do {
       const auto n = read(job, file, job.data() + job.count, job.size - job.count);
       job.count += n;
@@ -450,10 +472,12 @@ void execute(Job &job) noexcept {
       job.kind = FileKind::InvalidArgument;
       break;
     }
+    if (!job.size)
+      break;
     do {
       const auto n = write(job, file, job.data() + job.count, job.size - job.count);
       job.count += n;
-      if (!n || job.action != FileAction::WriteAll)
+      if (!n || job.action == FileAction::Write)
         break;
     } while (job.count < job.size && job.kind == FileKind::Success && !job.abandoned);
     break;
@@ -462,14 +486,14 @@ void execute(Job &job) noexcept {
     break;
   case FileAction::Finish: {
     flush(job, file);
-    const auto error = closeNative(std::exchange(file.file, invalidFile));
+    const auto error = closeFile(file);
     if (error && job.kind == FileKind::Success)
       job.system(error);
     file.begin = file.end = 0;
     break;
   }
   case FileAction::Close: {
-    const auto error = closeNative(std::exchange(file.file, invalidFile));
+    const auto error = closeFile(file);
     if (error)
       job.system(error);
     file.begin = file.end = 0;
@@ -511,6 +535,13 @@ struct Executor {
   std::mutex mutex;
   std::condition_variable changed;
   std::array<Pending, 64> queue;
+  struct CloseSlot {
+    NativeFile file = invalidFile;
+    bool reserved = false;
+  };
+  std::array<CloseSlot, fileSlots> closes;
+  std::array<std::uint32_t, fileSlots> closeQueue;
+  std::size_t closeBegin = 0, closeCount = 0, nextSlot = 0, reserved = 0;
   std::size_t begin = 0, count = 0, workers = 0, active = 0;
   void worker() noexcept {
 #ifndef _WIN32
@@ -523,13 +554,32 @@ struct Executor {
 #endif
     for (;;) {
       Pending current;
+      NativeFile closing = invalidFile;
+      std::size_t closeIndex = noFileSlot;
       {
         std::unique_lock lock(mutex);
-        changed.wait(lock, [&] { return count != 0; });
-        current = std::move(queue[begin]);
-        begin = (begin + 1) % queue.size();
-        --count;
+        changed.wait(lock, [&] { return count != 0 || closeCount != 0; });
+        if (closeCount) {
+          closeIndex = closeQueue[closeBegin];
+          closeBegin = (closeBegin + 1) % fileSlots;
+          --closeCount;
+          closing = closes[closeIndex].file;
+        } else {
+          current = std::move(queue[begin]);
+          begin = (begin + 1) % queue.size();
+          --count;
+        }
         ++active;
+      }
+      if (closeIndex != noFileSlot) {
+        (void)closeNative(closing);
+        {
+          std::lock_guard lock(mutex);
+          closes[closeIndex] = {};
+          --reserved;
+          --active;
+        }
+        continue;
       }
 #ifndef _WIN32
       if (signalError)
@@ -539,11 +589,11 @@ struct Executor {
         execute(*current.job);
       if (current.job->file && current.job->file->retired.load(std::memory_order_acquire)) {
         std::lock_guard native(current.job->file->mutex);
-        (void)closeNative(std::exchange(current.job->file->file, invalidFile));
+        deferClose(current.job->file->file, current.job->file->closeSlot);
       }
       if (current.job->output && current.job->output->retired.load(std::memory_order_acquire)) {
         std::lock_guard native(current.job->output->mutex);
-        (void)closeNative(std::exchange(current.job->output->file, invalidFile));
+        deferClose(current.job->output->file, current.job->output->closeSlot);
       }
       current.job->done.store(true, std::memory_order_release);
       {
@@ -572,6 +622,44 @@ struct Executor {
 Executor &executor() {
   static auto *value = new Executor;
   return *value;
+}
+std::size_t reserveFileSlot() {
+  auto &service = executor();
+  std::lock_guard lock(service.mutex);
+  if (service.reserved == fileSlots)
+    return noFileSlot;
+  for (std::size_t n = 0; n < fileSlots; ++n) {
+    const auto slot = service.nextSlot++ % fileSlots;
+    if (!service.closes[slot].reserved) {
+      service.closes[slot].reserved = true;
+      ++service.reserved;
+      return slot;
+    }
+  }
+  return noFileSlot;
+}
+void releaseFileSlot(std::size_t slot) noexcept {
+  if (slot == noFileSlot)
+    return;
+  auto &service = executor();
+  std::lock_guard lock(service.mutex);
+  service.closes[slot] = {};
+  --service.reserved;
+}
+void deferClose(NativeFile &file, std::size_t &slot) noexcept {
+  if (file == invalidFile) {
+    releaseFileSlot(std::exchange(slot, noFileSlot));
+    return;
+  }
+  // Valid files acquired a slot before their OS open. No allocation, source
+  // pointer, flush, native close or worker join occurs on this cleanup path.
+  auto &service = executor();
+  std::lock_guard lock(service.mutex);
+  const auto index = std::exchange(slot, noFileSlot);
+  service.closes[index].file = std::exchange(file, invalidFile);
+  service.closeQueue[(service.closeBegin + service.closeCount) % fileSlots] = std::uint32_t(index);
+  ++service.closeCount;
+  service.changed.notify_one();
 }
 struct Operation {
   Invocation::OwnershipScope storage;
@@ -714,6 +802,10 @@ bool step(Invocation &ctx, FileResult &out, FileAction action, const FileArgumen
   }
   if (!job.done.load(std::memory_order_acquire))
     return false;
+  if (job.kind == FileKind::ResourceLimit) {
+    ctx.fault(2);
+    return true;
+  }
   out.kind = job.kind;
   out.code = job.error;
   out.count = job.count;
@@ -866,4 +958,11 @@ extern "C" bool kalandra_file_receive_v1(Invocation *ctx, const FileDescriptor *
     if (auto *scope = currentScope(*ctx))
       adopt(*ctx, *file, scope->scope);
   return healthy(*ctx);
+}
+
+kalandra::runtime::FileServiceStats kalandra::runtime::fileServiceStats() noexcept {
+  auto &service = executor();
+  std::lock_guard lock(service.mutex);
+  return {std::uint32_t(service.reserved), std::uint32_t(service.closeCount),
+          std::uint32_t(service.workers)};
 }

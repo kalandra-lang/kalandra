@@ -18,7 +18,8 @@ enum class FileKind : std::uint32_t {
   InvalidEncoding,
   LineTooLong,
   UnexpectedEnd,
-  InvalidArgument
+  InvalidArgument,
+  ResourceLimit
 };
 struct FileArguments {
   FileDescriptor file;
@@ -34,6 +35,11 @@ struct FileResult {
   FileBytes bytes;
   std::uint64_t count = 0;
 };
+struct FileServiceStats {
+  std::uint32_t reserved = 0, pendingClose = 0, workers = 0;
+};
+// Private diagnostics for qualification, not a source-language API.
+FileServiceStats fileServiceStats() noexcept;
 class Task;
 } // namespace kalandra::runtime
 extern "C" {

@@ -188,6 +188,40 @@ static void workerOwnershipHandoff(const std::filesystem::path &root) {
   parent.settle();
   CHECK(!parent.live() && !child.live());
 }
+static void largeTextWrites(const std::filesystem::path &root) {
+  const std::string payload(131073, 'x');
+  for (const auto capacity : {0u, 7u, 65536u}) {
+    Invocation ctx;
+    const auto path = root / ("large-text-" + std::to_string(capacity));
+    auto file = open(ctx, path, FileMode::Create);
+    if (capacity)
+      file = call(ctx, FileAction::BufferedWriter, withFile(file, capacity)).file;
+    auto args = withFile(file);
+    args.path = text(ctx, payload);
+    auto result = call(ctx, FileAction::WriteText, args);
+    CHECK(result.kind == FileKind::Success && result.count == payload.size());
+    result = call(ctx, FileAction::WriteLine, args);
+    CHECK(result.kind == FileKind::Success && result.count == payload.size() + 1);
+    CHECK(call(ctx, capacity ? FileAction::Finish : FileAction::Close, withFile(file)).kind ==
+          FileKind::Success);
+    file = open(ctx, path, FileMode::Read);
+    result = call(ctx, FileAction::ReadExact, withFile(file, payload.size() * 2 + 1));
+    CHECK(result.kind == FileKind::Success && contents(result.bytes) == payload + payload + "\n");
+    ctx.settle();
+    CHECK(!ctx.live());
+  }
+}
+static void serviceRetirement() {
+  const auto start = std::chrono::steady_clock::now();
+  for (;;) {
+    const auto state = fileServiceStats();
+    CHECK(state.reserved <= 65536 && state.pendingClose <= state.reserved && state.workers <= 64);
+    if (!state.reserved)
+      break;
+    CHECK(std::chrono::steady_clock::now() - start < std::chrono::seconds(5));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
 static void errorsAndFailures(const std::filesystem::path &root) {
   {
     Invocation ctx;
@@ -325,11 +359,13 @@ int main(int argc, char **argv) {
   errorsAndFailures(root / "cases");
   logicalOwnership(root / "cases");
   workerOwnershipHandoff(root / "cases");
+  largeTextWrites(root / "cases");
 #ifndef _WIN32
   dependentFileOperations(root / "cases");
   blockedReadCancellation(root / "cases");
   blockedCancellation(root / "cases");
 #endif
+  serviceRetirement();
   std::filesystem::remove_all(root / "cases");
   std::puts("Owned filesystem runtime: bytes, lines, buffering, errors and cancellation passed");
 }
