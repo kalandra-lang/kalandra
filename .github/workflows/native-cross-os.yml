@@ -81,7 +81,7 @@ jobs:
             -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
             -Dtomlplusplus_DIR="$(brew --prefix tomlplusplus)/lib/cmake/tomlplusplus" \
             -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
-          cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-cross-target-tests -j2
+          cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-test-observer kalandra-cross-target-tests -j2
           ctest --test-dir build/macos --output-on-failure \
             -R '^native-(cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
       - name: Qualify explicit returns and primitive types
