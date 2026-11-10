@@ -11,6 +11,26 @@
 #endif
 #include <process.h>
 #include <windows.h>
+namespace {
+// The Windows CRT spawn family joins argv into a command line without quoting
+// it. Encode each argument using the child CRT's backslash/quote rules.
+std::wstring quoteArgument(std::wstring_view value) {
+  std::wstring result = L"\"";
+  std::size_t slashes = 0;
+  for (const auto character : value) {
+    if (character == L'\\') {
+      ++slashes;
+      continue;
+    }
+    result.append(character == L'"' ? slashes * 2 + 1 : slashes, L'\\');
+    result += character;
+    slashes = 0;
+  }
+  result.append(slashes * 2, L'\\');
+  result += L'"';
+  return result;
+}
+} // namespace
 int wmain(int argc, wchar_t **argv) {
   const auto size =
       MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, KALANDRA_COMPILER_PATH, -1, nullptr, 0);
@@ -32,8 +52,11 @@ int wmain(int argc, wchar_t **argv) {
     values.emplace_back(L"--test-entry");
     values.emplace_back(L"main");
   }
-  std::vector<const wchar_t *> arguments;
+  std::vector<std::wstring> quoted;
   for (const auto &value : values)
+    quoted.push_back(quoteArgument(value));
+  std::vector<const wchar_t *> arguments;
+  for (const auto &value : quoted)
     arguments.push_back(value.c_str());
   arguments.push_back(nullptr);
   const auto result = _wspawnv(_P_WAIT, compiler.c_str(), arguments.data());

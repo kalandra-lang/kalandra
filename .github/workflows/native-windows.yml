@@ -106,6 +106,8 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "$suite $variant failed" }
             }
           }
+          python native/tests/CompilerObserverTests.py --compiler build/windows/native/kalandra.exe --observer build/windows/native/kalandra-test-observer.exe --output build/windows/io/observer
+          if ($LASTEXITCODE -ne 0) { throw 'Numerical observer argument forwarding failed' }
       - name: Qualify explicit returns and primitive types
         run: |
           python native/tests/ExplicitReturnTests.py --compiler build/windows/native/kalandra-test-observer.exe --checker build/windows/native/kalandra-check.exe --output build/windows/explicit-returns
@@ -210,7 +212,9 @@ jobs:
               }
               $result = @(& ([scriptblock]::Create($examples[$index].Groups[1].Value)))
               $expected = if ($index -eq 0) { '42' } else { "2`n4`n6" }
-              if ($LASTEXITCODE -ne 0 -or (($result -join "`n").Trim()) -ne $expected) {
+              $outputLines = if ($index -eq 0) { 1 } else { 3 }
+              $actual = ($result | Select-Object -Last $outputLines) -join "`n"
+              if ($LASTEXITCODE -ne 0 -or $actual.Trim() -ne $expected) {
                 throw "Documented example $index returned unexpected output: $result"
               }
             } finally { Pop-Location }
