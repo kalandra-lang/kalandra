@@ -13,11 +13,14 @@ list {
 
 h2 { "Transfer, dispatch and observe" }
 
-codeblock { language = kalandra, """fn project(input: Tensor[f32, ?, ?], weights: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn project(input: Tensor[f32, ?, ?], weights: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
   return matmul(input, weights)
 
-fn main() -> f32 ! TaskError:
-  return try parallel:
+fn main() -> unit ! (TaskError | IoError):
+  output: f32 = try parallel:
     gpu = devices.gpu()
     input: Tensor[f32, 1, 2] = tensor([[2, 3]])
     weights: Tensor[f32, 2, 1] = tensor([[4], [5]])
@@ -27,6 +30,9 @@ fn main() -> f32 ! TaskError:
     resident = try await work
     host = try await transfer(resident, devices.cpu())
     reduceSum(host)
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 The steps are explicit:
@@ -48,7 +54,7 @@ codeblock { language = bash, """kalandra main.k --target metal -O2 -o app
 ./app/program
 """ }
 
-For this example the numerical result is 23. The Metal executable displays this f32 result as hexadecimal IEEE-754 bits: 41b80000. This represents 23, not an integer result. The executable's result display is separate from a general-purpose printing API.
+The program displays 23. The computation runs on the GPU; format and println display the downloaded result on the CPU. Returning unit from main gives the process exit status zero.
 
 The output is an application directory containing program and its metallib resources. Keep them together when moving the application. The generated application can run without the compiler distribution; compatible hardware and system frameworks remain required.
 

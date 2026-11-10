@@ -74,7 +74,7 @@ fn main()->Tensor[f32,3] ! TaskError:
         for name, flags in (("debug", []), ("optimized", ["-O2"]),
                             ("sanitized", ["--sanitize"]), ("thread-sanitized", ["--thread-sanitize"])):
             app = cwd / ("managed " + label + " application " + name)
-            run([compiler, "--project", manifest, "--target", "metal", "-o", app, *flags], cwd)
+            run([compiler, "--test-entry", "main", "--project", manifest, "--target", "metal", "-o", app, *flags], cwd)
             assert run([app / "program"], cwd).stdout.strip() == wanted
             deps = run(["otool", "-L", app / "program"], cwd).stdout
             assert "libLLVM" not in deps and "libMLIR" not in deps
@@ -133,12 +133,12 @@ fn main()->Tensor[f32,3] ! TaskError:
     saved = {p.relative_to(app): p.read_bytes() for p in app.rglob("*") if p.is_file()}
     cached = next(p for p in (project / ".kalandra/snapshots").glob("*/source/kernel.k") if p.read_text() == kernel)
     cached.write_text(kernel + "\n# modified snapshot\n")
-    rejected = run([compiler, "--project", manifest, "--target", "metal", "-o", app], cwd, 1)
+    rejected = run([compiler, "--test-entry", "main", "--project", manifest, "--target", "metal", "-o", app], cwd, 1)
     assert "digest" in rejected.stderr or "integrity" in rejected.stderr, rejected.stderr
     assert saved == {p.relative_to(app): p.read_bytes() for p in app.rglob("*") if p.is_file()}
     cached.write_text(kernel)
     for target in (project / "kalandra.lock", project / ".kalandra/forbidden"):
-        result = run([compiler, "--project", manifest, "--target", "metal", "-o", target], cwd, 1)
+        result = run([compiler, "--test-entry", "main", "--project", manifest, "--target", "metal", "-o", target], cwd, 1)
         assert "output" in result.stderr, result.stderr
     assert not (project / ".kalandra/forbidden").exists()
     assert inputs == {p.relative_to(project): p.read_bytes() for p in project.rglob("*") if p.is_file()}

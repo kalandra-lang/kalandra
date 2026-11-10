@@ -177,7 +177,7 @@ if(BUILD_TESTING)
       set(CONTINUATION_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-recursive-workers-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DRUNTIME=$<TARGET_FILE:${CONTINUATION_RUNTIME}>" "-DVARIANT=${VARIANT}"
         "-DTASK_ABI_OBJECTS=${CONTINUATION_ABI}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -193,7 +193,7 @@ if(BUILD_TESTING)
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveContinuations.cmake")
     set_tests_properties(native-recursive-continuations-${VARIANT} PROPERTIES TIMEOUT 180)
     add_test(NAME native-recursive-source-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-source-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveSource.cmake")
@@ -204,7 +204,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-recursive-strings-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-strings-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveStrings.cmake")
@@ -215,7 +215,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-recursive-collections-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-collections-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveCollections.cmake")
@@ -226,7 +226,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-recursive-string-arrays-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-string-arrays-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveStringArrays.cmake")
@@ -237,7 +237,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-recursive-record-arrays-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-record-arrays-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveRecordArrays.cmake")
@@ -248,7 +248,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-recursive-callable-fields-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-callable-fields-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveCallableFields.cmake")
@@ -259,7 +259,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-recursive-function-arrays-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-function-arrays-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveFunctionArrays.cmake")

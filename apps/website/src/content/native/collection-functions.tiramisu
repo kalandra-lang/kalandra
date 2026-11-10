@@ -64,13 +64,24 @@ code { "sorted(input: [T]) -> [T]" }
 
 Return a fresh sorted array without changing the input. Accepts the same numeric and bool element types and uses the same ordering as sort. The copy requires O(n) additional element storage; sorting that copy uses constant auxiliary storage. Ordinary read-only inputs and worker tasks are supported. Allocation failures and cancellation remain checked; a canceled operation does not modify the input. GPU helpers can also sort local numeric and bool arrays, with cancellation checkpoints between bounded comparison/swap steps.
 
-codeblock { language = kalandra, """fn main() -> [i64]:
+codeblock { language = kalandra, """from "std/io" import print, println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   values = [3, 1, 2]
   ordered = sorted(values)
   alias = values
   result = sort(values)
   ordered[0] = 9
-  return [alias[0], result[2], ordered[0]]
+  output: [i64] = [alias[0], result[2], ordered[0]]
+
+  try print("[")
+  for index in range(length(output)):
+    if index > 0:
+      try print(", ")
+    try print(format("{}", output[index]))
+  try println("]")
+  return ()
 """ }
 The result is [1, 3, 9].
 
@@ -108,14 +119,25 @@ Change the shape of a completed CPU numeric tensor while retaining its numeric i
 
 h2 { "Example" }
 
-codeblock { language = kalandra, """fn double(value: i64) -> i64:
+codeblock { language = kalandra, """from "std/io" import print, println, IoError
+from "std/fmt" import format
+
+fn double(value: i64) -> i64:
   return value * 2
 
-fn main() -> [i64]:
+fn main() -> unit ! IoError:
   values = concat(slice([1, 2, 3], 0, 2), [4])
   matrix = tensor(map(values, double), [1, 3])
   flat = array(reshape(matrix, [3]))
-  return [length("سلام"), byteLength("سلام"), length(flat), shape(matrix)[1], flat[2]]
+  output: [i64] = [length("سلام"), byteLength("سلام"), length(flat), shape(matrix)[1], flat[2]]
+
+  try print("[")
+  for index in range(length(output)):
+    if index > 0:
+      try print(", ")
+    try print(format("{}", output[index]))
+  try println("]")
+  return ()
 """ }
 The result is [4, 8, 3, 3, 8].
 

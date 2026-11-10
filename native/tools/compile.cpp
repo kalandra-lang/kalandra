@@ -1,3 +1,4 @@
+#include "kalandra/Application.h"
 #include "../lib/NativeSanitizerFrames.h"
 #include "../lib/OrdinaryMain.h"
 #include "CrossToolchain.h"
@@ -184,7 +185,7 @@ int main(int argc, char **argv) {
     if (std::none_of(filtered.begin() + 1, filtered.end(),
                      [](const char *argument) { return std::string_view(argument) == "--build"; }))
       filtered.push_back(build);
-    return kalandra::compileCudaCommand(static_cast<int>(filtered.size()), filtered.data());
+    return kalandra::compileCudaCommand(static_cast<int>(filtered.size()), filtered.data(), true);
 #else
     std::cerr << "CUDA source support is disabled; configure KALANDRA_BUILD_CUDA_SOURCE and "
                  "KALANDRA_BUILD_CUDA_RUNTIME in a normal Linux compiler build\n";
@@ -197,7 +198,7 @@ int main(int argc, char **argv) {
     if (std::none_of(filtered.begin() + 1, filtered.end(),
                      [](const char *argument) { return std::string_view(argument) == "--build"; }))
       filtered.push_back(build);
-    return kalandra::compileVulkanCommand(static_cast<int>(filtered.size()), filtered.data());
+    return kalandra::compileVulkanCommand(static_cast<int>(filtered.size()), filtered.data(), true);
 #else
     std::cerr << "Vulkan source support is disabled; configure KALANDRA_BUILD_VULKAN_RUNTIME "
                  "in a normal compiler build\n";
@@ -217,7 +218,7 @@ int main(int argc, char **argv) {
     }
     if (!hasBuild)
       filtered.push_back(build);
-    return kalandra::compileMetalCommand(static_cast<int>(filtered.size()), filtered.data());
+    return kalandra::compileMetalCommand(static_cast<int>(filtered.size()), filtered.data(), true);
 #else
 #ifdef KALANDRA_INSTALLED_COMPILER
     std::cerr
@@ -423,6 +424,11 @@ int main(int argc, char **argv) {
       std::cerr << kalandra::renderDiagnostic(*typed.source, d);
     return 1;
   }
+  if (!testEntry)
+    if (auto error = kalandra::prepareApplication(*typed.module)) {
+      std::cerr << kalandra::renderDiagnostic(*typed.source, *error);
+      return 1;
+    }
   static int executableAnchor;
   std::error_code resourceError;
   const auto executable = std::filesystem::canonical(
@@ -518,7 +524,12 @@ int main(int argc, char **argv) {
                                           ? runtimePath(KALANDRA_COLLECTION_THREAD_SANITIZED_ENTRY)
                                       : sanitize ? runtimePath(KALANDRA_COLLECTION_SANITIZED_ENTRY)
                                                  : runtimePath(KALANDRA_COLLECTION_ENTRY));
-  if (scalarMain && main->resultType.element == kalandra::NumericType::Int32)
+  if (typed.module->applicationEntry)
+    archives.insert(archives.begin(), threadSanitize
+                                          ? runtimePath(KALANDRA_APPLICATION_THREAD_SANITIZED_ENTRY)
+                                      : sanitize ? runtimePath(KALANDRA_APPLICATION_SANITIZED_ENTRY)
+                                                 : runtimePath(KALANDRA_APPLICATION_ENTRY));
+  if (!typed.module->applicationEntry && scalarMain && main->resultType.element == kalandra::NumericType::Int32)
     archives.insert(archives.begin(), threadSanitize
                                           ? runtimePath(KALANDRA_INT32_THREAD_SANITIZED_ENTRY)
                                       : sanitize ? runtimePath(KALANDRA_INT32_SANITIZED_ENTRY)
@@ -600,7 +611,7 @@ int main(int argc, char **argv) {
     auto module = llvm::parseAssemblyString(linkerIR, diagnostic, context);
     if (!module)
       return 1;
-    if (auto *ordinaryMain = kalandra::addOrdinaryMain(*module)) {
+    if (auto *ordinaryMain = kalandra::addOrdinaryMain(*module, typed.module->applicationEntry)) {
       if (sanitize || threadSanitize)
         ordinaryMain->addFnAttr(threadSanitize ? llvm::Attribute::SanitizeThread
                                                : llvm::Attribute::SanitizeAddress);
@@ -650,10 +661,17 @@ int main(int argc, char **argv) {
   if (cross) {
     auto flags = cross->clangArguments();
     command.insert(command.end(), flags.begin(), flags.end());
+    if (typed.module->applicationEntry && cross->windows())
+      command.push_back("-Wl,/entry:wmainCRTStartup");
   } else {
 #ifdef _WIN32
     command.push_back("-fms-runtime-lib=static");
     command.push_back("--rtlib=compiler-rt");
+    // The private runtime also contains the numerical main adapter. Select the
+    // Unicode CRT entry explicitly so COFF does not extract that archive member
+    // merely while choosing between main and wmain.
+    if (typed.module->applicationEntry)
+      command.push_back("-Wl,/entry:wmainCRTStartup");
 #else
     command.push_back("-pthread");
 #ifdef __APPLE__

@@ -6,22 +6,34 @@ h2 { "Widths and literal context" }
 
 Numeric type names specify their width on every target. Whole-number literals normally infer i64, and decimal or exponent literals normally infer f64. An explicit annotation supplies the literal context:
 
-codeblock { language = kalandra, """fn main() -> i32:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   left: i32 = 20
   right: i32 = 22
-  return left + right
+  output: i32 = left + right
+
+  try println(format("{}", output))
+  return ()
 """ }
 
-This returns 42 as an i32. Already typed values do not silently promote to a common numeric type. Convert deliberately when crossing widths or integer/floating families.
+This displays 42 as an i32. Already typed values do not silently promote to a common numeric type. Convert deliberately when crossing widths or integer/floating families.
 
 h2 { "Explicit conversion" }
 
-codeblock { language = kalandra, """fn main() -> i32:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   sample: f64 = 42.75
-  return i32(sample)
+  output: i32 = i32(sample)
+
+  try println(format("{}", output))
+  return ()
 """ }
 
-This returns 42. Float-to-integer conversion truncates toward zero and fails for NaN, infinity or an out-of-range result. Integer-to-integer conversion checks the destination range. Integer-to-float and float narrowing follow the specified rounding rules rather than promising exact representation for every input.
+This displays 42. Float-to-integer conversion truncates toward zero and fails for NaN, infinity or an out-of-range result. Integer-to-integer conversion checks the destination range. Integer-to-float and float narrowing follow the specified rounding rules rather than promising exact representation for every input.
 
 h2 { "Arithmetic is checked" }
 

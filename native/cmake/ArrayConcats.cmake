@@ -22,7 +22,7 @@ if(BUILD_TESTING)
       set(CONCAT_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-array-concats-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCHECKER=$<TARGET_FILE:kalandra-check>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCHECKER=$<TARGET_FILE:kalandra-check>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=$<TARGET_FILE:${CONCAT_RUNTIME}>"
         "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/array-concats-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyArrayConcats.cmake")

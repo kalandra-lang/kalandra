@@ -43,7 +43,7 @@ def compile_command(path, destination, qualified=True):
     arithmetic = 'hardware-with-software-fallback'
     if args.supervisor:
         return [args.compiler, path, destination, arithmetic]
-    return [args.compiler, '--target', args.backend, '--arithmetic', arithmetic,
+    return [args.compiler, '--test-entry', 'main', '--target', args.backend, '--arithmetic', arithmetic,
             path, '-o', destination, *(flags if qualified else [])]
 
 cases = {name: ((fixtures / (name + '.k')).read_text(), expected)

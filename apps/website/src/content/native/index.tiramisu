@@ -20,6 +20,8 @@ Return here when you need an exact rule or a function signature. The language re
 list {
   link { url = "/docs/language-reference", "Language reference — types, expressions, mutation and execution" },
   link { url = "/docs/library", "Built-in functions — alphabetical index" },
+  link { url = "/docs/console", "Console I/O and formatting — standard modules" },
+  link { url = "/docs/applications", "Applications — arguments and exit status" },
   link { url = "/docs/collection-functions", "Collection functions — arrays, Strings and tensor construction" },
   link { url = "/docs/numeric-functions", "Numeric conversions — names, ranges and rounding" },
   link { url = "/docs/tensor-functions", "Numerical functions — matrix products, reductions and normalization" },
@@ -50,8 +52,14 @@ list {
 
 h2 { "A first program" }
 
-codeblock { language = kalandra, """fn main() -> i64:
-  return 6 * 7
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  output: i64 = 6 * 7
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 Save this as main.k. In a macOS or Linux terminal, check it, compile it, then run the executable:

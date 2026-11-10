@@ -58,8 +58,14 @@ audit(prefix)
 compiler = prefix/'bin/kalandra'
 source = a.root/'cpu.k'
 source.write_text('fn main()->i32:\n  return 42\n')
-subprocess.run([compiler, source, '-o', a.root/'cpu'], check=True, timeout=60)
+subprocess.run([compiler, '--test-entry', 'main', source, '-o', a.root/'cpu'], check=True, timeout=60)
 assert subprocess.check_output([a.root/'cpu'], text=True, timeout=30) == '42\n'
+console = [sys.executable, repo/'native/tests/GpuConsoleSourceTests.py',
+           '--compiler', compiler, '--target', 'vulkan', '--variant', 'optimized',
+           '--output', a.root/'console-applications']
+if not a.execute:
+    console.append('--compile-only')
+subprocess.run(console, check=True, timeout=600)
 script = Path(__file__).with_name('public_cli.py')
 command = [sys.executable, script, '--compiler', compiler, '--output', a.root/'applications']
 if not a.execute:
@@ -136,7 +142,7 @@ for relative in ['libexec/kalandra/clang++', 'libexec/kalandra/mlir-opt',
     owned.rename(saved)
     try:
         output = a.root/('missing-'+owned.name)
-        result = subprocess.run([compiler, '--target', 'vulkan', repo/'native/metal-source/placed.k',
+        result = subprocess.run([compiler, '--test-entry', 'main', '--target', 'vulkan', repo/'native/metal-source/placed.k',
                                  '-O2', '-o', output], text=True, capture_output=True, timeout=60)
         assert result.returncode == 1 and not (output/'program').exists(), (relative, result)
         assert any(message in result.stderr for message in ('bundled Vulkan', 'installed Vulkan resource')), (relative, result)

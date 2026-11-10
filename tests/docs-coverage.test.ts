@@ -106,3 +106,30 @@ test("public documentation links resolve to authored pages and heading anchors",
         ).toBe(true);
     }
 });
+
+test("standard-module callables have individual public reference entries", async () => {
+  const declarations = await read("native/include/kalandra/StandardLibrary.h");
+  const functions = [...declarations.matchAll(/export fn (\w+)\(/g)].map(
+    (match) => match[1]!,
+  );
+  expect(functions.sort()).toEqual([
+    "eprint",
+    "eprintln",
+    "format",
+    "print",
+    "println",
+    "readLine",
+  ]);
+  const console = await readFile(new URL("console.tiramisu", content), "utf8");
+  for (const name of functions) {
+    expect(console).toContain(`h2 { "${name}" }`);
+    expect(console).toContain(`code { "${name}(`);
+  }
+  expect(console).toContain('h2 { "IoError" }');
+  const applications = await readFile(
+    new URL("applications.tiramisu", content),
+    "utf8",
+  );
+  expect(applications).toContain("code: u8");
+  expect(applications).toContain('from "std/process" import ExitStatus');
+});

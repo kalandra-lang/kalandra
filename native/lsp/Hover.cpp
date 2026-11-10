@@ -1,5 +1,6 @@
 #include "Hover.h"
 #include "SemanticQuery.h"
+#include "kalandra/StandardLibrary.h"
 #include <algorithm>
 namespace kalandra::lsp {
 namespace {
@@ -100,6 +101,11 @@ struct TypePrinter {
   }
   std::string function(const TypedFunction &function, std::string_view name,
                        std::vector<std::string> *parameters = nullptr) {
+    if (function.compileTimeOnly) {
+      if (parameters)
+        *parameters = {"template: String", "values..."};
+      return "fn " + std::string(name) + "(template: String, values...) -> String";
+    }
     std::string result = "fn " + std::string(name) + "(";
     const auto count = function.parameters.size() - function.captureCount;
     for (std::size_t i = 0; i < count; ++i) {
@@ -279,6 +285,10 @@ std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceS
 }
 std::optional<SignatureInfo> snapshotSignature(const CallableSignatureSnapshot &snapshot,
                                                std::string_view name, std::size_t active) {
+  if (snapshot.formatIntrinsic)
+    return SignatureInfo{"fn " + std::string(name) + "(template: String, values...) -> String",
+                         {"template: String", "values..."},
+                         std::min(active, std::size_t{1})};
   if (active >= snapshot.signature.parameters.size() ||
       (!snapshot.parameterNames.empty() &&
        snapshot.parameterNames.size() != snapshot.signature.parameters.size()))
@@ -463,12 +473,26 @@ std::optional<SignatureInfo> signatureInfo(ParseResult syntax, std::string_view 
   // with the same name must continue through ordinary callable resolution.
   if (target && !requireFieldProjection && !requireNameProjection) {
     const auto name = target->source->slice(target->span);
-    if (hasBuiltinSignature(name)) {
+    const bool hasFormatModule =
+        std::ranges::any_of(syntax.module.standardModules,
+                            [](auto module) { return module == StandardModule::Format; });
+    if (hasBuiltinSignature(name) || hasFormatModule) {
       auto checked = check(syntax, {}, options);
-      if (checked.ok())
+      if (checked.ok()) {
+        for (const auto &expression : checked.module->expressions)
+          if (expression.span.begin == invocationSpan.begin &&
+              expression.span.end == invocationSpan.end &&
+              std::holds_alternative<FormatOperation>(expression.operation)) {
+            SignatureInfo result;
+            result.label = "fn " + std::string(name) + "(template: String, values...) -> String";
+            result.parameters = {"template: String", "values..."};
+            result.activeParameter = std::min(active, std::size_t{1});
+            return result;
+          }
         if (auto result = builtinSignature(*checked.module, invocationSpan, name, active,
                                            call.arguments.size() + (piped ? 1u : 0u)))
           return result;
+      }
     }
   }
   // Describe a simple identifier/field editing slot only in this request.

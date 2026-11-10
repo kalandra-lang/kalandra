@@ -101,7 +101,7 @@
     },
     {
       "kind": "gpu",
-      "expected": "000000000000002a"
+      "expected": "42"
     }
   ],
   "functions": [
@@ -137,7 +137,7 @@
     },
     {
       "kind": "module",
-      "expected": "[2, 4, 6]"
+      "expected": "2\n4\n6"
     },
     {
       "kind": "module",
@@ -147,22 +147,23 @@
   "gpu": [
     {
       "kind": "gpu",
-      "expected": "41b80000"
+      "expected": "23"
     }
   ],
   "gpu-numerics": [
     {
       "kind": "gpu",
-      "expected": "40000000",
-      "float32Ulps": 4
+      "expected": "2",
+      "float32Ulps": 4,
+      "float32Bits": "40000000"
     },
     {
       "kind": "gpu",
-      "expected": "[42d40000,431c0000,43710000,43b10000]"
+      "expected": "[106, 156, 241, 354]"
     },
     {
       "kind": "gpu",
-      "expected": "41a80000"
+      "expected": "21"
     },
     {
       "kind": "gpu",
@@ -170,51 +171,51 @@
     },
     {
       "kind": "gpu",
-      "expected": "447a0000"
+      "expected": "1000"
     },
     {
       "kind": "gpu",
-      "expected": "00000000000001f9"
+      "expected": "505"
     },
     {
       "kind": "gpu",
-      "expected": "42280000"
+      "expected": "42"
     },
     {
       "kind": "gpu",
-      "expected": "000000000000000a"
+      "expected": "10"
     },
     {
       "kind": "gpu",
-      "expected": "0000000000000006"
+      "expected": "6"
     },
     {
       "kind": "gpu",
-      "expected": "0000000000000010"
+      "expected": "16"
     },
     {
       "kind": "gpu",
-      "expected": "[0000000000000000,0000000000000001,0000000000000004,0000000000000009]"
+      "expected": "[0, 1, 4, 9]"
     },
     {
       "kind": "gpu",
-      "expected": "000000000000000c"
+      "expected": "12"
     },
     {
       "kind": "gpu",
-      "expected": "000000000000000d"
+      "expected": "13"
     },
     {
       "kind": "gpu",
-      "expected": "0000000000000009"
+      "expected": "9"
     },
     {
       "kind": "gpu",
-      "expected": "0000000000000007"
+      "expected": "7"
     },
     {
       "kind": "gpu",
-      "expected": "000000000000002a"
+      "expected": "42"
     }
   ],
   "index": [
@@ -339,7 +340,7 @@
     },
     {
       "kind": "gpu",
-      "expected": "42280000"
+      "expected": "42"
     }
   ],
   "tensor-functions": [
@@ -436,5 +437,36 @@
   ],
   "release-0-99-0": [],
   "release-0-99-1": [],
-  "glossary": []
+  "glossary": [],
+  "applications": [
+    {
+      "kind": "cpu",
+      "expected": "The answer is 42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "argument: hello\nargument: two words",
+      "args": ["hello", "two words"]
+    },
+    {
+      "kind": "cpu",
+      "expected": "",
+      "args": ["ready"]
+    }
+  ],
+  "console": [
+    {
+      "kind": "cpu",
+      "expected": "Hello, Kalandra!"
+    },
+    {
+      "kind": "cpu",
+      "expected": "hello",
+      "input": "hello\n"
+    },
+    {
+      "kind": "cpu",
+      "expected": "count=42, ready=true, name=Kalandra\n{42}"
+    }
+  ]
 }

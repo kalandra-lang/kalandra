@@ -19,7 +19,7 @@ if(BUILD_TESTING)
     target_link_libraries(kalandra-record-collection-storage-${VARIANT} PRIVATE ${RC_RUNTIME})
     add_test(NAME native-record-collection-storage-${VARIANT} COMMAND kalandra-record-collection-storage-${VARIANT})
     add_test(NAME native-record-collections-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=$<TARGET_FILE:${RC_RUNTIME}>"
         "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/record-collections-${VARIANT}"

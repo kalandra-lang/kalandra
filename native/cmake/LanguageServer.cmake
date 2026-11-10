@@ -19,7 +19,7 @@ if(BUILD_TESTING)
     add_test(NAME native-lsp-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/lsp/ProtocolTests.py" "$<TARGET_FILE:${SERVER}>"
       "${CMAKE_CURRENT_BINARY_DIR}/lsp-${VARIANT}")
-    set_tests_properties(native-lsp-${VARIANT} PROPERTIES TIMEOUT 90)
+    set_tests_properties(native-lsp-${VARIANT} PROPERTIES TIMEOUT 90 LABELS "feature-io")
   endforeach()
 endif()
 if(BUILD_TESTING)
@@ -195,7 +195,7 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME native-lsp-packages-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/lsp/PackageTests.py" "$<TARGET_FILE:${SERVER}>"
-      "$<TARGET_FILE:kalandra>" "${CMAKE_CURRENT_BINARY_DIR}/lsp-packages-${VARIANT}")
+      "$<TARGET_FILE:kalandra-test-observer>" "${CMAKE_CURRENT_BINARY_DIR}/lsp-packages-${VARIANT}")
     set_tests_properties(native-lsp-packages-${VARIANT} PROPERTIES TIMEOUT 120)
   endforeach()
 endif()

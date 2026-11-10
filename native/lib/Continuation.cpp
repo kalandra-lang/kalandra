@@ -25,7 +25,7 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           auto values = op.arguments;
           values.insert(values.begin(), op.callee);
           return values;
-        } else if constexpr (std::is_same_v<T, FunctionCall>)
+        } else if constexpr (std::is_same_v<T, FunctionCall> || std::is_same_v<T, FormatOperation>)
           return op.arguments;
         else if constexpr (std::is_same_v<T, RecordValue>) {
           std::vector<ValueId> values;
@@ -171,6 +171,13 @@ public:
       for (auto parameter : input.functions[id].parameters)
         parameters.push_back(slot(plan, input.symbols[parameter].type));
       plan.parameters = parameters;
+      if (input.functions[id].compileTimeOnly) {
+        // Keep function ordinals/frame metadata stable, but never turn a
+        // compile-time declaration placeholder into an executable kernel.
+        plan.result = slot(plan, input.functions[id].resultType);
+        plan.code.push_back({Code::InvalidCallable, 0, {}});
+        continue;
+      }
       std::set<FunctionId> stack;
       plan.result = function(plan, id, parameters, stack);
       plan.code.push_back({Code::Return, 0, {plan.result}});
@@ -178,6 +185,13 @@ public:
       // containing a lexical loop itself. Retire those values with its frame.
       if (options.valueScopes &&
           (loopControl[id] ||
+           std::ranges::any_of(plan.code,
+                               [&](const auto &op) {
+                                 return op.code == Code::Jump &&
+                                        op.source < input.expressions.size() &&
+                                        std::holds_alternative<WhileOperation>(
+                                            input.expressions[op.source].operation);
+                               }) ||
            std::ranges::any_of(input.functions[id].expressions, [&](ValueId value) {
              return std::holds_alternative<WhileOperation>(input.expressions[value].operation);
            })))
@@ -335,6 +349,9 @@ private:
             op.function = importFunction(op.function);
             for (auto &argument : op.arguments)
               argument = importValue(argument);
+          } else if constexpr (std::is_same_v<T, FormatOperation>) {
+            for (auto &argument : op.arguments)
+              argument = importValue(argument);
           } else if constexpr (std::is_same_v<T, ArrayMap>) {
             op.function = importFunction(op.function);
             op.input = importValue(op.input);
@@ -431,7 +448,8 @@ private:
                                  std::is_same_v<T, UInt32Literal> ||
                                  std::is_same_v<T, UInt64Literal> ||
                                  std::is_same_v<T, BoolLiteral> ||
-                                 std::is_same_v<T, StringLiteral>))
+                                 std::is_same_v<T, StringLiteral> ||
+                                 std::is_same_v<T, ApplicationArguments>))
             throw std::runtime_error("map callback requires synchronous native operations");
         },
         value.operation);
@@ -531,6 +549,8 @@ private:
     if (auto *call = std::get_if<FunctionCall>(&op)) {
       call->function = called;
       call->arguments = reads;
+    } else if (auto *format = std::get_if<FormatOperation>(&op)) {
+      format->arguments = reads;
     } else if (auto *reference = std::get_if<FunctionReference>(&op)) {
       reference->function = referenced;
       reference->captures = reads;
@@ -1317,6 +1337,10 @@ private:
       auto subject = expression(plan, field->subject, env, stack);
       plan.code.push_back(
           {Code::Field, output, {subject}, static_cast<std::size_t>(field->field), 0, 0, id});
+    } else if (const auto *console = std::get_if<ConsoleOperation>(&node.operation)) {
+      auto input = expression(plan, console->input, env, stack);
+      // Host runtime operation; no pure/native numerical kernel is generated.
+      plan.code.push_back({Code::Kernel, output, {input}, 0, 0, 0, id});
     } else if (const auto *failure = std::get_if<FailOperation>(&node.operation)) {
       auto error = expression(plan, failure->error, env, stack);
       const auto index = plan.code.size();
@@ -1368,11 +1392,13 @@ private:
                    std::holds_alternative<IntegerRangeOperation>(node.operation) ||
                    (options.valueScopes &&
                     (node.type.array || node.type.record ||
+                     node.type.builtin == BuiltinValue::String ||
                      containsFunctionStorage(input, node.type) ||
                      std::ranges::any_of(operands(node),
                                          [&](auto value) {
                                            const auto &type = input.expressions[value].type;
                                            return type.array || type.record ||
+                                                  type.builtin == BuiltinValue::String ||
                                                   containsFunctionStorage(input, type);
                                          })))
                ? kernel(id)
@@ -1486,7 +1512,7 @@ std::vector<bool> resumableFunctions(const TypedModule &input) {
   }
   return result;
 }
-std::vector<bool> coordinatingFunctions(const TypedModule &input) {
+std::vector<bool> coordinatingFunctions(const TypedModule &input, bool consoleMaySuspend) {
   std::vector<bool> result(input.functions.size());
   std::vector<std::vector<FunctionId>> callers(input.functions.size());
   std::vector<FunctionId> pending;
@@ -1500,7 +1526,8 @@ std::vector<bool> coordinatingFunctions(const TypedModule &input) {
         callers.at(map->function).push_back(id);
       const auto *task = std::get_if<TaskOperation>(&op);
       const auto *map = std::get_if<ArrayMap>(&op);
-      if ((map && map->parallel) || (task && task->prefix != TaskPrefix::Try) ||
+      if ((consoleMaySuspend && std::holds_alternative<ConsoleOperation>(op)) ||
+          (map && map->parallel) || (task && task->prefix != TaskPrefix::Try) ||
           std::holds_alternative<ParallelOperation>(op) ||
           std::holds_alternative<DeviceSelection>(op) || std::holds_alternative<Transfer>(op))
         result[id] = true;

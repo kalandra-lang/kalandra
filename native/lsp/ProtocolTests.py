@@ -1309,10 +1309,17 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.change(signature_document, accepted, 3)
     assert not publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
     assert client.hover(signature_document, 2, 10)["result"] is not None
-    # Alias declarations and empty import prefixes do not supply public-name suggestions.
+    # Alias declarations do not supply public names. At the start of an import
+    # path, suggest standard modules and replace the entire existing specifier.
     alias_cursor = accepted.splitlines()[0].index("run") + 1
     assert client.completion(signature_document, 0, alias_cursor)["result"]["items"] == []
-    assert client.completion(signature_document, 0, 6)["result"]["items"] == []
+    standard = client.completion(signature_document, 0, 6)["result"]["items"]
+    assert [(item["label"],item["kind"]) for item in standard] == [
+        ("std/fmt",17),("std/io",17),("std/process",17)], standard
+    for item in standard:
+        assert item["textEdit"] == {"newText":item["label"],"range":{
+            "start":{"line":0,"character":6},
+            "end":{"line":0,"character":accepted.splitlines()[0].index('"',6)}}},item
     missing = 'from "./missing-completion.k" import \nfn main():\n  return 0\n'
     client.change(signature_document, missing, 4)
     client.barrier()

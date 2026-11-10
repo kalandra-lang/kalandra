@@ -25,7 +25,7 @@ def run(command):
 source=a.root/'byte.k'
 source.write_text('fn byte(n:u8)->u8:\n  return n\nfn main()->u8 ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    try await spawn byte(u8(1)) on gpu\n')
 bundle=a.root/'byte'
-run([a.compiler.resolve(),source,'--target',a.backend,'-O2','-o',bundle])
+run([a.compiler.resolve(), '--test-entry', 'main',source,'--target',a.backend,'-O2','-o',bundle])
 if a.backend=='metal':
     assert a.clang and a.metal_runtime and a.runtime
     flags={'optimized':['-O2'],

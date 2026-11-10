@@ -74,7 +74,7 @@ if a.bundled_targets:
 compiler = prefix/'bin/kalandra.exe'
 source = root/'cpu.k'
 source.write_text('fn main()->i32:\n  return 42\n')
-run([compiler, source, '-o', root/'cpu.exe'])
+run([compiler, '--test-entry', 'main', source, '-o', root/'cpu.exe'])
 assert subprocess.check_output([root/'cpu.exe'], text=True, timeout=30) == '42\n'
 compile_report = run_compile_jobs(compile_plan(a.backend, repo, compiler, root), root, a.jobs)
 if a.backend == 'cuda':
@@ -123,7 +123,7 @@ for index, (relative, fixture) in enumerate(checks):
     owned.rename(saved)
     try:
         output = root/f'missing-{index}'
-        result = subprocess.run([compiler, '--target', a.backend, fixture, '--matmul-policy', 'optimized', '-O2', '-o', output],
+        result = subprocess.run([compiler, '--test-entry', 'main', '--target', a.backend, fixture, '--matmul-policy', 'optimized', '-O2', '-o', output],
                                 capture_output=True, text=True, timeout=180)
         assert result.returncode == 1 and not (output/'program.exe').exists(), (relative, result)
     finally:

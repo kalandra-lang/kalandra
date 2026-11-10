@@ -34,7 +34,7 @@ if(BUILD_TESTING)
       set(FUNCTION_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-function-values-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}"
         "-DRUNTIME=$<TARGET_FILE:${FUNCTION_RUNTIME}>"
@@ -42,7 +42,7 @@ if(BUILD_TESTING)
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyFunctionValues.cmake")
     set_tests_properties(native-function-values-${VARIANT} PROPERTIES TIMEOUT 240)
     add_test(NAME native-function-collections-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}"
         "-DRUNTIME=$<TARGET_FILE:${FUNCTION_RUNTIME}>"
@@ -50,7 +50,7 @@ if(BUILD_TESTING)
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyFunctionCollections.cmake")
     set_tests_properties(native-function-collections-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-fallible-functions-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/fallible-functions-${VARIANT}"
@@ -80,7 +80,7 @@ if(BUILD_TESTING)
       set(CLOSURE_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-closures-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${CLOSURE_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/closures-${VARIANT}"
@@ -111,7 +111,7 @@ if(BUILD_TESTING)
       set(BLOCK_CLOSURE_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-block-closures-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${BLOCK_CLOSURE_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/block-closures-${VARIANT}"
@@ -142,7 +142,7 @@ if(BUILD_TESTING)
       set(ANONYMOUS_ERROR_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-anonymous-errors-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${ANONYMOUS_ERROR_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/anonymous-errors-${VARIANT}"
@@ -173,7 +173,7 @@ if(BUILD_TESTING)
       set(CALLABLE_FIELD_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-callable-fields-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${CALLABLE_FIELD_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/callable-fields-${VARIANT}"
@@ -204,7 +204,7 @@ if(BUILD_TESTING)
       set(FUNCTION_ARRAY_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-function-arrays-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${FUNCTION_ARRAY_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/function-arrays-${VARIANT}"
@@ -234,7 +234,7 @@ if(BUILD_TESTING)
       set(CONTROL_MAP_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-control-maps-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${CONTROL_MAP_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/control-maps-${VARIANT}"
@@ -266,7 +266,7 @@ if(BUILD_TESTING)
       set(DELIMITED_CLOSURE_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-delimited-closures-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${DELIMITED_CLOSURE_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/delimited-closures-${VARIANT}"
@@ -297,7 +297,7 @@ if(BUILD_TESTING)
       set(RECURSIVE_CALLABLE_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-recursive-callables-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${RECURSIVE_CALLABLE_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-callables-${VARIANT}"
@@ -341,84 +341,84 @@ if(BUILD_TESTING)
       set(WORKER_FUNCTION_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-worker-functions-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/worker-functions-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyWorkerFunctions.cmake")
     set_tests_properties(native-worker-functions-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-worker-closures-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/worker-closures-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyWorkerClosures.cmake")
     set_tests_properties(native-worker-closures-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-worker-nested-closures-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/worker-nested-closures-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyWorkerNestedClosures.cmake")
     set_tests_properties(native-worker-nested-closures-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-worker-function-results-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/worker-function-results-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyWorkerFunctionResults.cmake")
     set_tests_properties(native-worker-function-results-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-parallel-map-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/parallel-map-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyParallelMap.cmake")
     set_tests_properties(native-parallel-map-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-worker-error-functions-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/worker-error-functions-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyWorkerErrorFunctions.cmake")
     set_tests_properties(native-worker-error-functions-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-worker-callable-collections-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/worker-callable-collections-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyWorkerCallableCollections.cmake")
     set_tests_properties(native-worker-callable-collections-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-worker-callable-maps-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/worker-callable-maps-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyWorkerCallableMaps.cmake")
     set_tests_properties(native-worker-callable-maps-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-indirect-spawn-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/indirect-spawn-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyIndirectSpawn.cmake")
     set_tests_properties(native-indirect-spawn-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-worker-indirect-provenance-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/worker-indirect-provenance-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyWorkerIndirectProvenance.cmake")
     set_tests_properties(native-worker-indirect-provenance-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-worker-parameters-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/worker-parameters-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyWorkerParameters.cmake")
     set_tests_properties(native-worker-parameters-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-worker-callable-aggregates-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${WORKER_FUNCTION_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/worker-callable-aggregates-${VARIANT}"
@@ -467,14 +467,14 @@ if(BUILD_TESTING)
       set(CALLABLE_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-resumable-callables-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${CALLABLE_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/resumable-callables-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyResumableCallables.cmake")
     set_tests_properties(native-resumable-callables-${VARIANT} PROPERTIES TIMEOUT 300)
     add_test(NAME native-resumable-callable-extras-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=$<TARGET_FILE:${CALLABLE_RUNTIME}>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/resumable-callable-extras-${VARIANT}"
@@ -486,7 +486,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-stack-outline-${VARIANT} COMMAND "${CMAKE_COMMAND}"
-      "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/stack-outline-${VARIANT}"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyStackOutline.cmake")
     set_tests_properties(native-stack-outline-${VARIANT} PROPERTIES TIMEOUT 180)

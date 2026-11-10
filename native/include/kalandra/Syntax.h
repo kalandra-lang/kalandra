@@ -13,6 +13,7 @@
 #include <vector>
 
 namespace kalandra {
+enum class StandardModule;
 struct SourceSpan {
   std::size_t begin = 0;
   std::size_t end = 0;
@@ -317,6 +318,8 @@ struct Module {
   std::vector<Function> functions;
   std::vector<Import> imports;
   std::vector<RecordDeclaration> records;
+  // Populated only by the module loader, never inferred from source filenames.
+  std::vector<std::optional<StandardModule>> standardModules;
   bool editorOnly = false; // Structural recovery and unresolved expression holes.
 };
 struct ParseResult {

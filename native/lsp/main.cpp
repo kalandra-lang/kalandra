@@ -10,6 +10,7 @@
 #include "kalandra/PackageInstall.h"
 #include "kalandra/Project.h"
 #include "kalandra/Semantics.h"
+#include "kalandra/StandardLibrary.h"
 #include "kalandra/Utf8.h"
 #include "kalandra/Version.h"
 #include "llvm/Support/JSON.h"
@@ -187,6 +188,8 @@ std::optional<std::string> pathFromUri(llvm::StringRef ref, bool source = true) 
   return canonical.string();
 }
 std::string uriFromPath(std::string_view path) {
+  if (kalandra::standardModuleFromPath(path))
+    return std::string(path);
   constexpr char digits[] = "0123456789ABCDEF";
   std::string uri = "file://";
 #ifdef _WIN32
@@ -240,6 +243,8 @@ public:
     options.placement = placement;
   }
   bool writable(std::string_view path) const {
+    if (kalandra::standardModuleFromPath(path))
+      return false;
     return !project ||
            !lsp::containsPath((fs::path(project->manifest).parent_path() / ".kalandra").string(),
                               path);
@@ -1031,6 +1036,18 @@ int main(int argc, char **argv) {
       } else if (session.shutdown) {
         if (request)
           error(*id, -32600, "Server is shut down");
+      } else if (*method == "kalandra/standardLibrary" && request) {
+        const auto params = object->getObject("params");
+        const auto uri = params ? params->getString("uri") : std::nullopt;
+        const auto module =
+            uri ? kalandra::standardModuleFromPath(std::string_view(uri->data(), uri->size()))
+                : std::nullopt;
+        if (!module)
+          error(*id, -32602, "Expected a compiler standard-library URI");
+        else
+          send(j::Object{{"jsonrpc", "2.0"},
+                         {"id", *id},
+                         {"result", std::string(kalandra::standardModuleSource(*module))}});
       } else if (*method == "shutdown" && request) {
         session.shutdown = true;
         send(j::Object{{"jsonrpc", "2.0"}, {"id", *id}, {"result", nullptr}});

@@ -45,7 +45,7 @@ def main():
         assert all(p.sha(f)==h for f,h in saved['hashes'].items()),'artifact changed'
         p.COMMANDS.extend(saved['commands'])
     else:
-        p.run([compiler,src/'ResidualFfn.k','--target','metal','--arithmetic','hardware','-O2','-o',bundle])
+        p.run([compiler, '--test-entry', 'main',src/'ResidualFfn.k','--target','metal','--arithmetic','hardware','-O2','-o',bundle])
         host=(bundle/'host.cpp').read_text()
         assert 'products=std::array<m::MatrixProduct,4>{{{0,1},{3,3},{4,2},{0,5},}}' in host
         cpu_source=build/'cpu.k'

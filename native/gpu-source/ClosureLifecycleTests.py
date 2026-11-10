@@ -36,7 +36,7 @@ def run(command):
 
 fixture = native / 'tests/fixtures/mixed-host-aggregates/gpu-host-closure-resident-result.k'
 program = root / 'program'
-run([compiler, fixture, '--target', a.backend, '-O2', '-o', program])
+run([compiler, '--test-entry', 'main', fixture, '--target', a.backend, '-O2', '-o', program])
 host = (program / 'host.cpp').read_text()
 assert 'DeviceGraphArgument<GpuClosureCapture' in host
 assert 'NumericInstructionKind::DeviceControl' in host

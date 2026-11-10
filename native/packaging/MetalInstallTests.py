@@ -49,7 +49,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
         assert digest(prefix / name) == expected
     assert names == {str(p.relative_to(prefix)) for p in prefix.rglob("*") if p.is_file()} - {"SHA256SUMS"}
     resources = prefix / "lib/kalandra/native"
-    assert len(list(resources.glob("*.a"))) == 38
+    assert len(list(resources.glob("*.a"))) == 41
     metadata = json.loads((prefix / "share/kalandra-native-metal/toolchain.json").read_text())
     verify_package_version(prefix)
     assert metadata["format"] == 1 and metadata["configuration"] == config
@@ -63,9 +63,15 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     starter = cwd / "installed starter"
     run([compiler, "new", starter], cwd)
     run([compiler, "--project", starter / "kalandra.toml", "-o", cwd / "starter program"], cwd)
-    assert run([cwd / "starter program"], cwd).stdout.strip() == "[2, 4, 6]"
+    assert run([cwd / "starter program"], cwd).stdout.strip() == "2\n4\n6"
+    # Use the normal application contract with relocated host headers and shader
+    # resources too; numerical observation below is deliberately a separate gate.
+    run([sys.executable, fixtures.parent / "tests/GpuConsoleSourceTests.py",
+         "--compiler", compiler, "--output", cwd / "console applications",
+         "--target", "metal", "--variant", "optimized",
+         "--case", "streams", "--case", "arguments-and-status"], cwd)
     (cwd / "cpu.k").write_text('fn main() -> i64:\n  return 42\n')
-    run([compiler, cwd / "cpu.k", "-o", cwd / "cpu"], cwd)
+    run([compiler, "--test-entry", "main", cwd / "cpu.k", "-o", cwd / "cpu"], cwd)
     assert run([cwd / "cpu"], cwd).stdout.strip() == "42"
     source = cwd / "placed.k"
     source.write_bytes((fixtures / "placed.k").read_bytes())
@@ -76,69 +82,69 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     transform_source = cwd / "row-transform.k"
     transform_source.write_text('fn work(x:Tensor[f32,?,?])->f32:\n  return reduceSum(transpose(softmaxRows(x)))\nfn main()->f32 ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    x:Tensor[f32,2,3]=tensor([[1,2,3],[-1,0,1]])\n    a=try await transfer(x,gpu)\n    try await spawn work(a) on gpu\n')
     transform_app = cwd / "transform application"
-    run([compiler, transform_source, "--target", "metal", "--arithmetic", "hardware", "-O2", "-o", transform_app], cwd)
+    run([compiler, "--test-entry", "main", transform_source, "--target", "metal", "--arithmetic", "hardware", "-O2", "-o", transform_app], cwd)
     assert run([transform_app / "program"], cwd).stdout.strip() == "40000000"
     applications.append((transform_app, "40000000"))
     # Exercise native array ownership from the relocated compiler/header tree.
     array_source = cwd / "host-arrays.k"
     array_source.write_bytes((fixtures.parent / "tests/fixtures/mixed-host-arrays/functional.k").read_bytes())
     array_app = cwd / "host arrays application"
-    run([compiler, array_source, "--target", "metal", "--arithmetic", "hardware-with-software-fallback",
+    run([compiler, "--test-entry", "main", array_source, "--target", "metal", "--arithmetic", "hardware-with-software-fallback",
          "-O2", "-o", array_app], cwd)
     assert run([array_app / "program"], cwd).stdout.strip() == "00000000000000ef"
     applications.append((array_app, "00000000000000ef"))
     aggregate_source = cwd / "host aggregates.k"
     aggregate_source.write_bytes((fixtures.parent / "tests/fixtures/mixed-host-aggregates/tasks.k").read_bytes())
     aggregate_app = cwd / "host aggregates application"
-    run([compiler, aggregate_source, "--target", "metal", "-O2", "-o", aggregate_app], cwd)
+    run([compiler, "--test-entry", "main", aggregate_source, "--target", "metal", "-O2", "-o", aggregate_app], cwd)
     assert run([aggregate_app / "program"], cwd).stdout.strip() == "00000000000009ea"
     applications.append((aggregate_app, "00000000000009ea"))
     record_result = cwd / "record result.k"
     record_result.write_bytes((fixtures.parent / "tests/fixtures/mixed-host-aggregates/record-result.k").read_bytes())
     record_app = cwd / "record result application"
-    run([compiler, record_result, "--target", "metal", "-O2", "-o", record_app], cwd)
+    run([compiler, "--test-entry", "main", record_result, "--target", "metal", "-O2", "-o", record_app], cwd)
     assert run([record_app / "program"], cwd).stdout.strip() == "00000000000003d7"
     applications.append((record_app, "00000000000003d7"))
     graph_source = cwd / "recursive graph capture.k"
     graph_source.write_bytes(
         (fixtures.parent / "tests/fixtures/mixed-host-aggregates/array-graph-entry.k").read_bytes())
     graph_app = cwd / "recursive graph capture application"
-    run([compiler, graph_source, "--target", "metal", "-O2", "-o", graph_app], cwd)
+    run([compiler, "--test-entry", "main", graph_source, "--target", "metal", "-O2", "-o", graph_app], cwd)
     assert run([graph_app / "program"], cwd).stdout.strip() == "000000000000001b"
     applications.append((graph_app, "000000000000001b"))
     graph_result = cwd / "recursive graph result.k"
     graph_result.write_bytes(
         (fixtures.parent / "tests/fixtures/mixed-host-aggregates/graph-result-captured.k").read_bytes())
     graph_result_app = cwd / "recursive graph result application"
-    run([compiler, graph_result, "--target", "metal", "-O2", "-o", graph_result_app], cwd)
+    run([compiler, "--test-entry", "main", graph_result, "--target", "metal", "-O2", "-o", graph_result_app], cwd)
     assert run([graph_result_app / "program"], cwd).stdout.strip() == "00000000000003a0"
     applications.append((graph_result_app, "00000000000003a0"))
     recursive_source = cwd / "recursive call graph result.k"
     recursive_source.write_bytes(
         (fixtures.parent / "tests/fixtures/mixed-host-aggregates/graph-result-recursive-capture.k").read_bytes())
     recursive_app = cwd / "recursive call graph result application"
-    run([compiler, recursive_source, "--target", "metal", "-O2", "-o", recursive_app], cwd)
+    run([compiler, "--test-entry", "main", recursive_source, "--target", "metal", "-O2", "-o", recursive_app], cwd)
     assert run([recursive_app / "program"], cwd).stdout.strip() == "00000000000013c3"
     applications.append((recursive_app, "00000000000013c3"))
     closure_source = cwd / "device closure.k"
     closure_source.write_bytes(
         (fixtures.parent / "tests/fixtures/mixed-host-aggregates/device-array-closure.k").read_bytes())
     closure_app = cwd / "device closure application"
-    run([compiler, closure_source, "--target", "metal", "-O2", "-o", closure_app], cwd)
+    run([compiler, "--test-entry", "main", closure_source, "--target", "metal", "-O2", "-o", closure_app], cwd)
     assert run([closure_app / "program"], cwd).stdout.strip() == "00000000000000ef"
     applications.append((closure_app, "00000000000000ef"))
     tensor_source = cwd / "checkpointed tensor.k"
     tensor_source.write_bytes(
         (fixtures.parent / "tests/fixtures/mixed-host-aggregates/device-tensor-arithmetic.k").read_bytes())
     tensor_app = cwd / "checkpointed tensor application"
-    run([compiler, tensor_source, "--target", "metal", "-O2", "-o", tensor_app], cwd)
+    run([compiler, "--test-entry", "main", tensor_source, "--target", "metal", "-O2", "-o", tensor_app], cwd)
     assert run([tensor_app / "program"], cwd).stdout.strip() == "0000000000000546"
     applications.append((tensor_app, "0000000000000546"))
     tensor_return_source = cwd / "resident tensor return.k"
     tensor_return_source.write_bytes(
         (fixtures.parent / "tests/fixtures/mixed-host-aggregates/device-tensor-return-edge.k").read_bytes())
     tensor_return_app = cwd / "resident tensor return application"
-    run([compiler, tensor_return_source, "--target", "metal", "-O2", "-o", tensor_return_app], cwd)
+    run([compiler, "--test-entry", "main", tensor_return_source, "--target", "metal", "-O2", "-o", tensor_return_app], cwd)
     assert run([tensor_return_app / "program"], cwd).stdout.strip() == "000000000000000a"
     applications.append((tensor_return_app, "000000000000000a"))
     result_source = cwd / "device array results.k"
@@ -161,7 +167,7 @@ fn main()->i64 ! TaskError:
       0
 """)
     result_app = cwd / "device array results application"
-    run([compiler, result_source, "--target", "metal", "--arithmetic", "hardware", "-O2", "-o", result_app], cwd)
+    run([compiler, "--test-entry", "main", result_source, "--target", "metal", "--arithmetic", "hardware", "-O2", "-o", result_app], cwd)
     assert run([result_app / "program"], cwd).stdout.strip() == "0000000000000010"
     applications.append((result_app, "0000000000000010"))
     collection_source = cwd / "array main.k"
@@ -174,14 +180,14 @@ fn main()->[i64] ! TaskError:
     try await spawn work(values) on gpu
 """)
     collection_app = cwd / "array main application"
-    run([compiler, collection_source, "--target", "metal", "-O2", "-o", collection_app], cwd)
+    run([compiler, "--test-entry", "main", collection_source, "--target", "metal", "-O2", "-o", collection_app], cwd)
     collection_expected = "[0000000000000002,0000000000000005,0000000000000009]"
     assert run([collection_app / "program"], cwd).stdout.strip() == collection_expected
     applications.append((collection_app, collection_expected))
     for name, flags in (("debug", []), ("optimized", ["-O2"]),
                         ("sanitized", ["--sanitize"]), ("thread-sanitized", ["--thread-sanitize"])):
         app = cwd / ("application " + name)
-        run([compiler, source, "--target", "metal", "-o", app, *flags], cwd)
+        run([compiler, "--test-entry", "main", source, "--target", "metal", "-o", app, *flags], cwd)
         assert run([app / "program"], cwd).stdout.strip() == "[40a00000,41400000,41a80000]"
         deps = run(["otool", "-L", app / "program"], cwd).stdout
         assert "libLLVM" not in deps and "libMLIR" not in deps
@@ -190,21 +196,21 @@ fn main()->[i64] ! TaskError:
     composed_source = cwd / "pre-reduction.k"
     composed_source.write_bytes((fixtures / "pre-reduction.k").read_bytes())
     composed_app = cwd / "composed application"
-    run([compiler, composed_source, "--target", "metal", "-o", composed_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", composed_source, "--target", "metal", "-o", composed_app, "-O2"], cwd)
     assert (composed_app / "kernel0-reduce.metallib").is_file()
     assert run([composed_app / "program"], cwd).stdout.strip() == "42960000"
     applications.append((composed_app, "42960000"))
     post_source = cwd / "post-reduction.k"
     post_source.write_bytes((fixtures / "post-reduction.k").read_bytes())
     post_app = cwd / "post reduction application"
-    run([compiler, post_source, "--target", "metal", "-o", post_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", post_source, "--target", "metal", "-o", post_app, "-O2"], cwd)
     assert (post_app / "kernel0-post.metallib").is_file()
     assert run([post_app / "program"], cwd).stdout.strip() == "c1d00000"
     applications.append((post_app, "c1d00000"))
     matrix_source = cwd / "post-matmul.k"
     matrix_source.write_bytes((fixtures / "post-matmul.k").read_bytes())
     matrix_app = cwd / "post matrix application"
-    run([compiler, matrix_source, "--target", "metal", "-o", matrix_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", matrix_source, "--target", "metal", "-o", matrix_app, "-O2"], cwd)
     assert (matrix_app / "kernel0-post.metallib").is_file()
     assert (matrix_app/'THIRD_PARTY_NOTICES.txt').read_bytes()==steel_notice.read_bytes()
     assert 'matmul_policy=optimized' in (matrix_app/'manifest.txt').read_text()
@@ -215,7 +221,7 @@ fn main()->[i64] ! TaskError:
     pre_source = cwd / "pre-matmul.k"
     pre_source.write_bytes((fixtures / "pre-matmul.k").read_bytes())
     pre_app = cwd / "matrix operand application"
-    run([compiler, pre_source, "--target", "metal", "-o", pre_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", pre_source, "--target", "metal", "-o", pre_app, "-O2"], cwd)
     for stage in ("left", "right", "post"):
         assert (pre_app / f"kernel0-{stage}.metallib").is_file()
     pre_result = "[42680000,42a80000,42c40000,430e0000]"
@@ -224,7 +230,7 @@ fn main()->[i64] ! TaskError:
     sum_source = cwd / "matmul-reduction.k"
     sum_source.write_bytes((fixtures / "matmul-reduction.k").read_bytes())
     sum_app = cwd / "matrix reduction application"
-    run([compiler, sum_source, "--target", "metal", "-o", sum_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", sum_source, "--target", "metal", "-o", sum_app, "-O2"], cwd)
     for stage in ("left", "right", "reduce"):
         assert (sum_app / f"kernel0-{stage}.metallib").is_file()
     assert run([sum_app / "program"], cwd).stdout.strip() == "43350000"
@@ -232,7 +238,7 @@ fn main()->[i64] ! TaskError:
     adjusted_source = cwd / "matmul-adjust-reduction.k"
     adjusted_source.write_bytes((fixtures / "matmul-adjust-reduction.k").read_bytes())
     adjusted_app = cwd / "adjusted matrix reduction application"
-    run([compiler, adjusted_source, "--target", "metal", "-o", adjusted_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", adjusted_source, "--target", "metal", "-o", adjusted_app, "-O2"], cwd)
     for stage in ("left", "right", "post", "reduce"):
         assert (adjusted_app / f"kernel0-{stage}.metallib").is_file()
     assert run([adjusted_app / "program"], cwd).stdout.strip() == "43bf0000"
@@ -240,7 +246,7 @@ fn main()->[i64] ! TaskError:
     scalar_source = cwd / "matmul-scalar-reduction.k"
     scalar_source.write_bytes((fixtures / "matmul-scalar-reduction.k").read_bytes())
     scalar_app = cwd / "matrix scalar reduction application"
-    run([compiler, scalar_source, "--target", "metal", "-o", scalar_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", scalar_source, "--target", "metal", "-o", scalar_app, "-O2"], cwd)
     for stage in ("left", "right", "post", "reduce", "scalar"):
         assert (scalar_app / f"kernel0-{stage}.metallib").is_file()
     assert run([scalar_app / "program"], cwd).stdout.strip() == "c3400000"
@@ -248,14 +254,14 @@ fn main()->[i64] ! TaskError:
     graph_source = cwd / "matrix-graph.k"
     graph_source.write_bytes((fixtures / "matrix-graph.k").read_bytes())
     graph_app = cwd / "matrix graph application"
-    run([compiler, graph_source, "--target", "metal", "-o", graph_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", graph_source, "--target", "metal", "-o", graph_app, "-O2"], cwd)
     graph_result = "[42d40000,431c0000,43710000,43b10000]"
     assert run([graph_app / "program"], cwd).stdout.strip() == graph_result
     applications.append((graph_app, graph_result))
     graph_sum_source = cwd / "matrix-graph-reduction.k"
     graph_sum_source.write_bytes((fixtures / "matrix-graph-reduction.k").read_bytes())
     graph_sum_app = cwd / "matrix graph reduction application"
-    run([compiler, graph_sum_source, "--target", "metal", "-o", graph_sum_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", graph_sum_source, "--target", "metal", "-o", graph_sum_app, "-O2"], cwd)
     for stage in ("reduce", "scalar"):
         assert (graph_sum_app / f"kernel0-{stage}.metallib").is_file()
     assert run([graph_sum_app / "program"], cwd).stdout.strip() == "c3d6c000"
@@ -263,7 +269,7 @@ fn main()->[i64] ! TaskError:
     mixed_source = cwd / "matrix-graph-arithmetic.k"
     mixed_source.write_bytes((fixtures / "matrix-graph-arithmetic.k").read_bytes())
     mixed_app = cwd / "mixed matrix graph application"
-    run([compiler, mixed_source, "--target", "metal", "-o", mixed_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", mixed_source, "--target", "metal", "-o", mixed_app, "-O2"], cwd)
     for stage in (1, 2, 3):
         assert (mixed_app / f"kernel0-map{stage}.metallib").is_file()
     mixed_result = "[c2620000,c2a60000,c3000000,c33c0000]"
@@ -272,7 +278,7 @@ fn main()->[i64] ! TaskError:
     multi_source = cwd / "multiple-reductions.k"
     multi_source.write_bytes((fixtures / "multiple-reductions.k").read_bytes())
     multi_app = cwd / "multiple reduction application"
-    run([compiler, multi_source, "--target", "metal", "-o", multi_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", multi_source, "--target", "metal", "-o", multi_app, "-O2"], cwd)
     for stage in ("reduce", "join"):
         assert (multi_app / f"kernel0-{stage}.metallib").is_file()
     assert run([multi_app / "program"], cwd).stdout.strip() == "c3ad8000"
@@ -280,7 +286,7 @@ fn main()->[i64] ! TaskError:
     feedback_source = cwd / "reduction-feedback.k"
     feedback_source.write_bytes((fixtures / "reduction-feedback.k").read_bytes())
     feedback_app = cwd / "reduction feedback application"
-    run([compiler, feedback_source, "--target", "metal", "-o", feedback_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", feedback_source, "--target", "metal", "-o", feedback_app, "-O2"], cwd)
     for stage in ("reduce", "join", "map0", "map1"):
         assert (feedback_app / f"kernel0-{stage}.metallib").is_file()
     assert run([feedback_app / "program"], cwd).stdout.strip() == "402aaaab"
@@ -288,7 +294,7 @@ fn main()->[i64] ! TaskError:
     tensor_source = cwd / "tensor-feedback.k"
     tensor_source.write_bytes((fixtures / "tensor-feedback.k").read_bytes())
     tensor_app = cwd / "tensor feedback application"
-    run([compiler, tensor_source, "--target", "metal", "-o", tensor_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", tensor_source, "--target", "metal", "-o", tensor_app, "-O2"], cwd)
     assert (tensor_app / "kernel0-map0.metallib").is_file()
     assert not (tensor_app / "kernel0-join.metallib").exists()
     tensor_result = "[3f000000,3f800000,3fc00000]"
@@ -297,7 +303,7 @@ fn main()->[i64] ! TaskError:
     control_source = cwd / "scalar-control.k"
     control_source.write_bytes((fixtures / "scalar-control.k").read_bytes())
     control_app = cwd / "scalar control application"
-    run([compiler, control_source, "--target", "metal", "-o", control_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", control_source, "--target", "metal", "-o", control_app, "-O2"], cwd)
     assert (control_app / "kernel1-map0.metallib").is_file()
     control_result = "[3e2aaaab,3eaaaaab,3f000000]"
     assert run([control_app / "program"], cwd).stdout.strip() == control_result
@@ -305,7 +311,7 @@ fn main()->[i64] ! TaskError:
     tensor_control_source = cwd / "tensor-control.k"
     tensor_control_source.write_bytes((fixtures / "tensor-control.k").read_bytes())
     tensor_control_app = cwd / "tensor control application"
-    run([compiler, tensor_control_source, "--target", "metal", "-o", tensor_control_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", tensor_control_source, "--target", "metal", "-o", tensor_control_app, "-O2"], cwd)
     assert (tensor_control_app / "kernel1-map0.metallib").is_file()
     assert not (tensor_control_app / "kernel1-map1.metallib").exists()
     assert run([tensor_control_app / "program"], cwd).stdout.strip() == control_result
@@ -313,14 +319,14 @@ fn main()->[i64] ! TaskError:
     sources_source = cwd / "tensor-sources.k"
     sources_source.write_bytes((fixtures / "tensor-sources.k").read_bytes())
     sources_app = cwd / "tensor sources application"
-    run([compiler, sources_source, "--target", "metal", "-o", sources_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", sources_source, "--target", "metal", "-o", sources_app, "-O2"], cwd)
     assert (sources_app / "kernel1-map0.metallib").is_file()
     assert run([sources_app / "program"], cwd).stdout.strip() == control_result
     applications.append((sources_app, control_result))
     dynamic_source = cwd / "dynamic-choices.k"
     dynamic_source.write_bytes((fixtures / "dynamic-choices.k").read_bytes())
     dynamic_app = cwd / "dynamic choices application"
-    run([compiler, dynamic_source, "--target", "metal", "-o", dynamic_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", dynamic_source, "--target", "metal", "-o", dynamic_app, "-O2"], cwd)
     assert (dynamic_app / "kernel1-map1.metallib").is_file()
     dynamic_result = "[3e7b823f,3eaaaaab,3ed79436]"
     assert run([dynamic_app / "program"], cwd).stdout.strip() == dynamic_result
@@ -328,7 +334,7 @@ fn main()->[i64] ! TaskError:
     nary_source = cwd / "nary-choices.k"
     nary_source.write_bytes((fixtures / "nary-choices.k").read_bytes())
     nary_app = cwd / "nary choices application"
-    run([compiler, nary_source, "--target", "metal", "-o", nary_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", nary_source, "--target", "metal", "-o", nary_app, "-O2"], cwd)
     assert (nary_app / "kernel1-map2.metallib").is_file()
     nary_result = "[3d20a0a1,3da0a0a1,3df0f0f1]"
     assert run([nary_app / "program"], cwd).stdout.strip() == nary_result
@@ -336,7 +342,7 @@ fn main()->[i64] ! TaskError:
     operand_source = cwd / "operand-choices.k"
     operand_source.write_bytes((fixtures / "operand-choices.k").read_bytes())
     operand_app = cwd / "operand choices application"
-    run([compiler, operand_source, "--target", "metal", "-o", operand_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", operand_source, "--target", "metal", "-o", operand_app, "-O2"], cwd)
     assert (operand_app / "kernel0-left.metallib").is_file()
     assert (operand_app / "kernel0-right.metallib").is_file()
     operand_result = "[41b00000,41e00000,42440000,42800000]"
@@ -345,7 +351,7 @@ fn main()->[i64] ! TaskError:
     result_source = cwd / "result-choices.k"
     result_source.write_bytes((fixtures / "result-choices.k").read_bytes())
     result_app = cwd / "matrix result choices application"
-    run([compiler, result_source, "--target", "metal", "-o", result_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", result_source, "--target", "metal", "-o", result_app, "-O2"], cwd)
     assert (result_app / "kernel0-post.metallib").is_file()
     result_bits = "[42300000,42600000,42c40000,43000000]"
     assert run([result_app / "program"], cwd).stdout.strip() == result_bits
@@ -353,7 +359,7 @@ fn main()->[i64] ! TaskError:
     choice_source = cwd / "reduction-choices.k"
     choice_source.write_bytes((fixtures / "reduction-choices.k").read_bytes())
     choice_app = cwd / "reduction choices application"
-    run([compiler, choice_source, "--target", "metal", "-o", choice_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", choice_source, "--target", "metal", "-o", choice_app, "-O2"], cwd)
     assert (choice_app / "kernel0-post.metallib").is_file()
     assert run([choice_app / "program"], cwd).stdout.strip() == "41400000"
     applications.append((choice_app, "41400000"))
@@ -382,7 +388,7 @@ fn main()->f64 ! TaskError:
         for mode, flags in (("debug", []), ("optimized", ["-O2"]),
                             ("sanitized", ["--sanitize"]), ("thread-sanitized", ["--thread-sanitize"])):
             typed_app = cwd / f"typed {numeric} {mode}"
-            run([compiler, typed_source, "--target", "metal", "--arithmetic", "hardware-with-software-fallback", "-o", typed_app, *flags], cwd)
+            run([compiler, "--test-entry", "main", typed_source, "--target", "metal", "--arithmetic", "hardware-with-software-fallback", "-o", typed_app, *flags], cwd)
             assert run([typed_app / "program"], cwd).stdout.strip() == "4038000000000000"
             applications.append((typed_app, "4038000000000000"))
     matrix_control_source = cwd / "selected matrix shapes.k"
@@ -403,7 +409,7 @@ fn main()->Tensor[f32,?,?] ! TaskError:
     try await transfer(answer,devices.cpu())
 """)
     matrix_control_app = cwd / "selected matrix application"
-    run([compiler, matrix_control_source, "--target", "metal", "-o", matrix_control_app, "-O2"], cwd)
+    run([compiler, "--test-entry", "main", matrix_control_source, "--target", "metal", "-o", matrix_control_app, "-O2"], cwd)
     matrix_control_result = "[40800000,40800000,40400000,40400000]"
     assert run([matrix_control_app / "program"], cwd).stdout.strip() == matrix_control_result
     assert "numeric_program_stages=" in (matrix_control_app / "manifest.txt").read_text()
@@ -414,7 +420,7 @@ fn main()->Tensor[f32,?,?] ! TaskError:
     strict64_saved = strict64.read_bytes()
     strict64.unlink()
     saved_typed = (typed_app / "program").read_bytes()
-    missing64 = run([compiler, typed_source, "--target", "metal", "--arithmetic", "hardware-with-software-fallback", "-o", typed_app], cwd, 1)
+    missing64 = run([compiler, "--test-entry", "main", typed_source, "--target", "metal", "--arithmetic", "hardware-with-software-fallback", "-o", typed_app], cwd, 1)
     assert "installed Metal resource is missing" in missing64.stderr
     assert (typed_app / "program").read_bytes() == saved_typed
     strict64.write_bytes(strict64_saved)
@@ -425,14 +431,14 @@ fn main()->Tensor[f32,?,?] ! TaskError:
     manifest = cwd / "kalandra.toml"
     manifest.write_text('format=1\n[project]\nentry="placed.k"\n[packages]\nmath="helper.k"\n')
     app = cwd / "project application"
-    run([compiler, "--project", manifest, "--target", "metal", "-o", app], cwd)
+    run([compiler, "--test-entry", "main", "--project", manifest, "--target", "metal", "-o", app], cwd)
     assert run([app / "program"], cwd).stdout.strip() == "[40a00000,41400000,41a80000]"
     applications.append((app, "[40a00000,41400000,41a80000]"))
     applications.extend(qualify_packages(compiler, prefix / "bin/kalandra-check", cwd, run))
     saved = (app / "program").read_bytes()
     helper = resources / "kalandra-metal-strict"
     helper.unlink()
-    result = run([compiler, "--project", manifest, "--target", "metal", "-o", app], cwd, 1)
+    result = run([compiler, "--test-entry", "main", "--project", manifest, "--target", "metal", "-o", app], cwd, 1)
     assert "installed Metal resource is missing" in result.stderr
     assert (app / "program").read_bytes() == saved
     # Generated applications retain only their own shaders and system dependencies.

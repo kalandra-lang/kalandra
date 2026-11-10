@@ -29,7 +29,7 @@ fn main()->Tensor[{numeric},?] ! TaskError:
     try await transfer(copied,devices.cpu())
 ''')
         output = root/numeric
-        result = subprocess.run([a.compiler.resolve(), '--target', 'vulkan', '--arithmetic', policy,
+        result = subprocess.run([a.compiler.resolve(), '--test-entry', 'main', '--target', 'vulkan', '--arithmetic', policy,
                                  '-O2', source, '-o', output], capture_output=True, text=True, timeout=180)
         (root/(numeric+'.log')).write_text(result.stdout+result.stderr)
         assert not result.returncode, (numeric, policy, result.stderr[-4000:])

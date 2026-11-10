@@ -36,7 +36,7 @@ def main():
         assert all(p.sha(x)==h for x,h in saved['hashes'].items()),'build artifacts changed'
         p.COMMANDS.extend(saved['commands']);artifacts=list(map(Path,saved['artifacts']));generated=list(map(Path,saved['generated']))
     else:
-        p.run([compiler,src/'Pipeline.k','--target','metal','--arithmetic','hardware','-O2','-o',bundle])
+        p.run([compiler, '--test-entry', 'main',src/'Pipeline.k','--target','metal','--arithmetic','hardware','-O2','-o',bundle])
         artifacts=[];generated=[]
         for name,library in [('baseline',args.baseline_metal),('current',metal)]:
             binary=build/name

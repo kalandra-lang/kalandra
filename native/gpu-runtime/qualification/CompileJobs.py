@@ -16,7 +16,7 @@ def compile_plan(backend, repo, compiler, root):
         jobs = [
             ('applications', [sys.executable, repo/'native/cuda-source/qualification/applications.py',
               '--build', root, '--compiler', compiler, '--output', root/'applications', '--compile-only']),
-            ('wide-arguments', [compiler, '--target', 'cuda', '--arithmetic', 'software',
+            ('wide-arguments', [compiler, '--test-entry', 'main', '--target', 'cuda', '--arithmetic', 'software',
               repo/'native/metal-source/indirect-arguments.k', '-O2', '-o', root/'wide-arguments']),
         ]
     elif backend == 'vulkan':
@@ -28,6 +28,9 @@ def compile_plan(backend, repo, compiler, root):
         ]
     else:
         raise ValueError('unknown backend')
+    jobs.append(('console-applications', [sys.executable, repo/'native/tests/GpuConsoleSourceTests.py',
+                 '--compiler', compiler, '--target', backend, '--variant', 'optimized',
+                 '--compile-only', '--output', root/'console-applications']))
     for name, script in (
         ('host-arrays', 'HostArrayTests.py'), ('scalar-control', 'ScalarControlTests.py'),
         ('device-arrays', 'DeviceArrayTests.py'), ('device-array-entry', 'DeviceArrayEntryTests.py'),

@@ -28,10 +28,16 @@ codeblock { language = kalandra, """fn main() -> i64:
 
 The corrected complete program returns 42:
 
-codeblock { language = kalandra, """fn main() -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   narrow: i32 = 40
   wide: i64 = 2
-  return i64(narrow) + wide
+  output: i64 = i64(narrow) + wide
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 Use an explicit conversion if the intended operation is i64 arithmetic. An explicit conversion is checked and is not a general promise that every destination can represent every value.
@@ -65,9 +71,9 @@ list {
   link { url = "/docs/gpu-numerics", "Arithmetic and matrix policies" }
 }
 
-h2 { "A GPU program displays hexadecimal digits" }
+h2 { "An application does not display its result" }
 
-The Metal executable displays floating results as IEEE-754 bit patterns. For example, f32 23 is displayed as 41b80000. This is the result representation, not an error or an integer conversion. Compare with the expected display given beside the GPU example.
+Applications display text explicitly. Import println from std/io and format from std/fmt, then format the value and pass the resulting String to println with try. Returning from main chooses successful completion or an ExitStatus; it does not display a computed value. In GPU programs, display results in host code after awaiting work or transferring a tensor to devices.cpu().
 
 h2 { "Parallel work is slower than a normal call" }
 

@@ -21,7 +21,7 @@ if(BUILD_TESTING)
       set(RC_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-record-closures-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${RC_RUNTIME}" "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}"
         "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/record-closures-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecordClosures.cmake")

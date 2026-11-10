@@ -106,7 +106,7 @@ fn main()->[i64]:
         for mode, flags in modes:
             for name, text, expected in cases:
                 source.write_text(text, encoding="utf-8")
-                run([compiler, source, "-o", executable, *flags])
+                run([compiler, "--test-entry", "main", source, "-o", executable, *flags])
                 if windows:
                     assert pe_machine(executable) == pe_machine(compiler), "Generated program architecture mismatch"
                 for workers in (1, 2, 4):
@@ -121,10 +121,19 @@ fn main()->[i64]:
                     assert result.stdout.strip() == expected, (mode, name, workers, result.stdout, expected)
                 compiled += 1
             print(f"Portable CPU {platform.system()} {mode}: {len(cases)} programs, workers 1/2/4 passed", flush=True)
+        # Real applications use the public entry ABI, not numerical observation.
+        source.write_text('from "std/io" import println, IoError\nfrom "std/fmt" import format\n'
+                          'from "std/process" import ExitStatus\n'
+                          'fn main(args:[String])->ExitStatus ! IoError:\n'
+                          '  try println(format("{}:{}",length(args),args[0]))\n'
+                          '  return ExitStatus {code:42}\n', encoding="utf-8")
+        for flags in ([], ["-O2"]):
+            run([compiler, source, "-o", executable, *flags])
+            assert run([executable, "é🙂"], expected=42).stdout.strip() == "1:é🙂"
         project = work / "starter project λ🙂"
         run([compiler, "new", project])
         run([compiler, "--project", project / "kalandra.toml", "-o", executable])
-        assert run([executable]).stdout.strip() == "[2, 4, 6]"
+        assert run([executable]).stdout.strip() == "2\n4\n6"
         # Activate a pinned local dependency, then compile using its immutable cache.
         import shutil
         git = shutil.which("git")
@@ -157,13 +166,13 @@ fn main()->[i64]:
         for flag in ("--frozen", "--offline"):
             run([compiler, "install", "--project", manifest, flag])
             assert (project / "kalandra.lock").read_bytes() == active
-        run([compiler, "--project", manifest, "-o", executable])
+        run([compiler, "--test-entry", "main", "--project", manifest, "-o", executable])
         assert run([executable]).stdout.strip() == "42"
         prior_package_output = executable.read_bytes()
         cached_source, = (project / ".kalandra/snapshots").glob("*/source/public.k")
         original_source = cached_source.read_bytes()
         cached_source.write_text("corrupted", encoding="utf-8")
-        run([compiler, "--project", manifest, "-o", executable], expected=1)
+        run([compiler, "--test-entry", "main", "--project", manifest, "-o", executable], expected=1)
         assert executable.read_bytes() == prior_package_output
         assert (project / "kalandra.lock").read_bytes() == active
         assert run([executable]).stdout.strip() == "42"
@@ -174,14 +183,14 @@ fn main()->[i64]:
         # A failing build must preserve a previously working output.
         prior = executable.read_bytes()
         source.write_text('fn main():\n  return missing_value\n', encoding="utf-8")
-        run([compiler, source, "-o", executable], expected=1)
+        run([compiler, "--test-entry", "main", source, "-o", executable], expected=1)
         assert executable.read_bytes() == prior
         if windows_arm64:
-            rejected = run([compiler, source, "-o", executable, "--sanitize"], expected=2)
+            rejected = run([compiler, "--test-entry", "main", source, "-o", executable, "--sanitize"], expected=2)
             assert "ASan/UBSan are unavailable" in rejected.stderr
             assert executable.read_bytes() == prior
         if windows:
-            rejected = run([compiler, source, "-o", executable, "--thread-sanitize"], expected=2)
+            rejected = run([compiler, "--test-entry", "main", source, "-o", executable, "--thread-sanitize"], expected=2)
             assert "ThreadSanitizer is unavailable" in rejected.stderr
             assert executable.read_bytes() == prior
         prefix = compiler.parent.parent
@@ -192,7 +201,7 @@ fn main()->[i64]:
             unavailable_clang = private_clang.with_name(private_clang.name + ".unavailable")
             rename_after_process_exit(private_clang, unavailable_clang)
             try:
-                rejected = run([compiler, source, "-o", executable], expected=1)
+                rejected = run([compiler, "--test-entry", "main", source, "-o", executable], expected=1)
                 assert "bundled Clang or its compiler resources are missing" in rejected.stderr
                 assert executable.read_bytes() == prior
             finally:
@@ -202,7 +211,7 @@ fn main()->[i64]:
             hidden = prefix.with_name(prefix.name + ".hidden")
             rename_after_process_exit(prefix, hidden)
             try:
-                assert run([executable]).stdout.strip() == "[2, 4, 6]"
+                assert run([executable]).stdout.strip() == "2\n4\n6"
             finally:
                 rename_after_process_exit(hidden, prefix)
         print(json.dumps({"platform": platform.platform(), "programsCompiled": compiled + 3,

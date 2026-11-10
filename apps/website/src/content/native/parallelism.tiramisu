@@ -4,19 +4,25 @@ Use CPU tasks when independent work can run concurrently. You will need the ordi
 
 h2 { "Start independent work before awaiting" }
 
-codeblock { language = kalandra, """fn double(value: i64) -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn double(value: i64) -> i64:
   return value * 2
 
-fn main() -> i64 ! TaskError:
-  return try parallel:
+fn main() -> unit ! (TaskError | IoError):
+  output: i64 = try parallel:
     left = spawn double(10)
     right = spawn double(11)
     a = try await left
     b = try await right
     a + b
+
+  try println(format("{}", output))
+  return ()
 """ }
 
-This returns 42. Both tasks are created before either is awaited, so the scheduler can run them concurrently. spawn followed immediately by await is useful for placement or boundaries, but a sequence of such pairs does not expose the same independent overlap.
+This displays 42. Both tasks are created before either is awaited, so the scheduler can run them concurrently. spawn followed immediately by await is useful for placement or boundaries, but a sequence of such pairs does not expose the same independent overlap.
 
 h2 { "A parallel scope owns its children" }
 
@@ -30,12 +36,23 @@ list {
 
 h2 { "Map an array in parallel" }
 
-codeblock { language = kalandra, """fn main() -> [i64] ! TaskError:
+codeblock { language = kalandra, """from "std/io" import print, println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! (TaskError | IoError):
   factor = 2
-  return try parallelMap([1, 2, 3], fn(value: i64): return value * factor)
+  output: [i64] = try parallelMap([1, 2, 3], fn(value: i64): return value * factor)
+
+  try print("[")
+  for index in range(length(output)):
+    if index > 0:
+      try print(", ")
+    try print(format("{}", output[index]))
+  try println("]")
+  return ()
 """ }
 
-This returns [2, 4, 6]. parallelMap returns results in input order and can change the element type under the supported callback rules. map remains sequential. Scheduling a map call with spawn creates a task containing one sequential mapping loop; it does not turn each element into an independent task.
+This displays [2, 4, 6]. parallelMap returns results in input order and can change the element type under the supported callback rules. map remains sequential. Scheduling a map call with spawn creates a task containing one sequential mapping loop; it does not turn each element into an independent task.
 
 h2 { "Workers and resource limits" }
 

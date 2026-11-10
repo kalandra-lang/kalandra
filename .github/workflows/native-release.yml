@@ -91,9 +91,13 @@ jobs:
           -DKALANDRA_BUILD_METAL_RUNTIME=ON -DKALANDRA_BUILD_METAL_PROOF=ON
       - name: Build release packages
         run: >-
-          cmake --build build/native --target kalandra native-cpu-package native-editor-tools-package
+          cmake --build build/native --target kalandra kalandra-test-observer native-cpu-package native-editor-tools-package
           native-cpu-standalone-package native-editor-tools-standalone-package
           native-metal-package native-metal-standalone-package -j2
+      - name: Qualify application entries, console I/O and formatting
+        run: |
+          cmake --build build/native --target native-io-qualification -j2
+          ctest --test-dir build/native --output-on-failure -j2 -L '^feature-io$' -LE '^feature-gpu$'
       - name: Qualify explicit returns and primitive types
         run: >-
           ctest --test-dir build/native --output-on-failure
@@ -106,7 +110,7 @@ jobs:
       - name: Qualify CPU tensor transforms
         run: >-
           python3 native/tests/TensorTransformTests.py
-          --compiler build/native/native/kalandra --clang "$KALANDRA_LLVM_ROOT/bin/clang++"
+          --compiler build/native/native/kalandra-test-observer --clang "$KALANDRA_LLVM_ROOT/bin/clang++"
           --output build/native/tensor-transforms --quick
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
         run: >-

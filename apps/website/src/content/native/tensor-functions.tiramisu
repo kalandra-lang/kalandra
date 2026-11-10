@@ -47,11 +47,17 @@ Divide each element by sqrt(mean(square(row)) + epsilon), preserving shape and t
 
 h2 { "Example" }
 
-codeblock { language = kalandra, """fn main() -> f32:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   values: Tensor[f32, 1, 2] = tensor([[-1, 2]])
   product = matmul(values, transpose(values))
   probabilities = softmaxRows(relu(product))
-  return reduceSum(rmsNormRows(probabilities, 3))
+  output: f32 = reduceSum(rmsNormRows(probabilities, 3))
+
+  try println(format("{}", output))
+  return ()
 """ }
 The result is 0.5.
 

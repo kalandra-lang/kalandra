@@ -22,13 +22,13 @@ if(BUILD_TESTING)
       set(NARROW_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-narrow-tensors-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCHECKER=$<TARGET_FILE:kalandra-check>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCHECKER=$<TARGET_FILE:kalandra-check>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=$<TARGET_FILE:${NARROW_RUNTIME}>"
         "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/narrow-tensors-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyNarrowTensors.cmake")
     set_tests_properties(native-narrow-tensors-${VARIANT} PROPERTIES TIMEOUT 900)
     add_test(NAME native-narrow-tensors-existing-conversion-smoke-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DSMOKE=ON"
         "-DRUNTIME=$<TARGET_FILE:${NARROW_RUNTIME}>" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/narrow-tensors-old-conversions-${VARIANT}"

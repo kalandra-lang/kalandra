@@ -27,9 +27,11 @@ install(TARGETS kalandra-metal-strict kalandra-metal-strict64 kalandra-metal-ext
 install(TARGETS kalandra-metal-installed RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
   COMPONENT NativeMetalCompiler)
 # Private generated-host headers retain their internal relative include layout.
-install(FILES metal/Metal.h metal/ElementwiseLayout.h
+install(FILES metal/Metal.h metal/ElementwiseLayout.h metal/ExecutablePath.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/metal" COMPONENT NativeMetalCompiler)
-install(FILES runtime/Runtime.h runtime/Tasks.h runtime/Tensor.h runtime/NumericStorage.h runtime/ValueScopes.h runtime/HostArrays.h runtime/DeviceArrayABI.h runtime/DeviceArrayWire.h runtime/DeviceArrayInputJob.h runtime/DeviceArrayResultWire.h runtime/DeviceAggregateResult.h runtime/DeviceGraphCapture.h runtime/DeviceGraphPack.h runtime/DeviceGraphArena.h runtime/DeviceGraphWire.h runtime/DeviceGraphResult.h runtime/DeviceGraphMaterialize.h runtime/DeviceGraphOrigins.h
+install(FILES gpu-runtime/ExecutablePath.inc
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/gpu-runtime" COMPONENT NativeMetalCompiler)
+install(FILES runtime/Console.h runtime/Format.h runtime/String.h runtime/StringArray.h runtime/Application.h runtime/Runtime.h runtime/Tasks.h runtime/Tensor.h runtime/NumericStorage.h runtime/ValueScopes.h runtime/HostArrays.h runtime/DeviceArrayABI.h runtime/DeviceArrayWire.h runtime/DeviceArrayInputJob.h runtime/DeviceArrayResultWire.h runtime/DeviceAggregateResult.h runtime/DeviceGraphCapture.h runtime/DeviceGraphPack.h runtime/DeviceGraphArena.h runtime/DeviceGraphWire.h runtime/DeviceGraphResult.h runtime/DeviceGraphMaterialize.h runtime/DeviceGraphOrigins.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/runtime" COMPONENT NativeMetalCompiler)
 install(FILES include/kalandra/NumericType.h include/kalandra/TensorTransform.h include/kalandra/GpuProgram.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/include/kalandra" COMPONENT NativeMetalCompiler)

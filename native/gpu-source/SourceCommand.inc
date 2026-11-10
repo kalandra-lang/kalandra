@@ -9,7 +9,7 @@
                  "[-O0|-O2|--sanitize]]\n";
     return 2;
   };
-  bool build = false, testCpuExports = false;
+  bool build = false, testCpuExports = false, selectedTestEntry = false;
   ArithmeticMode arithmetic = ArithmeticMode::Hardware;
   bool selectedArithmetic = false;
   MatmulPolicy matmul = MatmulPolicy::FixedTree;
@@ -21,7 +21,12 @@
   bool selected = false;
   for (int i = 1; i < argc; ++i) {
     std::string_view option = argv[i];
-    if (option == "-o" || option == "--project" || option == "--package") {
+    if (option == "--test-entry") {
+      if (selectedTestEntry || ++i >= argc || std::string_view(argv[i]) != "main")
+        return usage();
+      selectedTestEntry = true;
+      application = false;
+    } else if (option == "-o" || option == "--project" || option == "--package") {
       if (++i >= argc || std::string_view(argv[i]).empty())
         return usage();
       if (option == "-o") {
@@ -119,7 +124,7 @@
         std::cerr << renderDiagnostic(*source, d);
       return 1;
     }
-    auto emitted = emitGpuSupervisor(std::move(parsed->module), arithmetic, testCpuExports, selectedGpuBackend);
+    auto emitted = emitGpuSupervisor(std::move(parsed->module), arithmetic, testCpuExports, selectedGpuBackend, application);
     if (!emitted) {
       std::cerr << renderDiagnostic(*source, emitted.error());
       return 1;

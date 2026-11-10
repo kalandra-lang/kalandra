@@ -68,7 +68,7 @@ def main():
     clang = pathlib.Path(lock['defaultLlvmRoot']) / 'bin/clang++'
     bundle = build / 'kernels'
     binary = build / 'scaling'
-    commands = [[args.compiler.resolve(), ROOT / 'native/benchmarks/gpu.k',
+    commands = [[args.compiler.resolve(), '--test-entry', 'main', ROOT / 'native/benchmarks/gpu.k',
                  '--target', 'metal', '--arithmetic', 'software', '-o', bundle, '-O2']]
     flags = ['-std=c++23', '-Wall', '-Wextra', '-Werror', '-O2', '-DNDEBUG', '-ffp-contract=off']
     objects = []

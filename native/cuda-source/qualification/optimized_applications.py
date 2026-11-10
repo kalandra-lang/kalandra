@@ -34,7 +34,7 @@ fn main()->Tensor[f32,?,?] ! TaskError:
     for policy in ('fixed-tree','optimized'):
       for arithmetic in ('hardware','software','hardware-with-software-fallback'):
         directory=a.output/(name+'-'+policy+'-'+arithmetic)
-        built=subprocess.run([a.compiler,'--target','cuda','--matmul-policy',policy,'--arithmetic',arithmetic,
+        built=subprocess.run([a.compiler, '--test-entry', 'main','--target','cuda','--matmul-policy',policy,'--arithmetic',arithmetic,
             '-O2',source,'-o',directory],capture_output=True,text=True,timeout=240)
         a.output.joinpath(directory.name+'.build.log').write_text(built.stdout+built.stderr)
         assert built.returncode==0,(directory,built.stderr[-4000:])

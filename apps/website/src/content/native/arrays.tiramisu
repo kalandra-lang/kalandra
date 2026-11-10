@@ -4,31 +4,59 @@ An array type is written [T]. Array lengths may vary at runtime; its elements ke
 
 h2 { "Create and read an array" }
 
-codeblock { language = kalandra, """fn main() -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   values: [i64] = [10, 20, 30]
-  return values[1] + length(values)
+  output: i64 = values[1] + length(values)
+
+  try println(format("{}", output))
+  return ()
 """ }
 
-This returns 23: the element at index 1 is 20, and the array has length 3. Indexes are zero-based and bounds-checked. Empty arrays need an element type from an annotation or surrounding context. Arrays can contain the supported numeric, bool, String, record, enum and function-value types; this does not imply arbitrary nested arrays or arrays of tensors.
+This displays 23: the element at index 1 is 20, and the array has length 3. Indexes are zero-based and bounds-checked. Empty arrays need an element type from an annotation or surrounding context. Arrays can contain the supported numeric, bool, String, record, enum and function-value types; this does not imply arbitrary nested arrays or arrays of tensors.
 
 h2 { "Map sequentially" }
 
-codeblock { language = kalandra, """fn double(value: i64) -> i64:
+codeblock { language = kalandra, """from "std/io" import print, println, IoError
+from "std/fmt" import format
+
+fn double(value: i64) -> i64:
   return value * 2
 
-fn main() -> [i64]:
-  return [1, 2, 3] -> map(double)
+fn main() -> unit ! IoError:
+  output: [i64] = [1, 2, 3] -> map(double)
+
+  try print("[")
+  for index in range(length(output)):
+    if index > 0:
+      try print(", ")
+    try print(format("{}", output[index]))
+  try println("]")
+  return ()
 """ }
 
-This returns [2, 4, 6]. map evaluates its callback sequentially and preserves input order. A supported callback can capture immutable values or return another supported element type. For CPU task scheduling, choose parallelMap explicitly.
+This displays [2, 4, 6]. map evaluates its callback sequentially and preserves input order. A supported callback can capture immutable values or return another supported element type. For CPU task scheduling, choose parallelMap explicitly.
 
 h2 { "Construct by index" }
 
 generate constructs a fresh array by calling a function with each index. It does not require an intermediate array of indices.
 
-codeblock { language = kalandra, """fn main() -> [i64]:
+codeblock { language = kalandra, """from "std/io" import print, println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   offset = 10
-  return generate(4, fn(index): return index * 2 + offset)
+  output: [i64] = generate(4, fn(index): return index * 2 + offset)
+
+  try print("[")
+  for index in range(length(output)):
+    if index > 0:
+      try print(", ")
+    try print(format("{}", output[index]))
+  try println("]")
+  return ()
 """ }
 
 The result is [10, 12, 14, 16]. Indices run from zero up to count, excluding count, in ascending order. A zero count calls no callbacks. The count is a nonnegative i64; invalid runtime counts and excessive allocation sizes produce checked faults. As with map, a callback must return an ordinary supported array element rather than a task or expected-error result.
@@ -41,48 +69,87 @@ h2 { "Replace an array binding" }
 
 A numeric or bool array name can be reassigned. CPU functions support this across task suspension and expected-error handling; GPU helpers support reassignment of arrays constructed inside the helper. The new array may have a different length, but its element type stays fixed. Reassignment updates that local name; previous aliases still refer to their original storage. This differs from sort(values), which writes the existing array.
 
-codeblock { language = kalandra, """fn main() -> [i64]:
+codeblock { language = kalandra, """from "std/io" import print, println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   values = [3, 1, 2]
   original = values
   values = sorted(values)
   values = concat(values, [4])
-  return [original[0], length(values), values[0]]
+  output: [i64] = [original[0], length(values), values[0]]
+
+  try print("[")
+  for index in range(length(output)):
+    if index > 0:
+      try print(", ")
+    try print(format("{}", output[index]))
+  try println("]")
+  return ()
 """ }
 The result is [3, 4, 1]. Branches and while loops carry the current array reference. Ordinary numeric and bool array parameters and captures may replace their own private name; that does not grant permission to modify their original read-only storage. A replacement with fresh storage provides writable data, while assigning another read-only array preserves its read-only access path.
 
-codeblock { language = kalandra, """fn main() -> [bool]:
+codeblock { language = kalandra, """from "std/io" import print, println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   flags = [true, false]
   original = flags
   flags = [false]
-  return [original[0], flags[0]]
+  output: [bool] = [original[0], flags[0]]
+
+  try print("[")
+  for index in range(length(output)):
+    if index > 0:
+      try print(", ")
+    try print(format("{}", output[index]))
+  try println("]")
+  return ()
 """ }
-This returns [true, false]. Replacing flags leaves original referring to the previous two-element array.
+This displays [true, false]. Replacing flags leaves original referring to the previous two-element array.
 
 String, record and function-array bindings cannot be reassigned. Element assignment and sort on existing numeric or bool storage follow the separate rules below.
 
 A task continues reading the storage it received even when the parent replaces its local name. Fresh replacement storage can be modified independently. An alias of the old array remains protected until its task readers settle.
 
-codeblock { language = kalandra, """fn readFirst(values: [i64]) -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn readFirst(values: [i64]) -> i64:
   return values[0]
-fn main() -> i64 ! TaskError:
+fn main() -> unit ! (TaskError | IoError):
   values = [3, 1, 2]
   oldFirst = try parallel:
     reader = spawn readFirst(values)
     values = sorted(values)
     values[0] = 9
     try await reader
-  return oldFirst * 100 + values[0]
+  output: i64 = oldFirst * 100 + values[0]
+
+  try println(format("{}", output))
+  return ()
 """ }
 The result is 309: the reader sees the original array, while the parent edits the fresh sorted array. This distinction also holds when the sequence repeats inside a loop.
 
 h2 { "Slice and concatenate" }
 
-codeblock { language = kalandra, """fn main() -> [i64]:
+codeblock { language = kalandra, """from "std/io" import print, println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   values: [i64] = [1, 2, 3, 4]
-  return concat(slice(values, 0, 2), [9])
+  output: [i64] = concat(slice(values, 0, 2), [9])
+
+  try print("[")
+  for index in range(length(output)):
+    if index > 0:
+      try print(", ")
+    try print(format("{}", output[index]))
+  try println("]")
+  return ()
 """ }
 
-This returns [1, 2, 9]. slice includes the start index and excludes the end index; both are checked. concat requires matching element types. Both allocate fresh outer array storage and preserve element order.
+This displays [1, 2, 9]. slice includes the start index and excludes the end index; both are checked. concat requires matching element types. Both allocate fresh outer array storage and preserve element order.
 
 h2 { "Sorting" }
 
@@ -102,19 +169,25 @@ h2 { "Edit local elements" }
 
 A fresh numeric or bool array supports checked element assignment. A plain binding aliases the same backing; copy creates independent outer storage. A helper that writes caller-owned storage declares a mut parameter.
 
-codeblock { language = kalandra, """fn update(mut values: [i64]) -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn update(mut values: [i64]) -> i64:
   values[1] = 9
   return values[1]
 
-fn main() -> i64:
+fn main() -> unit ! IoError:
   values = [1, 2, 3]
   alias = values
   snapshot = copy(values)
   updated = update(values)
-  return updated * 100 + alias[1] * 10 + snapshot[1]
+  output: i64 = updated * 100 + alias[1] * 10 + snapshot[1]
+
+  try println(format("{}", output))
+  return ()
 """ }
 
-This returns 992: values and alias both see the edit, while snapshot still contains 2 at index 1. Element assignment is a statement. Supply a separate result expression at the end of a function, and preserve the array's element type.
+This displays 992: values and alias both see the edit, while snapshot still contains 2 at index 1. Element assignment is a statement. Supply a separate result expression at the end of a function, and preserve the array's element type.
 
 The destination and index are evaluated and bounds-checked before the right-hand side. A failing right-hand side does not perform that assignment. Writes completed before a later fault or cancellation remain visible; in-place updates do not roll back.
 
@@ -122,19 +195,25 @@ h2 { "Wait for shared readers" }
 
 Ordinary parameters and captured arrays are read-only. Parent-provided task inputs stay read-only until their readers settle, including reads through aliases and aggregate fields. Await every relevant reader before writing, or edit an independent copy instead.
 
-codeblock { language = kalandra, """fn read(values: [i64]) -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn read(values: [i64]) -> i64:
   return values[0] + values[1]
 
-fn main() -> i64 ! TaskError:
+fn main() -> unit ! (TaskError | IoError):
   values = [1, 2]
-  return try parallel:
+  output: i64 = try parallel:
     pending = spawn read(values)
     observed = try await pending
     values[0] = observed + 1
     values[0]
+
+  try println(format("{}", output))
+  return ()
 """ }
 
-This returns 4. The write is allowed because pending has been awaited. If the write appeared before await, the checker would reject it even through an alias.
+This displays 4. The write is allowed because pending has been awaited. If the write appeared before await, the checker would reject it even through an alias.
 
 Replacing String, record or function-array elements is not supported. Tensors retain value semantics. Numeric and bool array operations also run inside GPU helpers on arrays constructed there, including element writes and sorting under the same access rules. A GPU task can capture existing numeric and bool arrays as read-only parameters. The task packs and uploads those arrays before executing its device helper. Await its readers before modifying the originals or their aliases. GPU helpers can return numeric/bool scalars or flat numeric/bool arrays. Awaiting an array result produces a native CPU array and includes transfer/decoding costs. Returning a captured array preserves its original backing; copy and sorted create independent backing. Use explicit tensor transfers for resident tensor calculations.
 

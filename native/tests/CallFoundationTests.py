@@ -60,7 +60,7 @@ for name, flag, flags in variants:
     terminal = a.output / ('terminal-' + name + '.k')
     terminal.write_text('fn terminal(value:i64)->i64:\n  return 1/(value-value)\nfn main()->i64:\n  return terminal(0)\n')
     terminal_binary = binary.with_name('terminal-' + binary.name)
-    run([a.compiler, terminal, flag, '-o', terminal_binary])
+    run([a.compiler, terminal, '--test-entry', 'main', flag, '-o', terminal_binary])
     stopped = subprocess.run([str(terminal_binary)], capture_output=True, text=True,
                              timeout=30, env=env)
     assert stopped.returncode == 86 and 'ArithmeticFault' in stopped.stderr and not stopped.stdout, (

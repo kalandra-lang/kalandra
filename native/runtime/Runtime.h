@@ -55,6 +55,7 @@ public:
     cancellation_ = token;
     if (pollMode_ < 2) pollMode_ = token ? 1 : 0;
   }
+  bool cancellable() const noexcept { return cancellation_ != nullptr; }
   // Private scheduler capability; never grants interruption of foreign frames.
   void allowNativeInterrupts(bool available) noexcept {
     flags_ = available ? flags_ | NativeInterrupts : flags_ & ~NativeInterrupts;
@@ -168,6 +169,7 @@ public:
   bool hasTaskError() const noexcept { return (flags_ & Materialized) && storage_.value.taskError_ != 0; }
   bool hasApplicationError() const noexcept { return (flags_ & Materialized) && storage_.value.applicationFamily_ != nullptr; }
   bool hasExpectedError() const noexcept { return hasTaskError() || hasApplicationError(); }
+  [[noreturn]] void reportApplicationFailure() noexcept;
   [[noreturn]] void reportFailure() noexcept; // CLI boundary only, never generated code.
   void failAllocationAt(std::uint64_t attempt) noexcept {
     ledger().failAt_ = attempt;
@@ -188,6 +190,7 @@ public:
 
 private:
   friend struct InvocationABI;
+  [[noreturn]] void reportFailureWithStatus(bool application) noexcept;
   // Only the token, control tag and atomic diagnostic exist at cold entry.
   const std::atomic<bool> *cancellation_ = nullptr;
   enum Flag : std::uint32_t {

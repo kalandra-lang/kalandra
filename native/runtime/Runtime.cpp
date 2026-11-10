@@ -1021,7 +1021,9 @@ void Invocation::expectedApplicationError(const char *family, const char *varian
     ledgerState.applicationVariant_ = variant;
   }
 }
-[[noreturn]] void Invocation::reportFailure() noexcept {
+[[noreturn]] void Invocation::reportFailure() noexcept { reportFailureWithStatus(false); }
+[[noreturn]] void Invocation::reportApplicationFailure() noexcept { reportFailureWithStatus(true); }
+[[noreturn]] void Invocation::reportFailureWithStatus(bool application) noexcept {
   auto &ledgerState = ledger();
   if (!code_ && !ledgerState.taskError_ && !ledgerState.applicationFamily_)
     fault(3);
@@ -1048,7 +1050,7 @@ void Invocation::expectedApplicationError(const char *family, const char *varian
                  static_cast<unsigned long long>(live_.load()),
                  static_cast<unsigned long long>(ledgerState.allocations_),
                  static_cast<unsigned long long>(ledgerState.releases_));
-  std::exit(ledgerState.applicationFamily_ ? 89 : ledgerState.taskError_ ? 88 : code_ == 1 ? 87 : 86);
+  std::exit(application ? 1 : ledgerState.applicationFamily_ ? 89 : ledgerState.taskError_ ? 88 : code_ == 1 ? 87 : 86);
 }
 } // namespace kalandra::runtime
 extern "C" void *kalandra_alloc_v1(kalandra::runtime::Invocation *context,
@@ -1745,4 +1747,10 @@ extern "C" void kalandra_array_validate_v1(kalandra::runtime::Invocation *contex
                                            const void *input, std::uint64_t element) noexcept {
   alignas(std::max_align_t) std::byte ignored[2 * sizeof(void *) + 3 * sizeof(std::int64_t)];
   importArrayReference(context, ignored, input, element, false);
+}
+
+// Closed application dispatch may omit its task runtime only while the caller
+// has no cancellation binding. Actual tasks always retain resumable I/O.
+extern "C" bool kalandra_invocation_unbound_v1(kalandra::runtime::Invocation *context) noexcept {
+  return !context->cancellable() && context->poll() == 0 && context->usable();
 }

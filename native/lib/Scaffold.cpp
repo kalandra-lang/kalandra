@@ -50,8 +50,14 @@ std::expected<void, std::string> createNativeProject(std::string path) {
   };
   if (!write("kalandra.toml", "format = 1\n\n[project]\nentry = \"src/main.k\"\n") ||
       !write("src/math.k", "export fn double(value: i64) -> i64:\n  return value * 2\n") ||
-      !write("src/main.k", "from \"./math.k\" import double\n\nfn main() -> [i64] ! TaskError:\n  "
-                           "return try parallelMap([1, 2, 3], double)\n"))
+      !write("src/main.k", "from \"./math.k\" import double\n"
+                           "from \"std/io\" import println, IoError\n"
+                           "from \"std/fmt\" import format\n\n"
+                           "fn main() -> unit ! (IoError | TaskError):\n"
+                           "  values = try parallelMap([1, 2, 3], double)\n"
+                           "  for value in values:\n"
+                           "    try println(format(\"{}\", value))\n"
+                           "  return ()\n"))
     return std::unexpected("cannot write native starter files");
   // Exclusive rename publishes the complete project atomically and
   // rejects a destination created after the initial check, including empty dirs.

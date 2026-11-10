@@ -1,4 +1,5 @@
 #pragma once
+#include "kalandra/FormatTemplate.h"
 #include "kalandra/NumericType.h"
 #include "kalandra/Syntax.h"
 #include "kalandra/TensorTransform.h"
@@ -190,6 +191,16 @@ struct StringConcat {
 };
 struct StringLiteral {
   std::string value;
+};
+struct ApplicationArguments {};
+enum class ConsoleAction { Print, Println, Eprint, Eprintln, ReadLine };
+struct ConsoleOperation {
+  ConsoleAction action;
+  ValueId input;
+};
+struct FormatOperation {
+  std::vector<FormatPart> parts;
+  std::vector<ValueId> arguments;
 };
 struct BoolLiteral {
   bool value;
@@ -404,6 +415,7 @@ struct TypedVariant {
   SourceSpan declaration;
   std::vector<std::size_t> fields;
 };
+enum class StandardRecord { ExitStatus, IoError, Line };
 struct TypedRecord {
   std::string name;
   SourceSpan declaration;
@@ -414,22 +426,23 @@ struct TypedRecord {
   std::vector<std::size_t> errorMembers =
       {}; // Canonical original families for a transparent union.
   std::vector<std::pair<std::size_t, std::size_t>> errorOrigins =
-      {}; // Original family/variant per case.
+      {};                                      // Original family/variant per case.
+  std::optional<StandardRecord> standard = {}; // Loader-proven nominal standard type.
 };
 struct TypedExpr {
   SourceSpan span;
   ValueType type; // Concrete scalar/tensor numeric identity; builtins retain explicit tags.
-  std::variant<Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal,
-               UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
-               BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary, TensorUnary, ScalarBinary,
-               TensorBinary, TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum,
-               TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat,
-               ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection,
-               Transfer, TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
-               LoopTransferOperation, IntegerRangeOperation, YieldOperation, CatchOperation,
-               MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue,
-               RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke, ArrayBoundsCheck,
-               ArrayStore, ArraySort>
+  std::variant<
+      Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal, UInt64Literal,
+      StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral, FormatOperation,
+      ConsoleOperation, ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary,
+      TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall, Matmul,
+      ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray,
+      ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck,
+      DeviceSelection, Transfer, TaskOperation, ParallelOperation, ConditionalOperation,
+      WhileOperation, LoopTransferOperation, IntegerRangeOperation, YieldOperation, CatchOperation,
+      MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue, RecordFieldRead,
+      ErrorNarrow, FunctionReference, FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort>
       operation;
 };
 struct ShapeEquality {
@@ -449,6 +462,7 @@ struct TypedFunction {
   // Lifted anonymous functions keep explicit parameters first, lexical captures last.
   std::size_t captureCount = 0;
   bool anonymous = false;
+  bool compileTimeOnly = false; // No runtime callable/C interface for compiler syntax helpers.
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.
@@ -478,6 +492,8 @@ struct TypedModule {
   std::vector<TypedRecord> records;
   std::vector<ResolvedImport> imports = {};
   std::vector<ResolvedSourceToken> sourceTokens = {};
+  bool applicationEntry =
+      false; // Explicit application wrapper; test/library entries stay separate.
 };
 struct SemanticLimits {
   std::size_t maxDepth = 128;
@@ -530,6 +546,7 @@ struct CallableSignatureSnapshot {
   FunctionSignature signature;
   std::vector<std::string> parameterNames;
   std::vector<SignatureErrorFamily> errorFamilies;
+  bool formatIntrinsic = false; // Editor guidance, never a first-class callable type.
 };
 struct CallableSignatureQuery {
   SourceSpan site;

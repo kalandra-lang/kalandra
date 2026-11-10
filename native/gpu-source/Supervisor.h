@@ -7,5 +7,5 @@ namespace kalandra {
 enum class GpuBackend { Metal, Vulkan, Cuda };
 std::expected<std::map<std::string, std::string>, Diagnostic>
 emitGpuSupervisor(Module, ArithmeticMode, bool testCpuExports = false,
-                  GpuBackend = GpuBackend::Metal);
+                  GpuBackend = GpuBackend::Metal, bool application = false);
 } // namespace kalandra

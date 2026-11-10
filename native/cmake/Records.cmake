@@ -16,7 +16,7 @@ if(BUILD_TESTING)
   endforeach()
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-records-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCHECKER=$<TARGET_FILE:kalandra-check>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCHECKER=$<TARGET_FILE:kalandra-check>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/records-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecords.cmake")
     set_tests_properties(native-records-${VARIANT} PROPERTIES TIMEOUT 900)

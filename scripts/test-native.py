@@ -10,7 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-FEATURES = ('full', 'frontend', 'tooling', 'control', 'tasks', 'numerics', 'gpu', 'packaging', 'runtime')
+FEATURES = ('full', 'frontend', 'tooling', 'control', 'tasks', 'numerics', 'gpu', 'packaging', 'runtime', 'io')
 VARIANTS = ('default', 'debug', 'optimized', 'sanitized', 'thread-sanitized')
 
 

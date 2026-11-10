@@ -440,6 +440,13 @@ private:
               if (module.symbols[function.parameters.at(i)].mutableAccess)
                 write(op.arguments[i], args[i], env, spawned);
             return storage(node.type) ? returned(op.function, id, args) : Roots{};
+          } else if constexpr (std::is_same_v<T, ConsoleOperation>) {
+            input(op.input);
+            return {};
+          } else if constexpr (std::is_same_v<T, FormatOperation>) {
+            for (auto value : op.arguments)
+              input(value);
+            return {};
           } else if constexpr (std::is_same_v<T, ArraySort>) {
             auto destination = input(op.input);
             if (op.copying)

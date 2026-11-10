@@ -89,6 +89,10 @@ jobs:
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Build native CPU toolchain
         run: cmake --build build/linux --target native-cpu-toolchain kalandra -j2
+      - name: Qualify application entries, console I/O and formatting
+        run: |
+          cmake --build build/linux --target native-io-qualification -j2
+          ctest --test-dir build/linux --output-on-failure -j2 -L '^feature-io$' -LE '^feature-gpu$'
       - name: Qualify explicit returns and primitive types
         run: >-
           ctest --test-dir build/linux --output-on-failure
@@ -114,7 +118,7 @@ jobs:
       - name: Qualify CPU tensor transforms
         run: >-
           python3 native/tests/TensorTransformTests.py
-          --compiler build/linux/native/kalandra --clang "$KALANDRA_LLVM_ROOT/bin/clang++"
+          --compiler build/linux/native/kalandra-test-observer --clang "$KALANDRA_LLVM_ROOT/bin/clang++"
           --output build/linux/tensor-transforms --quick
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
         run: >-

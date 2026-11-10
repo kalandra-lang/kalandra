@@ -15,14 +15,18 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import struct
 
 ROOT = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--gpu', action='store_true')
+parser.add_argument('--gpu-only', action='store_true', help='Run only physical GPU examples; CPU/workflow checks are qualified separately')
 parser.add_argument('--gpu-backend', choices=('metal', 'vulkan', 'cuda'), default='metal')
 parser.add_argument('--tools', type=Path, default=ROOT / 'build/native/native')
 parser.add_argument('--report', type=Path)
 args = parser.parse_args()
+if args.gpu_only:
+    args.gpu = True
 PAGES = json.load(sys.stdin)
 PLAN = json.loads((ROOT / 'tests/fixtures/docs-examples.json').read_text())
 TOOLS = args.tools.resolve()
@@ -49,10 +53,10 @@ def expected_output(actual, plan):
     # This example sums approximate softmax rows. The documented contract does
     # not promise cross-device bit identity; keep a narrow explicit float32
     # bound for this example only, rather than weakening all output checks.
-    expected = int(plan['expected'], 16)
+    expected = int(plan['float32Bits'], 16)
     assert 0 < expected < 0x7f800000 and 0 < plan['float32Ulps'] <= 4
-    observed = actual.strip()
-    return len(observed) == 8 and abs(int(observed, 16) - expected) <= plan['float32Ulps']
+    observed = struct.unpack('!I', struct.pack('!f', float(actual.strip())))[0]
+    return abs(observed - expected) <= plan['float32Ulps']
 
 
 def blocks(page, language):
@@ -63,7 +67,7 @@ def shell(page, index, cwd, expected=None):
     i, source = blocks(page, 'bash')[index]
     result = command(['sh', '-eu', '-c', source], cwd)
     if expected is not None:
-        assert result == expected or result.splitlines()[-1] == expected, (page, index, expected, result)
+        assert result == expected or result.endswith('\n' + expected), (page, index, expected, result)
     COVERED.add((page, i))
     RESULTS.append({'page': page, 'block': i, 'kind': 'shell', 'status': 'passed', 'expected': expected, 'output': result})
     return result
@@ -104,11 +108,34 @@ for page, rows in PAGES.items():
     assert [r['source'].strip() for r in rows] == parsed.blocks, f'Rendered source drift: {page}'
     assert len(blocks(page, 'kalandra')) == len(PLAN[page]), f'Unclassified native example: {page}'
 
+def report(items):
+    for row in RESULTS:
+        if 'block' in row:
+            source = PAGES[row['page']][row['block']]['source']
+            row['sourceSHA256'] = hashlib.sha256(source.encode()).hexdigest()
+
+    summary = {'host': platform.platform(),
+               'toolsSHA256': {name: hashlib.sha256((TOOLS / name).read_bytes()).hexdigest() for name in ['kalandra', 'kalandra-check', 'kalandra-fmt']},
+               'pages': len(PAGES), 'nativeExamples': sum(plan['kind'] == 'gpu' for _, _, _, _, plan in items) if args.gpu_only else len(items),
+               'renderedBlocks': sum(map(len, PAGES.values())),
+               'cpuPrograms': 0 if args.gpu_only else sum('fn main(' in source and plan['kind'] not in ['reject', 'gpu'] for _, _, _, source, plan in items),
+               'gpuPrograms': sum(r['kind'] == 'gpu' and r['status'] == 'passed' for r in RESULTS),
+               'results': RESULTS}
+    if args.report:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(summary, indent=2) + '\n')
+    print(json.dumps({k: v for k, v in summary.items() if k != 'results'}, indent=2))
+    for row in RESULTS:
+        if row['status'] in ['not-run', 'prerequisite-recipe']:
+            print(f'{row["page"]}: {row["reason"]}')
+
 with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     BASE = Path(temporary).resolve()
 
     def native(item):
         page, ordinal, index, source, plan = item
+        if args.gpu_only and plan['kind'] != 'gpu':
+            return None
         if plan['kind'] == 'workflow':
             return None  # Executed below with the page's actual files and manifest.
         directory = BASE / page / str(ordinal)
@@ -135,17 +162,25 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
             compile_flags = ['--target', args.gpu_backend] if plan['kind'] == 'gpu' else []
             command([TOOLS / 'kalandra', directory / 'main.k', *compile_flags, mode, '-o', output], directory)
             binary = output / 'program' if plan['kind'] == 'gpu' else output
-            outputs[mode] = command([binary], directory)
+            execution = subprocess.run([str(binary), *plan.get('args', [])], cwd=directory,
+                                       env=ENV, input=plan.get('input', ''),
+                                       capture_output=True, text=True, timeout=30)
+            assert execution.returncode == 0 and not execution.stderr, (page, ordinal, execution)
+            outputs[mode] = execution.stdout.strip()
             assert expected_output(outputs[mode], plan), (page, ordinal, mode, plan, outputs[mode])
         return {'page': page, 'block': index, 'kind': 'gpu' if plan['kind'] == 'gpu' else 'cpu', 'status': 'passed', 'expected': plan['expected'], 'outputs': outputs}
 
     items = [(page, n, i, source, PLAN[page][n]) for page in PAGES
              for n, (i, source) in enumerate(blocks(page, 'kalandra'))]
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1 if args.gpu else 3) as pool:
         for result in pool.map(native, items):
             if result:
                 RESULTS.append(result)
                 COVERED.add((result['page'], result['block']))
+
+    if args.gpu_only:
+        report(items)
+        sys.exit(0)
 
     # Actual check/compile/run instructions from the introductory and module pages.
     for page in ['index', 'getting-started', 'tutorial', 'modules']:
@@ -170,13 +205,13 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     # The documented starter, its exact sibling module, and an edited rebuild.
     starter = BASE / 'starter'
     starter.mkdir()
-    shell('getting-started', 1, starter, '[2, 4, 6]')
+    shell('getting-started', 1, starter, '2\n4\n6')
     for name, (_, source) in zip(['main.k', 'math.k'], blocks('getting-started', 'kalandra')[1:]):
         assert (starter / 'my-app/src' / name).read_text().strip() == source.strip()
     math = starter / 'my-app/src/math.k'
     math.write_text(math.read_text().replace('value * 2', 'value * 3'))
     shell('getting-started', 2, starter)
-    command([starter / 'my-app/program'], starter, '[3, 6, 9]')
+    command([starter / 'my-app/program'], starter, '3\n6\n9')
 
     # Minimal project, local mapped module, and optimized mode.
     project = BASE / 'project'
@@ -266,22 +301,4 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
                 raise AssertionError(f'Unverified code block: {page}:{i} {block["language"]}')
             RESULTS.append({'page': page, 'block': i, 'kind': block['language'], 'status': 'prerequisite-recipe', 'reason': reason})
 
-for row in RESULTS:
-    if 'block' in row:
-        source = PAGES[row['page']][row['block']]['source']
-        row['sourceSHA256'] = hashlib.sha256(source.encode()).hexdigest()
-
-summary = {'host': platform.platform(),
-           'toolsSHA256': {name: hashlib.sha256((TOOLS / name).read_bytes()).hexdigest() for name in ['kalandra', 'kalandra-check', 'kalandra-fmt']},
-           'pages': len(PAGES), 'nativeExamples': len(items),
-           'renderedBlocks': sum(map(len, PAGES.values())),
-           'cpuPrograms': sum('fn main(' in source and plan['kind'] not in ['reject', 'gpu'] for _, _, _, source, plan in items),
-           'gpuPrograms': sum(r['kind'] == 'gpu' and r['status'] == 'passed' for r in RESULTS),
-           'results': RESULTS}
-if args.report:
-    args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps(summary, indent=2) + '\n')
-print(json.dumps({k: v for k, v in summary.items() if k != 'results'}, indent=2))
-for row in RESULTS:
-    if row['status'] in ['not-run', 'prerequisite-recipe']:
-        print(f'{row["page"]}: {row["reason"]}')
+report(items)

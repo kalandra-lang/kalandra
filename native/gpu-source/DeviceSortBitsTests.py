@@ -55,7 +55,7 @@ fn main()->{typ} ! TaskError:
         bundle = root/'device'
         # Sorting float64 only compares its integer bits: it needs no fallback,
         # including Metal. Require hardware-only admission for this entire test.
-        run([a.compiler.resolve(), source, '--target', a.backend, '--arithmetic', 'hardware',
+        run([a.compiler.resolve(), '--test-entry', 'main', source, '--target', a.backend, '--arithmetic', 'hardware',
              '-O2', '-o', bundle])
         constants = {}
         control = None

@@ -22,7 +22,7 @@ if(BUILD_TESTING)
       set(PAYLOAD_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-error-narrowing-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
         "-DVARIANT=${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DRUNTIME=$<TARGET_FILE:${PAYLOAD_RUNTIME}>"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/error-narrowing-${VARIANT}"

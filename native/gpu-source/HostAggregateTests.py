@@ -615,14 +615,14 @@ for name,(source,expected) in cases.items():
                 cpu_source = cpu_source.replace(f'try await transfer({value}, devices.cpu())', value)
         cpu.write_text(cpu_source)
     reference = root/('cpu'+suffix)
-    run([a.compiler,cpu,*flags,'-o',reference])
+    run([a.compiler, '--test-entry', 'main',cpu,*flags,'-o',reference])
     assert int(run([reference])) == expected, (name,'CPU',expected)
     gpu = root/'gpu.k'
     gpu.write_text(source)
     bundle = root/'device'
     fallback = name == 'entry-f64' or (name in ('device-closure-float64','device-tensor-return-f64','gpu-host-closure-tensor-f64') and a.backend == 'metal')
     policy = ['--arithmetic','hardware-with-software-fallback'] if fallback else []
-    run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
+    run([a.compiler, '--test-entry', 'main',gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()
     if name.startswith(('local-recursive-', 'device-mutual-recursion', 'device-recursive-', 'device-nested-closure', 'device-array-closure', 'device-closure-float64', 'device-tensor-')):
         assert 'NumericInstructionKind::DeviceControl' in host, name
@@ -664,7 +664,7 @@ for name,mutation in [(prefix+name,mutation) for prefix in ('record-','gpu-recor
     source=root/'gpu.k'
     target = 'gpu' if name.startswith('gpu-') else 'cpu'
     source.write_text(common+work+'fn main()->i64 ! TaskError:\n  batch=make(1)\n  alias=batch.values\n  return try parallel:\n    pending=spawn score(batch) on devices.'+target+'()\n    '+mutation+'\n    n=try await pending\n    try await spawn work(n) on devices.gpu()\n')
-    r=subprocess.run(list(map(str,[a.compiler,source,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
+    r=subprocess.run(list(map(str,[a.compiler, '--test-entry', 'main',source,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
     assert r.returncode!=0 and 'S077' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'S077'})
     print('reject-'+name,'rejected S077',flush=True)
@@ -680,7 +680,7 @@ for mutation in ('values[0]=99', 'sort(values)'):
                     '  callback=fn(n:i64):return n+values[0]\n  return try parallel:\n'
                     '    pending=spawn work(callback) on devices.gpu()\n    ' + mutation +
                     '\n    try await pending\n')
-    r = subprocess.run(list(map(str, [a.compiler, path, '--target', a.backend, '-o', root/'device'])),
+    r = subprocess.run(list(map(str, [a.compiler, '--test-entry', 'main', path, '--target', a.backend, '-o', root/'device'])),
                        capture_output=True, text=True, timeout=120)
     assert r.returncode != 0 and 'S077' in r.stderr, (name, r.returncode, r.stdout, r.stderr)
     results.append({'case': name, 'status': 'rejected', 'diagnostic': 'S077'})
@@ -704,7 +704,7 @@ fn main()->i64 ! TaskError:
     root.mkdir(exist_ok=True)
     path=root/'gpu.k'
     path.write_text(source)
-    r=subprocess.run(list(map(str,[a.compiler,path,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
+    r=subprocess.run(list(map(str,[a.compiler, '--test-entry', 'main',path,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
     assert r.returncode!=0 and 'G001' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
     if name == 'closure-string-capture':
         assert "capture 'text'" in r.stderr and 'String' in r.stderr, r.stderr

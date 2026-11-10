@@ -1,0 +1,103 @@
+meta { title = "Console I/O and formatting", description = "Read and write Unicode text with std/io and format scalar values with std/fmt.", order = 5, group = "Library reference" }
+
+Import console functions from std/io and formatting from std/fmt. Standard modules are part of the compiler and need no package dependency or network access. They are ordinary explicit imports, rather than names added to every source module.
+
+h2 { "print" }
+
+code { "print(text: String) -> unit ! IoError" }
+
+codeblock { language = kalandra, """from "std/io" import print, println, IoError
+
+fn main() -> unit ! IoError:
+  try print("Hello, ")
+  try println("Kalandra!")
+  return ()
+""" }
+
+print(text: String) -> unit ! IoError writes text to standard output. println has the same signature and adds one newline. Neither inserts spaces, quotes or escape notation. Embedded zero bytes are preserved in redirected streams.
+
+A console call serializes its entire write, including the newline, against other calls using the same stream. Several calls can still interleave with calls from other tasks: combine text into one call when it must stay together. Writes are observable effects and cannot be undone if a later operation fails.
+
+h2 { "println" }
+
+code { "println(text: String) -> unit ! IoError" }
+
+Write text and one newline to standard output. The write and newline form one console operation.
+
+h2 { "eprint" }
+
+code { "eprint(text: String) -> unit ! IoError" }
+
+eprint(text: String) -> unit ! IoError and eprintln(text: String) -> unit ! IoError write to standard error. eprintln adds one newline. Use them for diagnostics so users can redirect standard output independently. Ordering between the two streams is not guaranteed.
+
+h2 { "eprintln" }
+
+code { "eprintln(text: String) -> unit ! IoError" }
+
+Write text and one newline to standard error.
+
+h2 { "readLine" }
+
+code { "readLine(maxBytes: u64) -> Line ! IoError" }
+
+readLine(maxBytes: u64) -> Line ! IoError reads one line from standard input. The limit is required and counts UTF-8 bytes in the returned text, excluding the line ending.
+
+codeblock { language = kalandra, """from "std/io" import readLine, println, Line, IoError
+
+fn main() -> unit ! IoError:
+  line = try readLine(4096)
+  try match line:
+    Line.End: println("No input.")
+    Line.Text {text}: println(text)
+  return ()
+""" }
+
+Line is an enum with two variants: Line.End means end of input, and Line.Text holds a line in its text: String field. An empty line is Text with an empty String, not End. The function removes LF and CRLF endings. A final line without a newline is returned before End. Text must be valid UTF-8; no normalization is applied.
+
+A line exceeding maxBytes is consumed through its ending and produces IoError.LineTooLong. The next read begins at the next line. A limit of zero accepts an empty line and rejects nonempty text. readLine does not allocate an array containing the entire input stream.
+
+h2 { "IoError" }
+
+Console functions declare IoError, with these variants:
+
+list {
+  "IoError.System {code: i32, message: String}: an operating-system I/O error. code is platform-specific; message describes it.",
+  "IoError.InvalidEncoding: input is not valid Unicode text.",
+  "IoError.LineTooLong {limit: u64}: a line exceeds its requested byte limit."
+}
+
+Propagate errors with try, or recover with catch and match. Allocation faults and cancellation retain their normal runtime behavior; they are not converted into IoError.System.
+
+h2 { "format" }
+
+code { "format(template: String, values...) -> String" }
+
+format(template, values...) -> String is provided by std/fmt. The template must be a String literal. An empty brace pair consumes one value. Double an opening or closing brace to include it literally. The compiler checks placeholder count and argument types.
+
+codeblock { language = kalandra, """from "std/fmt" import format
+from "std/io" import println, IoError
+
+fn main() -> unit ! IoError:
+  try println(format("count={}, ready={}, name={}", 42, true, "Kalandra"))
+  try println(format("{{{}}}", 42))
+  return ()
+""" }
+
+The output is count=42, ready=true, name=Kalandra followed by 42 enclosed in braces on the next line. Arguments are evaluated once, from left to right. The result is an owned String.
+
+Supported values are String, bool and the ten numeric scalar types: i8, i16, i32, i64, u8, u16, u32, u64, f32 and f64. Integers use decimal notation; booleans use true and false. Floating-point formatting preserves enough information to round-trip at the value's source precision. Formatting is independent of the process locale.
+
+Arrays, tensors, records, unit, alignment and precision specifiers are not accepted. Format individual elements or choose the fields you want to display. A dynamically computed template is not accepted, and format cannot be stored or passed as a first-class function.
+
+h2 { "Tasks and devices" }
+
+Console operations run on the CPU. Within structured tasks, a pending read or write suspends its task so another ready task can run, including when the program uses a single worker. Cancellation can stop waiting tasks and settle their owned values; an operating-system operation that has already started can finish independently. Cancellation cannot retract bytes already written.
+
+Use direct host calls for console I/O in programs compiled for GPU targets. Passing an I/O function as a callback is supported by CPU-targeted programs only. Console operations and Strings cannot be used inside device kernels.
+
+Ordinary sequential applications use direct host I/O when the compiler proves that scheduling is unnecessary. Explicit parallel work keeps task admission checks, cancellation and task resource limits. The explicit readLine bound still applies in both cases.
+
+list {
+  link { url = "/docs/applications", "Entry points, arguments and exit status" },
+  link { url = "/docs/parallelism", "Structured concurrency and cancellation" }
+}

@@ -52,7 +52,7 @@ fn main()->{numeric} ! TaskError:
     path=a.output/(numeric+'-'+operation+'.k');path.write_text(source)
     for policy in ('hardware','software','hardware-with-software-fallback'):
       directory=a.output/(path.stem+'-'+policy)
-      built=subprocess.run([a.compiler,'--target','cuda',path,'--arithmetic',policy,'-O2','-o',directory],capture_output=True,text=True,timeout=240)
+      built=subprocess.run([a.compiler, '--test-entry', 'main','--target','cuda',path,'--arithmetic',policy,'-O2','-o',directory],capture_output=True,text=True,timeout=240)
       (a.output/(directory.name+'.build.log')).write_text(built.stdout+built.stderr)
       assert not built.returncode,(directory,built.stderr[-4000:])
       for workers in (1,2,4):
