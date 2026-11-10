@@ -52,6 +52,7 @@ h2 { "CPU and GPU programs" }
 The entry contract is the same for CPU, Metal, Vulkan and CUDA applications. Console I/O and arguments live on the host. A program can submit numerical work to a GPU and display its result using host code; these APIs do not make Strings or console operations available inside device kernels.
 
 list {
+  link { url = "/docs/environment", "Read inherited environment variables" },
   link { url = "/docs/console", "Console I/O and formatting reference" },
   link { url = "/docs/errors", "Handle and propagate errors" },
   link { url = "/docs/gpu", "Submit work to a GPU" }

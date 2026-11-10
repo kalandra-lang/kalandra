@@ -493,6 +493,13 @@
       "expected": "invalid at byte 2\nout of range\nbyte=12"
     }
   ],
+  "environment": [
+    {
+      "kind": "cpu",
+      "expected": "port=9000",
+      "environment": { "APP_PORT": "9000" }
+    }
+  ],
   "paths": [
     {
       "kind": "cpu",

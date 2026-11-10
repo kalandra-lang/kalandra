@@ -84,6 +84,12 @@ paths = [sys.executable, repo/'native/tests/PathSourceTests.py',
 if not a.execute:
     paths.append('--compile-only')
 subprocess.run(paths, check=True, timeout=900)
+environment = [sys.executable, repo/'native/tests/EnvironmentSourceTests.py',
+              '--compiler', compiler, '--target', 'vulkan', '--variant', 'optimized',
+              '--output', a.root/'environment-applications']
+if not a.execute:
+    environment.append('--compile-only')
+subprocess.run(environment, check=True, timeout=900)
 
 script = Path(__file__).with_name('public_cli.py')
 command = [sys.executable, script, '--compiler', compiler, '--output', a.root/'applications']

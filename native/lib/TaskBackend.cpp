@@ -1,5 +1,6 @@
 #include "CollectionMetadata.h"
 #include "ConsoleLowering.h"
+#include "EnvironmentLowering.h"
 #include "ErrorFamilies.h"
 #include "FileLowering.h"
 #include "NativeCallFoundation.h"
@@ -65,7 +66,7 @@ class Emitter {
   std::vector<Function *> frameDestroyers;
   std::vector<llvm::GlobalVariable *> entries;
   std::map<Function *, Value *> consoleScratch, fileScratch, fileArguments, parseScratch,
-      pathScratch;
+      environmentScratch, pathScratch;
   Function *closedApplication = nullptr;
   std::optional<std::size_t> closedApplicationId;
   Function *destroy;
@@ -519,6 +520,15 @@ public:
     else if (main->resultType.tensor)
       builder.CreateMemSet(entry->getArg(0), builder.getInt8(0), size(descriptor(main->resultType)),
                            llvm::MaybeAlign(alignment(descriptor(main->resultType))));
+    if (module.getFunction("kalandra_environment_get_v1")) {
+      auto *ready = Block::Create(context, "environment.ready", entry);
+      auto *failed = Block::Create(context, "environment.failed", entry);
+      builder.CreateCondBr(call("kalandra_environment_initialize_v1", boolean, {ctx}), ready,
+                           failed);
+      builder.SetInsertPoint(failed);
+      returnFailure();
+      builder.SetInsertPoint(ready);
+    }
     if (synchronousEntries[id] && !coordinating.at(id) && !main->resultType.fallible) {
       Value *value = builder.CreateCall(synchronousEntries[id],
                                         {llvm::ConstantPointerNull::get(builder.getPtrTy()), ctx});
@@ -2149,6 +2159,19 @@ private:
                               slot(instruction.output));
           builder.CreateStore(value, payload(instruction.output));
           builder.CreateBr(next);
+          break;
+        }
+        if (std::holds_alternative<EnvironmentLookup>(
+                planner.input.expressions[instruction.source].operation)) {
+          auto *&scratch = environmentScratch[resume];
+          if (!scratch) {
+            llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+            scratch = entry.CreateAlloca(taskTypes->records()[*type.record]->getElementType(1),
+                                         nullptr, "environment.value");
+          }
+          emitEnvironmentLookup(builder, module, *taskTypes, type, valueType(type),
+                                payload(instruction.args.at(0)), slot(instruction.output), scratch,
+                                ctx, next, abort);
           break;
         }
         if (const auto *parse = std::get_if<ParseOperation>(

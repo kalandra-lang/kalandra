@@ -506,7 +506,8 @@ private:
             return storage(node.type) ? fresh(id) : Roots{};
           } else if constexpr (std::is_same_v<T, ConsoleOperation> ||
                                std::is_same_v<T, ParseOperation> ||
-                               std::is_same_v<T, PathOperation>) {
+                               std::is_same_v<T, PathOperation> ||
+                               std::is_same_v<T, EnvironmentLookup>) {
             input(op.input);
             return {};
           } else if constexpr (std::is_same_v<T, FormatOperation>) {

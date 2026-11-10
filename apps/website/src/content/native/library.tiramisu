@@ -17,6 +17,7 @@ list {
   link { url = "/docs/filesystem", "std/fs — owned files, byte and line I/O, buffering" },
   link { url = "/docs/parsing", "std/parse — convert text to typed numbers and booleans" },
   link { url = "/docs/paths", "std/path — join paths and inspect their components" },
+  link { url = "/docs/environment", "std/env — read inherited environment variables" },
   link { url = "/docs/console", "std/io — console input, output, Line and IoError" },
   link { url = "/docs/console#format", "std/fmt — literal-template scalar formatting" },
   link { url = "/docs/applications#choose-an-exit-status", "std/process — application ExitStatus" }

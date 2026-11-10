@@ -1,3 +1,4 @@
+#include "EnvironmentCapabilities.h"
 #include "ErrorFamilies.h"
 #include "FileCapabilities.h"
 #include "NonCompleting.h"
@@ -708,6 +709,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
     }
     if (auto invalid = pathCapabilityError(module, expression, target))
       return invalid;
+    if (auto invalid = environmentCapabilityError(module, expression, target))
+      return invalid;
     if (auto invalid = parseCapabilityError(module, expression, target))
       return invalid;
     if (auto invalid = fileCapabilityError(module, expression, target))
@@ -1192,6 +1195,8 @@ std::string dumpTypedIR(const TypedModule &module) {
                                                                    : "eprintln")
                   << " ";
               value(operation.input);
+            } else if constexpr (std::is_same_v<T, EnvironmentLookup>) {
+              out << "env.get %" << operation.input;
             } else if constexpr (std::is_same_v<T, PathOperation>) {
               out << "path." << unsigned(operation.action) << " %" << operation.input;
             } else if constexpr (std::is_same_v<T, ParseOperation>) {

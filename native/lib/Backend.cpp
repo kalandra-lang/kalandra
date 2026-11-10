@@ -2903,7 +2903,8 @@ private:
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, ConsoleOperation> ||
                                std::is_same_v<T, FileOperation> ||
-                               std::is_same_v<T, ParseOperation>) {
+                               std::is_same_v<T, ParseOperation> ||
+                               std::is_same_v<T, EnvironmentLookup>) {
             throw LoweringFailure{"host standard-library operation requires continuation lowering"};
           } else if constexpr (std::is_same_v<T, FormatOperation>) {
             // Evaluate every source argument once, left to right, BEFORE any

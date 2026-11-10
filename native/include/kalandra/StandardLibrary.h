@@ -2,8 +2,10 @@
 #include <optional>
 #include <string_view>
 namespace kalandra {
-enum class StandardModule { Io, Format, Process, Filesystem, Parse, Path };
+enum class StandardModule { Io, Format, Process, Filesystem, Parse, Path, Env };
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/env")
+    return StandardModule::Env;
   if (name == "std/path")
     return StandardModule::Path;
   if (name == "std/parse")
@@ -20,6 +22,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Env:
+    return "kalandra-stdlib:std/env.k";
   case StandardModule::Path:
     return "kalandra-stdlib:std/path.k";
   case StandardModule::Parse:
@@ -36,6 +40,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Env))
+    return StandardModule::Env;
   if (path == standardModulePath(StandardModule::Path))
     return StandardModule::Path;
   if (path == standardModulePath(StandardModule::Parse))
@@ -55,6 +61,17 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Env:
+    return R"k(export enum EnvValue:
+  Missing
+  Value:
+    value: String
+export error EnvError:
+  InvalidName
+  InvalidEncoding
+export fn get(name: String) -> EnvValue ! EnvError:
+  return __kalandra_environment_get(name)
+)k";
   case StandardModule::Path:
     return R"k(export fn join(parts: [String]) -> String:
   return __kalandra_path_join(parts)

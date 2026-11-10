@@ -5,6 +5,7 @@ from LoopCases import CASES as LOOP_CASES
 from FileSystemCases import SOURCE as FILESYSTEM_SOURCE, EXPECTED as FILESYSTEM_EXPECTED
 from ParseCases import SOURCE as PARSE_SOURCE, EXPECTED as PARSE_EXPECTED
 from PathCases import SOURCE as PATH_SOURCE, expected as path_expected
+from EnvironmentCases import SOURCE as ENV_SOURCE, expected as env_expected, with_environment
 import argparse
 import json
 import os
@@ -159,18 +160,22 @@ fn main()->[i64]:
             result = subprocess.run([str(executable)], cwd=work, capture_output=True,
                 encoding="utf-8", timeout=60, env=environment)
             assert result.returncode == 0 and not result.stderr and result.stdout == PARSE_EXPECTED, result
-        source.write_text(PATH_SOURCE, encoding="utf-8")
-        for mode, flags in modes:
-            run([compiler, source, "-o", executable, *flags])
-            environment = dict(os.environ)
-            if windows and mode == "address-undefined":
-                resources = compiler.parent.parent / "lib/kalandra/toolchain/clang/lib/windows"
-                if not resources.is_dir():
-                    resources, = Path(os.environ["KALANDRA_LLVM_ROOT"]).glob("lib/clang/*/lib/windows")
-                environment["PATH"] = str(resources) + os.pathsep + environment.get("PATH", "")
-            result = subprocess.run([str(executable)], cwd=work, capture_output=True,
-                encoding="utf-8", timeout=60, env=environment)
-            assert result.returncode == 0 and not result.stderr and result.stdout == path_expected(windows), result
+        for app_source, expected, configure in (
+            (PATH_SOURCE, path_expected(windows), lambda env: env),
+            (ENV_SOURCE, env_expected(windows), lambda env: with_environment(env, windows=windows)),
+        ):
+            source.write_text(app_source, encoding="utf-8")
+            for mode, flags in modes:
+                run([compiler, source, "-o", executable, *flags])
+                environment = dict(os.environ)
+                if windows and mode == "address-undefined":
+                    resources = compiler.parent.parent / "lib/kalandra/toolchain/clang/lib/windows"
+                    if not resources.is_dir():
+                        resources, = Path(os.environ["KALANDRA_LLVM_ROOT"]).glob("lib/clang/*/lib/windows")
+                    environment["PATH"] = str(resources) + os.pathsep + environment.get("PATH", "")
+                result = subprocess.run([str(executable)], cwd=work, capture_output=True,
+                    encoding="utf-8", timeout=60, env=configure(environment))
+                assert result.returncode == 0 and not result.stderr and result.stdout == expected, result
         project = work / "starter project λ🙂"
         run([compiler, "new", project])
         run([compiler, "--project", project / "kalandra.toml", "-o", executable])
