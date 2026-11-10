@@ -78,6 +78,12 @@ parsing = [sys.executable, repo/'native/tests/ParseSourceTests.py',
 if not a.execute:
     parsing.append('--compile-only')
 subprocess.run(parsing, check=True, timeout=900)
+paths = [sys.executable, repo/'native/tests/PathSourceTests.py',
+              '--compiler', compiler, '--target', 'vulkan', '--variant', 'optimized',
+              '--output', a.root/'paths-applications']
+if not a.execute:
+    paths.append('--compile-only')
+subprocess.run(paths, check=True, timeout=900)
 
 script = Path(__file__).with_name('public_cli.py')
 command = [sys.executable, script, '--compiler', compiler, '--output', a.root/'applications']

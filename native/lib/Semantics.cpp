@@ -1461,6 +1461,34 @@ private:
       return {};
     return add(frame, *fn.declaredResult, fn.declaration, ParseOperation{kind, *input});
   }
+  std::optional<PathAction> standardPath(FunctionId id) const {
+    if (id >= syntax_.functions.size())
+      return {};
+    const auto &fn = syntax_.functions[id];
+    if (fn.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[fn.moduleIndex] != StandardModule::Path)
+      return {};
+    const auto label = name(fn.name);
+    if (label == "join")
+      return PathAction::Join;
+    if (label == "fileName")
+      return PathAction::FileName;
+    if (label == "parentPath")
+      return PathAction::ParentPath;
+    if (label == "extension")
+      return PathAction::Extension;
+    if (label == "isAbsolute")
+      return PathAction::IsAbsolute;
+    return {};
+  }
+  std::optional<ValueId> pathBody(Frame &frame, FunctionId id, PathAction action) {
+    const auto &fn = output_.functions[id];
+    auto input = add(frame, output_.symbols[fn.parameters[0]].type, fn.declaration,
+                     SymbolRead{fn.parameters[0]});
+    if (!input)
+      return {};
+    return add(frame, *fn.declaredResult, fn.declaration, PathOperation{action, *input});
+  }
   bool standardFormat(FunctionId id) const {
     if (id >= syntax_.functions.size())
       return false;
@@ -1691,13 +1719,15 @@ private:
     output_.functions[id].compileTimeOnly = standardFormat(id);
     auto result = standardFormat(id) ? add(frame, *output_.functions[id].declaredResult,
                                            syntax_.functions[id].span, StringLiteral{std::string{}})
+                  : standardPath(id) ? pathBody(frame, id, *standardPath(id))
                   : standardParse(id) ? parseBody(frame, id, *standardParse(id))
                   : standardFile(id)  ? fileBody(frame, id, *standardFile(id))
                   : standardConsole(id)
                       ? consoleBody(frame, id, *standardConsole(id))
                       : functionSuite(frame, body, output_.functions[id].declaredResult, statements,
                                       syntax_.functions[id].span, parameters);
-    if ((standardFormat(id) || standardConsole(id) || standardFile(id) || standardParse(id)) &&
+    if ((standardFormat(id) || standardConsole(id) || standardFile(id) || standardParse(id) ||
+         standardPath(id)) &&
         result)
       statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);

@@ -73,6 +73,12 @@ parsing = [sys.executable, repo/'native/tests/ParseSourceTests.py',
 if not a.execute:
     parsing.append('--compile-only')
 subprocess.run(parsing, check=True, timeout=900)
+paths = [sys.executable, repo/'native/tests/PathSourceTests.py',
+              '--compiler', compiler, '--target', 'cuda', '--variant', 'optimized',
+              '--output', a.root/'paths-applications']
+if not a.execute:
+    paths.append('--compile-only')
+subprocess.run(paths, check=True, timeout=900)
 
 subprocess.run([sys.executable,Path(__file__).with_name('applications.py'),
     '--build',a.root,'--compiler',compiler,'--output',a.root/'applications',

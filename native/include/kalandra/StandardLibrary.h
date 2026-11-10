@@ -2,8 +2,10 @@
 #include <optional>
 #include <string_view>
 namespace kalandra {
-enum class StandardModule { Io, Format, Process, Filesystem, Parse };
+enum class StandardModule { Io, Format, Process, Filesystem, Parse, Path };
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/path")
+    return StandardModule::Path;
   if (name == "std/parse")
     return StandardModule::Parse;
   if (name == "std/fs")
@@ -18,6 +20,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Path:
+    return "kalandra-stdlib:std/path.k";
   case StandardModule::Parse:
     return "kalandra-stdlib:std/parse.k";
   case StandardModule::Filesystem:
@@ -32,6 +36,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Path))
+    return StandardModule::Path;
   if (path == standardModulePath(StandardModule::Parse))
     return StandardModule::Parse;
   if (path == standardModulePath(StandardModule::Filesystem))
@@ -49,6 +55,18 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Path:
+    return R"k(export fn join(parts: [String]) -> String:
+  return __kalandra_path_join(parts)
+export fn fileName(path: String) -> String:
+  return __kalandra_path_file_name(path)
+export fn parentPath(path: String) -> String:
+  return __kalandra_path_parent(path)
+export fn extension(path: String) -> String:
+  return __kalandra_path_extension(path)
+export fn isAbsolute(path: String) -> bool:
+  return __kalandra_path_absolute(path)
+)k";
   case StandardModule::Parse:
     return R"k(export error ParseError:
   Invalid:

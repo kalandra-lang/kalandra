@@ -393,6 +393,8 @@ public:
                {"kalandra_string_literal",
                 builder_.getFunctionType({ptr, ptr, builder_.getI64Type()}, {})},
                {"kalandra_application_arguments", builder_.getFunctionType({ptr}, {})},
+               {"kalandra_path", builder_.getFunctionType({ptr, builder_.getI32Type(), ptr},
+                                                          {builder_.getI64Type()})},
                {"kalandra_format_scalar",
                 builder_.getFunctionType({ptr, builder_.getI32Type(), builder_.getI64Type()}, {})},
                {"kalandra_format_join",
@@ -2879,6 +2881,21 @@ private:
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, StringLiteral>) {
             return stringLiteral(loc, operation.value);
+          } else if constexpr (std::is_same_v<T, PathOperation>) {
+            auto argument = stringSlot(loc, expression(frame, operation.input));
+            ValueType text;
+            text.builtin = BuiltinValue::String;
+            auto output = descriptorSlot(loc, type(text));
+            auto action =
+                arith::ConstantIntOp::create(builder_, loc, unsigned(operation.action), 32);
+            auto result = func::CallOp::create(builder_, loc, "kalandra_path",
+                                               TypeRange{builder_.getI64Type()},
+                                               ValueRange{output, action, argument})
+                              .getResult(0);
+            if (operation.action == PathAction::IsAbsolute)
+              return arith::TruncIOp::create(builder_, loc, builder_.getI1Type(), result)
+                  .getResult();
+            return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, ApplicationArguments>) {
             auto output = descriptorSlot(loc, type(node.type));
             func::CallOp::create(builder_, loc, "kalandra_application_arguments", TypeRange{},

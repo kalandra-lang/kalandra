@@ -492,5 +492,16 @@
       "kind": "cpu",
       "expected": "invalid at byte 2\nout of range\nbyte=12"
     }
+  ],
+  "paths": [
+    {
+      "kind": "cpu",
+      "expected": "data/runs/output.csv\noutput.csv\ndata/runs\n.csv\nfalse",
+      "expectedWindows": "data\\runs\\output.csv\noutput.csv\ndata\\runs\n.csv\nfalse"
+    },
+    {
+      "kind": "cpu",
+      "expected": "file.txt\nfinal.txt"
+    }
   ]
 }

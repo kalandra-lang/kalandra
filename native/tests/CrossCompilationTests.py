@@ -27,6 +27,7 @@ from WindowsPlatform import pe_machine, MACHINES, coff_archive_machines
 from LoopCases import CASES as LOOP_CASES
 from FileSystemCases import SOURCE as FILESYSTEM_SOURCE, EXPECTED as FILESYSTEM_EXPECTED
 from ParseCases import SOURCE as PARSE_SOURCE, EXPECTED as PARSE_EXPECTED
+from PathCases import SOURCE as PATH_SOURCE, expected as path_expected
 
 
 def digest(path):
@@ -61,6 +62,7 @@ def program_cases():
         '  return ()\n'), output='answer=42, arguments=0\n', application=True)
     cases['filesystem-application'] = dict(source=FILESYSTEM_SOURCE, output=FILESYSTEM_EXPECTED, application=True, filesystem=True)
     cases['parsing-application'] = dict(source=PARSE_SOURCE, output=PARSE_EXPECTED, application=True)
+    cases['path-application'] = dict(source=PATH_SOURCE, outputBySystem={system:path_expected(system=='windows') for system in ('linux','macos','windows')}, application=True)
     cases.update({'loop-' + name: dict(source=text, output=expected + '\n')
                   for name, (text, expected) in LOOP_CASES.items()})
     numeric_values = {'i8': '-42', 'u8': '255', 'i16': '-30000', 'u16': '65535',
@@ -485,6 +487,8 @@ def execute(a):
             assert not r.stderr, (record['file'], r.stderr)
             if case.get('contains'):
                 assert case['contains'] in r.stdout, r.stdout
+            elif 'outputBySystem' in case:
+                assert r.stdout == case['outputBySystem'][report['destinationSystem']], (record['file'],r.stdout,case['outputBySystem'])
             elif case['output'] is None:
                 expected = 1.0
                 for _ in range(100): expected = expected * 1.000000001 + 0.25

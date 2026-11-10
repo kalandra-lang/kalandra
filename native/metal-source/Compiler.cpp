@@ -7,6 +7,7 @@
 #include "../gpu-source/DeviceErrorLayout.h"
 #include "../gpu-source/FileHostBridge.h"
 #include "../gpu-source/ParseHostBridge.h"
+#include "../gpu-source/PathHostBridge.h"
 #include "../gpu-source/PointerBridge.h"
 #include "../gpu-source/Supervisor.h"
 #include "../lib/NativeLayout.h"
@@ -112,6 +113,12 @@ class Compiler {
     ValueType result;
   };
   std::vector<ParseBridgeRequest> parseBridges;
+  struct PathBridgeRequest {
+    std::string name;
+    PathOperation operation;
+    ValueType result;
+  };
+  std::vector<PathBridgeRequest> pathBridges;
   Module syntax;
   std::map<std::string, std::size_t> cpuFunctions;
   TypedModule cpu;
@@ -1410,7 +1417,8 @@ class Compiler {
       for (const auto &name : sharedNominalKeys)
         linked->getNamedGlobal(name)->setLinkage(llvm::GlobalValue::InternalLinkage);
     if (!aggregateTypes.empty() || !callableTypes.empty() || hostText || hostTextArray ||
-        !consoleBridges.empty() || !fileBridges.empty() || !parseBridges.empty()) {
+        !consoleBridges.empty() || !fileBridges.empty() || !parseBridges.empty() ||
+        !pathBridges.empty()) {
       if (!linked) {
         linked = std::make_unique<llvm::Module>("gpu-host-layouts", context);
         linked->setDataLayout(nativeCpuDataLayout);
@@ -1463,6 +1471,8 @@ class Compiler {
                                           : "kalandra_gpu_string_layout");
         layout->setLinkage(llvm::GlobalValue::ExternalLinkage);
       }
+      for (const auto &request : pathBridges)
+        emitPathHostBridge(placement, *linked, request.operation, request.result, request.name);
       for (const auto &request : parseBridges)
         emitParseHostBridge(placement, *linked, request.operation, request.result, request.name);
       for (const auto &request : fileBridges)
@@ -3990,7 +4000,19 @@ class Compiler {
         break;
       }
       case Code::Kernel:
-        if (const auto *parse = std::get_if<ParseOperation>(&node(op.source).operation)) {
+        if (const auto *path = std::get_if<PathOperation>(&node(op.source).operation)) {
+          const auto output = get(op.output);
+          const auto bridge = "kalandra_gpu_path_" + std::to_string(pathBridges.size());
+          pathBridges.push_back({bridge, *path, plan.slots.at(op.output)});
+          declarations += "extern \"C\" void " + bridge + "(Invocation*,const void*,void*);\n";
+          auto code = bridge + "(&task.context(),&" + ref(args.at(0)) + ",&" + ref(output) +
+                      ");\n"
+                      "if(task.context().status()){hostArrayFailure(task);return;}if(task."
+                      "cancelled())return;\n";
+          if (output.failure)
+            code += failureRef(output) + "={};\n";
+          steps.push_back(code + commitOutcome(output));
+        } else if (const auto *parse = std::get_if<ParseOperation>(&node(op.source).operation)) {
           const auto output = get(op.output);
           if (!output.failure || !output.applicationError)
             reject(span, "parsing operation requires ParseError");

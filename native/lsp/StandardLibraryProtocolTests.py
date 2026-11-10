@@ -20,7 +20,7 @@ fn main()->unit ! IoError:
     client.open(path, text)
     assert not publications(client.barrier())[path.as_uri()]['diagnostics']
     for module, expected in [('io', 'export fn println'), ('fmt', 'export fn format'),
-                             ('process', 'export type ExitStatus'), ('fs', 'export fn open'), ('parse', 'export fn parseI64')]:
+                             ('process', 'export type ExitStatus'), ('fs', 'export fn open'), ('parse', 'export fn parseI64'), ('path', 'export fn join')]:
         result = client.rpc('kalandra/standardLibrary', {'uri': f'kalandra-stdlib:std/{module}.k'})
         assert expected in result['result'], result
     for uri in ('file:///etc/passwd', 'kalandra-stdlib:std/missing.k', 'kalandra-stdlib:std/../main.k'):
@@ -122,3 +122,27 @@ fn main()->i64 ! ParseError:
     assert 'export error ParseError:' in declarations and 'export fn parseBool' in declarations,declarations
     client.finish()
 print('PASS: parsing declarations, alias definition, hover, signature and local-only rename')
+with tempfile.TemporaryDirectory(dir=directory) as temp:
+    root=Path(temp).resolve();path=root/'paths.k'
+    text='''from "std/path" import join as makePath, fileName
+fn leaf(parts:[String])->String:
+  return fileName(makePath(parts))
+fn main()->unit:
+  return ()
+'''
+    client=Client(server);client.init(rename=True,workspaceFolders=[{'uri':root.as_uri(),'name':'paths'}]);client.open(path,text)
+    assert not publications(client.barrier())[path.as_uri()]['diagnostics']
+    line=text.splitlines()[2];position=line.index('makePath')+2
+    params={'textDocument':{'uri':path.as_uri()},'position':{'line':2,'character':position}}
+    definition=client.rpc('textDocument/definition',params)['result']
+    assert definition['uri']=='kalandra-stdlib:std/path.k',definition
+    hover=client.rpc('textDocument/hover',params)['result']
+    assert '[String]' in str(hover) and 'String' in str(hover),hover
+    signature=client.rpc('textDocument/signatureHelp',{**params,'position':{'line':2,'character':line.index('parts')+2}})['result']
+    assert signature and 'parts: [String]' in signature['signatures'][0]['label'],signature
+    renamed=client.rpc('textDocument/rename',{**params,'newName':'buildPath'})['result']['documentChanges']
+    assert len(renamed)==1 and renamed[0]['textDocument']['uri']==path.as_uri() and len(renamed[0]['edits'])==2,renamed
+    declarations=client.rpc('kalandra/standardLibrary',{'uri':'kalandra-stdlib:std/path.k'})['result']
+    assert 'export fn isAbsolute(path: String) -> bool:' in declarations,declarations
+    client.finish()
+print('PASS: path declarations, aliases, definition URI, signature and hover')

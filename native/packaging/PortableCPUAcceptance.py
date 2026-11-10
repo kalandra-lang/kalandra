@@ -4,6 +4,7 @@ from WindowsPlatform import has_sanitizers, pe_machine, rename_after_process_exi
 from LoopCases import CASES as LOOP_CASES
 from FileSystemCases import SOURCE as FILESYSTEM_SOURCE, EXPECTED as FILESYSTEM_EXPECTED
 from ParseCases import SOURCE as PARSE_SOURCE, EXPECTED as PARSE_EXPECTED
+from PathCases import SOURCE as PATH_SOURCE, expected as path_expected
 import argparse
 import json
 import os
@@ -158,6 +159,18 @@ fn main()->[i64]:
             result = subprocess.run([str(executable)], cwd=work, capture_output=True,
                 encoding="utf-8", timeout=60, env=environment)
             assert result.returncode == 0 and not result.stderr and result.stdout == PARSE_EXPECTED, result
+        source.write_text(PATH_SOURCE, encoding="utf-8")
+        for mode, flags in modes:
+            run([compiler, source, "-o", executable, *flags])
+            environment = dict(os.environ)
+            if windows and mode == "address-undefined":
+                resources = compiler.parent.parent / "lib/kalandra/toolchain/clang/lib/windows"
+                if not resources.is_dir():
+                    resources, = Path(os.environ["KALANDRA_LLVM_ROOT"]).glob("lib/clang/*/lib/windows")
+                environment["PATH"] = str(resources) + os.pathsep + environment.get("PATH", "")
+            result = subprocess.run([str(executable)], cwd=work, capture_output=True,
+                encoding="utf-8", timeout=60, env=environment)
+            assert result.returncode == 0 and not result.stderr and result.stdout == path_expected(windows), result
         project = work / "starter project λ🙂"
         run([compiler, "new", project])
         run([compiler, "--project", project / "kalandra.toml", "-o", executable])
