@@ -35,7 +35,7 @@ cases = {
     'reexport': ('from "./helper.k" import fmt\nfn main()->String:\n  return fmt("{}",42)\n', '42\n'),
     'empty': ('fn main()->String:\n  return format("")\n', '\n'),
     'escapes': ('fn main()->String:\n  return format("{{{}}} {{}}",42)\n', '{42} {}\n'),
-    'nul': ('fn main()->String:\n  return format("α\\0{}", "é")\n', 'α\0é\n'),
+    'embedded-nul': ('fn main()->String:\n  return format("α\\0{}", "é")\n', 'α\0é\n'),
     'nested': ('fn main()->String:\n  return format("<{}>", format("{}:{}",1,false))\n', '<1:false>\n'),
     'sequential-mutation': ('''fn increment(mut values:[i64])->i64:
   values[0]=values[0]+1
