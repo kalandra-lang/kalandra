@@ -400,6 +400,18 @@ void *Invocation::allocateResource(std::uint64_t bytes, void (*cleanup)(void *) 
     (static_cast<Backing *>(data) - 1)->cleanup = cleanup;
   return data;
 }
+void *Invocation::readResource(void *address, void (*cleanup)(void *) noexcept,
+                               std::uint64_t minimumBytes) noexcept {
+  if (poll() || !usable())
+    return nullptr;
+  auto *owner = findOwner(address);
+  if (!cleanup || !owner || owner->backing->cleanup != cleanup ||
+      owner->backing->bytes < minimumBytes) {
+    fault(3);
+    return nullptr;
+  }
+  return address;
+}
 void *Invocation::allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept {
   auto &state = ledger();
   if (poll() || !usable() || !reserve())
@@ -459,6 +471,14 @@ void Invocation::releaseControl(void *address) noexcept {
   while (state.controls_ != control)
     clearControl();
   clearControl();
+}
+void *Invocation::latestControl(void (*cleanup)(void *) noexcept) noexcept {
+  if (!(flags_ & Materialized))
+    return nullptr;
+  for (auto *control = storage_.value.controls_; control; control = control->next)
+    if (control->cleanup == cleanup)
+      return control + 1;
+  return nullptr;
 }
 void *Invocation::allocateRecord(std::uint64_t bytes) noexcept {
   if (!bytes)

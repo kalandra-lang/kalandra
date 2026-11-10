@@ -1,4 +1,5 @@
 #include "ErrorFamilies.h"
+#include "FileCapabilities.h"
 #include "NonCompleting.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
@@ -71,6 +72,8 @@ std::string describeType(const ValueType &type) {
     for (std::size_t i = 0; i < type.callable->parameters.size(); ++i) {
       if (i)
         signature += ", ";
+      if (type.callable->owns(i))
+        signature += "own ";
       if (type.callable->mutates(i))
         signature += "mut ";
       signature += describeType(type.callable->parameters[i]);
@@ -701,6 +704,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           r.shape[0].constant || r.task || r.fallible || r.device)
         return "application arguments require a completed host [String] array";
     }
+    if (auto invalid = fileCapabilityError(module, expression, target))
+      return invalid;
     if (const auto *console = std::get_if<ConsoleOperation>(&expression.operation)) {
       const auto &r = expression.type;
       if (target != NumericTarget::Cpu || r.tensor || r.array || r.task || r.device ||
@@ -1166,6 +1171,12 @@ std::string dumpTypedIR(const TypedModule &module) {
                   << operation.input;
             else if constexpr (std::is_same_v<T, ApplicationArguments>) {
               out << "application.arguments";
+            } else if constexpr (std::is_same_v<T, FileOperation>) {
+              out << "filesystem." << unsigned(operation.action);
+              for (auto arg : operation.arguments) {
+                out << " ";
+                value(arg);
+              }
             } else if constexpr (std::is_same_v<T, ConsoleOperation>) {
               out << "console."
                   << (operation.action == ConsoleAction::ReadLine  ? "readLine"

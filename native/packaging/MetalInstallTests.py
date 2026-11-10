@@ -70,6 +70,9 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
          "--compiler", compiler, "--output", cwd / "console applications",
          "--target", "metal", "--variant", "optimized",
          "--case", "streams", "--case", "arguments-and-status"], cwd)
+    run([sys.executable, fixtures.parent / "tests/FileSystemSourceTests.py",
+         "--compiler", compiler, "--output", cwd / "filesystem applications",
+         "--target", "metal", "--variant", "optimized"], cwd)
     (cwd / "cpu.k").write_text('fn main() -> i64:\n  return 42\n')
     run([compiler, "--test-entry", "main", cwd / "cpu.k", "-o", cwd / "cpu"], cwd)
     assert run([cwd / "cpu"], cwd).stdout.strip() == "42"

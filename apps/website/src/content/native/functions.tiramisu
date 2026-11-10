@@ -124,3 +124,11 @@ list {
   link { url = "/docs/arrays", "Map arrays sequentially" },
   link { url = "/docs/parallelism", "Schedule CPU callbacks" }
 }
+
+h2 { "Owned resource parameters" }
+
+A File, BufferedReader or BufferedWriter parameter borrows a handle unless it is marked own. An own parameter consumes the caller's handle and may close it, pass it to another owner, or return it. The caller cannot use the moved binding afterward. Ordinary numeric and array parameters do not gain move semantics from this rule; own applies to resource types.
+
+list {
+  link { url = "/docs/filesystem#ownership-and-lifetime", "File ownership, consuming calls and automatic cleanup" }
+}

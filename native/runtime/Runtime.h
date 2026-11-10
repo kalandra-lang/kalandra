@@ -81,11 +81,16 @@ public:
   // retained owner retires, including fault/cancellation settlement. Resource
   // backing is never recycled as numeric storage.
   void *allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept;
+  // Validate a private resource capability without dereferencing an unowned
+  // address. The cleanup identity distinguishes resources from ordinary bytes.
+  void *readResource(void *address, void (*cleanup)(void *) noexcept,
+                     std::uint64_t minimumBytes) noexcept;
   // Private compiler frame metadata, never source-visible or leaseable. The
   // caller completes infallible construction before returning to source code.
   // Cleanup does not enter source code; descendants retire before their parent.
   void *allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept;
   void releaseControl(void *) noexcept;
+  void *latestControl(void (*cleanup)(void *) noexcept) noexcept;
   // Field backing remains invocation-owned across inline aggregate copies.
   // Release only at a scalar CLI boundary; ordinary helpers may return records.
   void *allocateRecord(std::uint64_t bytes) noexcept;

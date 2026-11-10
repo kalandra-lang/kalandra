@@ -11,6 +11,7 @@ import shlex
 import sys
 import subprocess
 import tarfile
+import tempfile
 
 from CrossTargetTests import SOURCES
 
@@ -24,6 +25,7 @@ SYSTEM = {'Linux': 'linux', 'Windows': 'windows', 'Darwin': 'macos'}
 sys.path.insert(0, str(ROOT / 'native/packaging'))
 from WindowsPlatform import pe_machine, MACHINES, coff_archive_machines
 from LoopCases import CASES as LOOP_CASES
+from FileSystemCases import SOURCE as FILESYSTEM_SOURCE, EXPECTED as FILESYSTEM_EXPECTED
 
 
 def digest(path):
@@ -56,6 +58,7 @@ def program_cases():
         'fn main(args:[String])->unit ! IoError:\n'
         '  try println(format("answer={}, arguments={}",42,length(args)))\n'
         '  return ()\n'), output='answer=42, arguments=0\n', application=True)
+    cases['filesystem-application'] = dict(source=FILESYSTEM_SOURCE, output=FILESYSTEM_EXPECTED, application=True, filesystem=True)
     cases.update({'loop-' + name: dict(source=text, output=expected + '\n')
                   for name, (text, expected) in LOOP_CASES.items()})
     numeric_values = {'i8': '-42', 'u8': '255', 'i16': '-30000', 'u16': '65535',
@@ -467,8 +470,12 @@ def execute(a):
         binary.chmod(0o755)
         if report['destinationSystem'] == 'macos':
             run(['codesign', '--verify', '--strict', binary])
-        r = subprocess.run([str(binary)], capture_output=True, text=True, timeout=120, encoding='utf-8')
         case = record['case']
+        if case.get('filesystem'):
+            with tempfile.TemporaryDirectory(prefix='kalandra-cross-files-') as cwd:
+                r = subprocess.run([str(binary)], cwd=cwd, capture_output=True, text=True, timeout=120, encoding='utf-8')
+        else:
+            r = subprocess.run([str(binary)], capture_output=True, text=True, timeout=120, encoding='utf-8')
         assert r.returncode == case.get('status', 0), (record['file'], r.returncode, r.stdout, r.stderr)
         if case.get('stderr'):
             assert case['stderr'] in r.stderr and not r.stdout

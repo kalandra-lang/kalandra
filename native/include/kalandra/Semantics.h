@@ -1,4 +1,5 @@
 #pragma once
+#include "kalandra/FileOperations.h"
 #include "kalandra/FormatTemplate.h"
 #include "kalandra/NumericType.h"
 #include "kalandra/Syntax.h"
@@ -56,6 +57,10 @@ struct FunctionSignature {
   std::vector<ValueType> parameters;
   ValueType result;
   std::vector<bool> mutableParameters = {};
+  std::vector<bool> ownedParameters = {};
+  [[nodiscard]] bool owns(std::size_t index) const {
+    return index < ownedParameters.size() && ownedParameters[index];
+  }
   [[nodiscard]] bool mutates(std::size_t index) const {
     return index < mutableParameters.size() && mutableParameters[index];
   }
@@ -139,6 +144,7 @@ struct Symbol {
   // Access to caller-owned array backing, independent of rebinding this name.
   // Lifted captures always keep the default read-only contract.
   bool mutableAccess = false;
+  bool owned = false;
 };
 struct Int32Literal {
   std::int32_t value;
@@ -197,6 +203,11 @@ enum class ConsoleAction { Print, Println, Eprint, Eprintln, ReadLine };
 struct ConsoleOperation {
   ConsoleAction action;
   ValueId input;
+};
+struct FileOperation {
+  FileAction action;
+  std::vector<ValueId> arguments;
+  std::optional<FunctionId> declaration = {};
 };
 struct FormatOperation {
   std::vector<FormatPart> parts;
@@ -415,7 +426,16 @@ struct TypedVariant {
   SourceSpan declaration;
   std::vector<std::size_t> fields;
 };
-enum class StandardRecord { ExitStatus, IoError, Line };
+enum class StandardRecord {
+  ExitStatus,
+  IoError,
+  Line,
+  File,
+  BufferedReader,
+  BufferedWriter,
+  OpenMode,
+  FsError
+};
 struct TypedRecord {
   std::string name;
   SourceSpan declaration;
@@ -435,10 +455,10 @@ struct TypedExpr {
   std::variant<
       Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal, UInt64Literal,
       StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral, FormatOperation,
-      ConsoleOperation, ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary,
-      TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall, Matmul,
-      ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray,
-      ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck,
+      ConsoleOperation, FileOperation, ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead,
+      ScalarUnary, TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert,
+      FunctionCall, Matmul, ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape,
+      TensorToArray, ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck,
       DeviceSelection, Transfer, TaskOperation, ParallelOperation, ConditionalOperation,
       WhileOperation, LoopTransferOperation, IntegerRangeOperation, YieldOperation, CatchOperation,
       MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue, RecordFieldRead,
@@ -495,6 +515,13 @@ struct TypedModule {
   bool applicationEntry =
       false; // Explicit application wrapper; test/library entries stay separate.
 };
+inline bool isFileResource(const TypedModule &module, const ValueType &type) {
+  if (!type.record || *type.record >= module.records.size())
+    return false;
+  const auto standard = module.records[*type.record].standard;
+  return standard == StandardRecord::File || standard == StandardRecord::BufferedReader ||
+         standard == StandardRecord::BufferedWriter;
+}
 struct SemanticLimits {
   std::size_t maxDepth = 128;
   std::size_t maxDiagnostics = 32;

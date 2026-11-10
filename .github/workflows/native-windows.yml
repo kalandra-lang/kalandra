@@ -91,6 +91,12 @@ jobs:
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Build native CPU toolchain
         run: cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized -j2 -- -k 0
+      - name: Qualify native filesystem resource ownership
+        run: |
+          & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/FileSystemRuntimeTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/filesystem-runtime-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Filesystem runtime driver failed to compile' }
+          & build/windows/filesystem-runtime-tests.exe build/windows/filesystem-runtime
+          if ($LASTEXITCODE -ne 0) { throw 'Filesystem runtime ownership qualification failed' }
       - name: Qualify application entries, console I/O and formatting
         run: |
           $env:PYTHONUTF8 = '1'
@@ -102,7 +108,7 @@ jobs:
             $env:PATH = "$($sanitizerRuntime[0].FullName);$env:PATH"
           }
           foreach ($variant in $variants) {
-            foreach ($suite in @('ApplicationSourceTests', 'ConsoleSourceTests', 'FormatSourceTests')) {
+            foreach ($suite in @('ApplicationSourceTests', 'ConsoleSourceTests', 'FormatSourceTests', 'FileSystemSourceTests')) {
               python "native/tests/$suite.py" --compiler build/windows/native/kalandra.exe --variant $variant --output "build/windows/io/$suite-$variant"
               if ($LASTEXITCODE -ne 0) { throw "$suite $variant failed" }
             }

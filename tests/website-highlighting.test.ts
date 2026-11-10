@@ -51,7 +51,7 @@ test("Tiramisu numeric entities decode exactly once for comparisons and literal 
 });
 
 test("loop collection keywords use keyword highlighting", () => {
-  for (const keyword of ["for", "in", "break", "continue", "yield"]) {
+  for (const keyword of ["for", "in", "break", "continue", "yield", "own"]) {
     const html = highlightKalandra(keyword);
     expect(plain(html)).toBe(keyword);
     expect(html).toContain("--shiki-dark:#f86737");

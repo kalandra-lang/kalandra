@@ -7,6 +7,8 @@ using SpanKey = std::pair<std::size_t, std::size_t>;
 std::optional<FunctionId> calledFunction(const TypedModule &module, const TypedExpr &expression) {
   if (const auto *call = std::get_if<FunctionCall>(&expression.operation))
     return call->function;
+  if (const auto *file = std::get_if<FileOperation>(&expression.operation))
+    return file->declaration;
   if (std::holds_alternative<FormatOperation>(expression.operation))
     for (FunctionId id = 0; id < module.functions.size(); ++id)
       if (module.functions[id].compileTimeOnly &&

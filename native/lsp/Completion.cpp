@@ -27,7 +27,7 @@ CompletionInfo completeImportPaths(const std::shared_ptr<const SourceFile> &sour
   const auto prefix = content.substr(0, offset - token.span.begin - 1);
   if (prefix.empty() || prefix == "s" || prefix == "st" || prefix.starts_with("std")) {
     result.replacement = {token.span.begin + 1, token.span.end - 1};
-    for (const auto name : {"std/fmt", "std/io", "std/process"})
+    for (const auto name : {"std/fmt", "std/fs", "std/io", "std/process"})
       if (std::string_view(name).starts_with(prefix))
         result.names.push_back({name, ScopeNameKind::File});
     return result;

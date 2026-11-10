@@ -1,5 +1,5 @@
-#include "kalandra/Continuation.h"
 #include "NonCompleting.h"
+#include "kalandra/Continuation.h"
 #include <algorithm>
 #include <limits>
 #include <unordered_map>
@@ -29,6 +29,7 @@ bool sameFunctionValueType(const ValueType &a, const ValueType &b, std::size_t d
       return false;
     for (std::size_t i = 0; i < a.callable->parameters.size(); ++i)
       if (a.callable->mutates(i) != b.callable->mutates(i) ||
+          a.callable->owns(i) != b.callable->owns(i) ||
           !self(self, a.callable->parameters[i], b.callable->parameters[i], depth + 1))
         return false;
     return self(self, a.callable->result, b.callable->result, depth + 1);
@@ -688,7 +689,11 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
       return false;
     if (type.callable->mutableParameters.size() > type.callable->parameters.size())
       return false;
+    if (type.callable->ownedParameters.size() > type.callable->parameters.size())
+      return false;
     for (std::size_t i = 0; i < type.callable->parameters.size(); ++i) {
+      if (type.callable->owns(i) && !isFileResource(module, type.callable->parameters[i]))
+        return false;
       const auto &parameter = type.callable->parameters[i];
       if (type.callable->mutates(i) &&
           (!parameter.array || parameter.task || parameter.fallible || parameter.device ||
@@ -798,8 +803,8 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
   }
   const auto nonCompleting = nonCompletingValues(module);
   const auto sameResult = [&](const ValueType &type, ValueId value) {
-    return nonCompleting[value] || sameStorageType(completed(type),
-                                                  completed(module.expressions[value].type));
+    return nonCompleting[value] ||
+           sameStorageType(completed(type), completed(module.expressions[value].type));
   };
   for (ValueId id = 0; id < module.expressions.size(); ++id) {
     const auto &expression = module.expressions[id];
@@ -851,8 +856,7 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
             !sameResult(expression.type, choice->falseResult))
           return "conditional changes a function-value signature";
       } else if (const auto *group = std::get_if<ParallelOperation>(&expression.operation)) {
-        if (group->result >= id ||
-            !sameResult(expression.type, group->result))
+        if (group->result >= id || !sameResult(expression.type, group->result))
           return "parallel group changes a returned function signature";
       } else if (const auto *caught = std::get_if<CatchOperation>(&expression.operation)) {
         if (caught->operand >= id || caught->result >= id ||
@@ -922,6 +926,7 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
         if (i < explicitCount) {
           if (module.symbols[fn.parameters[i]].mutableAccess !=
                   expression.type.callable->mutates(i) ||
+              module.symbols[fn.parameters[i]].owned != expression.type.callable->owns(i) ||
               !sameStorageType(module.symbols[fn.parameters[i]].type,
                                expression.type.callable->parameters[i]))
             return "function reference changes a target parameter";

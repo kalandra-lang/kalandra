@@ -1,0 +1,240 @@
+meta { title = "Files and buffered I/O", description = "Open owned file handles, read bytes and UTF-8 lines, and write buffered output with std/fs.", order = 6, group = "Library reference" }
+
+Import file operations from std/fs. Open a file once, process it incrementally, and close it when finished. Use bufferedReader or bufferedWriter for repeated small operations. Standard modules are included with the compiler and require no package installation.
+
+h2 { "Read and write a text file" }
+
+codeblock { language = kalandra, """from "std/fs" import open, OpenMode, FsError, bufferedReader, bufferedWriter, writeLine, readLine, finish, close
+from "std/io" import println, IoError, Line
+
+fn main() -> unit ! (FsError | IoError):
+  file = try open("message.txt", OpenMode.Create)
+  writer = try bufferedWriter(file)
+  try writeLine(writer, "Hello, Kalandra!")
+  try finish(writer)
+
+  input = try open("message.txt", OpenMode.Read)
+  reader = try bufferedReader(input)
+  line = try readLine(reader, 4096)
+  try match line:
+    Line.End: println("Empty file.")
+    Line.Text {text}: println(text)
+  try close(reader)
+  return ()
+""" }
+
+This program creates or replaces message.txt and displays its first line. finish flushes buffered output and closes the writer, reporting either failure. readLine returns the same Line enum as console input; import Line from std/io when matching its variants.
+
+h2 { "Ownership and lifetime" }
+
+A handle has one source owner. Assigning it to a new binding moves ownership; using the old binding is a compiler error. bufferedReader and bufferedWriter also consume their input file. The raw file cannot be used alongside its buffered wrapper.
+
+Ordinary function parameters borrow handles for the duration of the call. A parameter marked own takes ownership instead. Returning an owned handle transfers it to the caller. A borrowed handle cannot be closed, moved into another owner, or returned as an owned result.
+
+codeblock { language = kalandra, """from "std/fs" import File, open, OpenMode, FsError, read, writeText, close
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn passAlong(own file: File) -> File:
+  return file
+
+fn countPrefix(file: File) -> i64 ! FsError:
+  bytes = try read(file, 3)
+  return length(bytes)
+
+fn main() -> unit ! (FsError | IoError):
+  output = try open("sample.txt", OpenMode.Create)
+  try writeText(output, "abcdef")
+  try close(output)
+
+  input = try open("sample.txt", OpenMode.Read)
+  owned = passAlong(input)
+  count = try countPrefix(owned)
+  try println(format("{}", count))
+  try close(owned)
+  return ()
+""" }
+
+The program displays 3. countPrefix advances the cursor but leaves ownership with its caller. passAlong consumes input, so only owned can be used afterward.
+
+Handles close automatically when their owning function exits, including on early return, propagated errors, faults and cancellation. A returned handle remains open in its new owner. Explicit close and finish let the application observe close and flush errors; automatic cleanup does not replace an existing error with a cleanup error.
+
+Automatic cleanup discards pending buffered output. Use finish when output must be delivered, rather than relying on scope exit to flush it. Writes already accepted by the operating system are observable effects and cannot be rolled back.
+
+File handles are opaque: their fields cannot be accessed and they cannot be constructed with record syntax or duplicated with copy. Pass handles explicitly through function parameters and results. Handles cannot be stored in arrays or record/enum fields, or captured implicitly by closures. The compiler checks ownership when passing handles through user-defined CPU function values as well.
+
+h2 { "File" }
+
+An owned open file with an operating-system cursor. Its reads and writes are unbuffered at the Kalandra layer. The operating system may maintain its own cache. Reopen a path to obtain an independent handle and cursor; assigning a handle moves it rather than reopening or duplicating it.
+
+h2 { "BufferedReader" }
+
+Owns a file and reusable private byte storage. Small reads are served from that storage, with larger reads from the operating system to refill it. Read-ahead advances the underlying OS cursor; seekTo resets read-ahead after a successful seek. The raw file is unavailable while the wrapper owns it.
+
+h2 { "BufferedWriter" }
+
+Owns a file and reusable private byte storage. Small writes can complete by copying bytes into that storage. flush sends pending bytes to the operating system; finish flushes and closes. Neither operation promises that bytes have reached persistent physical storage.
+
+h2 { "open" }
+
+code { "open(path: String, mode: OpenMode) -> File ! FsError" }
+
+Open a UTF-8 path. Relative paths resolve against the process working directory. Embedded zero bytes are rejected. Windows paths use the native Unicode file APIs. File creation permissions follow operating-system defaults and, on POSIX systems, the process umask.
+
+h2 { "OpenMode" }
+
+list {
+  "OpenMode.Read: open an existing file for reading.",
+  "OpenMode.Write: open an existing file for writing without truncating it.",
+  "OpenMode.Create: open for writing, creating the file or truncating its existing contents.",
+  "OpenMode.CreateNew: create a new writable file; fail if the path already exists.",
+  "OpenMode.Append: open for writing at the end, creating the file if needed. Subsequent writes append even after a seek.",
+  "OpenMode.ReadWrite: open an existing file for both reading and writing."
+}
+
+Access mode is checked by the operating system. For example, attempting to write through a read-only file produces an FsError. Ordinary writes modify the open file directly; they are not atomic whole-file replacements.
+
+h2 { "bufferedReader" }
+
+code { "bufferedReader(own file: File, capacity: u64) -> BufferedReader ! FsError" }
+
+Take ownership of a raw file and allocate a read buffer. Omitting capacity selects 65,536 bytes. Capacity must be at least one byte and remains subject to the task's memory budget. A consuming call takes ownership even when it reports an expected error.
+
+h2 { "bufferedWriter" }
+
+code { "bufferedWriter(own file: File, capacity: u64) -> BufferedWriter ! FsError" }
+
+Take ownership of a raw file and allocate a write buffer. Omitting capacity selects 65,536 bytes. The same capacity and ownership rules as bufferedReader apply. A buffered wrapper cannot wrap another buffered wrapper.
+
+h2 { "read" }
+
+code { "read(file: File, maxBytes: u64) -> [u8] ! FsError" }
+code { "read(reader: BufferedReader, maxBytes: u64) -> [u8] ! FsError" }
+
+Read up to maxBytes bytes and return an owned array. A successful read may be shorter than requested. For a nonzero request, an empty result means end of input. A zero request returns an empty array without consuming input. No text decoding is performed.
+
+h2 { "readExact" }
+
+code { "readExact(file: File, count: u64) -> [u8] ! FsError" }
+code { "readExact(reader: BufferedReader, count: u64) -> [u8] ! FsError" }
+
+Read exactly count bytes, or report an error. FsError.UnexpectedEnd carries expected and actual byte counts. Bytes consumed before an error are not restored to the file, and partial data is not returned as a successful array.
+
+h2 { "readInto" }
+
+code { "readInto(file: File, mut bytes: [u8]) -> u64 ! FsError" }
+code { "readInto(reader: BufferedReader, mut bytes: [u8]) -> u64 ! FsError" }
+
+Read into an existing array and return the transferred count. The array length is the maximum transfer size. The function never resizes it, and elements after the returned count remain unchanged. Zero means end of input when the destination is nonempty. This API temporarily requires exclusive access to the destination array as well as the handle.
+
+A buffer here is an ordinary initialized [u8] array, not a separate Buffer type. Reuse it to avoid allocating a new result array for each chunk. Only its first count elements contain bytes from the current read.
+
+codeblock { language = kalandra, """from "std/fs" import open, OpenMode, FsError, writeText, readInto, close
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! (FsError | IoError):
+  output = try open("bytes.bin", OpenMode.Create)
+  try writeText(output, "abc")
+  try close(output)
+
+  input = try open("bytes.bin", OpenMode.Read)
+  buffer: [u8] = [9, 9, 9, 9, 9]
+  count = try readInto(input, buffer)
+  try println(format("{}:{}:{}", count, buffer[0], buffer[4]))
+  try close(input)
+  return ()
+""" }
+
+The output is 3:97:9: three bytes were read, the first is the UTF-8 byte for a, and the final array element was left unchanged. Cancellation or a fault during an operation can leave partial effects; reads and writes are not transactions.
+
+h2 { "readLine" }
+
+code { "readLine(file: File, maxBytes: u64) -> Line ! FsError" }
+code { "readLine(reader: BufferedReader, maxBytes: u64) -> Line ! FsError" }
+
+Read one UTF-8 line. Return Line.Text with its text field for a line, including an empty line, and Line.End at end of input. Remove a terminating LF and an immediately preceding CR. Preserve other CR characters, embedded zero bytes, and a final line without a terminator. The byte limit excludes the removed line ending; zero accepts only empty lines.
+
+An oversized or invalidly encoded line is consumed through its ending before the error is returned. The next call starts at the next line. Prefer a BufferedReader when processing many lines.
+
+h2 { "write" }
+
+code { "write(file: File, bytes: [u8]) -> u64 ! FsError" }
+code { "write(writer: BufferedWriter, bytes: [u8]) -> u64 ! FsError" }
+
+Write some or all of the supplied bytes and return the count accepted. A buffered writer can accept bytes into its private storage without an OS write. Use writeAll to require the complete input to be accepted.
+
+h2 { "writeAll" }
+
+code { "writeAll(file: File, bytes: [u8]) -> unit ! FsError" }
+code { "writeAll(writer: BufferedWriter, bytes: [u8]) -> unit ! FsError" }
+
+Accept the entire byte array or report an error. An error or cancellation may leave a written prefix. A successful buffered write still needs flush or finish to send pending bytes to the operating system.
+
+h2 { "writeText" }
+
+code { "writeText(file: File, text: String) -> unit ! FsError" }
+code { "writeText(writer: BufferedWriter, text: String) -> unit ! FsError" }
+
+Write all UTF-8 bytes of a String, preserving embedded zero bytes. No quotes, escaping, normalization or newline are added. Buffered output follows the same flush rules as writeAll.
+
+h2 { "writeLine" }
+
+code { "writeLine(file: File, text: String) -> unit ! FsError" }
+code { "writeLine(writer: BufferedWriter, text: String) -> unit ! FsError" }
+
+Write all UTF-8 bytes of text followed by one LF byte. Existing line endings in text are preserved; the function always appends its own LF. Use writeText when the text already includes its required ending.
+
+h2 { "flush" }
+
+code { "flush(file: File) -> unit ! FsError" }
+code { "flush(writer: BufferedWriter) -> unit ! FsError" }
+
+Send pending buffered output to the operating system without closing the handle. A raw File has no Kalandra output buffer to flush. This operation is not a durable-storage synchronization request.
+
+h2 { "finish" }
+
+code { "finish(own writer: BufferedWriter) -> unit ! FsError" }
+
+Flush and close a buffered writer, reporting failures. The writer is consumed even if flushing or closing fails. Automatic scope cleanup closes a writer and discards unsent bytes; it does not substitute for finish.
+
+h2 { "close" }
+
+code { "close(own file: File) -> unit ! FsError" }
+code { "close(own reader: BufferedReader) -> unit ! FsError" }
+
+Close a raw file or buffered reader and report a close error. The handle is consumed and cannot be used again. Use finish for a BufferedWriter so unsent output is handled explicitly.
+
+h2 { "seekTo" }
+
+code { "seekTo(file: File, offset: u64) -> unit ! FsError" }
+code { "seekTo(reader: BufferedReader, offset: u64) -> unit ! FsError" }
+code { "seekTo(writer: BufferedWriter, offset: u64) -> unit ! FsError" }
+
+Set the absolute byte position from the beginning. A buffered writer flushes first; a successful buffered-reader seek discards read-ahead. A failed seek retains unread input. Not every OS handle is seekable. Offsets above the signed 64-bit file-position range produce FsError.InvalidArgument.
+
+h2 { "FsError" }
+
+list {
+  "FsError.System {code: i32, message: String}: an operating-system failure. code is platform-specific.",
+  "FsError.InvalidEncoding: a line is not valid UTF-8.",
+  "FsError.LineTooLong {limit: u64}: a line exceeds its requested byte limit.",
+  "FsError.UnexpectedEnd {expected: u64, actual: u64}: an exact read reached end of input too soon.",
+  "FsError.InvalidArgument: an invalid path, capacity, handle operation or file offset."
+}
+
+Use try to propagate an expected error or catch and match to recover. Allocation faults, cancellation and numerical faults keep their normal runtime behavior; they are not converted into FsError.System.
+
+h2 { "Tasks and GPU programs" }
+
+A file's cursor is mutable, including during a read. A task temporarily using a handle excludes all other access to that handle until it is awaited or its group settles. Concurrent reads on the same cursor are rejected too. Open independent handles for independent readers. The compiler also protects a readInto destination from overlapping task access.
+
+Pending OS work runs independently of source workers. A blocked read does not stop a sibling task from running, failing or triggering cancellation. Task cleanup can retire source values while an OS call is still outstanding; the I/O service retains only its own request storage and resource ownership. Already-started I/O may complete after cancellation, with partial external effects.
+
+Filesystem calls execute on the host CPU, including around Metal, Vulkan and CUDA computations. File handles cannot be transferred to devices and filesystem calls cannot run in kernels. Call std/fs operations directly, or wrap them in named host functions. The polymorphic std/fs operations themselves are call forms rather than first-class function values. Coordinating function values in mixed GPU programs retain the same restrictions as console I/O.
+
+list {
+  link { url = "/docs/console", "Console input, output and scalar formatting" },
+  link { url = "/docs/functions", "Function parameters and return values" },
+  link { url = "/docs/parallelism", "Task groups, shared access and cancellation" }
+}
