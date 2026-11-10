@@ -60,6 +60,12 @@ source = a.root/'cpu.k'
 source.write_text('fn main()->i32:\n  return 42\n')
 subprocess.run([compiler, '--test-entry', 'main', source, '-o', a.root/'cpu'], check=True, timeout=60)
 assert subprocess.check_output([a.root/'cpu'], text=True, timeout=30) == '42\n'
+console = [sys.executable, repo/'native/tests/GpuConsoleSourceTests.py',
+           '--compiler', compiler, '--target', 'vulkan', '--variant', 'optimized',
+           '--output', a.root/'console-applications']
+if not a.execute:
+    console.append('--compile-only')
+subprocess.run(console, check=True, timeout=600)
 script = Path(__file__).with_name('public_cli.py')
 command = [sys.executable, script, '--compiler', compiler, '--output', a.root/'applications']
 if not a.execute:

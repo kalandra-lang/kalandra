@@ -11,6 +11,7 @@ p.add_argument('--output', type=Path, required=True)
 p.add_argument('--target', choices=('metal', 'vulkan', 'cuda'), required=True)
 p.add_argument('--variant', choices=('debug', 'optimized', 'sanitized', 'thread-sanitized'), required=True)
 p.add_argument('--case', action='append', dest='cases', help='Run only the named fixture; repeat to select several.')
+p.add_argument('--compile-only', action='store_true', help='Check application linking without claiming GPU execution.')
 a = p.parse_args()
 a.output.mkdir(parents=True, exist_ok=True)
 flag = {'debug': '-O0', 'optimized': '-O2', 'sanitized': '--sanitize',
@@ -41,6 +42,9 @@ def run(name, source, data, expected, args=(), status=0):
                             flag, '-o', bundle.resolve()], capture_output=True, timeout=180)
     (directory / 'build.log').write_bytes(built.stdout + built.stderr)
     assert built.returncode == 0, (name, built)
+    if a.compile_only:
+        print('PASS: compiled', name, flush=True)
+        return
     executable = bundle / ('program.exe' if os.name == 'nt' else 'program')
     for workers in (1, 4):
         result = subprocess.run([executable.resolve(), *args], input=data, capture_output=True,
@@ -140,7 +144,7 @@ fn main()->unit ! (IoError | TaskError):
     (directory / 'build.log').write_bytes(built.stdout + built.stderr)
     assert built.returncode == 0, built
     executable = bundle / ('program.exe' if os.name == 'nt' else 'program')
-    for workers in (1, 4):
+    for workers in (() if a.compile_only else (1, 4)):
         child = subprocess.Popen([executable.resolve()], stdin=subprocess.PIPE,
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  env=dict(os.environ, KALANDRA_WORKERS=str(workers)))
@@ -156,4 +160,5 @@ fn main()->unit ! (IoError | TaskError):
             child.stdin.close()
             child.stdout.close()
             child.stderr.close()
-    print('PASS: GPU arithmetic fault cancels pending console read; no EOF or worker starvation', flush=True)
+    print('PASS: compiled pending-read fault application' if a.compile_only else
+          'PASS: GPU arithmetic fault cancels pending console read; no EOF or worker starvation', flush=True)

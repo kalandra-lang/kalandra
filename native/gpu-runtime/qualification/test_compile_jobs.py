@@ -16,8 +16,12 @@ class CompileJobsTests(unittest.TestCase):
                   'host-aggregates': 'HostAggregateTests.py', 'device-bool': 'DeviceBoolTests.py'}
         for backend in ('cuda', 'vulkan'):
             plan = dict(compile_plan(backend, repo, compiler, root))
-            self.assertEqual(len(plan), 10)
-            self.assertEqual(set(plan), set(common) | {'applications', 'wide-arguments' if backend=='cuda' else 'shared-capabilities'})
+            self.assertEqual(len(plan), 11)
+            self.assertEqual(set(plan), set(common) | {'applications', 'console-applications', 'wide-arguments' if backend=='cuda' else 'shared-capabilities'})
+            self.assertEqual(plan['console-applications'], list(map(str, [sys.executable,
+                repo/'native/tests/GpuConsoleSourceTests.py', '--compiler', compiler,
+                '--target', backend, '--variant', 'optimized', '--compile-only',
+                '--output', root/'console-applications'])))
             for name, script in common.items():
                 self.assertEqual(plan[name], list(map(str, [sys.executable, repo/'native/gpu-source'/script,
                     '--compiler', compiler, '--backend', backend, '--variant', 'optimized', '--compile-only', '--root', root/name])))

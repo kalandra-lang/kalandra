@@ -28,6 +28,9 @@ def compile_plan(backend, repo, compiler, root):
         ]
     else:
         raise ValueError('unknown backend')
+    jobs.append(('console-applications', [sys.executable, repo/'native/tests/GpuConsoleSourceTests.py',
+                 '--compiler', compiler, '--target', backend, '--variant', 'optimized',
+                 '--compile-only', '--output', root/'console-applications']))
     for name, script in (
         ('host-arrays', 'HostArrayTests.py'), ('scalar-control', 'ScalarControlTests.py'),
         ('device-arrays', 'DeviceArrayTests.py'), ('device-array-entry', 'DeviceArrayEntryTests.py'),

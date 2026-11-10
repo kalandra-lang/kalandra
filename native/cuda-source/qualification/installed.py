@@ -55,6 +55,12 @@ compiler=prefix/'bin/kalandra'
 source=a.root/'cpu.k';source.write_text('fn main()->i32:\n  return 42\n')
 subprocess.run([compiler, '--test-entry', 'main',source,'-o',a.root/'cpu'],check=True,timeout=90)
 assert subprocess.check_output([a.root/'cpu'],text=True,timeout=30)=='42\n'
+console = [sys.executable, repo/'native/tests/GpuConsoleSourceTests.py',
+           '--compiler', compiler, '--target', 'cuda', '--variant', 'optimized',
+           '--output', a.root/'console-applications']
+if not a.execute:
+    console.append('--compile-only')
+subprocess.run(console, check=True, timeout=600)
 subprocess.run([sys.executable,Path(__file__).with_name('applications.py'),
     '--build',a.root,'--compiler',compiler,'--output',a.root/'applications',
     '--execute' if a.execute else '--compile-only'],check=True,timeout=1200)
