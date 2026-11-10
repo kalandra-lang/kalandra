@@ -661,10 +661,17 @@ int main(int argc, char **argv) {
   if (cross) {
     auto flags = cross->clangArguments();
     command.insert(command.end(), flags.begin(), flags.end());
+    if (typed.module->applicationEntry && cross->windows())
+      command.push_back("-Wl,/entry:wmainCRTStartup");
   } else {
 #ifdef _WIN32
     command.push_back("-fms-runtime-lib=static");
     command.push_back("--rtlib=compiler-rt");
+    // The private runtime also contains the numerical main adapter. Select the
+    // Unicode CRT entry explicitly so COFF does not extract that archive member
+    // merely while choosing between main and wmain.
+    if (typed.module->applicationEntry)
+      command.push_back("-Wl,/entry:wmainCRTStartup");
 #else
     command.push_back("-pthread");
 #ifdef __APPLE__

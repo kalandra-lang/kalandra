@@ -5559,7 +5559,8 @@ void resume(Task &task) {
         << (result.applicationError ? "&mainOutcomeLayout" : "&" + mainSuccessLayout) << "};\n"
         << helperBodies;
     if (application_)
-      host << "#ifdef _WIN32\nint wmain(int argc,wchar_t **argv) {\n#else\n"
+      host << "#ifdef _WIN32\n#pragma comment(linker, \"/entry:wmainCRTStartup\")\n"
+              "int wmain(int argc,wchar_t **argv) {\n#else\n"
               "int main(int argc,char **argv) {\n#endif\n"
               "if(!kalandra_application_initialize_v1(argc,argv))return 1;\n"
               "const auto directory=std::filesystem::absolute(argv[0]).parent_path().string();\n";
