@@ -48,7 +48,10 @@ def run(name, source, expected, contents=None):
     for workers in (1,4):
         data=executable.parent/f'file with spaces Ω-{workers}.bin'
         data.unlink(missing_ok=True)
-        result=subprocess.run([executable,data],capture_output=True,timeout=30,
+        # Windows timer granularity makes 2,000 resumable I/O requests exceed
+        # 30 seconds. Keep all iterations; other behavior cases stay bounded.
+        timeout = 180 if name == 'automatic-loop-cleanup' else 30
+        result=subprocess.run([executable,data],capture_output=True,timeout=timeout,
             env=dict(os.environ,KALANDRA_WORKERS=str(workers)))
         (executable.parent/f'run-{workers}.log').write_bytes(result.stdout+result.stderr)
         stderr=result.stderr
