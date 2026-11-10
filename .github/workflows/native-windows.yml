@@ -96,7 +96,7 @@ jobs:
           $variants = @('debug', 'optimized')
           if ('${{ matrix.arch }}' -eq 'x86_64') {
             $variants += 'sanitized'
-            $sanitizerRuntime = @(Get-ChildItem "$env:KALANDRA_LLVM_ROOT/lib/clang/*/lib/windows" -Directory)
+            $sanitizerRuntime = @(Get-Item "$env:KALANDRA_LLVM_ROOT/lib/clang/*/lib/windows")
             if ($sanitizerRuntime.Count -ne 1) { throw 'Expected one pinned Windows sanitizer runtime directory' }
             $env:PATH = "$($sanitizerRuntime[0].FullName);$env:PATH"
           }
