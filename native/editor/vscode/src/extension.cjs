@@ -88,6 +88,13 @@ function activate(context) {
     return pending;
   };
   context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider("kalandra-stdlib", {
+      async provideTextDocumentContent(uri) {
+        await pending;
+        if (!client) throw new Error("Start the Kalandra language server to read its standard library.");
+        return client.sendRequest("kalandra/standardLibrary", { uri: uri.toString() });
+      },
+    }),
     vscode.commands.registerCommand("kalandra.native.restart", restart),
     vscode.commands.registerCommand("kalandra.native.showOutput", () =>
       output.show(),

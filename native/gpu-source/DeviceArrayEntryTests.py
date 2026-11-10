@@ -97,7 +97,7 @@ for name,(helper,setup,call,typ,expected) in cases.items():
     source=root/'cpu.k'
     source.write_text(helper+f'fn main()->{typ}:\n'+setup+'  return '+call+'\n')
     cpu=root/('cpu'+suffix)
-    run([a.compiler,source,*flags,'-o',cpu])
+    run([a.compiler, '--test-entry', 'main',source,*flags,'-o',cpu])
     raw=run([cpu])
     value=(raw=='true') if typ=='bool' else (float(raw) if typ.startswith('f') else int(raw))
     assert value==expected,(name,'CPU',raw,expected)
@@ -108,7 +108,7 @@ for name,(helper,setup,call,typ,expected) in cases.items():
                       '  return try parallel:\n    gpu=devices.gpu()\n    try await spawn '+call+' on gpu\n')
     bundle=root/'device'
     arithmetic='hardware-with-software-fallback' if a.backend=='metal' and typ=='f64' else 'hardware'
-    run([a.compiler,source,'--target',a.backend,'--arithmetic',arithmetic,*flags,'-o',bundle])
+    run([a.compiler, '--test-entry', 'main',source,'--target',a.backend,'--arithmetic',arithmetic,*flags,'-o',bundle])
     assert 'DeviceArrayInputJob<' in (bundle/'host.cpp').read_text(),name
     outputs=[]
     for workers in (() if a.compile_only else ('1','4')):
@@ -165,7 +165,7 @@ fn main()->i64 ! TaskError:
 for name,text in negatives.items():
     source=a.root/(name+'.k')
     source.write_text(text)
-    r=subprocess.run([str(a.compiler),str(source),'--target',a.backend,*flags,
+    r=subprocess.run([str(a.compiler), '--test-entry', 'main',str(source),'--target',a.backend,*flags,
                       '-o',str(a.root/name)],capture_output=True,text=True,timeout=240)
     (a.root/(name+'.log')).write_text(r.stdout+r.stderr)
     assert r.returncode!=0 and 'S077' in r.stderr,(name,r.returncode,r.stdout,r.stderr)

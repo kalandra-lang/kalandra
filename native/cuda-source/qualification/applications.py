@@ -35,7 +35,7 @@ for policy in ('hardware','software','hardware-with-software-fallback'):
     out=a.output/policy/name;out.parent.mkdir(parents=True,exist_ok=True)
     command=[sys.executable,Path(__file__).with_name('build_application.py'),'--build',a.build,'--source',source,'--output',out,'--arithmetic',policy]
     if a.compiler:
-        command=[a.compiler.resolve(),'--target','cuda','--arithmetic',policy,'-O2',source,'-o',out]
+        command=[a.compiler.resolve(), '--test-entry', 'main','--target','cuda','--arithmetic',policy,'-O2',source,'-o',out]
     built=subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=240)
     (out.parent/(name+'-build.log')).write_text(built.stdout+built.stderr)
     builds.append({'case':name,'policy':policy,'status':built.returncode})

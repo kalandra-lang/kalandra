@@ -23,7 +23,7 @@ foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
   endif()
   foreach(KIND IN ITEMS scalars tasks)
     add_test(NAME native-float64-${KIND}-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=${FLOAT64_RUNTIME}" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/float64-${KIND}-${VARIANT}"
         "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyFloat64${KIND}.cmake")
@@ -39,7 +39,7 @@ foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     set(FLOAT64_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
   endif()
   add_test(NAME native-float64-tensors-${VARIANT}
-    COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+    COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
       "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=${FLOAT64_RUNTIME}" "-DVARIANT=${VARIANT}"
       "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/float64-tensors-${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyFloat64Tensors.cmake")
@@ -55,7 +55,7 @@ foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     set(FLOAT64_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
   endif()
   add_test(NAME native-float64-tensor-tasks-${VARIANT}
-    COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+    COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
       "-DRUNTIME=${FLOAT64_RUNTIME}" "-DVARIANT=${VARIANT}"
       "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/float64-tensor-tasks-${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyFloat64TensorTasks.cmake")
@@ -71,7 +71,7 @@ foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     set(FLOAT64_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
   endif()
   add_test(NAME native-float64-reductions-${VARIANT}
-    COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+    COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
       "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=${FLOAT64_RUNTIME}" "-DVARIANT=${VARIANT}"
       "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/float64-reductions-${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyFloat64Reductions.cmake")
@@ -87,7 +87,7 @@ foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     set(FLOAT64_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
   endif()
   add_test(NAME native-float64-matmul-${VARIANT}
-    COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+    COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
       "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=${FLOAT64_RUNTIME}" "-DVARIANT=${VARIANT}"
       "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/float64-matmul-${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyFloat64Matmul.cmake")

@@ -6,8 +6,14 @@ h2 { "A minimal application" }
 
 Use a new working directory. Create my-app/src and save this as my-app/src/main.k:
 
-codeblock { language = kalandra, """fn main() -> i64:
-  return 6 * 7
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  output: i64 = 6 * 7
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 Save this manifest as my-app/kalandra.toml:
@@ -35,10 +41,16 @@ codeblock { language = kalandra, """export fn area(width: i64, height: i64) -> i
   return width * height
 """ }
 
-codeblock { language = kalandra, """from "geometry" import area
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
 
-fn main() -> i64:
-  return area(6, 7)
+from "geometry" import area
+
+fn main() -> unit ! IoError:
+  output: i64 = area(6, 7)
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 Replace my-app/kalandra.toml with:
@@ -72,7 +84,7 @@ codeblock { language = bash, """kalandra --project my-app/kalandra.toml -O2 -o p
 ./program
 """ }
 
-The optimized CPU program also returns 42. CPU builds produce an executable. GPU builds produce an application directory containing the executable and its backend resources; keep those files together. Shape, numeric and error checks remain part of the native semantics in optimized builds.
+The optimized CPU program also displays 42. CPU builds produce an executable. GPU builds produce an application directory containing the executable and its backend resources; keep those files together. Shape, numeric and error checks remain part of the native semantics in optimized builds.
 
 list {
   link { url = "/docs/packages", "Dependency installation and locks" },

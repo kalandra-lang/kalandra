@@ -24,7 +24,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra starter ") as temporary:
     for i, mode in enumerate(([], ["-O2"], ["--sanitize"], ["--thread-sanitize"])):
         app = cwd / f"program {i}"
         run([compiler, "--project", project / "kalandra.toml", "-o", app, *mode], cwd)
-        assert run([app], cwd).stdout.strip() == "[2, 4, 6]"
+        assert run([app], cwd).stdout.replace("\r\n", "\n") == "2\n4\n6\n"
     run([compiler, "new", project], cwd, 1)
     assert {p: (project / p).read_bytes() for p in files} == original
     for name, kind in (("empty", "directory"), ("file", "file"), ("link", "symlink"), ("dangling", "dangling")):

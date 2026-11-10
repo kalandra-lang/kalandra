@@ -12,7 +12,7 @@ if(BUILD_TESTING)
     add_test(NAME native-package-lock-${LOCK_VARIANT} COMMAND "${KALANDRA_PYTHON3}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/PackageLockFixtures.py"
       --api "$<TARGET_FILE:kalandra-package-lock-tests-${LOCK_VARIANT}>"
-      --compiler "$<TARGET_FILE:kalandra>" --checker "$<TARGET_FILE:kalandra-check>"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --checker "$<TARGET_FILE:kalandra-check>"
       --root "${CMAKE_CURRENT_BINARY_DIR}/package-lock-${LOCK_VARIANT}")
     set_tests_properties(native-package-lock-${LOCK_VARIANT} PROPERTIES TIMEOUT 180)
   endforeach()
@@ -29,13 +29,13 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME native-package-install-${VARIANT} COMMAND "${KALANDRA_PYTHON3}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/PackageInstallFixtures.py"
-      --compiler "$<TARGET_FILE:kalandra>" --checker "$<TARGET_FILE:kalandra-check>"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --checker "$<TARGET_FILE:kalandra-check>"
       --variant "${VARIANT}" --root "${CMAKE_CURRENT_BINARY_DIR}/package-install-${VARIANT}" ${INSTALL_EXTRA})
     set_tests_properties(native-package-install-${VARIANT} PROPERTIES TIMEOUT 180)
   endforeach()
   add_test(NAME native-package-install-frontend-sanitized COMMAND "${KALANDRA_PYTHON3}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/PackageInstallFixtures.py"
-    --compiler "$<TARGET_FILE:kalandra>" --checker "$<TARGET_FILE:kalandra-check-sanitized>"
+    --compiler "$<TARGET_FILE:kalandra-test-observer>" --checker "$<TARGET_FILE:kalandra-check-sanitized>"
     --api "$<TARGET_FILE:kalandra-package-install-tests-sanitized>"
     --root "${CMAKE_CURRENT_BINARY_DIR}/package-install-frontend-sanitized")
   set_tests_properties(native-package-install-frontend-sanitized PROPERTIES TIMEOUT 240)
@@ -55,7 +55,7 @@ if(BUILD_TESTING)
     add_test(NAME native-package-update-${VARIANT} COMMAND "${KALANDRA_PYTHON3}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/PackageUpdateFixtures.py"
       --api "$<TARGET_FILE:kalandra-package-update-tests-${VARIANT}>"
-      --compiler "$<TARGET_FILE:kalandra>" --checker "$<TARGET_FILE:kalandra-check>"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --checker "$<TARGET_FILE:kalandra-check>"
       --root "${CMAKE_CURRENT_BINARY_DIR}/package-update-${VARIANT}")
     set_tests_properties(native-package-update-${VARIANT} PROPERTIES TIMEOUT 180)
   endforeach()

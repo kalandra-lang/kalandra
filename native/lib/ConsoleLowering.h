@@ -15,20 +15,11 @@ inline llvm::StructType *consoleResultType(const TaskValueTypes &types,
   auto *i32 = llvm::Type::getInt32Ty(context);
   return llvm::StructType::get(context, {i32, i32, types.scalar(text)});
 }
-inline void emitConsoleOperation(llvm::IRBuilder<> &b, llvm::Module &module,
-                                 const TypedModule &input, const TaskValueTypes &types,
-                                 const ConsoleOperation &operation, const ValueType &result,
-                                 llvm::StructType *resultType, llvm::Value *argument,
-                                 llvm::Value *output, llvm::Value *scratch, llvm::Value *state,
-                                 llvm::Value *context, llvm::Value *task, llvm::Value *pc,
-                                 std::size_t instruction, llvm::BasicBlock *next,
-                                 llvm::BasicBlock *leave, llvm::BasicBlock *abort) {
+inline llvm::Value *emitConsoleStep(llvm::IRBuilder<> &b, llvm::Module &module,
+                                    const ConsoleOperation &operation, llvm::Value *argument,
+                                    llvm::Value *scratch, llvm::Value *state,
+                                    llvm::Value *context) {
   const bool read = operation.action == ConsoleAction::ReadLine;
-  if (!result.errorRecord ||
-      input.records.at(*result.errorRecord).standard != StandardRecord::IoError)
-    throw std::invalid_argument("console operation lost its nominal IoError identity");
-  auto *transport = consoleResultType(types, module.getContext());
-  b.CreateStore(llvm::Constant::getNullValue(resultType), output);
   llvm::Value *done;
   if (read) {
     auto callee =
@@ -48,25 +39,25 @@ inline void emitConsoleOperation(llvm::IRBuilder<> &b, llvm::Module &module,
     done = b.CreateCall(
         callee, {context, scratch, argument, b.getInt32(stream), b.getInt1(newline), state});
   }
+  return done;
+}
+
+inline void emitConsolePacket(llvm::IRBuilder<> &b, llvm::Module &module, const TypedModule &input,
+                              const TaskValueTypes &types, const ConsoleOperation &operation,
+                              const ValueType &result, llvm::StructType *resultType,
+                              llvm::Value *argument, llvm::Value *output, llvm::Value *scratch,
+                              llvm::Value *context, llvm::BasicBlock *next,
+                              llvm::BasicBlock *abort) {
+  const bool read = operation.action == ConsoleAction::ReadLine;
+  if (!result.errorRecord ||
+      input.records.at(*result.errorRecord).standard != StandardRecord::IoError)
+    throw std::invalid_argument("console operation lost its nominal IoError identity");
+  auto *transport = consoleResultType(types, module.getContext());
   auto *parent = b.GetInsertBlock()->getParent();
   const auto block = [&](const char *name) {
     return llvm::BasicBlock::Create(module.getContext(), name, parent);
   };
-  auto *finished = block("console.finished");
-  auto *pending = block("console.pending");
-  b.CreateCondBr(done, finished, pending);
-  b.SetInsertPoint(pending);
-  b.CreateStore(b.getInt32(instruction), pc);
-  auto pause = module.getOrInsertFunction("kalandra_console_pause_v1", b.getVoidTy(), b.getPtrTy(),
-                                          b.getPtrTy());
-  b.CreateCall(pause, {task, b.CreateLoad(b.getPtrTy(), state)});
-  b.CreateBr(leave);
-  b.SetInsertPoint(finished);
-  auto *ready = block("console.ready");
-  auto poll =
-      module.getOrInsertFunction("kalandra_invocation_ready_v1", b.getInt1Ty(), b.getPtrTy());
-  b.CreateCondBr(b.CreateCall(poll, {context}), ready, abort);
-  b.SetInsertPoint(ready);
+  b.CreateStore(llvm::Constant::getNullValue(resultType), output);
   auto *invalid = block("console.invalid");
   auto *success = block("console.success");
   auto *system = block("console.system");
@@ -138,4 +129,71 @@ inline void emitConsoleOperation(llvm::IRBuilder<> &b, llvm::Module &module,
   b.CreateCall(fault, {context, b.getInt64(3), b.getInt64(0), b.getInt64(0)});
   b.CreateBr(abort);
 }
+inline void emitConsoleOperation(llvm::IRBuilder<> &b, llvm::Module &module,
+                                 const TypedModule &input, const TaskValueTypes &types,
+                                 const ConsoleOperation &operation, const ValueType &result,
+                                 llvm::StructType *resultType, llvm::Value *argument,
+                                 llvm::Value *output, llvm::Value *scratch, llvm::Value *state,
+                                 llvm::Value *context, llvm::Value *task, llvm::Value *pc,
+                                 std::size_t instruction, llvm::BasicBlock *next,
+                                 llvm::BasicBlock *leave, llvm::BasicBlock *abort) {
+  b.CreateStore(llvm::Constant::getNullValue(resultType), output);
+  auto *done = emitConsoleStep(b, module, operation, argument, scratch, state, context);
+  auto *parent = b.GetInsertBlock()->getParent();
+  const auto block = [&](const char *name) {
+    return llvm::BasicBlock::Create(module.getContext(), name, parent);
+  };
+  auto *finished = block("console.finished");
+  auto *pending = block("console.pending");
+  b.CreateCondBr(done, finished, pending);
+  b.SetInsertPoint(pending);
+  b.CreateStore(b.getInt32(instruction), pc);
+  auto pause = module.getOrInsertFunction("kalandra_console_pause_v1", b.getVoidTy(), b.getPtrTy(),
+                                          b.getPtrTy());
+  b.CreateCall(pause, {task, b.CreateLoad(b.getPtrTy(), state)});
+  b.CreateBr(leave);
+  b.SetInsertPoint(finished);
+  auto *ready = block("console.ready");
+  auto poll =
+      module.getOrInsertFunction("kalandra_invocation_ready_v1", b.getInt1Ty(), b.getPtrTy());
+  b.CreateCondBr(b.CreateCall(poll, {context}), ready, abort);
+  b.SetInsertPoint(ready);
+  emitConsolePacket(b, module, input, types, operation, result, resultType, argument, output,
+                    scratch, context, next, abort);
+}
+
+inline void emitConsoleSynchronousOperation(llvm::IRBuilder<> &b, llvm::Module &module,
+                                            const TypedModule &input, const TaskValueTypes &types,
+                                            const ConsoleOperation &operation,
+                                            const ValueType &result, llvm::StructType *resultType,
+                                            llvm::Value *argument, llvm::Value *output,
+                                            llvm::Value *scratch, llvm::Value *context,
+                                            llvm::BasicBlock *next, llvm::BasicBlock *abort) {
+  b.CreateStore(llvm::Constant::getNullValue(resultType), output);
+  if (operation.action == ConsoleAction::ReadLine) {
+    auto callee = module.getOrInsertFunction("kalandra_console_read_line_v1", b.getVoidTy(),
+                                             b.getPtrTy(), b.getPtrTy(), b.getInt64Ty());
+    b.CreateCall(callee, {context, scratch, b.CreateLoad(b.getInt64Ty(), argument)});
+  } else {
+    const auto stream =
+        operation.action == ConsoleAction::Eprint || operation.action == ConsoleAction::Eprintln
+            ? 2
+            : 1;
+    const auto newline =
+        operation.action == ConsoleAction::Println || operation.action == ConsoleAction::Eprintln;
+    auto callee =
+        module.getOrInsertFunction("kalandra_console_write_v1", b.getVoidTy(), b.getPtrTy(),
+                                   b.getPtrTy(), b.getPtrTy(), b.getInt32Ty(), b.getInt1Ty());
+    b.CreateCall(callee, {context, scratch, argument, b.getInt32(stream), b.getInt1(newline)});
+  }
+  auto *ready = llvm::BasicBlock::Create(module.getContext(), "console.direct.ready",
+                                         b.GetInsertBlock()->getParent());
+  auto poll =
+      module.getOrInsertFunction("kalandra_invocation_ready_v1", b.getInt1Ty(), b.getPtrTy());
+  b.CreateCondBr(b.CreateCall(poll, {context}), ready, abort);
+  b.SetInsertPoint(ready);
+  emitConsolePacket(b, module, input, types, operation, result, resultType, argument, output,
+                    scratch, context, next, abort);
+}
+
 } // namespace kalandra

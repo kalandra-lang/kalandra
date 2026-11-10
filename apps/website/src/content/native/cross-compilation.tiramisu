@@ -21,7 +21,10 @@ h2 { "A shared example" }
 
 Save this program as compute.k:
 
-codeblock { language = kalandra, """fn count(n: i64, total: i64) -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn count(n: i64, total: i64) -> i64:
   return if n == 0:
     total
   else:
@@ -33,8 +36,11 @@ fn fib(n: i64) -> i64:
   else:
     fib(n - 1) + fib(n - 2)
 
-fn main() -> i64:
-  return count(1000, 0) + fib(12)
+fn main() -> unit ! IoError:
+  output: i64 = count(1000, 0) + fib(12)
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 h2 { "Build for macOS" }

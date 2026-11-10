@@ -22,7 +22,7 @@ if(BUILD_TESTING)
       set(RECORD_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-nested-records-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCHECKER=$<TARGET_FILE:kalandra-check>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCHECKER=$<TARGET_FILE:kalandra-check>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${RECORD_RUNTIME}" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/nested-records-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyNestedRecords.cmake")

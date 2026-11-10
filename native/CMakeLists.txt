@@ -286,7 +286,7 @@ if(BUILD_TESTING)
       set(SOURCE_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-source-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
         "-DFIXTURE=${PROJECT_SOURCE_DIR}/docs/design/fixtures/cpu-projection.k"
         "-DHARNESS_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/tests/NativeHarness.cpp"
         "-DRUNTIME=${SOURCE_RUNTIME}" "-DVARIANT=${VARIANT}"
@@ -345,7 +345,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-source-tasks-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/source-tasks-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifySourceTasks.cmake")
@@ -356,7 +356,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-task-recovery-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/task-recovery-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyTaskRecovery.cmake")
@@ -386,7 +386,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-compiled-workers-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
         "-DSOURCE_ROOT=${PROJECT_SOURCE_DIR}" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/compiled-workers-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyCompiledWorkers.cmake")
@@ -549,7 +549,7 @@ if(BUILD_TESTING)
       set(SCOPE_LAYOUT_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-value-scope-layout-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
         "-DRUNTIME=$<TARGET_FILE:${SCOPE_LAYOUT_RUNTIME}>" "-DVARIANT=${VARIANT}"
         "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/value-scope-layout-${VARIANT}"
@@ -575,7 +575,7 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  add_test(NAME native-explicit-shape-cli COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+  add_test(NAME native-explicit-shape-cli COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
     "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/explicit-shape-cli"
     -P "${PROJECT_SOURCE_DIR}/native/cmake/VerifyExplicitShapes.cmake")
   set_tests_properties(native-explicit-shape-cli PROPERTIES TIMEOUT 90)
@@ -677,7 +677,7 @@ if(BUILD_TESTING)
       set(INT32_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-int32-runtime-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INT32_RUNTIME}" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/int32-${VARIANT}"
         "-DHARNESS_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/tests/Int32RuntimeTests.cpp"
@@ -689,7 +689,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-int32-tasks-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/int32-tasks-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyInt32Tasks.cmake")
@@ -707,7 +707,7 @@ if(BUILD_TESTING)
       set(INT32_TENSOR_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-int32-tensors-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INT32_TENSOR_RUNTIME}" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/int32-tensors-${VARIANT}"
         "-DHARNESS_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/tests/Int32TensorRuntimeTests.cpp"
@@ -726,7 +726,7 @@ if(BUILD_TESTING)
       set(INT32_HANDOFF_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-int32-tensor-tasks-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INT32_HANDOFF_RUNTIME}"
         "-DOPT_RUNTIME=$<TARGET_FILE:kalandra-task-core-optimized>" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/int32-tensor-tasks-${VARIANT}"
@@ -747,7 +747,7 @@ if(BUILD_TESTING)
       set(INT32_REDUCTION_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-int32-reductions-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INT32_REDUCTION_RUNTIME}"
         "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/int32-reductions-${VARIANT}"
@@ -755,7 +755,7 @@ if(BUILD_TESTING)
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyInt32Reductions.cmake")
     set_tests_properties(native-int32-reductions-${VARIANT} PROPERTIES TIMEOUT 240)
     add_test(NAME native-uint32-reductions-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INT32_REDUCTION_RUNTIME}"
         "-DVARIANT=${VARIANT}" "-DNUMERIC_TYPE=uint32"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/uint32-reductions-${VARIANT}"
@@ -775,7 +775,7 @@ if(BUILD_TESTING)
       set(INT32_MATMUL_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-int32-matmul-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INT32_MATMUL_RUNTIME}"
         "-DVARIANT=${VARIANT}" "-DOPT_RUNTIME=$<TARGET_FILE:kalandra-task-core-optimized>"
         "-DTASK_HARNESS_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/tests/Int32TensorTaskTests.cpp"
@@ -784,7 +784,7 @@ if(BUILD_TESTING)
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyInt32Matmul.cmake")
     set_tests_properties(native-int32-matmul-${VARIANT} PROPERTIES TIMEOUT 240)
     add_test(NAME native-uint32-matmul-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INT32_MATMUL_RUNTIME}"
         "-DVARIANT=${VARIANT}" "-DNUMERIC_TYPE=uint32"
         "-DOPT_RUNTIME=$<TARGET_FILE:kalandra-task-core-optimized>"
@@ -836,7 +836,7 @@ if(BUILD_TESTING)
       set(UINT32_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-uint32-runtime-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${UINT32_RUNTIME}" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/uint32-${VARIANT}"
         "-DHARNESS_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/tests/UInt32RuntimeTests.cpp"
@@ -854,7 +854,7 @@ if(BUILD_TESTING)
       set(UINT32_TENSOR_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-uint32-tensors-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${UINT32_TENSOR_RUNTIME}" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/uint32-tensors-${VARIANT}"
         "-DHARNESS_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/tests/UInt32TensorRuntimeTests.cpp"
@@ -872,7 +872,7 @@ if(BUILD_TESTING)
       set(UINT32_HANDOFF_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-uint32-tensor-tasks-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${UINT32_HANDOFF_RUNTIME}"
         "-DOPT_RUNTIME=$<TARGET_FILE:kalandra-task-core-optimized>" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/uint32-tensor-tasks-${VARIANT}"
@@ -923,7 +923,7 @@ if(BUILD_TESTING)
       set(INT64_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-int64-runtime-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INT64_RUNTIME}" "-DVARIANT=${VARIANT}" "-DNUMERIC_TYPE=int64"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/int64-${VARIANT}"
         "-DHARNESS_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/tests/Int32RuntimeTests.cpp"
@@ -936,7 +936,7 @@ endif()
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
     add_test(NAME native-int64-tasks-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}" "-DNUMERIC_TYPE=int64"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}" "-DNUMERIC_TYPE=int64"
         "-DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/int64-tasks-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyInt32Tasks.cmake")
@@ -984,7 +984,7 @@ if(BUILD_TESTING)
       set(UINT64_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-uint64-runtime-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${UINT64_RUNTIME}" "-DVARIANT=${VARIANT}" "-DNUMERIC_TYPE=uint64"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/uint64-${VARIANT}"
         "-DHARNESS_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/tests/UInt32RuntimeTests.cpp"
@@ -1004,7 +1004,7 @@ if(BUILD_TESTING)
         set(INTEGER64_TENSOR_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
       endif()
       add_test(NAME native-${NUMERIC_TYPE}-tensors-${VARIANT}
-        COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+        COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
           "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INTEGER64_TENSOR_RUNTIME}"
           "-DVARIANT=${VARIANT}" "-DNUMERIC_TYPE=${NUMERIC_TYPE}"
           "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/${NUMERIC_TYPE}-tensors-${VARIANT}"
@@ -1026,7 +1026,7 @@ if(BUILD_TESTING)
         set(INTEGER64_HANDOFF_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
       endif()
       add_test(NAME native-${NUMERIC_TYPE}-tensor-tasks-${VARIANT}
-        COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+        COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
           "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INTEGER64_HANDOFF_RUNTIME}"
           "-DOPT_RUNTIME=$<TARGET_FILE:kalandra-task-core-optimized>"
           "-DVARIANT=${VARIANT}" "-DNUMERIC_TYPE=${NUMERIC_TYPE}"
@@ -1050,7 +1050,7 @@ if(BUILD_TESTING)
         set(INTEGER64_REDUCTION_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
       endif()
       add_test(NAME native-${NUMERIC_TYPE}-reductions-${VARIANT}
-        COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+        COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
           "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INTEGER64_REDUCTION_RUNTIME}"
           "-DVARIANT=${VARIANT}" "-DNUMERIC_TYPE=${NUMERIC_TYPE}"
           "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/${NUMERIC_TYPE}-reductions-${VARIANT}"
@@ -1072,7 +1072,7 @@ if(BUILD_TESTING)
         set(INTEGER64_MATMUL_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
       endif()
       add_test(NAME native-${NUMERIC_TYPE}-matmul-${VARIANT}
-        COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>"
+        COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>"
           "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=${INTEGER64_MATMUL_RUNTIME}"
           "-DOPT_RUNTIME=$<TARGET_FILE:kalandra-task-core-optimized>"
           "-DVARIANT=${VARIANT}" "-DNUMERIC_TYPE=${NUMERIC_TYPE}"
@@ -1171,7 +1171,7 @@ if(BUILD_TESTING)
       set(EXT_RUNTIME kalandra-native-runtime)
     endif()
     add_test(NAME native-source-extension-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCHECKER=$<TARGET_FILE:kalandra-check>"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCHECKER=$<TARGET_FILE:kalandra-check>"
         "-DPARSER=$<TARGET_FILE:kalandra-parse>" "-DVARIANT=${VARIANT}" "-DRUNTIME=$<TARGET_FILE:${EXT_RUNTIME}>"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/source-extension-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifySourceExtension.cmake")
@@ -1234,17 +1234,17 @@ endif()
 if(BUILD_TESTING)
   add_test(NAME native-ordinary-arrays
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryArrayTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-arrays" --direct-entry)
   set_tests_properties(native-ordinary-arrays PROPERTIES TIMEOUT 900)
   add_test(NAME native-ordinary-buffer-types
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinarySourceTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-buffer-types" --direct-entry --buffer-entry)
   set_tests_properties(native-ordinary-buffer-types PROPERTIES TIMEOUT 900)
   add_test(NAME native-ordinary-buffer-faults
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryBufferFaultTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-buffer-faults")
   set_tests_properties(native-ordinary-buffer-faults PROPERTIES TIMEOUT 900)
   add_test(NAME native-windows-ordinary-codegen
@@ -1254,46 +1254,46 @@ if(BUILD_TESTING)
   set_tests_properties(native-windows-ordinary-codegen PROPERTIES TIMEOUT 300)
   add_test(NAME native-ordinary-reductions
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryReductionSourceTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-reductions")
   set_tests_properties(native-ordinary-reductions PROPERTIES TIMEOUT 900)
   add_test(NAME native-ordinary-loops
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryLoopSourceTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-loops")
   set_tests_properties(native-ordinary-loops PROPERTIES TIMEOUT 900)
   add_test(NAME native-ordinary-source
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinarySourceTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-source")
   set_tests_properties(native-ordinary-source PROPERTIES TIMEOUT 900)
   set(_ordinary_exact_abi_args --direct-entry)
   add_test(NAME native-ordinary-pair-source
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinarySourceTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-pair-source" --direct-entry)
   set_tests_properties(native-ordinary-pair-source PROPERTIES TIMEOUT 900)
   add_test(NAME native-ordinary-direct-faults
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryDirectFaultTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-direct-faults")
   set_tests_properties(native-ordinary-direct-faults PROPERTIES TIMEOUT 900)
   if(NOT WIN32)
     add_test(NAME native-ordinary-integer-cases
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryIntegerCasesSourceTests.py"
-        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
         --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-integer-cases")
     set_tests_properties(native-ordinary-integer-cases PROPERTIES TIMEOUT 900)
   endif()
   add_test(NAME native-ordinary-scalar-exact
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryLoopSourceTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-scalar-exact"
       --exhaustive-entry ${_ordinary_exact_abi_args})
   set_tests_properties(native-ordinary-scalar-exact PROPERTIES TIMEOUT 900)
   add_test(NAME native-task-native-helpers
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TaskNativeHelpersTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/task-native-helpers")
   set_tests_properties(native-task-native-helpers PROPERTIES TIMEOUT 900)
   add_test(NAME native-windows-tail-codegen
@@ -1303,63 +1303,63 @@ if(BUILD_TESTING)
   set_tests_properties(native-windows-tail-codegen PROPERTIES TIMEOUT 300)
   add_test(NAME native-call-foundation-source
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CallFoundationTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/call-foundation")
   set_tests_properties(native-call-foundation-source PROPERTIES TIMEOUT 900)
   add_test(NAME native-cancellation-source
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/NativeCancellationSourceTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/native-cancellation-source")
   set_tests_properties(native-cancellation-source PROPERTIES TIMEOUT 900)
   add_test(NAME native-arithmetic-policy
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ArithmeticPolicyTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/arithmetic-policy")
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --output "${CMAKE_CURRENT_BINARY_DIR}/arithmetic-policy")
   set_tests_properties(native-arithmetic-policy PROPERTIES TIMEOUT 300)
   add_test(NAME native-cpu-benchmark-cells
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CpuBenchmarkCells.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/benchmark-cells")
   set_tests_properties(native-cpu-benchmark-cells PROPERTIES TIMEOUT 180)
   add_test(NAME native-recursive-scalars
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/RecursiveScalarTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/recursive-scalars")
   set_tests_properties(native-recursive-scalars PROPERTIES TIMEOUT 900)
   add_test(NAME native-signed-remainder
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/SignedRemainderTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/signed-remainder")
   set_tests_properties(native-signed-remainder PROPERTIES TIMEOUT 900)
   add_test(NAME native-fast-calls
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/FastCallTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/fast-calls")
   set_tests_properties(native-fast-calls PROPERTIES TIMEOUT 600)
   foreach(POLICY IN ITEMS hardware software)
     add_test(NAME native-checked-inlining-source-${POLICY}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CheckedInliningSourceTests.py"
-        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
         --arithmetic "${POLICY}" --output "${CMAKE_CURRENT_BINARY_DIR}/checked-inlining-${POLICY}")
     set_tests_properties(native-checked-inlining-source-${POLICY} PROPERTIES TIMEOUT 900)
     add_test(NAME native-checked-inlining-source-float32-${POLICY}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CheckedInliningSourceTests.py"
-        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
         --arithmetic "${POLICY}" --numeric f32 --output "${CMAKE_CURRENT_BINARY_DIR}/checked-inlining-float32-${POLICY}")
     set_tests_properties(native-checked-inlining-source-float32-${POLICY} PROPERTIES TIMEOUT 900)
   endforeach()
   add_test(NAME native-tail-calls
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TailCallTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/tail-calls")
   set_tests_properties(native-tail-calls PROPERTIES TIMEOUT 900)
   add_test(NAME native-tail-calls-software
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TailCallTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --arithmetic software --output "${CMAKE_CURRENT_BINARY_DIR}/tail-calls-software")
   set_tests_properties(native-tail-calls-software PROPERTIES TIMEOUT 900)
   add_test(NAME native-total-hardware-casts
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TotalCastTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/total-casts")
   set_tests_properties(native-total-hardware-casts PROPERTIES TIMEOUT 900)
   add_test(NAME native-fair-benchmark-evidence
@@ -1373,22 +1373,22 @@ if(BUILD_TESTING)
   set_tests_properties(native-steel-vendor-license PROPERTIES TIMEOUT 30)
   add_test(NAME native-relu
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ReluTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/relu")
   set_tests_properties(native-relu PROPERTIES TIMEOUT 600)
   add_test(NAME native-cpu-optimization
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CpuOptimizationTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/cpu-optimization")
   set_tests_properties(native-cpu-optimization PROPERTIES TIMEOUT 600)
   add_test(NAME native-tensor-transforms
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TensorTransformTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/tensor-transforms")
   set_tests_properties(native-tensor-transforms PROPERTIES TIMEOUT 1200)
   add_test(NAME native-static-numerical-shapes
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/StaticNumericalShapeTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/static-numerical-shapes")
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --output "${CMAKE_CURRENT_BINARY_DIR}/static-numerical-shapes")
   set_tests_properties(native-static-numerical-shapes PROPERTIES TIMEOUT 900)
 endif()
 
@@ -1403,16 +1403,16 @@ foreach(_tool IN ITEMS kalandra kalandra-installed kalandra-metal-installed kala
 endforeach()
 if(BUILD_TESTING)
   add_test(NAME native-cross-toolchain-validation COMMAND "${Python3_EXECUTABLE}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/tests/CrossToolchainTests.py" --compiler "$<TARGET_FILE:kalandra>")
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/CrossToolchainTests.py" --compiler "$<TARGET_FILE:kalandra-test-observer>")
   add_test(NAME native-explicit-returns
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ExplicitReturnTests.py"
-      --compiler "$<TARGET_FILE:kalandra>" --checker "$<TARGET_FILE:kalandra-check>"
+      --compiler "$<TARGET_FILE:kalandra-test-observer>" --checker "$<TARGET_FILE:kalandra-check>"
       --output "${CMAKE_CURRENT_BINARY_DIR}/explicit-returns")
   set_tests_properties(native-explicit-returns PROPERTIES TIMEOUT 900)
   if(KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
     add_test(NAME native-explicit-returns-metal
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ExplicitReturnGpuTests.py"
-        --compiler "$<TARGET_FILE:kalandra>" --target metal
+        --compiler "$<TARGET_FILE:kalandra-test-observer>" --target metal
         --output "${CMAKE_CURRENT_BINARY_DIR}/explicit-returns-metal")
     set_tests_properties(native-explicit-returns-metal PROPERTIES
       TIMEOUT 900 RESOURCE_LOCK apple-metal-gpu LABELS "gpu")

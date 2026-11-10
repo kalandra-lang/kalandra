@@ -33,10 +33,16 @@ codeblock { language = kalandra, """export fn double(value: i64) -> i64:
 
 Save the application as my-app/src/main.k:
 
-codeblock { language = kalandra, """from "geometry" import double
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
 
-fn main() -> i64:
-  return double(21)
+from "geometry" import double
+
+fn main() -> unit ! IoError:
+  output: i64 = double(21)
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 Initialize a local Git repository, commit its files, then write the application manifest with the library's canonical absolute path. The identity settings apply only to this example commit:

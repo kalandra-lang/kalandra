@@ -51,6 +51,11 @@ def program_cases():
     cases = {name: dict(source=text, output=expected) for name, text, expected in
              [(name, text, {'calls': '1144\n', 'captures': '3000\n', 'tasks': '[2, 4, 6]\n',
                             'records': '7\n', 'floating': None}[name]) for name, text in SOURCES.items()]}
+    cases['console-application'] = dict(source=(
+        'from "std/io" import println, IoError\nfrom "std/fmt" import format\n'
+        'fn main(args:[String])->unit ! IoError:\n'
+        '  try println(format("answer={}, arguments={}",42,length(args)))\n'
+        '  return ()\n'), output='answer=42, arguments=0\n', application=True)
     cases.update({'loop-' + name: dict(source=text, output=expected + '\n')
                   for name, (text, expected) in LOOP_CASES.items()})
     numeric_values = {'i8': '-42', 'u8': '255', 'i16': '-30000', 'u16': '65535',
@@ -250,14 +255,15 @@ def build(a):
     repeats = a.output / 'independent repeat'
     repeats.mkdir()
     for name, case in cases.items():
+        observation = [] if case.get('application') else ['--test-entry', 'main']
         source = a.output / (name + '.k')
         source.write_text(case['source'], encoding='utf-8')
         for mode in ('-O0', '-O2'):
             binary = products / (name + mode + suffix)
-            run([compiler, source, *selected_command, mode, '-o', binary], env=environment)
+            run([compiler, *observation, source, *selected_command, mode, '-o', binary], env=environment)
             # A second independent invocation must reproduce the same bytes.
             repeat = repeats / binary.name
-            run([compiler, source, *selected_command, mode, '-o', repeat], env=environment)
+            run([compiler, *observation, source, *selected_command, mode, '-o', repeat], env=environment)
             assert digest(binary) == digest(repeat), (name, mode, 'non-reproducible')
             repeat.unlink()
             if windows:
@@ -363,7 +369,7 @@ def build(a):
     for change in ({'target': 'armv7-linux-gnueabihf'}, {'target': TRIPLES[host_system][host], 'runtimePackage': str(target_root.resolve())},
                    {'sysroot': '/missing/sysroot'}, {'format': 2}, {'surprise': True}):
         profile_file.write_text(json.dumps(dict(profile, **change)), encoding='utf-8')
-        r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+        r = subprocess.run(list(map(str, [compiler, "--test-entry", "main", source, '--toolchain', profile_file,
                            '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True, encoding='utf-8')
         assert r.returncode == 2, (change, r.returncode, r.stderr)
         assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
@@ -380,13 +386,13 @@ def build(a):
                              'libkalandra-int64-entry-debug.a')
         library.write_bytes((host_root / 'lib/kalandra/native' / host_runtime_name).read_bytes())
         inventory.write_text(original_inventory.decode().replace('\r\n', '\n').replace(old_digest, digest(library)), encoding='utf-8')
-        r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+        r = subprocess.run(list(map(str, [compiler, "--test-entry", "main", source, '--toolchain', profile_file,
                            '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True, encoding='utf-8')
         assert r.returncode == 2 and 'object ABI mismatch' in r.stderr, (r.returncode, r.stderr)
         assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
         library.write_bytes(original[:-1] + bytes([original[-1] ^ 1]))
         inventory.write_bytes(original_inventory)
-        r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+        r = subprocess.run(list(map(str, [compiler, "--test-entry", "main", source, '--toolchain', profile_file,
                            '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True, encoding='utf-8')
         assert r.returncode == 2 and 'checksum mismatch' in r.stderr, (r.returncode, r.stderr)
         assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
@@ -400,7 +406,7 @@ def build(a):
         original_interface = interface.read_bytes()
         try:
             interface.write_bytes(original_interface + b'\n# corrupt interface\n')
-            r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+            r = subprocess.run(list(map(str, [compiler, "--test-entry", "main", source, '--toolchain', profile_file,
                                '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True, encoding='utf-8')
             assert r.returncode == 2 and 'checksum mismatch' in r.stderr, (r.returncode, r.stderr)
             assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
@@ -415,7 +421,7 @@ def build(a):
                 if minimum is None: altered.pop('minimumMacOS')
                 else: altered['minimumMacOS'] = minimum
                 metadata.write_text(json.dumps(altered), encoding='utf-8')
-                r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+                r = subprocess.run(list(map(str, [compiler, "--test-entry", "main", source, '--toolchain', profile_file,
                                    '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True, encoding='utf-8')
                 assert r.returncode == 2 and 'macOS minimum' in r.stderr, (r.returncode, r.stderr)
                 assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
@@ -426,14 +432,14 @@ def build(a):
         # linker. Reusing the host compiler as an intentionally invalid linker
         # gives a recognizable diagnostic on every source OS without a wrapper.
         profile_file.write_text(json.dumps(dict(profile, linker=str(compiler.resolve()))), encoding='utf-8')
-        r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+        r = subprocess.run(list(map(str, [compiler, "--test-entry", "main", source, '--toolchain', profile_file,
                            '-o', protected])), capture_output=True, text=True, encoding='utf-8')
         assert r.returncode == 1 and 'unknown or incomplete option: -out:' in r.stderr, (r.returncode, r.stderr)
         assert protected.read_text(encoding='utf-8') == 'keep executable'
         empty_libraries = a.output / 'empty SDK libraries'
         empty_libraries.mkdir()
         profile_file.write_text(json.dumps(dict(profile, libraryDirectories=[str(empty_libraries.resolve())])), encoding='utf-8')
-        r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+        r = subprocess.run(list(map(str, [compiler, "--test-entry", "main", source, '--toolchain', profile_file,
                            '-o', protected])), capture_output=True, text=True, encoding='utf-8')
         assert r.returncode == 1 and 'native link failed' in r.stderr, (r.returncode, r.stderr)
         assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'

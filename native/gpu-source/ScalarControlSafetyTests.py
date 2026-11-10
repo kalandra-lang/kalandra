@@ -83,7 +83,7 @@ for name, helper in sources.items():
     try await spawn work(1000) on gpu
 ''')
     bundle = a.root/name
-    subprocess.run([str(a.compiler.resolve()), str(source), '--target', a.backend,
+    subprocess.run([str(a.compiler.resolve()), '--test-entry', 'main', str(source), '--target', a.backend,
                     '-O2', '-o', str(bundle)], check=True, timeout=180)
     assert ('DeviceControl' if a.arrays else 'ScalarControl') in (bundle/'host.cpp').read_text(), name
     control = [f for f in bundle.glob('*.mlir')

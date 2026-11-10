@@ -41,6 +41,6 @@ std::vector<std::string> kernelBuildPaths(const std::string &base, ArithmeticMod
   return paths;
 }
 } // namespace
-int kalandra::compileCudaCommand(int argc, char **argv) {
+int kalandra::compileCudaCommand(int argc, char **argv, bool application) {
 #include "../gpu-source/SourceCommand.inc"
 }

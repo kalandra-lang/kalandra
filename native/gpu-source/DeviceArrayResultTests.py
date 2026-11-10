@@ -101,7 +101,7 @@ for name, (helper, setup, call, body, typ, expected) in cases.items():
     cpu_body = '  result=' + call + '\n' + '\n'.join(cpu_lines) + '\n'
     cpu_source.write_text(helper + f'fn main()->{typ}:\n' + setup + cpu_body)
     cpu = root / ('cpu' + suffix)
-    run([a.compiler, cpu_source, *flags, '-o', cpu])
+    run([a.compiler, '--test-entry', 'main', cpu_source, *flags, '-o', cpu])
     raw = run([cpu])
     if typ == 'bool':
         assert raw in ('true', 'false'), (name, 'CPU Bool encoding', raw)
@@ -114,7 +114,7 @@ for name, (helper, setup, call, body, typ, expected) in cases.items():
                       '  return try parallel:\n    gpu=devices.gpu()\n    result=try await spawn ' + call + ' on gpu\n' + body)
     bundle = root / 'device'
     arithmetic = 'hardware-with-software-fallback' if a.backend == 'metal' and typ == 'f64' else 'hardware'
-    run([a.compiler, source, '--target', a.backend, '--arithmetic', arithmetic, *flags, '-o', bundle])
+    run([a.compiler, '--test-entry', 'main', source, '--target', a.backend, '--arithmetic', arithmetic, *flags, '-o', bundle])
     assert 'DeviceArrayResultJob<' in (bundle / 'host.cpp').read_text(), name
     outputs = []
     for workers in (() if a.compile_only else ('1', '4')):
@@ -148,7 +148,7 @@ for name, (returned, read) in negatives.items():
                       '    gpu=devices.gpu()\n    result=try await spawn work(values) on gpu\n' +
                       '    alias=result\n    pending=spawn reader(' + read + ')\n' +
                       '    alias[0]=7\n    try await pending\n')
-    r = subprocess.run([str(a.compiler), str(source), '--target', a.backend, *flags,
+    r = subprocess.run([str(a.compiler), '--test-entry', 'main', str(source), '--target', a.backend, *flags,
                         '-o', str(a.root / name)], capture_output=True, text=True, timeout=240)
     (a.root / (name + '.log')).write_text(r.stdout + r.stderr)
     assert r.returncode != 0 and 'S077' in r.stderr, (name, r.returncode, r.stderr)

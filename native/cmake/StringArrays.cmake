@@ -43,7 +43,7 @@ if(BUILD_TESTING)
       set(SA_ENTRY kalandra-string-array-entry-debug)
     endif()
     add_test(NAME native-string-arrays-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=$<TARGET_FILE:${SA_RUNTIME}>"
         "-DENTRY=$<TARGET_FILE:${SA_ENTRY}>"
         "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/string-arrays-${VARIANT}"

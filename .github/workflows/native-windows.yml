@@ -86,14 +86,24 @@ jobs:
       - name: Configure native compiler
         run: >-
           cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release
-          -DBUILD_TESTING=OFF -DCMAKE_INSTALL_LIBDIR=lib
+          -DBUILD_TESTING=OFF -DKALANDRA_BUILD_TEST_OBSERVER=ON -DCMAKE_INSTALL_LIBDIR=lib
           -DKALANDRA_LLVM_ROOT="$env:KALANDRA_LLVM_ROOT"
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Build native CPU toolchain
         run: cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized -j2 -- -k 0
+      - name: Qualify application entries, console I/O and formatting
+        run: |
+          $variants = @('debug', 'optimized')
+          if ('${{ matrix.arch }}' -eq 'x86_64') { $variants += 'sanitized' }
+          foreach ($variant in $variants) {
+            foreach ($suite in @('ApplicationSourceTests', 'ConsoleSourceTests', 'FormatSourceTests')) {
+              python "native/tests/$suite.py" --compiler build/windows/native/kalandra.exe --variant $variant --output "build/windows/io/$suite-$variant"
+              if ($LASTEXITCODE -ne 0) { throw "$suite $variant failed" }
+            }
+          }
       - name: Qualify explicit returns and primitive types
         run: |
-          python native/tests/ExplicitReturnTests.py --compiler build/windows/native/kalandra.exe --checker build/windows/native/kalandra-check.exe --output build/windows/explicit-returns
+          python native/tests/ExplicitReturnTests.py --compiler build/windows/native/kalandra-test-observer.exe --checker build/windows/native/kalandra-check.exe --output build/windows/explicit-returns
           if ($LASTEXITCODE -ne 0) { throw 'Explicit return qualification failed' }
       - name: Qualify opaque synchronous task ownership
         run: |
@@ -109,19 +119,19 @@ jobs:
             & "build/windows/$test.exe"
             if ($LASTEXITCODE -ne 0) { throw "$test qualification failed" }
           }
-          cmake "-DCOMPILER=$env:GITHUB_WORKSPACE/build/windows/native/kalandra.exe" "-DCLANGXX=$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" "-DRUNTIME=$env:GITHUB_WORKSPACE/build/windows/native/kalandra-native-runtime.lib" -DVARIANT=optimized "-DSOURCE_DIR=$env:GITHUB_WORKSPACE/native" "-DOUTPUT_DIR=$env:GITHUB_WORKSPACE/build/windows/value-scope-layout" -P native/cmake/VerifyValueScopeLayouts.cmake
+          cmake "-DCOMPILER=$env:GITHUB_WORKSPACE/build/windows/native/kalandra-test-observer.exe" "-DCLANGXX=$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" "-DRUNTIME=$env:GITHUB_WORKSPACE/build/windows/native/kalandra-native-runtime.lib" -DVARIANT=optimized "-DSOURCE_DIR=$env:GITHUB_WORKSPACE/native" "-DOUTPUT_DIR=$env:GITHUB_WORKSPACE/build/windows/value-scope-layout" -P native/cmake/VerifyValueScopeLayouts.cmake
           if ($LASTEXITCODE -ne 0) { throw 'Compiler value layout qualification failed' }
       - name: Verify recursive scalar values and checked state
         run: >-
           python native/tests/RecursiveScalarTests.py
-          --compiler build/windows/native/kalandra.exe
+          --compiler build/windows/native/kalandra-test-observer.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/recursive-scalars
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
         run: |
-          python native/tests/CrossToolchainTests.py --compiler build/windows/native/kalandra.exe
+          python native/tests/CrossToolchainTests.py --compiler build/windows/native/kalandra-test-observer.exe
           if ($LASTEXITCODE -ne 0) { throw 'Cross-toolchain validation failed' }
-          python native/tests/ArithmeticPolicyTests.py --compiler build/windows/native/kalandra.exe --output build/windows/arithmetic-policy
+          python native/tests/ArithmeticPolicyTests.py --compiler build/windows/native/kalandra-test-observer.exe --output build/windows/arithmetic-policy
           if ($LASTEXITCODE -ne 0) { throw 'Arithmetic policy qualification failed' }
           python native/tests/FairBenchmarkTests.py
           if ($LASTEXITCODE -ne 0) { throw 'Benchmark reference qualification failed' }
@@ -130,7 +140,7 @@ jobs:
       - name: Verify deep internal calls and physical stack safety
         run: >-
           python native/tests/CallFoundationTests.py
-          --compiler build/windows/native/kalandra.exe
+          --compiler build/windows/native/kalandra-test-observer.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/call-foundation
       - uses: actions/upload-artifact@v4
@@ -143,7 +153,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $compiler = 'build/windows/native/kalandra.exe'
+          $compiler = 'build/windows/native/kalandra-test-observer.exe'
           $clang = "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           python native/tests/OrdinarySourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-direct --direct-entry
           if ($LASTEXITCODE -ne 0) { throw 'Scalar direct ABI qualification failed' }
@@ -170,7 +180,7 @@ jobs:
       - name: Qualify CPU tensor transforms
         run: >-
           python native/tests/TensorTransformTests.py
-          --compiler build/windows/native/kalandra.exe
+          --compiler build/windows/native/kalandra-test-observer.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/tensor-transforms --quick
       - name: Verify documented PowerShell examples
@@ -194,8 +204,8 @@ jobs:
                 Set-Content -Path main.k -Value $source.Groups[1].Value -Encoding utf8 -NoNewline
               }
               $result = @(& ([scriptblock]::Create($examples[$index].Groups[1].Value)))
-              $expected = if ($index -eq 0) { '42' } else { '[2, 4, 6]' }
-              if ($LASTEXITCODE -ne 0 -or $result[-1].Trim() -ne $expected) {
+              $expected = if ($index -eq 0) { '42' } else { "2`n4`n6" }
+              if ($LASTEXITCODE -ne 0 -or (($result -join "`n").Trim()) -ne $expected) {
                 throw "Documented example $index returned unexpected output: $result"
               }
             } finally { Pop-Location }
@@ -204,7 +214,7 @@ jobs:
         if: matrix.arch == 'arm64'
         run: >-
           python native/benchmarks/WindowsArm64Smoke.py
-          --compiler build/windows/native/kalandra.exe
+          --compiler build/windows/native/kalandra-test-observer.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/arm64-performance
       - uses: actions/upload-artifact@v4
@@ -218,7 +228,7 @@ jobs:
       - name: Independently configure the second build
         run: >-
           cmake -S . -B build/windows-repro -G Ninja -DCMAKE_BUILD_TYPE=Release
-          -DBUILD_TESTING=OFF -DCMAKE_INSTALL_LIBDIR=lib
+          -DBUILD_TESTING=OFF -DKALANDRA_BUILD_TEST_OBSERVER=ON -DCMAKE_INSTALL_LIBDIR=lib
           -DKALANDRA_LLVM_ROOT="$env:KALANDRA_LLVM_ROOT"
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Independently rebuild and compare the distribution

@@ -127,7 +127,7 @@ assert package(data, math, second)['dependencies'][0]['commit'] == leaf_first
 assert manifest.read_text() == configuration
 run(args.checker, '--project', manifest)
 program = app / 'program'
-run(args.compiler, '--project', manifest, '-o', program)
+run(args.compiler, '--test-entry', 'main', '--project', manifest, '-o', program)
 assert run(program).stdout == b'[12, 11]\n'
 # Moving a private ref alone does not update an unchanged owner's private lock.
 (leaf / 'public.k').write_text('export fn boost(n:i64)->i64:\n  return n+3\n')
@@ -175,7 +175,7 @@ for flags in [['--frozen'], ['--offline']]:
     run(args.compiler, 'install', '--project', manifest, *flags)
     assert lock.read_bytes() == before
 run(args.checker, '--project', manifest)
-run(args.compiler, '--project', manifest, '-o', program)
+run(args.compiler, '--test-entry', 'main', '--project', manifest, '-o', program)
 assert run(program).stdout == b'[13, 12]\n'
 math.rename(root / 'math unavailable')
 parent.rename(root / 'parent unavailable')

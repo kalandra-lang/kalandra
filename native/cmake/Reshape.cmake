@@ -22,7 +22,7 @@ if(BUILD_TESTING)
       set(RESHAPE_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-reshape-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=${RESHAPE_RUNTIME}" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/reshape-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyReshape.cmake")

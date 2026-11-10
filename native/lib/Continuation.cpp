@@ -185,6 +185,13 @@ public:
       // containing a lexical loop itself. Retire those values with its frame.
       if (options.valueScopes &&
           (loopControl[id] ||
+           std::ranges::any_of(plan.code,
+                               [&](const auto &op) {
+                                 return op.code == Code::Jump &&
+                                        op.source < input.expressions.size() &&
+                                        std::holds_alternative<WhileOperation>(
+                                            input.expressions[op.source].operation);
+                               }) ||
            std::ranges::any_of(input.functions[id].expressions, [&](ValueId value) {
              return std::holds_alternative<WhileOperation>(input.expressions[value].operation);
            })))
@@ -441,7 +448,8 @@ private:
                                  std::is_same_v<T, UInt32Literal> ||
                                  std::is_same_v<T, UInt64Literal> ||
                                  std::is_same_v<T, BoolLiteral> ||
-                                 std::is_same_v<T, StringLiteral>))
+                                 std::is_same_v<T, StringLiteral> ||
+                                 std::is_same_v<T, ApplicationArguments>))
             throw std::runtime_error("map callback requires synchronous native operations");
         },
         value.operation);
@@ -1384,11 +1392,13 @@ private:
                    std::holds_alternative<IntegerRangeOperation>(node.operation) ||
                    (options.valueScopes &&
                     (node.type.array || node.type.record ||
+                     node.type.builtin == BuiltinValue::String ||
                      containsFunctionStorage(input, node.type) ||
                      std::ranges::any_of(operands(node),
                                          [&](auto value) {
                                            const auto &type = input.expressions[value].type;
                                            return type.array || type.record ||
+                                                  type.builtin == BuiltinValue::String ||
                                                   containsFunctionStorage(input, type);
                                          })))
                ? kernel(id)
@@ -1502,7 +1512,7 @@ std::vector<bool> resumableFunctions(const TypedModule &input) {
   }
   return result;
 }
-std::vector<bool> coordinatingFunctions(const TypedModule &input) {
+std::vector<bool> coordinatingFunctions(const TypedModule &input, bool consoleMaySuspend) {
   std::vector<bool> result(input.functions.size());
   std::vector<std::vector<FunctionId>> callers(input.functions.size());
   std::vector<FunctionId> pending;
@@ -1516,8 +1526,8 @@ std::vector<bool> coordinatingFunctions(const TypedModule &input) {
         callers.at(map->function).push_back(id);
       const auto *task = std::get_if<TaskOperation>(&op);
       const auto *map = std::get_if<ArrayMap>(&op);
-      if (std::holds_alternative<ConsoleOperation>(op) || (map && map->parallel) ||
-          (task && task->prefix != TaskPrefix::Try) ||
+      if ((consoleMaySuspend && std::holds_alternative<ConsoleOperation>(op)) ||
+          (map && map->parallel) || (task && task->prefix != TaskPrefix::Try) ||
           std::holds_alternative<ParallelOperation>(op) ||
           std::holds_alternative<DeviceSelection>(op) || std::holds_alternative<Transfer>(op))
         result[id] = true;

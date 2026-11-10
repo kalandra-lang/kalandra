@@ -5,9 +5,9 @@
 namespace kalandra {
 // The CLI uses the ordinary companion only for a parameterless scalar main.
 // This is applied to its linker copy, not the emitted checked-library IR.
-inline llvm::Function *addOrdinaryMain(llvm::Module &module) {
+inline llvm::Function *addOrdinaryMain(llvm::Module &module, bool application = false) {
   using namespace llvm;
-  if (module.getFunction("main"))
+  if (module.getFunction("main") || module.getFunction("wmain"))
     return nullptr;
   const char *names[] = {"entry",        "float64_entry", "bool_entry",   "int32_entry",
                          "uint32_entry", "int64_entry",   "uint64_entry", "unit_entry"};
@@ -31,9 +31,31 @@ inline llvm::Function *addOrdinaryMain(llvm::Module &module) {
   if (!entry)
     return nullptr;
   auto &ctx = module.getContext();
-  auto *main = llvm::Function::Create(FunctionType::get(Type::getInt32Ty(ctx), false),
-                                      GlobalValue::ExternalLinkage, "main", module);
+  if (application && kind != 3)
+    return nullptr;
+  auto *mainType =
+      application ? FunctionType::get(Type::getInt32Ty(ctx),
+                                      {Type::getInt32Ty(ctx), PointerType::getUnqual(ctx)}, false)
+                  : FunctionType::get(Type::getInt32Ty(ctx), false);
+  auto *main = llvm::Function::Create(
+      mainType, GlobalValue::ExternalLinkage,
+      application && module.getTargetTriple().isOSWindows() ? "wmain" : "main", module);
   IRBuilder<> b(BasicBlock::Create(ctx, "entry", main));
+  if (application) {
+    auto initialize = module.getOrInsertFunction(
+        "kalandra_application_initialize_v1",
+        FunctionType::get(b.getInt1Ty(), {b.getInt32Ty(), b.getPtrTy()}, false));
+    auto *ready = BasicBlock::Create(ctx, "arguments.valid", main);
+    auto *invalid = BasicBlock::Create(ctx, "arguments.invalid", main);
+    b.CreateCondBr(b.CreateCall(initialize, {main->getArg(0), main->getArg(1)}), ready, invalid);
+    b.SetInsertPoint(invalid);
+    b.CreateRet(b.getInt32(1));
+    b.SetInsertPoint(ready);
+    // This is only the executable link copy. Checked library/test entries keep
+    // their original diagnostics and ordinary companion ABI.
+    if (auto *failure = module.getFunction("kalandra_ordinary_fail_v1"))
+      failure->setName("kalandra_application_fail_v1");
+  }
   auto *fault = b.CreateAlloca(ArrayType::get(b.getInt64Ty(), 3));
   llvm::SmallVector<Value *, 1> args;
   if (!direct)
@@ -50,7 +72,7 @@ inline llvm::Function *addOrdinaryMain(llvm::Module &module) {
     bits = b.CreateBitCast(bits, b.getIntNTy(bits->getType()->getPrimitiveSizeInBits()));
   bits = b.CreateZExtOrTrunc(bits, b.getInt64Ty());
   auto finish = module.getOrInsertFunction(
-      "kalandra_ordinary_finish_v1",
+      application ? "kalandra_application_finish_v1" : "kalandra_ordinary_finish_v1",
       FunctionType::get(b.getInt32Ty(), {b.getInt64Ty(), b.getInt32Ty(), b.getPtrTy()}, false));
   b.CreateRet(b.CreateCall(finish, {bits, b.getInt32(kind), fault}));
   return main;

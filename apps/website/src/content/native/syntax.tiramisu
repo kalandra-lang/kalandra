@@ -4,11 +4,17 @@ Source files use the .k extension. Indentation defines a block of statements and
 
 h2 { "Bindings and results" }
 
-codeblock { language = kalandra, """fn main() -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   width = 6
   height: i64 = 7
   area = width * height
-  return area
+  output: i64 = area
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 This program returns 42. Numeric and bool scalar bindings can be reassigned while preserving their type. An annotation such as height: i64 declares the expected type; otherwise the checker infers a type. A bare whole-number literal normally infers i64, while a decimal or exponent literal normally infers f64. An expected type can give a literal a narrower numeric type.
@@ -17,24 +23,36 @@ h2 { "Comments and multiline expressions" }
 
 Use # for line comments. Blank lines and comment-only lines do not change block structure. Parentheses and collection delimiters permit multiline expressions:
 
-codeblock { language = kalandra, """fn main() -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   # Return the computed result.
   total = (
     20 +
     22
   )
-  return total
+  output: i64 = total
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 This program also returns 42. Identifiers use ASCII letters and underscores, followed by letters, digits or underscores. String literals and comments can contain Unicode. Tabs outside comments and strings are diagnosed.
 
 h2 { "Calls and pipelines" }
 
-codeblock { language = kalandra, """fn add(left: i64, right: i64) -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn add(left: i64, right: i64) -> i64:
   return left + right
 
-fn main() -> i64:
-  return 40 -> add(2)
+fn main() -> unit ! IoError:
+  output: i64 = 40 -> add(2)
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 The program returns 42. The pipeline inserts its left value as the first argument. Here the final line is equivalent to add(40, 2). Use parentheses when a larger expression needs to be one argument.
@@ -43,17 +61,23 @@ h2 { "Reassign a local scalar" }
 
 Reuse = to update a numeric or bool binding while preserving its type. A scalar function parameter is a private value; rebinding it cannot change the caller's binding. Assignments in a statement branch or loop update an existing scalar name; a new name introduced inside that body stays local to it. CPU functions also support replacing numeric and bool array bindings. String, record and function-array bindings, records, function values and tensors cannot be reassigned.
 
-codeblock { language = kalandra, """fn double(value: i64) -> i64:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn double(value: i64) -> i64:
   value = value * 2
   return value
 
-fn main() -> i64:
+fn main() -> unit ! IoError:
   amount = 10
   amount = double(amount)
-  return amount
+  output: i64 = amount
+
+  try println(format("{}", output))
+  return ()
 """ }
 
-This returns 20. double changes its private parameter; main changes amount only when it assigns the returned value.
+This displays 20. double changes its private parameter; main changes amount only when it assigns the returned value.
 
 h2 { "Automatic lifetimes" }
 

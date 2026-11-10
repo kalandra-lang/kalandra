@@ -96,7 +96,7 @@ jobs:
       - name: Configure private Vulkan source qualification
         run: >-
           cmake -S . -B build/vulkan-source -G Ninja -DCMAKE_BUILD_TYPE=Release
-          -DBUILD_TESTING=OFF -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
+          -DBUILD_TESTING=OFF -DKALANDRA_BUILD_TEST_OBSERVER=ON -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
           -DKALANDRA_BUILD_VULKAN_RUNTIME=ON
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Build the source supervisor and owned runtime
@@ -104,21 +104,21 @@ jobs:
           cmake --build build/vulkan-source --parallel 2 --target
           kalandra-vulkan-supervisor kalandra-vulkan-kernels kalandra-vulkan-lower
           kalandra-vulkan-extract kalandra-vulkan-language kalandra-vulkan-conversion-kernels
-          kalandra
+          kalandra kalandra-test-observer
       - name: Qualify the actual Vulkan development compiler command
         run: >-
           python3 native/vulkan/qualification/public_cli.py --compile-only
-          --compiler build/vulkan-source/native/kalandra
+          --compiler build/vulkan-source/native/kalandra-test-observer
           --output build/vulkan-artifacts/public-cli
       - name: Compile every shared public Metal capability fixture through Vulkan
         run: >-
           python3 native/vulkan/qualification/shared_capabilities.py --backend vulkan --compile-only
-          --compiler build/vulkan-source/native/kalandra
+          --compiler build/vulkan-source/native/kalandra-test-observer
           --output build/vulkan-artifacts/shared-capabilities
       - name: Compile all ten identity types without requiring floating arithmetic
         run: >-
           python3 native/vulkan/qualification/identity_sources.py
-          --compiler build/vulkan-source/native/kalandra
+          --compiler build/vulkan-source/native/kalandra-test-observer
           --output build/vulkan-artifacts/identity
       - name: Verify generated application fails closed without a usable loader
         run: >-
@@ -128,7 +128,7 @@ jobs:
       - name: Verify public host and CPU sanitizer selection
         run: >-
           python3 native/vulkan/qualification/public_sanitizers.py --compile-only
-          --compiler build/vulkan-source/native/kalandra
+          --compiler build/vulkan-source/native/kalandra-test-observer
           --output build/vulkan-artifacts/public-sanitizers
       - name: Verify read-only ELF relocation admission
         run: python3 native/packaging/BundleELFTests.py --cxx "$KALANDRA_LLVM_ROOT/bin/clang++"

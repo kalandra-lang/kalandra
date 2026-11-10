@@ -496,6 +496,16 @@ int main() {
         {(pathRoot / ".hidden.k").string(), ""},
         {(pathRoot / "main.k").string(), ""},
         {(pathRoot / "foreign" / "hidden.k").string(), ""}};
+    info = pathQuery("from \"std/|\" import println\nfn main():\n  return ()\n", {});
+    require(info.names.size() == 3 && has(info, "std/io") && has(info, "std/fmt") &&
+                has(info, "std/process"),
+            "standard modules complete without installed files or workspace overlays");
+    info = pathQuery("from \"std/i|Suffix\" import println\nfn main():\n  return ()\n", {});
+    require(info.names.size() == 1 && has(info, "std/io") &&
+                info.replacement.end - info.replacement.begin == 11,
+            "standard module completion replaces the entire specifier");
+    require(pathQuery("fn main():\n  return \"std/|\"\n", {}).names.empty(),
+            "standard module completion is restricted to import paths");
     info =
         pathQuery("from \"./ma|Suffix.k\" import double\nfn main():\n  return 0\n", pathOverlays);
     require(info.names.size() == 1 && has(info, "./math.k") &&

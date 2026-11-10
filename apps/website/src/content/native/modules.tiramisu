@@ -12,10 +12,16 @@ codeblock { language = kalandra, """export fn double(value: i64) -> i64:
 
 In main.k in the same directory:
 
-codeblock { language = kalandra, """from "./math.k" import double as twice
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
 
-fn main() -> i64:
-  return twice(21)
+from "./math.k" import double as twice
+
+fn main() -> unit ! IoError:
+  output: i64 = twice(21)
+
+  try println(format("{}", output))
+  return ()
 """ }
 
 codeblock { language = bash, """kalandra-check main.k

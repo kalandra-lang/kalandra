@@ -244,11 +244,15 @@ struct Operation {
   std::uint64_t limit = 0, offset = 0, used = 0, capacity = 0;
   char *data = nullptr;
   std::size_t bytes = 0, written = 0;
-  bool newline = false, line = false, requested = false;
+  bool newline = false, line = false, requested = false, owns = false;
   bool seen = false, oversized = false, pendingCR = false;
   Operation(Invocation &ctx, Stream &value, unsigned index)
       : storage(ctx), stream(&value), id(index) {}
   ~Operation() {
+    // Waiting callers never installed their pointer in the stream. They can
+    // retire without waiting for another owner's read, validation or copy.
+    if (!owns)
+      return;
     std::lock_guard lock(stream->state);
     if (stream->owner == this)
       stream->owner = nullptr;
@@ -302,6 +306,7 @@ bool writeStep(Invocation &ctx, ConsoleResult &out, const StringDescriptor &text
   std::unique_lock lock(s.state, std::try_to_lock);
   if (!lock || (s.owner && s.owner != op) || s.pending)
     return false;
+  op->owns = true;
   s.owner = op;
   if (!op->requested && !op->bytes) {
     op->text = text;
@@ -370,6 +375,7 @@ bool readStep(Invocation &ctx, ConsoleResult &out, std::uint64_t maxBytes, void 
   std::unique_lock lock(s.state, std::try_to_lock);
   if (!lock || (s.owner && s.owner != op) || s.pending)
     return false;
+  op->owns = true;
   s.owner = op;
   op->limit = maxBytes;
   const auto append = [&](char byte) {
@@ -589,12 +595,14 @@ extern "C" void kalandra_console_pause_v1(kalandra::runtime::Task *task, void *o
     bool immediate = false;
     if (operation) {
       auto &op = *static_cast<Operation *>(operation);
-      std::lock_guard lock(op.stream->state);
-      if (op.stream->owner == &op) {
-        if (op.stream->pending)
-          op.stream->waiter = completion;
-        else
-          immediate = true;
+      if (op.owns) {
+        std::lock_guard lock(op.stream->state);
+        if (op.stream->owner == &op) {
+          if (op.stream->pending)
+            op.stream->waiter = completion;
+          else
+            immediate = true;
+        }
       }
     }
     if (immediate)

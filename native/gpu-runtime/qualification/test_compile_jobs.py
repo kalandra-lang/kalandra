@@ -23,7 +23,7 @@ class CompileJobsTests(unittest.TestCase):
                     '--compiler', compiler, '--backend', backend, '--variant', 'optimized', '--compile-only', '--root', root/name])))
             self.assertIn('--compile-only', plan['applications'])
             if backend == 'cuda':
-                self.assertEqual(plan['wide-arguments'], list(map(str, [compiler, '--target', 'cuda', '--arithmetic', 'software',
+                self.assertEqual(plan['wide-arguments'], list(map(str, [compiler, '--test-entry', 'main', '--target', 'cuda', '--arithmetic', 'software',
                     repo/'native/metal-source/indirect-arguments.k', '-O2', '-o', root/'wide-arguments'])))
             else:
                 self.assertIn('--compile-only', plan['shared-capabilities'])

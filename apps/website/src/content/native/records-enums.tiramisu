@@ -4,21 +4,30 @@ Use type for a named record with fields, and enum for a value that is one of sev
 
 h2 { "Construct and update a record" }
 
-codeblock { language = kalandra, """type Point:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+type Point:
   x: i64
   y: i64
 
-fn main() -> i64:
+fn main() -> unit ! IoError:
   original = Point { x: 2, y: 3 }
   moved = original with { x: 12 }
-  return original.x + moved.x + moved.y
+  output: i64 = original.x + moved.x + moved.y
+
+  try println(format("{}", output))
+  return ()
 """ }
 
-This returns 17: original.x is 2, moved.x is 12 and moved.y is 3. Field initializer order follows source order. A with expression produces a new record; original remains unchanged. All required fields must be supplied once with compatible types. Records can contain supported Strings, collections, nested records or enums, and function values; the contained values are kept alive automatically. Copying a record preserves the backing aliases of its array fields. Use copy on an array field when the new record needs independent element storage.
+This displays 17: original.x is 2, moved.x is 12 and moved.y is 3. Field initializer order follows source order. A with expression produces a new record; original remains unchanged. All required fields must be supplied once with compatible types. Records can contain supported Strings, collections, nested records or enums, and function values; the contained values are kept alive automatically. Copying a record preserves the backing aliases of its array fields. Use copy on an array field when the new record needs independent element storage.
 
 h2 { "Represent alternatives" }
 
-codeblock { language = kalandra, """enum Reading:
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+enum Reading:
   Missing
   Value:
     measurement: i64
@@ -28,11 +37,14 @@ fn readOrDefault(reading: Reading) -> i64:
     Reading.Missing: 0
     Reading.Value { measurement }: measurement
 
-fn main() -> i64:
-  return readOrDefault(Reading.Value { measurement: 42 })
+fn main() -> unit ! IoError:
+  output: i64 = readOrDefault(Reading.Value { measurement: 42 })
+
+  try println(format("{}", output))
+  return ()
 """ }
 
-This returns 42. Only the selected alternative exists as a language value. Read its payload by matching that variant. A final _ branch may handle remaining alternatives; missing, repeated and unreachable cases are diagnosed. Enum values do not gain record-style updates or implicit numeric ordinals.
+This displays 42. Only the selected alternative exists as a language value. Read its payload by matching that variant. A final _ branch may handle remaining alternatives; missing, repeated and unreachable cases are diagnosed. Enum values do not gain record-style updates or implicit numeric ordinals.
 
 h2 { "Cross calls and workers" }
 

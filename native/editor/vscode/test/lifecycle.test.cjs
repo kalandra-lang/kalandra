@@ -6,6 +6,7 @@ test("trust, native argv/logging, restarts, failed-start recovery and shutdown",
   let failStart = false;
   let failDispose = false;
   let notifications = 0;
+  let standardLibrary;
   const output = {
     appendLine() {},
     show() {},
@@ -32,6 +33,11 @@ test("trust, native argv/logging, restarts, failed-start recovery and shutdown",
       return { dispose() {} };
     },
     onDidChangeWorkspaceFolders: () => ({ dispose() {} }),
+    registerTextDocumentContentProvider: (scheme, provider) => {
+      expect(scheme).toBe("kalandra-stdlib");
+      standardLibrary = provider;
+      return { dispose() {} };
+    },
   };
   mock.module("vscode", () => ({
     workspace,
@@ -69,6 +75,11 @@ test("trust, native argv/logging, restarts, failed-start recovery and shutdown",
           throw new Error("start failed");
         }
       }
+      async sendRequest(method, params) {
+        expect(method).toBe("kalandra/standardLibrary");
+        expect(params.uri).toBe("kalandra-stdlib:std/io.k");
+        return "export fn println(text: String) -> unit ! IoError";
+      }
       async dispose() {
         this.disposed = true;
         if (failDispose) {
@@ -83,6 +94,9 @@ test("trust, native argv/logging, restarts, failed-start recovery and shutdown",
   expect(clients).toHaveLength(0);
   workspace.isTrusted = true;
   await commands.get("kalandra.native.restart")();
+  expect(await standardLibrary.provideTextDocumentContent({
+    toString: () => "kalandra-stdlib:std/io.k",
+  })).toContain("println");
   expect(clients).toHaveLength(1);
   expect(clients[0].server).toEqual({
     command: "/tools/kalandra-lsp",

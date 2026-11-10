@@ -10,8 +10,12 @@ h2 { "Run your first program" }
 
 Create an empty working directory and save the following in main.k:
 
-codeblock { language = kalandra, """fn main() -> i64:
-  return 6 * 7
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  try println(format("{}", 6 * 7))
+  return ()
 """ }
 
 Open a terminal in that directory. On macOS or Linux, run:
@@ -21,7 +25,7 @@ kalandra main.k -o program
 ./program
 """ }
 
-The checker succeeds without running the program. The compiler creates the executable program. Running it displays 42, the value returned by main. After changing the source, compile it again before running it.
+The checker succeeds without running the program. The compiler creates the executable program. Running it displays 42 through println. main returns () to indicate successful completion. After changing the source, compile it again before running it.
 
 On Windows, use a Visual Studio developer shell. Give the executable its .exe suffix:
 
@@ -40,7 +44,7 @@ kalandra --project my-app/kalandra.toml -o my-app/program
 ./my-app/program
 """ }
 
-The program displays [2, 4, 6]. Use these commands in a Windows developer shell:
+The program displays 2, 4 and 6 on separate lines. Use these commands in a Windows developer shell:
 
 codeblock { language = powershell, """kalandra new my-app
 kalandra-check --project my-app/kalandra.toml
@@ -57,9 +61,14 @@ h2 { "Read the starter" }
 The files are kalandra.toml, src/main.k and src/math.k. The entry module src/main.k imports a function and applies it to each array element using CPU workers:
 
 codeblock { language = kalandra, """from "./math.k" import double
+from "std/io" import println, IoError
+from "std/fmt" import format
 
-fn main() -> [i64] ! TaskError:
-  return try parallelMap([1, 2, 3], double)
+fn main() -> unit ! (IoError | TaskError):
+  values = try parallelMap([1, 2, 3], double)
+  for value in values:
+    try println(format("{}", value))
+  return ()
 """ }
 
 The sibling src/math.k exports the function:
@@ -72,7 +81,7 @@ parallelMap preserves input order. TaskError represents failures of the parallel
 
 h2 { "Change and rebuild" }
 
-Change value * 2 to value * 3 in src/math.k. Check the project again and rebuild; the program will display [3, 6, 9]. Add -O2 to enable optimization while retaining the language's checked arithmetic and other safety rules:
+Change value * 2 to value * 3 in src/math.k. Check the project again and rebuild; the program will display 3, 6 and 9 on separate lines. Add -O2 to enable optimization while retaining the language's checked arithmetic and other safety rules:
 
 codeblock { language = bash, """kalandra --project my-app/kalandra.toml -O2 -o my-app/program
 """ }

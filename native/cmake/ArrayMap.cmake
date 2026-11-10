@@ -22,12 +22,12 @@ if(BUILD_TESTING)
       set(MAP_RUNTIME "$<TARGET_FILE:kalandra-native-runtime>")
     endif()
     add_test(NAME native-array-map-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=${MAP_RUNTIME}" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/array-map-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyArrayMap.cmake")
     add_test(NAME native-array-closures-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
         "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}" "-DRUNTIME=${MAP_RUNTIME}" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/array-closures-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyArrayClosures.cmake")

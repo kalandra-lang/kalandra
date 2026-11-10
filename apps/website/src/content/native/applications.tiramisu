@@ -1,0 +1,58 @@
+meta { title = "Applications and command-line arguments", description = "Write a main function, receive arguments and choose an exit status.", order = 12, group = "Language reference" }
+
+An application starts at main. Give it either no parameters or one read-only [String] parameter, and return unit or ExitStatus from std/process. Use std/io to display output: returning a value from main does not print it.
+
+h2 { "A first application" }
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  try println(format("The answer is {}", 6 * 7))
+  return ()
+""" }
+
+Save this as main.k, compile it with kalandra main.k -o program, then run ./program. It displays The answer is 42 and exits successfully. On Windows, use program.exe as the output name.
+
+unit is the type of (). A successful main returning unit gives the process exit status zero. Console functions can fail, so this example declares IoError and propagates it with try. An unhandled error is written to standard error and makes the application exit with status one.
+
+h2 { "Command-line arguments" }
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main(args: [String]) -> unit ! IoError:
+  for argument in args:
+    try println(format("argument: {}", argument))
+  return ()
+""" }
+
+Run ./program hello "two words" to display two arguments. args excludes the executable name. Shell quoting determines where one argument ends and another begins; an explicitly empty argument remains an empty String. With no arguments, args is empty.
+
+Arguments are Unicode text. Windows applications receive the native Unicode command line; other platforms require valid UTF-8 arguments. Invalid text is rejected before main starts. Arguments use ordinary owned String storage, so they can be captured by closures and passed to CPU tasks.
+
+h2 { "Choose an exit status" }
+
+codeblock { language = kalandra, """from "std/process" import ExitStatus
+from "std/io" import eprintln, IoError
+
+fn main(args: [String]) -> ExitStatus ! IoError:
+  if length(args) == 0:
+    try eprintln("Provide at least one argument.")
+    return ExitStatus {code: 2}
+  return ExitStatus {code: 0}
+""" }
+
+ExitStatus has one field, code: u8. Its range is 0 through 255. Zero conventionally means success; use nonzero values for application-defined failures. Import this type from std/process: a user-defined record with the same name is a different type and cannot be the application result.
+
+Runtime faults and unhandled declared errors use status one after cleanup. Choosing an application exit status does not bypass task settlement or ownership cleanup.
+
+h2 { "CPU and GPU programs" }
+
+The entry contract is the same for CPU, Metal, Vulkan and CUDA applications. Console I/O and arguments live on the host. A program can submit numerical work to a GPU and display its result using host code; these APIs do not make Strings or console operations available inside device kernels.
+
+list {
+  link { url = "/docs/console", "Console I/O and formatting reference" },
+  link { url = "/docs/errors", "Handle and propagate errors" },
+  link { url = "/docs/gpu", "Submit work to a GPU" }
+}

@@ -35,7 +35,7 @@ if(BUILD_TESTING)
     target_link_libraries(kalandra-collection-display-${VARIANT} PRIVATE ${DISPLAY_RUNTIME})
     add_test(NAME native-collection-display-${VARIANT} COMMAND kalandra-collection-display-${VARIANT})
     add_test(NAME native-collection-entry-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
         "-DRUNTIME=$<TARGET_FILE:${DISPLAY_RUNTIME}>" "-DVARIANT=${VARIANT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/collection-entry-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyCollectionEntry.cmake")

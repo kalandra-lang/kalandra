@@ -1,5 +1,5 @@
 foreach(target IN ITEMS kalandra-native-runtime kalandra-native-runtime-sanitized kalandra-native-runtime-thread-sanitized kalandra-task-core-optimized)
-  target_sources(${target} PRIVATE runtime/Format.cpp runtime/Console.cpp)
+  target_sources(${target} PRIVATE runtime/Format.cpp runtime/Console.cpp runtime/Application.cpp)
 endforeach()
 if(BUILD_TESTING)
   foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
@@ -74,5 +74,138 @@ if(BUILD_TESTING)
         --output "${CMAKE_CURRENT_BINARY_DIR}/console-source-${variant}"
         --variant "${variant}")
     set_tests_properties(native-console-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io")
+    add_test(NAME native-application-source-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ApplicationSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>"
+        --output "${CMAKE_CURRENT_BINARY_DIR}/application-source-${variant}"
+        --variant "${variant}")
+    set_tests_properties(native-application-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io")
+  endforeach()
+endif()
+
+foreach(target IN ITEMS kalandra-semantics kalandra-semantics-sanitized)
+  if(TARGET ${target})
+    target_sources(${target} PRIVATE lib/Application.cpp)
+  endif()
+endforeach()
+if(BUILD_TESTING)
+  foreach(variant IN ITEMS debug sanitized)
+    add_executable(kalandra-application-tests-${variant} tests/ApplicationTests.cpp)
+    target_compile_options(kalandra-application-tests-${variant} PRIVATE -Wall -Wextra -Werror)
+    if(variant STREQUAL "sanitized")
+      target_link_libraries(kalandra-application-tests-${variant} PRIVATE kalandra-semantics-sanitized)
+      target_compile_options(kalandra-application-tests-${variant} PRIVATE -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      target_link_options(kalandra-application-tests-${variant} PRIVATE -fsanitize=address,undefined -fno-sanitize-recover=all)
+    else()
+      target_link_libraries(kalandra-application-tests-${variant} PRIVATE kalandra-semantics)
+    endif()
+    add_test(NAME native-application-entry-${variant} COMMAND kalandra-application-tests-${variant}
+      "${CMAKE_CURRENT_BINARY_DIR}/application-entry-${variant}")
+    set_tests_properties(native-application-entry-${variant} PROPERTIES TIMEOUT 60 LABELS "feature-io")
+  endforeach()
+endif()
+
+foreach(variant IN ITEMS debug sanitized thread-sanitized)
+  add_library(kalandra-application-entry-${variant} STATIC runtime/ApplicationEntry.cpp)
+  target_compile_options(kalandra-application-entry-${variant} PRIVATE -Wall -Wextra -Werror)
+  if(variant STREQUAL "sanitized")
+    target_compile_options(kalandra-application-entry-${variant} PRIVATE -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+  elseif(variant STREQUAL "thread-sanitized")
+    target_compile_options(kalandra-application-entry-${variant} PRIVATE -fsanitize=thread -fno-omit-frame-pointer)
+  endif()
+endforeach()
+target_compile_definitions(kalandra PRIVATE
+  KALANDRA_APPLICATION_ENTRY="$<TARGET_FILE:kalandra-application-entry-debug>"
+  KALANDRA_APPLICATION_SANITIZED_ENTRY="$<TARGET_FILE:kalandra-application-entry-sanitized>"
+  KALANDRA_APPLICATION_THREAD_SANITIZED_ENTRY="$<TARGET_FILE:kalandra-application-entry-thread-sanitized>")
+kalandra_compiler_runtimes(kalandra-application-entry-debug kalandra-application-entry-sanitized kalandra-application-entry-thread-sanitized)
+
+option(KALANDRA_BUILD_TEST_OBSERVER "Build the non-installed numerical qualification launcher" ${BUILD_TESTING})
+if(BUILD_TESTING OR KALANDRA_BUILD_TEST_OBSERVER)
+  add_executable(kalandra-test-observer tests/CompilerObserver.cpp)
+  target_compile_options(kalandra-test-observer PRIVATE -Wall -Wextra -Werror)
+  target_compile_definitions(kalandra-test-observer PRIVATE KALANDRA_COMPILER_PATH="$<TARGET_FILE:kalandra>")
+  add_dependencies(kalandra-test-observer kalandra)
+endif()
+if(BUILD_TESTING)
+  add_test(NAME native-compiler-observer
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CompilerObserverTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --observer "$<TARGET_FILE:kalandra-test-observer>"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/compiler-observer")
+  set_tests_properties(native-compiler-observer PROPERTIES TIMEOUT 120 LABELS "feature-io")
+endif()
+
+if(BUILD_TESTING)
+  add_executable(kalandra-console-host-generator tests/ConsoleHostBridgeGenerator.cpp)
+  target_link_libraries(kalandra-console-host-generator PRIVATE kalandra-semantics LLVM)
+  target_include_directories(kalandra-console-host-generator SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+  target_compile_options(kalandra-console-host-generator PRIVATE -Wall -Wextra -Werror)
+  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+    set(runtime kalandra-native-runtime)
+    if(variant STREQUAL "sanitized")
+      set(runtime kalandra-native-runtime-sanitized)
+    elseif(variant STREQUAL "thread-sanitized")
+      set(runtime kalandra-native-runtime-thread-sanitized)
+    endif()
+    add_test(NAME native-console-host-bridge-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ConsoleHostBridgeTests.py"
+        --generator "$<TARGET_FILE:kalandra-console-host-generator>"
+        --clang "${CMAKE_CXX_COMPILER}" --runtime "$<TARGET_FILE:${runtime}>"
+        --output "${CMAKE_CURRENT_BINARY_DIR}/console-host-bridge-${variant}" --variant "${variant}")
+    set_tests_properties(native-console-host-bridge-${variant} PROPERTIES TIMEOUT 180 LABELS "feature-io")
+  endforeach()
+endif()
+
+if(BUILD_TESTING)
+  foreach(backend IN ITEMS metal vulkan cuda)
+    if((backend STREQUAL "metal" AND KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
+       OR (backend STREQUAL "vulkan" AND KALANDRA_BUILD_VULKAN_RUNTIME)
+       OR (backend STREQUAL "cuda" AND KALANDRA_BUILD_CUDA_SOURCE))
+      foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+        if(NOT backend STREQUAL "metal" AND variant STREQUAL "thread-sanitized")
+          continue()
+        endif()
+        if(backend STREQUAL "cuda" AND variant STREQUAL "sanitized")
+          continue()
+        endif()
+        if(backend STREQUAL "vulkan" AND variant STREQUAL "sanitized" AND NOT KALANDRA_VULKAN_HAS_ASAN)
+          continue()
+        endif()
+        add_test(NAME native-console-${backend}-source-${variant}
+          COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/GpuConsoleSourceTests.py"
+            --compiler "$<TARGET_FILE:kalandra>"
+            --output "${CMAKE_CURRENT_BINARY_DIR}/console-${backend}-source-${variant}"
+            --target "${backend}" --variant "${variant}")
+        set_tests_properties(native-console-${backend}-source-${variant} PROPERTIES
+          TIMEOUT 600 LABELS "feature-io;feature-gpu" RESOURCE_LOCK "${backend}-gpu")
+        if(backend STREQUAL "metal")
+          set_tests_properties(native-console-${backend}-source-${variant} PROPERTIES
+            RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+        endif()
+      endforeach()
+    endif()
+  endforeach()
+endif()
+
+if(BUILD_TESTING)
+  foreach(variant IN ITEMS debug sanitized)
+    set(server kalandra-lsp)
+    if(variant STREQUAL "sanitized")
+      set(server kalandra-lsp-sanitized)
+    endif()
+    add_test(NAME native-lsp-standard-library-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/lsp/StandardLibraryProtocolTests.py"
+        "$<TARGET_FILE:${server}>" "${CMAKE_CURRENT_BINARY_DIR}/lsp-standard-library-${variant}")
+    set_tests_properties(native-lsp-standard-library-${variant} PROPERTIES TIMEOUT 60 LABELS "feature-io;feature-tooling")
+  endforeach()
+endif()
+
+if(BUILD_TESTING)
+  add_custom_target(native-io-qualification DEPENDS
+    kalandra kalandra-test-observer kalandra-check kalandra-lsp kalandra-lsp-sanitized
+    kalandra-standard-library-tests kalandra-console-host-generator
+    kalandra-application-tests-debug kalandra-application-tests-sanitized)
+  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+    add_dependencies(native-io-qualification kalandra-format-tests-${variant} kalandra-console-tests-${variant})
   endforeach()
 endif()

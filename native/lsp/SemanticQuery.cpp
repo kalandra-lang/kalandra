@@ -4,6 +4,16 @@
 namespace kalandra::lsp {
 namespace {
 using SpanKey = std::pair<std::size_t, std::size_t>;
+std::optional<FunctionId> calledFunction(const TypedModule &module, const TypedExpr &expression) {
+  if (const auto *call = std::get_if<FunctionCall>(&expression.operation))
+    return call->function;
+  if (std::holds_alternative<FormatOperation>(expression.operation))
+    for (FunctionId id = 0; id < module.functions.size(); ++id)
+      if (module.functions[id].compileTimeOnly &&
+          module.source->slice(module.functions[id].declaration) == "format")
+        return id; // The checked intrinsic retains its canonical standard declaration.
+  return {};
+}
 std::shared_ptr<const SourceFile> originalSource(std::shared_ptr<const SourceFile> source,
                                                  std::string_view path, unsigned depth = 0) {
   if (!source || depth > 32)
@@ -126,8 +136,8 @@ std::optional<SourceIndex> sourceIndex(ParseResult syntax, CheckOptions options)
         if (token != identifiers.end())
           add(expression.span, function.declaration, token->second);
       }
-    } else if (const auto *call = std::get_if<FunctionCall>(&expression.operation)) {
-      const auto &function = module.functions[call->function];
+    } else if (const auto call = calledFunction(module, expression)) {
+      const auto &function = module.functions[*call];
       const auto callee = callees.find({expression.span.begin, expression.span.end});
       if (!function.anonymous && callee != callees.end()) {
         const auto token = identifiers.find({callee->second.begin, callee->second.end});
@@ -278,12 +288,12 @@ std::optional<SemanticToken> semanticToken(ParseResult syntax, std::string_view 
         }
       }
     }
-    if (const auto *call = std::get_if<FunctionCall>(&expression.operation)) {
+    if (const auto call = calledFunction(module, expression)) {
       const auto found = callees.find({expression.span.begin, expression.span.end});
       if (found != callees.end() && exact(found->second)) {
-        selected.function = call->function;
-        if (!module.functions[call->function].anonymous)
-          selected.declaration = module.functions[call->function].declaration;
+        selected.function = *call;
+        if (!module.functions[*call].anonymous)
+          selected.declaration = module.functions[*call].declaration;
         return selected;
       }
     }

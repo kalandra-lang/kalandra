@@ -695,6 +695,12 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           (query->kind != StringQueryKind::Length && query->kind != StringQueryKind::ByteLength))
         return "String query requires a completed CPU String and scalar int64 result";
     }
+    if (std::holds_alternative<ApplicationArguments>(expression.operation)) {
+      const auto &r = expression.type;
+      if (target != NumericTarget::Cpu || !isStringArray(r) || !r.tensor || r.shape.size() != 1 ||
+          r.shape[0].constant || r.task || r.fallible || r.device)
+        return "application arguments require a completed host [String] array";
+    }
     if (const auto *console = std::get_if<ConsoleOperation>(&expression.operation)) {
       const auto &r = expression.type;
       if (target != NumericTarget::Cpu || r.tensor || r.array || r.task || r.device ||
@@ -1158,7 +1164,9 @@ std::string dumpTypedIR(const TypedModule &module) {
               out << (operation.kind == StringQueryKind::Length ? "string.length checked %"
                                                                 : "string.byte_length checked %")
                   << operation.input;
-            else if constexpr (std::is_same_v<T, ConsoleOperation>) {
+            else if constexpr (std::is_same_v<T, ApplicationArguments>) {
+              out << "application.arguments";
+            } else if constexpr (std::is_same_v<T, ConsoleOperation>) {
               out << "console."
                   << (operation.action == ConsoleAction::ReadLine  ? "readLine"
                       : operation.action == ConsoleAction::Print   ? "print"

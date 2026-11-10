@@ -102,7 +102,10 @@ struct ModulePlan {
 // Direct/transitive task or control effects require continuation lowering.
 [[nodiscard]] std::vector<bool> resumableFunctions(const TypedModule &input);
 // Suspension/device effects, excluding synchronous expected-error control flow.
-[[nodiscard]] std::vector<bool> coordinatingFunctions(const TypedModule &input);
+// Ignore console suspension only when proving an uncancellable outer application;
+// ordinary tasks and callable admission always use the default resumable mode.
+[[nodiscard]] std::vector<bool> coordinatingFunctions(const TypedModule &input,
+                                                      bool consoleMaySuspend = true);
 // Direct/transitive lexical loop control needs native CFG entries, not task
 // scheduling or recursive source-body expansion.
 [[nodiscard]] std::vector<bool> loopControlFunctions(const TypedModule &input);

@@ -436,6 +436,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
                  target->getName() == "kalandra_record_validate" ||
                  target->getName() == "kalandra_record_array_validate" ||
                  target->getName() == "kalandra_string_literal" ||
+                 target->getName() == "kalandra_application_arguments" ||
                  target->getName() == "kalandra_format_scalar" ||
                  target->getName() == "kalandra_format_join" ||
                  target->getName() == "kalandra_string_validate" ||
@@ -736,6 +737,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
                            "kalandra_record_validate",
                            "kalandra_record_array_validate",
                            "kalandra_string_literal",
+                           "kalandra_application_arguments",
                            "kalandra_format_scalar",
                            "kalandra_format_join",
                            "kalandra_string_validate",

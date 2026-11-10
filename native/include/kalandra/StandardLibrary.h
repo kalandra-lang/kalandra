@@ -23,6 +23,15 @@ inline std::string_view standardModulePath(StandardModule module) {
   }
   return {};
 }
+inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Io))
+    return StandardModule::Io;
+  if (path == standardModulePath(StandardModule::Format))
+    return StandardModule::Format;
+  if (path == standardModulePath(StandardModule::Process))
+    return StandardModule::Process;
+  return {};
+}
 // Read-only compiler declarations. Intrinsic bodies are provided by lowering;
 // the unresolved names deliberately fail ordinary source checking unless the
 // module loader has supplied its separate standard-module identity.

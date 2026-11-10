@@ -50,7 +50,7 @@ for row in json.loads(matrix.read_text())['rows']:
         if reference:
             assert expected[fixture]['sourceSHA256'] == sha, fixture
         if not a.replay_only:
-            result = subprocess.run([a.compiler, '--target', a.backend, '--arithmetic', 'software',
+            result = subprocess.run([a.compiler, '--test-entry', 'main', '--target', a.backend, '--arithmetic', 'software',
                                      '-O2', path, '-o', destination], capture_output=True, text=True, timeout=180)
             (a.output/(row['id']+'-'+str(index)+'.compile.log')).write_text(result.stdout+result.stderr)
             assert not result.returncode, (fixture, result.stderr[-5000:])

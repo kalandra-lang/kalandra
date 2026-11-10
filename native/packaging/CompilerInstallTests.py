@@ -38,14 +38,14 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
         expected, name = line.split("  ", 1)
         assert (prefix / name).resolve().is_relative_to(prefix.resolve())
         assert digest(prefix / name) == expected
-    assert len(list((prefix / "lib/kalandra/native").glob("*.a"))) == 33
+    assert len(list((prefix / "lib/kalandra/native").glob("*.a"))) == 36
     assert not (prefix / "bin/kalandrac").exists()
     compiler = cwd / "compiler symlink"
     compiler.symlink_to(prefix / "bin/kalandra")
     starter = cwd / "installed starter"
     run([compiler, "new", starter], cwd)
     run([compiler, "--project", starter / "kalandra.toml", "-o", cwd / "starter program"], cwd)
-    assert run([cwd / "starter program"], cwd).stdout.strip() == "[2, 4, 6]"
+    assert run([cwd / "starter program"], cwd).stdout.strip() == "2\n4\n6"
     cases = [(kind, "42", "42") for kind in ("i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64")]
     cases += [("f32", "1.5", "1.5"), ("f64", "1.5", "1.5"),
               ("unit", "()", ""), ("bool", "true", "true"), ("String", '"hello"', "hello")]
@@ -55,25 +55,25 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
             source = cwd / "main.k"
             source.write_text(f'fn main() -> {kind}:\n  return {value}\n')
             executable = cwd / "program"
-            run([compiler, source, "-o", executable, "-O2", *mode], cwd)
+            run([compiler, "--test-entry", "main", source, "-o", executable, "-O2", *mode], cwd)
             assert run([executable], cwd).stdout.strip() == expected
     (cwd / "library.k").write_text('export fn double(value: i64) -> i64:\n  return value * 2\n')
     (cwd / "main.k").write_text('from "math" import double\nfn main() -> i64:\n  return double(21)\n')
     (cwd / "kalandra.toml").write_text('format=1\n[project]\nentry="main.k"\n[packages]\nmath="library.k"\n')
-    run([compiler, "--project", cwd / "kalandra.toml", "-o", cwd / "program"], cwd)
+    run([compiler, "--test-entry", "main", "--project", cwd / "kalandra.toml", "-o", cwd / "program"], cwd)
     assert run([cwd / "program"], cwd).stdout.strip() == "42"
     deps = run(["otool", "-L", cwd / "program"], cwd).stdout
     assert "libLLVM" not in deps and "libMLIR" not in deps
     # Collection entry and bounded worker dispatch use the installed runtime too.
     (cwd / "main.k").write_text('fn double(value: i64) -> i64:\n  return value * 2\nfn main() -> i64 ! TaskError:\n  values = try parallelMap([21], double)\n  return values[0]\n')
     for mode in ([], ["--sanitize"], ["--thread-sanitize"]):
-        run([compiler, cwd / "main.k", "-o", cwd / "program", *mode], cwd)
+        run([compiler, "--test-entry", "main", cwd / "main.k", "-o", cwd / "program", *mode], cwd)
         assert run([cwd / "program"], cwd).stdout.strip() == "42"
         (cwd / "array.k").write_text('fn main() -> [i64]:\n  return [1, 2, 3]\n')
-        run([compiler, cwd / "array.k", "-o", cwd / "program", *mode], cwd)
+        run([compiler, "--test-entry", "main", cwd / "array.k", "-o", cwd / "program", *mode], cwd)
         assert "1" in run([cwd / "program"], cwd).stdout
         (cwd / "strings.k").write_text('fn main() -> [String]:\n  return ["hello", "world"]\n')
-        run([compiler, cwd / "strings.k", "-o", cwd / "program", *mode], cwd)
+        run([compiler, "--test-entry", "main", cwd / "strings.k", "-o", cwd / "program", *mode], cwd)
         assert "hello" in run([cwd / "program"], cwd).stdout
     # The relocated public compiler installs exact local dependencies, then builds
     # solely from the activated cache with the original Git repository absent.
@@ -97,7 +97,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
     run([compiler, "install", "--project", application / "kalandra.toml"], cwd)
     repository.rename(repository.with_name("unavailable Git library"))
     for mode in ([], ["--sanitize"], ["--thread-sanitize"]):
-        run([compiler, "--project", application / "kalandra.toml", "-o", cwd / "program", *mode], cwd)
+        run([compiler, "--test-entry", "main", "--project", application / "kalandra.toml", "-o", cwd / "program", *mode], cwd)
         assert run([cwd / "program"], cwd).stdout.strip() == "42"
     # Exercise targeted updates through the relocated public CLI, including
     # owner-local pins and failed activation preserving the prior lock.
@@ -107,10 +107,10 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
     saved = (cwd / "program").read_bytes()
     runtime = prefix / "lib/kalandra/native/libkalandra-native-runtime.a"
     runtime.unlink()
-    result = run([compiler, "--project", cwd / "kalandra.toml", "-o", cwd / "program"], cwd, 1)
+    result = run([compiler, "--test-entry", "main", "--project", cwd / "kalandra.toml", "-o", cwd / "program"], cwd, 1)
     assert "native runtime archive is missing" in result.stderr
     assert (cwd / "program").read_bytes() == saved
-    result = run([compiler, cwd / "main.k", "--target", "metal", "-o", cwd / "program"], cwd, 2)
+    result = run([compiler, "--test-entry", "main", cwd / "main.k", "--target", "metal", "-o", cwd / "program"], cwd, 2)
     assert "supports CPU only" in result.stderr
     assert (cwd / "program").read_bytes() == saved
 print("CPU bundle: relocation, symlink, 45 scalar/collection/worker sanitizer programs, project imports, exact dependency installation/offline workers, named updates, resource failures passed")

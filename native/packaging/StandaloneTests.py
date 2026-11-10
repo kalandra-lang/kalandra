@@ -122,16 +122,16 @@ def qualify_prefix(prefix, kind, runtime, build=None, metal_execute=False):
                 execute([link, source, "-o", executable, "-O2", *mode])
                 assert execute([executable]).stdout.strip() == expected
             source.write_text('fn double(value:i64)->i64:\n  return value*2\nfn main()->i64 ! TaskError:\n  values=try parallelMap([21],double)\n  return values[0]\n')
-            execute([compiler, source, "-o", executable, *mode])
+            execute([compiler, "--test-entry", "main", source, "-o", executable, *mode])
             assert execute([executable]).stdout.strip() == "42"
         # Missing private tools must not silently use the development Clang.
         clang = prefix / "libexec/kalandra/clang++"
         clang.rename(clang.with_name("hidden-clang"))
         prior = digest(executable)
-        assert "bundled Clang" in execute([compiler, source, "-o", executable], expected=1).stderr
+        assert "bundled Clang" in execute([compiler, "--test-entry", "main", source, "-o", executable], expected=1).stderr
         assert digest(executable) == prior
         clang.with_name("hidden-clang").rename(clang)
-        execute([compiler, source, "-o", executable])
+        execute([compiler, "--test-entry", "main", source, "-o", executable])
         loads = inspect(executable)[0]
         assert all(system(dependency) for dependency in loads), loads
         # Ordinary generated programs run with the entire compiler bundle absent.
@@ -169,7 +169,7 @@ fn main()->f64 ! TaskError:
                 # Every numeric case intentionally returns float64, including
                 # integer/float32 inputs. Metal requires an explicit fallback
                 # for that conversion/result; float32 arithmetic stays hardware.
-                execute([compiler, source, "--target", "metal", "--arithmetic",
+                execute([compiler, "--test-entry", "main", source, "--target", "metal", "--arithmetic",
                          "hardware-with-software-fallback", "-o", app, *flags])
                 assert list(app.glob("*.metallib"))
                 if not flags or flags == ["-O2"]:
@@ -179,7 +179,7 @@ fn main()->f64 ! TaskError:
                     assert execute([app / "program"]).stdout.strip() == "4038000000000000"
         source.write_bytes((repository / "native/metal-source/matrix-graph.k").read_bytes())
         app = runtime / "resident matrix application"
-        execute([compiler, source, "--target", "metal", "-o", app, "-O2"])
+        execute([compiler, "--test-entry", "main", source, "--target", "metal", "-o", app, "-O2"])
         applications.append((app, "[42d40000,431c0000,43710000,43b10000]"))
         if metal_execute:
             assert execute([app / "program"]).stdout.strip() == applications[-1][1]
@@ -188,10 +188,10 @@ fn main()->f64 ! TaskError:
                         prefix / "lib/kalandra/native/kalandra-metal-strict64"):
             hidden = missing.with_name(missing.name + ".hidden")
             missing.rename(hidden)
-            execute([compiler, source, "--target", "metal", "-o", app], expected=1)
+            execute([compiler, "--test-entry", "main", source, "--target", "metal", "-o", app], expected=1)
             assert digest(app / "program") == prior
             hidden.rename(missing)
-        invalid = execute([compiler, source, "--target", "metal", "-o", app], expected=1,
+        invalid = execute([compiler, "--test-entry", "main", source, "--target", "metal", "-o", app], expected=1,
                           overrides={"KALANDRA_METAL_COMPILER": "/usr/bin/true"})
         assert "version mismatch" in invalid.stderr
         assert digest(app / "program") == prior

@@ -33,7 +33,7 @@ if(BUILD_TESTING)
     target_link_libraries(kalandra-bool-array-storage-${VARIANT} PRIVATE ${BA_RUNTIME})
     add_test(NAME native-bool-array-storage-${VARIANT} COMMAND kalandra-bool-array-storage-${VARIANT})
     add_test(NAME native-bool-arrays-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=$<TARGET_FILE:${BA_RUNTIME}>"
         "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/bool-arrays-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyBoolArrays.cmake")

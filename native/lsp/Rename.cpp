@@ -1,5 +1,6 @@
 #include "Rename.h"
 #include "Workspace.h"
+#include "kalandra/StandardLibrary.h"
 #include <algorithm>
 #include <compare>
 #include <map>
@@ -430,6 +431,11 @@ planRename(const std::vector<std::string> &roots, const std::string &workspace,
         changed == replacements.end() ? source->text() : std::string_view(changed->second);
     if (after == afterFiles.end() || after->second->text() != expected)
       return std::unexpected("Sources changed during rename validation");
+    if (const auto standard = standardModuleFromPath(file)) {
+      if (replacements.contains(file) || source->text() != standardModuleSource(*standard))
+        return std::unexpected("Standard declarations changed during rename validation");
+      continue; // Immutable compiler text has no disk file to race with.
+    }
     if (!proposed.contains(file) || replacements.contains(file)) {
       const bool open =
           std::ranges::any_of(overlays, [&](const auto &overlay) { return overlay.path == file; });

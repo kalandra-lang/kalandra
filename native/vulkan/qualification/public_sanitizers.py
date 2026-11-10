@@ -33,7 +33,7 @@ for name, source, values in [('placed', repo/'native/metal-source/placed.k', [5,
                              ('mixed', repo/'native/metal-source/cpu-spawn.k', [52, 54, 64, 66]),
                              ('matrix', matrix, [4, 5, 10, 11])]:
     output = args.output/name
-    built = subprocess.run(list(map(str, [args.compiler, '--target', 'vulkan', source,
+    built = subprocess.run(list(map(str, [args.compiler, '--test-entry', 'main', '--target', 'vulkan', source,
                                            '--sanitize', '--matmul-policy', 'optimized', '-o', output])), capture_output=True, text=True, timeout=180)
     (args.output/(name+'-build.log')).write_text(built.stdout+built.stderr)
     assert not built.returncode, built.stderr[-4000:]

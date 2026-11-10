@@ -946,7 +946,7 @@ private:
     // Resolve type imports before checking fields or function annotations. Explicit
     // re-exports follow the original declaration; ordinary imports remain private.
     for (const auto &import : syntax_.imports) {
-      if (!import.target || options_.placement)
+      if (!import.target)
         continue;
       for (const auto &imported : import.names) {
         const auto found = exportedBinding(*import.target, name(imported.name));
@@ -5520,6 +5520,31 @@ private:
       if (spawned || selection) {
         error("S080", "format cannot be a spawn entry; wrap it in a function", span);
         return {};
+      }
+      if (queryingSignature(span)) {
+        const auto prefix = options_.signature->argumentIndex.value_or(arguments.size());
+        if (prefix > arguments.size())
+          return {};
+        for (std::size_t index = 0; index < prefix; ++index) {
+          if (index == 0 &&
+              !std::holds_alternative<StringExpr>(syntax_.expressions[arguments[index]].value))
+            return {};
+          const auto value = expression(frame, arguments[index]);
+          if (!value)
+            return {};
+          const auto &type = node(*value).type;
+          if (type.tensor || type.array || type.task || type.fallible ||
+              (type.builtin != BuiltinValue::String && type.builtin != BuiltinValue::Numeric &&
+               type.builtin != BuiltinValue::Bool))
+            return {};
+        }
+        ValueType text;
+        text.builtin = BuiltinValue::String;
+        captureSignature(frame, FunctionSignature{{text}, text}, {"template"});
+        if (options_.signature->snapshot)
+          options_.signature->snapshot->formatIntrinsic = true;
+        error("S027", "editing format argument requires a signature snapshot", span);
+        return {}; // An editor-only projection is not executable source.
       }
       return formatCall(frame, span, arguments);
     }

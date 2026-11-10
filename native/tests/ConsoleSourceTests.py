@@ -33,6 +33,14 @@ run(build('streams','''fn main()->unit ! IoError:
   try eprintln("stream")
   return ()
 '''),out='α\0value=42\n'.encode(),err=b'error stream\n')
+run(build('console-function-values','''fn main()->unit ! (IoError | TaskError):
+  emit=println
+  try emit("callable")
+  return try parallel:
+    work=spawn println("task")
+    try await work
+    ()
+'''),out=b'callable\ntask\n')
 read='''fn next()->String ! IoError:
   line=try readLine(100)
   return match line:

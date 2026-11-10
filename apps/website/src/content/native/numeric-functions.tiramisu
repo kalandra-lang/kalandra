@@ -71,18 +71,35 @@ Convert to IEEE-754 binary64, with 53 bits of significand precision. Rounding ca
 
 h2 { "Examples" }
 
-codeblock { language = kalandra, """fn main() -> [i64]:
-  value: i64 = 42
-  return [i64(i8(value)), i64(i16(value)), i64(i32(value)), i64(i64(value)), i64(u8(value)), i64(u16(value)), i64(u32(value)), i64(u64(value)), i64(f32(value)), i64(f64(value))]
-""" }
-This returns ten copies of 42.
+codeblock { language = kalandra, """from "std/io" import print, println, IoError
+from "std/fmt" import format
 
-codeblock { language = kalandra, """fn main() -> i64:
+fn main() -> unit ! IoError:
+  value: i64 = 42
+  output: [i64] = [i64(i8(value)), i64(i16(value)), i64(i32(value)), i64(i64(value)), i64(u8(value)), i64(u16(value)), i64(u32(value)), i64(u64(value)), i64(f32(value)), i64(f64(value))]
+
+  try print("[")
+  for index in range(length(output)):
+    if index > 0:
+      try print(", ")
+    try print(format("{}", output[index]))
+  try println("]")
+  return ()
+""" }
+This displays ten copies of 42.
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
   values: Tensor[i32, 2] = tensor([20, 22])
   converted = f64(values)
-  return i64(reduceSum(converted))
+  output: i64 = i64(reduceSum(converted))
+
+  try println(format("{}", output))
+  return ()
 """ }
-This returns 42. Conversions do not supply an expected type to an already typed argument; annotate a tensor before converting it. No implicit numeric promotion takes place.
+This displays 42. Conversions do not supply an expected type to an already typed argument; annotate a tensor before converting it. No implicit numeric promotion takes place.
 
 list {
   link { url = "/docs/numbers", "Numeric values, arithmetic and policies" }

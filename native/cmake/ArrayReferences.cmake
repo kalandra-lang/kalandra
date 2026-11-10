@@ -19,7 +19,7 @@ if(BUILD_TESTING)
     target_link_libraries(kalandra-array-reference-storage-${VARIANT} PRIVATE ${REFERENCE_RUNTIME})
     add_test(NAME native-array-reference-storage-${VARIANT} COMMAND kalandra-array-reference-storage-${VARIANT})
     add_test(NAME native-array-references-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
         "-DRUNTIME=$<TARGET_FILE:${REFERENCE_RUNTIME}>" "-DVARIANT=${VARIANT}" "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/array-references-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyArrayReferences.cmake")

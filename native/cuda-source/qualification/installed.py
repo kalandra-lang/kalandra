@@ -53,7 +53,7 @@ from VersionCheck import verify_package_version
 verify_package_version(prefix);audit(prefix)
 compiler=prefix/'bin/kalandra'
 source=a.root/'cpu.k';source.write_text('fn main()->i32:\n  return 42\n')
-subprocess.run([compiler,source,'-o',a.root/'cpu'],check=True,timeout=90)
+subprocess.run([compiler, '--test-entry', 'main',source,'-o',a.root/'cpu'],check=True,timeout=90)
 assert subprocess.check_output([a.root/'cpu'],text=True,timeout=30)=='42\n'
 subprocess.run([sys.executable,Path(__file__).with_name('applications.py'),
     '--build',a.root,'--compiler',compiler,'--output',a.root/'applications',
@@ -142,7 +142,7 @@ for index,(relative,source) in enumerate(checks):
     owned=prefix/relative;saved=owned.with_name(owned.name+'.qualification-hidden');owned.rename(saved)
     try:
         output=a.root/('missing-'+str(index))
-        run=subprocess.run([compiler,'--target','cuda','--matmul-policy','optimized',source,'-O2','-o',output],capture_output=True,text=True,timeout=90)
+        run=subprocess.run([compiler, '--test-entry', 'main','--target','cuda','--matmul-policy','optimized',source,'-O2','-o',output],capture_output=True,text=True,timeout=90)
         assert run.returncode==1 and not (output/'program').exists(),(relative,run)
     finally:saved.rename(owned)
 print('PASS: relocated CUDA/CPU compiler, complete source programs, SDK-free ELF closure and eight owned-resource failure gates')

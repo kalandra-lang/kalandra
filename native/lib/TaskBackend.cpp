@@ -62,6 +62,8 @@ class Emitter {
   std::vector<Function *> frameDestroyers;
   std::vector<llvm::GlobalVariable *> entries;
   std::map<Function *, Value *> consoleScratch;
+  Function *closedApplication = nullptr;
+  std::optional<std::size_t> closedApplicationId;
   Function *destroy;
   std::vector<Function *> synchronousEntries;
   std::vector<ValueType> functionSignatures;
@@ -202,7 +204,8 @@ public:
                 (isBooleanStorage(type) && (!type.tensor || isBoolArray(type))) ||
                 (type.builtin == BuiltinValue::Record && !type.tensor &&
                  !containsFunctionStorage(planner.input, type)) ||
-                (type.builtin == BuiltinValue::Function && !type.tensor));
+                (type.builtin == BuiltinValue::Function && !type.tensor) ||
+                (type.builtin == BuiltinValue::String && (!type.tensor || isStringArray(type))));
       };
       if (coordinating[id] || found->captureCount || !supported(found->resultType) ||
           std::ranges::any_of(found->parameters, [&](auto symbol) {
@@ -233,6 +236,32 @@ public:
       synchronousEntries[id] =
           function("kalandra_callable_plan_" + std::to_string(id),
                    result.fallible ? voidType : scalarType(result), parameters);
+    }
+    if (planner.input.applicationEntry) {
+      const auto effects = coordinatingFunctions(planner.input, false);
+      const auto root = std::ranges::find_if(planner.input.functions,
+                                             [](const auto &fn) { return fn.name == "main"; });
+      if (root != planner.input.functions.end()) {
+        const auto id = std::size_t(root - planner.input.functions.begin());
+        const auto &plan = *planner.plans[id];
+        const bool local =
+            !effects.at(id) && !plan.groups && std::ranges::none_of(plan.code, [](const auto &op) {
+              return op.code == Code::Open || op.code == Code::Spawn || op.code == Code::Await ||
+                     op.code == Code::Join || op.code == Code::MapJoin || op.code == Code::Device ||
+                     op.code == Code::Transfer || op.code == Code::Call ||
+                     op.code == Code::FunctionInvoke;
+            });
+        if (local) {
+          closedApplicationId = id;
+          std::vector<Type *> parameters{pointer};
+          if (root->resultType.fallible)
+            parameters.push_back(pointer);
+          parameters.push_back(pointer);
+          closedApplication = function(
+              "kalandra_closed_application",
+              root->resultType.fallible ? voidType : scalarType(root->resultType), parameters);
+        }
+      }
     }
     if (recursiveClosures) {
       std::set<std::size_t> targets;
@@ -293,6 +322,8 @@ public:
           throw std::runtime_error("CPU bridge unexpectedly references task coordination");
         entry->eraseFromParent();
       }
+    if (closedApplicationId)
+      emitPlan(*closedApplicationId, true, true);
     finishRecordRetainers();
   }
   std::vector<llvm::GlobalVariable *> taskEntries() const { return entries; }
@@ -501,7 +532,29 @@ public:
     auto *failure = builder.CreateAlloca(failureType);
     builder.CreateStore(llvm::Constant::getNullValue(valueType(main->resultType)), result);
     fillPacket(packet, id, llvm::ConstantPointerNull::get(builder.getPtrTy()), ctx);
-    call("kalandra_run_task_v1", voidType, {entries[id], packet, result, ctx, failure});
+    if (closedApplication && closedApplicationId == id) {
+      builder.CreateStore(llvm::Constant::getNullValue(failureType), failure);
+      auto *direct = Block::Create(context, "application.unbound", entry);
+      auto *scheduled = Block::Create(context, "application.cancellable", entry);
+      auto *observed = Block::Create(context, "application.result", entry);
+      builder.CreateCondBr(call("kalandra_invocation_unbound_v1", boolean, {ctx}), direct,
+                           scheduled);
+      builder.SetInsertPoint(direct);
+      if (main->resultType.fallible)
+        builder.CreateCall(closedApplication,
+                           {llvm::ConstantPointerNull::get(builder.getPtrTy()), result, ctx});
+      else {
+        auto *value = builder.CreateCall(closedApplication,
+                                         {llvm::ConstantPointerNull::get(builder.getPtrTy()), ctx});
+        builder.CreateStore(value, builder.CreateStructGEP(valueType(main->resultType), result, 1));
+      }
+      builder.CreateBr(observed);
+      builder.SetInsertPoint(scheduled);
+      call("kalandra_run_task_v1", voidType, {entries[id], packet, result, ctx, failure});
+      builder.CreateBr(observed);
+      builder.SetInsertPoint(observed);
+    } else
+      call("kalandra_run_task_v1", voidType, {entries[id], packet, result, ctx, failure});
     auto *bad = Block::Create(context, "root.fault", entry);
     auto *ok = Block::Create(context, "root.result", entry);
     builder.CreateCondBr(hasFailure(failure), bad, ok);
@@ -1640,7 +1693,7 @@ private:
     builder.CreateStore(c64(size(packets[target])), builder.CreateStructGEP(packetType, packet, 2));
     builder.CreateStore(ctx, builder.CreateStructGEP(packetType, packet, 3));
   }
-  void emitPlan(std::size_t id, bool synchronous = false) {
+  void emitPlan(std::size_t id, bool synchronous = false, bool closed = false) {
     const auto &plan = *planner.plans[id];
     auto *frameType = frames[id];
     Function *construct = nullptr;
@@ -1683,7 +1736,7 @@ private:
       builder.CreateRet(builder.getFalse());
     }
     const auto resultType = plan.slots[plan.result];
-    auto *resume = synchronous ? synchronousEntries.at(id)
+    auto *resume = synchronous ? (closed ? closedApplication : synchronousEntries.at(id))
                                : function("task.resume." + std::to_string(id), voidType, {pointer});
     builder.SetInsertPoint(Block::Create(context, "entry", resume));
     Value *task = synchronous
@@ -2046,11 +2099,16 @@ private:
             scratch = entry.CreateAlloca(consoleResultType(*taskTypes, context), nullptr,
                                          "console.result");
           }
-          emitConsoleOperation(
-              builder, module, planner.input, *taskTypes, *console, type, valueType(type),
-              payload(instruction.args.at(0)), slot(instruction.output), scratch,
-              builder.CreateStructGEP(frameType, frame, consoleFields.at(id).at(n)), ctx, task, pc,
-              n, next, leave, abort);
+          if (closed)
+            emitConsoleSynchronousOperation(builder, module, planner.input, *taskTypes, *console,
+                                            type, valueType(type), payload(instruction.args.at(0)),
+                                            slot(instruction.output), scratch, ctx, next, abort);
+          else
+            emitConsoleOperation(
+                builder, module, planner.input, *taskTypes, *console, type, valueType(type),
+                payload(instruction.args.at(0)), slot(instruction.output), scratch,
+                builder.CreateStructGEP(frameType, frame, consoleFields.at(id).at(n)), ctx, task,
+                pc, n, next, leave, abort);
           break;
         }
         // A shape refinement on a result must preserve an error without reading

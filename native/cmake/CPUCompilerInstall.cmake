@@ -35,7 +35,7 @@ foreach(VARIANT IN ITEMS debug sanitized thread-sanitized)
   endif()
   kalandra_install_runtime(KALANDRA${SUFFIX}_RUNTIME ${CORE})
   foreach(PAIR IN ITEMS "INT32|int32" "UINT32|uint32" "INT64|int64" "UINT64|uint64"
-      "FLOAT64|float64" "STRING|string" "BOOL|bool" "UNIT|unit" "COLLECTION|collection" "STRING_ARRAY|string-array")
+      "FLOAT64|float64" "STRING|string" "BOOL|bool" "UNIT|unit" "COLLECTION|collection" "STRING_ARRAY|string-array" "APPLICATION|application")
     string(REPLACE "|" ";" FIELDS "${PAIR}")
     list(GET FIELDS 0 LABEL)
     list(GET FIELDS 1 STEM)
@@ -58,6 +58,9 @@ add_custom_target(native-cpu-standalone-package
     "-DOUTPUT_DIR=${PROJECT_BINARY_DIR}/native-cpu-standalone" -DPACKAGE_CPU=ON -DSTANDALONE=ON
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PackageEditorTools.cmake"
   DEPENDS kalandra-installed ${KALANDRA_EDITOR_TOOLS} VERBATIM)
+if(TARGET kalandra-test-observer)
+  add_dependencies(native-cpu-toolchain kalandra-test-observer)
+endif()
 if(BUILD_TESTING)
   add_test(NAME native-cpu-install COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CompilerInstallTests.py" "${CMAKE_COMMAND}"

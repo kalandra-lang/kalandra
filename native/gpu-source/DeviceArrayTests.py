@@ -28,7 +28,7 @@ for name, (helper, call, typ, expected) in cases().items():
     cpu = root/'cpu.k'
     cpu.write_text(helper+f'fn main()->{typ}:\n  return {call}\n')
     reference = root/('cpu'+suffix)
-    run([a.compiler, cpu, *flags, '-o', reference])
+    run([a.compiler, '--test-entry', 'main', cpu, *flags, '-o', reference])
     output = run([reference])
     assert float(output) == expected, (name, 'CPU', output, expected)
     gpu = root/'gpu.k'
@@ -39,7 +39,7 @@ for name, (helper, call, typ, expected) in cases().items():
 ''')
     bundle = root/'device'
     arithmetic = 'hardware-with-software-fallback' if a.backend == 'metal' and typ == 'f64' else 'hardware'
-    run([a.compiler, gpu, '--target', a.backend, '--arithmetic', arithmetic, *flags, '-o', bundle])
+    run([a.compiler, '--test-entry', 'main', gpu, '--target', a.backend, '--arithmetic', arithmetic, *flags, '-o', bundle])
     assert 'NumericInstructionKind::DeviceControl' in (bundle/'host.cpp').read_text(), name
     assert any('gpu.func' in f.read_text() and 'scf.while' in f.read_text()
                for f in bundle.glob('*.mlir')), name
@@ -72,7 +72,7 @@ fn graph(values:Tensor[f32,?],n:i64)->Tensor[f32,?]:
 """
 cpu = root/'cpu.k'
 cpu.write_text(helper+'fn main()->Tensor[f32,3]:\n  return graph(tensor([1,2,3]),5)\n')
-run([a.compiler, cpu, *flags, '-o', root/('cpu'+suffix)])
+run([a.compiler, '--test-entry', 'main', cpu, *flags, '-o', root/('cpu'+suffix)])
 assert run([root/('cpu'+suffix)]) == 'tensor([10, 20, 30], [3])'
 gpu = root/'gpu.k'
 gpu.write_text(helper+"""fn main()->Tensor[f32,3] ! TaskError:
@@ -84,7 +84,7 @@ gpu.write_text(helper+"""fn main()->Tensor[f32,3] ! TaskError:
     try await transfer(result,devices.cpu())
 """)
 bundle = root/'device'
-run([a.compiler, gpu, '--target', a.backend, *flags, '-o', bundle])
+run([a.compiler, '--test-entry', 'main', gpu, '--target', a.backend, *flags, '-o', bundle])
 assert 'DeviceControl' in (bundle/'host.cpp').read_text()
 if not a.compile_only:
     for workers in ('1','4'):
@@ -98,7 +98,7 @@ for name, (helper, call, code) in fault_cases().items():
     cpu = root/'cpu.k'
     cpu.write_text(helper+'fn main()->i64:\n  return '+call+'\n')
     reference = root/('cpu'+suffix)
-    run([a.compiler, cpu, *flags, '-o', reference])
+    run([a.compiler, '--test-entry', 'main', cpu, *flags, '-o', reference])
     r = subprocess.run([str(reference)], capture_output=True, text=True, timeout=30)
     assert r.returncode != 0 and not r.stdout, (name, 'CPU', r)
     gpu = root/'gpu.k'
@@ -107,7 +107,7 @@ for name, (helper, call, code) in fault_cases().items():
     gpu=devices.gpu()
     try await spawn '''+call+' on gpu\n')
     bundle = root/'device'
-    run([a.compiler, gpu, '--target', a.backend, *flags, '-o', bundle])
+    run([a.compiler, '--test-entry', 'main', gpu, '--target', a.backend, *flags, '-o', bundle])
     if not a.compile_only:
         r = subprocess.run([str(bundle/('program'+suffix))], capture_output=True, text=True, timeout=30)
         assert r.returncode != 0 and not r.stdout and f'/{code}' in r.stderr, (name, 'GPU', r)
@@ -124,11 +124,11 @@ fn main()->i64 ! TaskError:
     gpu=devices.gpu()
     try await spawn work(4) on gpu
 """)
-    rejected = subprocess.run([str(a.compiler), str(policy_source), '--target', 'metal',
+    rejected = subprocess.run([str(a.compiler), '--test-entry', 'main', str(policy_source), '--target', 'metal',
                                '--arithmetic', 'hardware', *flags, '-o', str(a.root/'callback-policy')],
                               capture_output=True, text=True, timeout=180)
     assert rejected.returncode and 'Metal has no hardware f64 arithmetic' in rejected.stderr, rejected
-    run([a.compiler, policy_source, '--target', 'metal', '--arithmetic',
+    run([a.compiler, '--test-entry', 'main', policy_source, '--target', 'metal', '--arithmetic',
          'hardware-with-software-fallback', *flags, '-o', a.root/'callback-policy'])
     if not a.compile_only:
         assert run([a.root/'callback-policy'/('program'+suffix)]) == '0000000000000004'

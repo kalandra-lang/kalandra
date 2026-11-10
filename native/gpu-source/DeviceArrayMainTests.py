@@ -53,7 +53,7 @@ for typ, alias, source_values, expected, empty in cases:
     cpu_source = root / 'cpu.k'
     cpu_source.write_text(helper + f'fn main()->[{typ}]:\n' + setup + '  return work(values)\n')
     cpu = root / ('cpu' + suffix)
-    run([a.compiler, cpu_source, *flags, '-o', cpu])
+    run([a.compiler, '--test-entry', 'main', cpu_source, *flags, '-o', cpu])
     raw = run([cpu, '--all'])
     assert raw.startswith('[') and raw.endswith(']'), (name, 'CPU collection format', raw)
     values = [] if raw == '[]' else [v.strip() for v in raw[1:-1].split(',')]
@@ -73,7 +73,7 @@ for typ, alias, source_values, expected, empty in cases:
     source.write_text(helper + f'fn main()->[{typ}] ! TaskError:\n' + setup +
                       '  return try parallel:\n    gpu=devices.gpu()\n    try await spawn work(values) on gpu\n')
     bundle = root / 'device'
-    run([a.compiler, source, '--target', a.backend, '--arithmetic', 'hardware', *flags, '-o', bundle])
+    run([a.compiler, '--test-entry', 'main', source, '--target', a.backend, '--arithmetic', 'hardware', *flags, '-o', bundle])
     host = (bundle / 'host.cpp').read_text()
     assert 'const ValueLayout &mainArrayLayout=hostArrayLayout<' in host, name
     assert 'mainArrayLayout,context,&value)' in host, name

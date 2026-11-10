@@ -392,6 +392,7 @@ public:
       for (const auto &[name, signature] : std::vector<std::pair<std::string, FunctionType>>{
                {"kalandra_string_literal",
                 builder_.getFunctionType({ptr, ptr, builder_.getI64Type()}, {})},
+               {"kalandra_application_arguments", builder_.getFunctionType({ptr}, {})},
                {"kalandra_format_scalar",
                 builder_.getFunctionType({ptr, builder_.getI32Type(), builder_.getI64Type()}, {})},
                {"kalandra_format_join",
@@ -2878,6 +2879,11 @@ private:
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, StringLiteral>) {
             return stringLiteral(loc, operation.value);
+          } else if constexpr (std::is_same_v<T, ApplicationArguments>) {
+            auto output = descriptorSlot(loc, type(node.type));
+            func::CallOp::create(builder_, loc, "kalandra_application_arguments", TypeRange{},
+                                 ValueRange{output});
+            return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, ConsoleOperation>) {
             throw LoweringFailure{"console I/O requires host continuation lowering"};
           } else if constexpr (std::is_same_v<T, FormatOperation>) {

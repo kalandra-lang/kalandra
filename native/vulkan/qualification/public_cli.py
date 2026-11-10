@@ -65,7 +65,7 @@ for name, source, policy, optimization, values, fmt, fault in cases:
     matrix = name.startswith('matrix-')
     optimized = matrix or name == 'separate-rounding'
     matrix_flags = ['--matmul-policy', 'optimized'] if optimized else []
-    result = subprocess.run(list(map(str, [args.compiler, '--target', 'vulkan', *source, *matrix_flags,
+    result = subprocess.run(list(map(str, [args.compiler, '--test-entry', 'main', '--target', 'vulkan', *source, *matrix_flags,
         '--arithmetic', policy, optimization, '-o', output])), capture_output=True, text=True, timeout=180)
     (args.output/(name+'.log')).write_text(result.stdout+result.stderr)
     assert not result.returncode, (name, result.stderr[-4000:])
@@ -106,7 +106,7 @@ for label, options, message in [
     output.mkdir(exist_ok=True)
     sentinel = output/'sentinel'
     sentinel.write_text('unchanged')
-    result = subprocess.run(list(map(str, [args.compiler, '--target', 'vulkan', placed, '-o', output, *options])), capture_output=True, text=True, timeout=30)
+    result = subprocess.run(list(map(str, [args.compiler, '--test-entry', 'main', '--target', 'vulkan', placed, '-o', output, *options])), capture_output=True, text=True, timeout=30)
     assert result.returncode and message in result.stderr, (label, result)
     assert sentinel.read_text() == 'unchanged' and sorted(p.name for p in output.iterdir()) == ['sentinel']
 for symlink in (False, True):
@@ -123,7 +123,7 @@ for symlink in (False, True):
         target.symlink_to(victim)
     else:
         target.hardlink_to(source)
-    result = subprocess.run(list(map(str, [args.compiler, '--target', 'vulkan', source, '-o', output])), capture_output=True, text=True, timeout=30)
+    result = subprocess.run(list(map(str, [args.compiler, '--test-entry', 'main', '--target', 'vulkan', source, '-o', output])), capture_output=True, text=True, timeout=30)
     assert result.returncode and ('symlink' if symlink else 'distinct') in result.stderr, result
     assert source.read_text() == original and not (output/'kernel0.mlir').exists()
     if symlink:
