@@ -69,8 +69,8 @@ if a.phase == 'prepare':
         expected = int(oracle.read_text())
         cpu, gpu = a.out/f'{name}-cpu', a.out/f'{name}-gpu'
         sources = {mode: sources_dir/f'{name}-{mode}.k' for mode in ('cpu','gpu')}
-        subprocess.run([a.compiler, sources['cpu'], '-O2', '-o', cpu], check=True)
-        subprocess.run([a.compiler, sources['gpu'], '--target', a.backend, '-O2', '-o', gpu], check=True)
+        subprocess.run([a.compiler, '--test-entry', 'main', sources['cpu'], '-O2', '-o', cpu], check=True)
+        subprocess.run([a.compiler, '--test-entry', 'main', sources['gpu'], '--target', a.backend, '-O2', '-o', gpu], check=True)
         for path, device in ((cpu,False),(gpu/'program',True)):
             execute(path, expected, device)
         files = {str(x.relative_to(a.out)): sha(x) for x in [cpu,*sorted(gpu.rglob('*'))] if x.is_file()}

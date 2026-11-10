@@ -57,7 +57,7 @@ def main():
                 assert re.search(r'\b(fadd|fmul)\b',ir.read_text())
                 binary=directory/('kalandra-'+name)
                 p.run([p.CLANG,*clang_flags,*bench_macros,'-DKALANDRA_KERNEL',*(['-DMATRIX_KERNEL'] if kind==2 else []),directory/'Driver.cpp',ir,compiler.parent/'libkalandra-task-core-optimized.a','-o',binary]);binaries.append(binary)
-            p.run([compiler,directory/'gpu.k','--target','metal','--arithmetic',arithmetic,'-O2','-o',directory/'gpu-bundle'])
+            p.run([compiler, '--test-entry', 'main',directory/'gpu.k','--target','metal','--arithmetic',arithmetic,'-O2','-o',directory/'gpu-bundle'])
             objects=[]
             for i,source in enumerate((directory/'GpuDriver.cpp',p.ROOT/'native/metal/Metal.mm',p.ROOT/'native/runtime/Runtime.cpp',p.ROOT/'native/runtime/Tasks.cpp')):
                 obj=directory/f'gpu-{i}.o';objects.append(obj)

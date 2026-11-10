@@ -87,7 +87,7 @@ def main():
         gpu_source.write_text((src / 'gpu.k').read_text().replace('f64', 'f32'))
         gpu_host.write_text(driver('GpuDriver.cpp'))
         bundle, gpu = directory / 'gpu-bundle', directory / 'gpu'
-        p.run([compiler, gpu_source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '-o', bundle])
+        p.run([compiler, '--test-entry', 'main', gpu_source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '-o', bundle])
         p.run([p.CLANG, *flags, '-DBENCH_FLOAT32', gpu_host, metal, runtime,
                '-framework', 'Foundation', '-framework', 'Metal', '-o', gpu])
         generated += [gpu_source, gpu_host]

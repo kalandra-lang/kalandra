@@ -63,7 +63,7 @@ def main():
     y=try await spawn block(a,b,b,b,b,c,d,0.00001,0.70710677) on gpu
     try await transfer(y,cpu)
 ''')
-        p.run([compiler,gpu_source,'--target','metal','--arithmetic','hardware','-O2','-o',bundle])
+        p.run([compiler, '--test-entry', 'main',gpu_source,'--target','metal','--arithmetic','hardware','-O2','-o',bundle])
         host=(bundle/'host.cpp').read_text()
         assert host.count('m::NumericInstructionKind::Map,')==8 and host.count('m::NumericInstructionKind::Matmul,')==8
         text=prepared_program.header(host)

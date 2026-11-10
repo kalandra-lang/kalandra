@@ -53,7 +53,7 @@ if a.phase=='prepare':
    xcode=p.run(['xcodebuild','-version']).strip(),steel_language='metal3.2',fast_math=False,fp_contract='off')
  assert load(p.ROOT/'native/metal-proof/toolchain.json')['metalCompilerVersion'] in platform_tools['metal_version']
  gpu_source=b/'block-gpu.k';gpu_source.write_text(prepared_program.gpu_source(block.read_text()))
- p.run([compiler,gpu_source,'--target','metal','--arithmetic','hardware','--matmul-policy','optimized','-O2','-o',b/'bundle'],timeout=900)
+ p.run([compiler, '--test-entry', 'main',gpu_source,'--target','metal','--arithmetic','hardware','--matmul-policy','optimized','-O2','-o',b/'bundle'],timeout=900)
  host=(b/'bundle/host.cpp').read_text()
  assert host.count('m::NumericInstructionKind::Map,')==8 and host.count('m::NumericInstructionKind::Matmul,')==8
  (b/'TransformerProgram.h').write_text(prepared_program.header(host))
