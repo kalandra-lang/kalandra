@@ -2,8 +2,10 @@
 #include <optional>
 #include <string_view>
 namespace kalandra {
-enum class StandardModule { Io, Format, Process };
+enum class StandardModule { Io, Format, Process, Filesystem };
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/fs")
+    return StandardModule::Filesystem;
   if (name == "std/io")
     return StandardModule::Io;
   if (name == "std/fmt")
@@ -14,6 +16,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Filesystem:
+    return "kalandra-stdlib:std/fs.k";
   case StandardModule::Io:
     return "kalandra-stdlib:std/io.k";
   case StandardModule::Format:
@@ -24,6 +28,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Filesystem))
+    return StandardModule::Filesystem;
   if (path == standardModulePath(StandardModule::Io))
     return StandardModule::Io;
   if (path == standardModulePath(StandardModule::Format))
@@ -37,6 +43,63 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Filesystem:
+    return R"k(from "std/io" import Line
+export type File:
+  __storage: [u8]
+export type BufferedReader:
+  __storage: [u8]
+export type BufferedWriter:
+  __storage: [u8]
+export enum OpenMode:
+  Read
+  Write
+  Create
+  CreateNew
+  Append
+  ReadWrite
+export error FsError:
+  System:
+    code: i32
+    message: String
+  InvalidEncoding
+  LineTooLong:
+    limit: u64
+  UnexpectedEnd:
+    expected: u64
+    actual: u64
+  InvalidArgument
+export fn open(path: String, mode: OpenMode) -> File ! FsError:
+  return __kalandra_fs_open(path, mode)
+export fn bufferedReader(own file: File, capacity: u64) -> BufferedReader ! FsError:
+  return __kalandra_fs_reader(file, capacity)
+export fn bufferedWriter(own file: File, capacity: u64) -> BufferedWriter ! FsError:
+  return __kalandra_fs_writer(file, capacity)
+export fn read(file: File, maxBytes: u64) -> [u8] ! FsError:
+  return __kalandra_fs_read(file, maxBytes)
+export fn readExact(file: File, count: u64) -> [u8] ! FsError:
+  return __kalandra_fs_read_exact(file, count)
+export fn readInto(file: File, mut bytes: [u8]) -> u64 ! FsError:
+  return __kalandra_fs_read_into(file, bytes)
+export fn readLine(file: File, maxBytes: u64) -> Line ! FsError:
+  return __kalandra_fs_read_line(file, maxBytes)
+export fn write(file: File, bytes: [u8]) -> u64 ! FsError:
+  return __kalandra_fs_write(file, bytes)
+export fn writeAll(file: File, bytes: [u8]) -> unit ! FsError:
+  return __kalandra_fs_write_all(file, bytes)
+export fn writeText(file: File, text: String) -> unit ! FsError:
+  return __kalandra_fs_write_text(file, text)
+export fn writeLine(file: File, text: String) -> unit ! FsError:
+  return __kalandra_fs_write_line(file, text)
+export fn flush(file: File) -> unit ! FsError:
+  return __kalandra_fs_flush(file)
+export fn finish(own writer: BufferedWriter) -> unit ! FsError:
+  return __kalandra_fs_finish(writer)
+export fn close(own file: File) -> unit ! FsError:
+  return __kalandra_fs_close(file)
+export fn seekTo(file: File, offset: u64) -> unit ! FsError:
+  return __kalandra_fs_seek(file, offset)
+)k";
   case StandardModule::Io:
     return R"k(export error IoError:
   System:

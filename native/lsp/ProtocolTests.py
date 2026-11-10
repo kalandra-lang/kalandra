@@ -1315,7 +1315,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.completion(signature_document, 0, alias_cursor)["result"]["items"] == []
     standard = client.completion(signature_document, 0, 6)["result"]["items"]
     assert [(item["label"],item["kind"]) for item in standard] == [
-        ("std/fmt",17),("std/io",17),("std/process",17)], standard
+        ("std/fmt",17),("std/fs",17),("std/io",17),("std/process",17)], standard
     for item in standard:
         assert item["textEdit"] == {"newText":item["label"],"range":{
             "start":{"line":0,"character":6},

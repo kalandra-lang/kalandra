@@ -23,6 +23,7 @@ struct Environment {
   std::unordered_map<SymbolId, Roots> symbols;
   std::map<ValueId, Roots> readers;
   bool stopped = false;
+  std::set<SymbolId> moved;
   std::map<std::size_t, LoopFlow *> loops;
   std::map<std::size_t, Roots *> collections;
 };
@@ -43,7 +44,8 @@ public:
         std::ranges::any_of(module.symbols, [](const auto &s) { return s.mutableAccess; }) ||
         std::ranges::any_of(module.expressions, [](const auto &v) {
           return std::holds_alternative<ArrayStore>(v.operation) ||
-                 std::holds_alternative<ArraySort>(v.operation);
+                 std::holds_alternative<ArraySort>(v.operation) ||
+                 std::holds_alternative<FileOperation>(v.operation);
         });
     const bool indirect = std::ranges::any_of(module.expressions, [&](const auto &value) {
       const auto *call = std::get_if<FunctionInvoke>(&value.operation);
@@ -322,15 +324,21 @@ private:
       // local fresh storage is automatically disjoint from caller-owned data.
       if (parameterRoot(root))
         for (auto other : b)
-          if (parameterRoot(other))
+          if (parameterRoot(other)) {
+            const auto a = root - module.expressions.size(), b = other - module.expressions.size();
+            if (isFileResource(module, module.symbols[a].type) &&
+                isFileResource(module, module.symbols[b].type))
+              continue;
             return true;
+          }
     }
     return false;
   }
   void write(ValueId id, const Roots &roots, const Environment &env, bool spawned) {
+    const bool file = isFileResource(module, module.expressions[id].type);
     if (!checking || diagnostics.size() >= 32)
       return;
-    if (spawned) {
+    if (spawned && !file) {
       diagnostics.push_back(
           {"S077", "spawned calls receive read-only arrays; create private storage inside the task",
            module.expressions[id].span});
@@ -350,8 +358,9 @@ private:
       if (overlap(roots, protectedRoots)) {
         const auto [line, column] = module.source->location(module.expressions[reader].span.begin);
         diagnostics.push_back({"S077",
-                               "can't mutate array while task at " + std::to_string(line) + ":" +
-                                   std::to_string(column) +
+                               (file ? "can't access file handle while task at "
+                                     : "can't mutate array while task at ") +
+                                   std::to_string(line) + ":" + std::to_string(column) +
                                    " may still read it; await every reader or use copy",
                                module.expressions[id].span});
         return;
@@ -374,19 +383,46 @@ private:
     return result;
   }
   void joinSymbols(Environment &to, const Environment &from) {
+    to.moved.insert(from.moved.begin(), from.moved.end());
     for (auto &[symbol, roots] : to.symbols)
       if (auto found = from.symbols.find(symbol); found != from.symbols.end())
         unite(roots, found->second);
+  }
+  void consume(ValueId id, const Roots &roots, Environment &env) {
+    if (!isFileResource(module, module.expressions[id].type))
+      return;
+    for (auto root : roots) {
+      if (parameterRoot(root)) {
+        const auto symbol = root - module.expressions.size();
+        if (isFileResource(module, module.symbols[symbol].type) && !module.symbols[symbol].owned &&
+            checking)
+          diagnostics.push_back(
+              {"S081",
+               "can't move a borrowed file handle; declare an own parameter to transfer ownership",
+               module.expressions[id].span});
+      }
+    }
+    write(id, roots, env, false);
+    for (const auto &[symbol, value] : env.symbols)
+      if (isFileResource(module, module.symbols[symbol].type) && overlap(roots, value))
+        env.moved.insert(symbol);
   }
   Roots body(const std::vector<TypedStatement> &statements, ValueId result, Environment &env) {
     for (const auto &statement : statements) {
       if (env.stopped)
         return {};
       auto value = evaluate(statement.value, env);
-      if (statement.binding)
+      if (statement.binding) {
+        consume(statement.value, value, env);
         env.symbols[*statement.binding] = std::move(value);
+        env.moved.erase(*statement.binding);
+      }
     }
-    return env.stopped ? Roots{} : evaluate(result, env);
+    if (env.stopped)
+      return {};
+    auto roots = evaluate(result, env);
+    consume(result, roots, env);
+    return roots;
   }
   void joinReaders(Environment &into, const Environment &other) {
     for (const auto &[reader, roots] : other.readers)
@@ -402,7 +438,8 @@ private:
       if (storage(module.symbols[symbol].type)) {
         const auto root = module.expressions.size() + symbol;
         env.symbols[symbol] = {root};
-        writable[root] = module.symbols[symbol].mutableAccess;
+        writable[root] = module.symbols[symbol].mutableAccess ||
+                         isFileResource(module, module.symbols[symbol].type);
       }
     return body(function.body, function.result, env);
   }
@@ -428,6 +465,11 @@ private:
         [&](const auto &op) -> Roots {
           using T = std::decay_t<decltype(op)>;
           if constexpr (std::is_same_v<T, SymbolRead>) {
+            if (checking && env.moved.contains(op.symbol))
+              diagnostics.push_back(
+                  {"S081",
+                   "file handle '" + module.symbols[op.symbol].name + "' was moved or closed",
+                   node.span});
             if (auto found = env.symbols.find(op.symbol); found != env.symbols.end())
               return found->second;
             return storage(node.type) ? Roots{unknown} : Roots{};
@@ -436,10 +478,32 @@ private:
             for (auto value : op.arguments)
               args.push_back(input(value));
             const auto &function = module.functions.at(op.function);
-            for (std::size_t i = 0; i < args.size(); ++i)
-              if (module.symbols[function.parameters.at(i)].mutableAccess)
+            for (std::size_t i = 0; i < args.size(); ++i) {
+              const auto &parameter = module.symbols[function.parameters.at(i)];
+              if (parameter.mutableAccess || isFileResource(module, parameter.type))
                 write(op.arguments[i], args[i], env, spawned);
+              if (parameter.owned)
+                consume(op.arguments[i], args[i], env);
+              if (checking && isFileResource(module, parameter.type))
+                for (std::size_t j = 0; j < i; ++j)
+                  if (overlap(args[i], args[j]))
+                    diagnostics.push_back(
+                        {"S081", "a call cannot access the same file through multiple parameters",
+                         node.span});
+            }
             return storage(node.type) ? returned(op.function, id, args) : Roots{};
+          } else if constexpr (std::is_same_v<T, FileOperation>) {
+            std::vector<Roots> args;
+            for (auto argument : op.arguments)
+              args.push_back(input(argument));
+            if (op.action != FileAction::Open && !args.empty()) {
+              write(op.arguments[0], args[0], env, spawned);
+              if (consumesFile(op.action))
+                consume(op.arguments[0], args[0], env);
+            }
+            if (op.action == FileAction::ReadInto)
+              write(op.arguments[1], args[1], env, spawned);
+            return storage(node.type) ? fresh(id) : Roots{};
           } else if constexpr (std::is_same_v<T, ConsoleOperation>) {
             input(op.input);
             return {};
@@ -465,8 +529,18 @@ private:
             std::vector<Roots> args;
             for (std::size_t i = 0; i < op.arguments.size(); ++i) {
               auto roots = input(op.arguments[i]);
-              if (type.callable && type.callable->mutates(i))
+              if (type.callable && (type.callable->mutates(i) ||
+                                    isFileResource(module, type.callable->parameters.at(i))))
                 write(op.arguments[i], roots, env, spawned);
+              if (type.callable && type.callable->owns(i))
+                consume(op.arguments[i], roots, env);
+              if (checking && type.callable &&
+                  isFileResource(module, type.callable->parameters.at(i)))
+                for (const auto &previous : args)
+                  if (overlap(roots, previous))
+                    diagnostics.push_back(
+                        {"S081", "a call cannot access the same file through multiple parameters",
+                         node.span});
               args.push_back(std::move(roots));
             }
             if (!storage(node.type))
@@ -524,6 +598,14 @@ private:
               env.readers = yes.readers;
               joinReaders(env, no);
             }
+            if (yes.stopped && !no.stopped)
+              env.moved = no.moved;
+            else if (no.stopped && !yes.stopped)
+              env.moved = yes.moved;
+            else {
+              env.moved = yes.moved;
+              env.moved.insert(no.moved.begin(), no.moved.end());
+            }
             env.stopped = yes.stopped && no.stopped;
             return value;
           } else if constexpr (std::is_same_v<T, YieldOperation>) {
@@ -548,8 +630,11 @@ private:
                 if (path.stopped)
                   break;
                 auto roots = evaluate(statement.value, path);
-                if (statement.binding)
+                if (statement.binding) {
+                  consume(statement.value, roots, path);
                   path.symbols[*statement.binding] = std::move(roots);
+                  path.moved.erase(*statement.binding);
+                }
               }
             };
             statements(op.initial, env);
@@ -564,6 +649,7 @@ private:
               spend(head.symbols.size() + head.readers.size());
               const auto previousSymbols = head.symbols;
               const auto previousReaders = head.readers;
+              const auto previousMoved = head.moved;
               auto iteration = fork(head);
               iteration.values.clear();
               iteration.inputs.clear();
@@ -581,7 +667,8 @@ private:
                 joinReaders(head, path);
               }
               paths.continues.clear();
-              if (head.symbols == previousSymbols && head.readers == previousReaders)
+              if (head.symbols == previousSymbols && head.readers == previousReaders &&
+                  head.moved == previousMoved)
                 break;
             }
             auto normal = fork(head);
@@ -595,6 +682,7 @@ private:
               for (auto &[symbol, roots] : env.symbols)
                 roots = normal.symbols.at(symbol);
               env.readers = normal.readers;
+              env.moved = normal.moved;
             } else {
               for (auto &[symbol, roots] : env.symbols)
                 roots.clear();

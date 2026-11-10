@@ -141,6 +141,9 @@ private:
       auto signature = std::make_shared<FunctionTypeSyntax>();
       if (!at(TokenKind::RightParen)) {
         do {
+          const bool owned = word("own");
+          if (owned)
+            advance();
           const bool mutableAccess = word("mut");
           if (mutableAccess)
             advance();
@@ -149,6 +152,7 @@ private:
             return {};
           signature->parameters.push_back(std::move(*parameter));
           signature->mutableParameters.push_back(mutableAccess);
+          signature->ownedParameters.push_back(owned);
         } while (consume(TokenKind::Comma) && !at(TokenKind::RightParen));
       }
       if (!expect(TokenKind::RightParen, "expected ')' after function type parameters") ||
@@ -400,6 +404,9 @@ private:
       return {};
     if (!at(TokenKind::RightParen)) {
       while (true) {
+        const bool owned = word("own");
+        if (owned)
+          advance();
         const bool mutableAccess = word("mut");
         if (mutableAccess)
           advance();
@@ -409,7 +416,7 @@ private:
         auto type = parseType();
         if (!type)
           return {};
-        function.parameters.push_back({parameter->span, std::move(*type), mutableAccess});
+        function.parameters.push_back({parameter->span, std::move(*type), mutableAccess, owned});
         if (!consume(TokenKind::Comma) || at(TokenKind::RightParen))
           break;
       }
@@ -893,6 +900,9 @@ private:
         LambdaExpr lambda;
         if (!at(TokenKind::RightParen)) {
           do {
+            const bool owned = word("own");
+            if (owned)
+              advance();
             const bool mutableAccess = word("mut");
             if (mutableAccess)
               advance();
@@ -905,7 +915,8 @@ private:
               if (!annotation)
                 return {};
             }
-            lambda.parameters.push_back({parameter->span, std::move(annotation), mutableAccess});
+            lambda.parameters.push_back(
+                {parameter->span, std::move(annotation), mutableAccess, owned});
           } while (consume(TokenKind::Comma) && !at(TokenKind::RightParen));
         }
         if (!expect(TokenKind::RightParen, "expected ')' after anonymous parameters"))

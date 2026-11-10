@@ -20,7 +20,7 @@
     },
     {
       "name": "keyword.control.kalandra",
-      "match": "\\b(if|else|while|for|in|break|continue|yield|return|match|fail|try|catch|spawn|await|parallel|on|with|and|or|not|mut)\\b"
+      "match": "\\b(if|else|while|for|in|break|continue|yield|return|match|fail|try|catch|spawn|await|parallel|on|with|and|or|not|mut|own)\\b"
     },
     {
       "name": "storage.type.kalandra",

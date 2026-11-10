@@ -216,6 +216,16 @@ public:
               numericCapabilityError(output_, NumericTarget::Cpu, options_.placement))
         error("S054", *unsupported,
               syntax_.functions.empty() ? SourceSpan{} : syntax_.functions[0].name);
+    if (diagnostics_.empty()) {
+      for (const auto &record : output_.records)
+        for (const auto &field : record.fields)
+          if (isFileResource(output_, field.type))
+            error("S081", "owned file handles require standalone ownership, not aggregate fields",
+                  field.declaration);
+      for (const auto &value : output_.expressions)
+        if (isFileResource(output_, value.type) && value.type.array)
+          error("S081", "owned file handles cannot be stored in arrays", value.span);
+    }
     if (!syntax_.editorOnly && diagnostics_.empty())
       for (auto &diagnostic : arrayAccessDiagnostics(output_))
         error(diagnostic.code, diagnostic.message, diagnostic.span);
@@ -438,7 +448,7 @@ private:
   static bool reservedControl(const std::string &name) {
     return name == "true" || name == "false" || name == "while" || name == "if" || name == "else" ||
            name == "and" || name == "or" || name == "not" || name == "type" || name == "with" ||
-           name == "mut" || name == "for" || name == "in" || name == "break" ||
+           name == "mut" || name == "own" || name == "for" || name == "in" || name == "break" ||
            name == "continue" || name == "yield" || name == "return";
   }
   void rememberSourceToken(ResolvedSourceToken token) {
@@ -526,8 +536,9 @@ private:
         result->fallible = true;
         result->errorRecord = normalizedError(*family);
       }
-      auto callable = callableType(std::move(parameters), *result, syntax.span,
-                                   syntax.function->mutableParameters);
+      auto callable =
+          callableType(std::move(parameters), *result, syntax.span,
+                       syntax.function->mutableParameters, syntax.function->ownedParameters);
       if (callable && syntax.array) {
         callable->tensor = callable->array = true;
         callable->shape = {dynamic()};
@@ -575,6 +586,13 @@ private:
         if (!registeringRecords_ && !populateRecord(id, syntax.span))
           return {};
         auto result = recordType(id);
+        if (syntax.array && isFileResource(output_, result)) {
+          error("S081",
+                "owned file handles cannot be stored in arrays; pass them through explicit "
+                "parameters",
+                syntax.span);
+          return {};
+        }
         if (syntax.array) {
           result.tensor = result.array = true;
           result.shape = {dynamic()};
@@ -628,10 +646,16 @@ private:
            (value.builtin == BuiltinValue::Numeric || isBooleanStorage(value));
   }
   std::optional<ValueType> callableType(std::vector<ValueType> parameters, ValueType result,
-                                        SourceSpan span, std::vector<bool> mutations = {}) {
+                                        SourceSpan span, std::vector<bool> mutations = {},
+                                        std::vector<bool> ownership = {}) {
     for (std::size_t i = 0; i < mutations.size(); ++i)
       if (mutations[i] && (i >= parameters.size() || !mutableArrayType(parameters[i]))) {
         error("S076", "mut parameters require flat numeric or bool array storage", span);
+        return {};
+      }
+    for (std::size_t i = 0; i < ownership.size(); ++i)
+      if (ownership[i] && (i >= parameters.size() || !isFileResource(output_, parameters[i]))) {
+        error("S081", "own parameters require an owned resource type", span);
         return {};
       }
     const auto supported = [](const ValueType &value) {
@@ -652,8 +676,8 @@ private:
       result.shape[0] = dynamic();
     ValueType value;
     value.builtin = BuiltinValue::Function;
-    value.callable = std::make_shared<const FunctionSignature>(
-        FunctionSignature{std::move(parameters), std::move(result), std::move(mutations)});
+    value.callable = std::make_shared<const FunctionSignature>(FunctionSignature{
+        std::move(parameters), std::move(result), std::move(mutations), std::move(ownership)});
     return value;
   }
   ValueType recordType(std::size_t id) const {
@@ -937,6 +961,18 @@ private:
           header.standard = StandardRecord::IoError;
         if (syntax_.standardModules[origin] == StandardModule::Io && label == "Line")
           header.standard = StandardRecord::Line;
+        if (syntax_.standardModules[origin] == StandardModule::Filesystem) {
+          if (label == "File")
+            header.standard = StandardRecord::File;
+          if (label == "BufferedReader")
+            header.standard = StandardRecord::BufferedReader;
+          if (label == "BufferedWriter")
+            header.standard = StandardRecord::BufferedWriter;
+          if (label == "OpenMode")
+            header.standard = StandardRecord::OpenMode;
+          if (label == "FsError")
+            header.standard = StandardRecord::FsError;
+        }
       }
       output_.records.push_back(std::move(header));
       recordDeclarations_.push_back(declaration);
@@ -1028,6 +1064,11 @@ private:
           auto value = type(field.type);
           if (!value)
             continue;
+          if (isFileResource(output_, *value)) {
+            error("S081", "owned file handles require standalone ownership, not aggregate fields",
+                  field.type.span);
+            continue;
+          }
           if ((value->tensor && value->builtin != BuiltinValue::Numeric && !isBoolArray(*value) &&
                !isStringArray(*value) && !isRecordArray(*value) && !isFunctionArray(*value)) ||
               (value->builtin != BuiltinValue::Numeric && !isBooleanStorage(*value) &&
@@ -1119,6 +1160,11 @@ private:
         output_.symbols.push_back(
             {parameterName, std::move(*parameterType), parameter.name, id, true});
         output_.symbols.back().mutableAccess = parameter.mutableAccess;
+        output_.symbols.back().owned = parameter.owned;
+        if (parameter.owned && !isFileResource(output_, output_.symbols.back().type)) {
+          error("S081", "own parameters require an owned resource type", parameter.name);
+          signatures_[id] = false;
+        }
       }
       if (function.errorType &&
           !(function.errorTypes.size() <= 1 && name(*function.errorType) == "TaskError")) {
@@ -1401,6 +1447,119 @@ private:
       return ConsoleAction::ReadLine;
     return {};
   }
+  std::optional<FileAction> standardFile(FunctionId id) const {
+    if (id >= syntax_.functions.size())
+      return {};
+    const auto &fn = syntax_.functions[id];
+    if (fn.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[fn.moduleIndex] != StandardModule::Filesystem)
+      return {};
+    return fileAction(name(fn.name));
+  }
+  std::optional<ValueId> fileBody(Frame &frame, FunctionId id, FileAction action) {
+    const auto &fn = output_.functions[id];
+    std::vector<ValueId> args;
+    for (auto parameter : fn.parameters) {
+      auto input =
+          add(frame, output_.symbols[parameter].type, fn.declaration, SymbolRead{parameter});
+      if (!input)
+        return {};
+      args.push_back(*input);
+    }
+    return add(frame, *fn.declaredResult, fn.declaration,
+               FileOperation{action, std::move(args), id});
+  }
+  std::optional<ValueId> fileCall(Frame &frame, FunctionId id, FileAction action, SourceSpan span,
+                                  const std::vector<ExprId> &arguments, bool spawned, bool placed) {
+    if (spawned || placed) {
+      error("S081",
+            "filesystem calls require host execution; wrap a call in a host function to spawn it",
+            span);
+      return {};
+    }
+    const auto &fn = output_.functions[id];
+    if (queryingSignature(span)) {
+      if (!analyzeFunction(id))
+        return {};
+      FunctionSignature signature;
+      std::vector<std::string> names;
+      for (auto parameter : fn.parameters) {
+        const auto &symbol = output_.symbols[parameter];
+        signature.parameters.push_back(symbol.type);
+        signature.mutableParameters.push_back(symbol.mutableAccess);
+        signature.ownedParameters.push_back(symbol.owned);
+        names.push_back(symbol.name);
+      }
+      const auto prefix = options_.signature->argumentIndex.value_or(arguments.size());
+      if (prefix > 0 && !arguments.empty() && action != FileAction::Open) {
+        auto actual = expression(frame, arguments[0]);
+        if (!actual || !isFileResource(output_, node(*actual).type))
+          return {};
+        signature.parameters[0] = node(*actual).type;
+      }
+      signature.result = fn.resultType;
+      captureSignature(frame, signature, std::move(names));
+      error("S027", "editing filesystem argument requires a signature snapshot", span);
+      return {};
+    }
+    const bool defaultCapacity =
+        (action == FileAction::BufferedReader || action == FileAction::BufferedWriter) &&
+        arguments.size() == 1;
+    if (arguments.size() != fn.parameters.size() && !defaultCapacity) {
+      error("S027", "wrong argument count for filesystem call", span);
+      return {};
+    }
+    if (!analyzeFunction(id))
+      return {};
+    std::vector<ValueId> args;
+    for (std::size_t i = 0; i < arguments.size(); ++i) {
+      std::optional<ValueType> context = output_.symbols[fn.parameters[i]].type;
+      if (i == 0 && action != FileAction::Open)
+        context.reset();
+      const auto arg = expression(frame, arguments[i], context);
+      if (!arg)
+        return {};
+      const auto &type = node(*arg).type;
+      if (i == 0 && action != FileAction::Open) {
+        if (!isFileResource(output_, type) || type.array || type.task || type.fallible ||
+            type.device) {
+          error("S081", "filesystem operation requires a completed host file handle", span);
+          return {};
+        }
+        const auto standard = output_.records[*type.record].standard;
+        const bool read = action == FileAction::Read || action == FileAction::ReadExact ||
+                          action == FileAction::ReadInto || action == FileAction::ReadLine;
+        const bool write = action == FileAction::Write || action == FileAction::WriteAll ||
+                           action == FileAction::WriteText || action == FileAction::WriteLine ||
+                           action == FileAction::Flush;
+        if ((read && standard == StandardRecord::BufferedWriter) ||
+            (write && standard == StandardRecord::BufferedReader) ||
+            ((action == FileAction::BufferedReader || action == FileAction::BufferedWriter) &&
+             standard != StandardRecord::File) ||
+            (action == FileAction::Finish && standard != StandardRecord::BufferedWriter) ||
+            (action == FileAction::Close && standard == StandardRecord::BufferedWriter)) {
+          error("S081",
+                "operation does not support this handle type; finish buffered writers explicitly",
+                span);
+          return {};
+        }
+      }
+      args.push_back(*arg);
+    }
+    if (defaultCapacity) {
+      ValueType size;
+      size.element = NumericType::UInt64;
+      const auto capacity = add(frame, size, span, UInt64Literal{65536});
+      if (!capacity)
+        return {};
+      args.push_back(*capacity);
+    }
+    auto result = callResult(id, args, false);
+    result.fallible = true;
+    result.errorRecord = errorFamilies_[id];
+    result.identity = 0;
+    return add(frame, result, span, FileOperation{action, std::move(args), id});
+  }
   std::optional<ValueId> consoleBody(Frame &frame, FunctionId id, ConsoleAction action) {
     const auto &fn = output_.functions[id];
     const auto parameter = fn.parameters.at(0);
@@ -1490,11 +1649,12 @@ private:
     output_.functions[id].compileTimeOnly = standardFormat(id);
     auto result = standardFormat(id) ? add(frame, *output_.functions[id].declaredResult,
                                            syntax_.functions[id].span, StringLiteral{std::string{}})
+                  : standardFile(id) ? fileBody(frame, id, *standardFile(id))
                   : standardConsole(id)
                       ? consoleBody(frame, id, *standardConsole(id))
                       : functionSuite(frame, body, output_.functions[id].declaredResult, statements,
                                       syntax_.functions[id].span, parameters);
-    if ((standardFormat(id) || standardConsole(id)) && result)
+    if ((standardFormat(id) || standardConsole(id) || standardFile(id)) && result)
       statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);
     if (!result)
@@ -1548,8 +1708,7 @@ private:
     }
     if constexpr (std::is_same_v<Operation, StringLiteral>) {
       std::uint64_t count = 0;
-      validateUtf8(
-          operation.value, [] { return true; }, &count);
+      validateUtf8(operation.value, [] { return true; }, &count);
       stringCounts_[id] = count;
     } else if constexpr (std::is_same_v<Operation, StringSlice>) {
       auto a = intConstants_.find(operation.start), b = intConstants_.find(operation.end);
@@ -1876,6 +2035,12 @@ private:
     if (!origin)
       return {};
     const auto capture = output_.symbols[*origin];
+    if (isFileResource(output_, capture.type)) {
+      error("S081",
+            "file handles require explicit function parameters, not implicit closure captures",
+            span);
+      return {};
+    }
     auto type = capture.type;
     const bool privateCopy = mayReassign(frame, identifier) && localBinding(type);
     if (privateCopy)
@@ -1990,6 +2155,10 @@ private:
       }
       result = recordType(found->second);
     }
+    if (isFileResource(output_, result)) {
+      error("S081", "file handles are opaque and can only be created by std/fs", span);
+      return {};
+    }
     const auto &declaration = output_.records[*result.record];
     if (!declaration.variants.empty()) {
       error("S071",
@@ -2050,6 +2219,10 @@ private:
             span);
       return {};
     }
+    if (isFileResource(output_, type)) {
+      error("S081", "file handles are opaque; use std/fs operations", read.field);
+      return {};
+    }
     const auto &fields = output_.records[*type.record].fields;
     // Capture names only after the receiver has a checked, completed record type.
     // The synthetic field still diagnoses normally; no partial typed IR is published.
@@ -2103,8 +2276,9 @@ private:
         error("S076", "mut parameters require flat numeric or bool array storage", parameter.name);
         return {};
       }
-      if (context && (parameter.mutableAccess != context->mutates(i) ||
-                      !sameFunctionValueType(*resolved, context->parameters[i]))) {
+      if (context &&
+          (parameter.mutableAccess != context->mutates(i) || parameter.owned != context->owns(i) ||
+           !sameFunctionValueType(*resolved, context->parameters[i]))) {
         error("S060", "anonymous parameter differs from its expected function type",
               parameter.name);
         return {};
@@ -2155,6 +2329,7 @@ private:
       auto symbol = output_.symbols.size();
       output_.symbols.push_back({label, parameters[i], lambda.parameters[i].name, id, true});
       output_.symbols.back().mutableAccess = lambda.parameters[i].mutableAccess;
+      output_.symbols.back().owned = lambda.parameters[i].owned;
       output_.functions[id].parameters.push_back(symbol);
       nested.locals.emplace(label, symbol);
     }
@@ -2177,10 +2352,13 @@ private:
       error("S072", "anonymous function return channel does not cover every error family", span);
       return {};
     }
-    std::vector<bool> mutations;
-    for (const auto &parameter : lambda.parameters)
+    std::vector<bool> mutations, ownership;
+    for (const auto &parameter : lambda.parameters) {
       mutations.push_back(parameter.mutableAccess);
-    auto signature = callableType(parameters, declaredResult, span, std::move(mutations));
+      ownership.push_back(parameter.owned);
+    }
+    auto signature =
+        callableType(parameters, declaredResult, span, std::move(mutations), std::move(ownership));
     if (!signature)
       return {};
     output_.functions[id].body = std::move(statements);
@@ -2240,18 +2418,24 @@ private:
         error("S080", "format is a compile-time call form, not a function value", read.name);
         return {};
       }
+      if (standardFile(id)) {
+        error("S081", "filesystem operations are call forms; wrap the call in a named function",
+              read.name);
+        return {};
+      }
       if (!analyzeFunction(id))
         return {};
       const auto &target = output_.functions[id];
       std::vector<ValueType> parameters;
-      std::vector<bool> mutations;
+      std::vector<bool> mutations, ownership;
       for (auto symbol : target.parameters) {
         parameters.push_back(output_.symbols[symbol].type);
         mutations.push_back(output_.symbols[symbol].mutableAccess);
+        ownership.push_back(output_.symbols[symbol].owned);
       }
       auto signature =
           callableType(std::move(parameters), target.declaredResult.value_or(target.resultType),
-                       span, std::move(mutations));
+                       span, std::move(mutations), std::move(ownership));
       if (!signature)
         return {};
       return add(frame, *signature, span, FunctionReference{id});
@@ -5516,6 +5700,8 @@ private:
       return {};
     }
     const auto id = found->second;
+    if (auto action = standardFile(id))
+      return fileCall(frame, id, *action, span, arguments, spawned, bool(selection));
     if (standardFormat(id)) {
       if (spawned || selection) {
         error("S080", "format cannot be a spawn entry; wrap it in a function", span);
@@ -5565,6 +5751,7 @@ private:
         for (const auto symbol : output_.functions[id].parameters) {
           signature.parameters.push_back(output_.symbols[symbol].type);
           signature.mutableParameters.push_back(output_.symbols[symbol].mutableAccess);
+          signature.ownedParameters.push_back(output_.symbols[symbol].owned);
           names.push_back(output_.symbols[symbol].name);
         }
         signature.result = output_.functions[id].resultType;

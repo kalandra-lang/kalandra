@@ -143,6 +143,7 @@ struct alignas(std::max_align_t) Backing {
   Backing **dependencies = nullptr;
   std::size_t dependencyCount = 0;
   Backing *releaseNext = nullptr; // Used exclusively after the final reference retires.
+  void (*cleanup)(void *) noexcept = nullptr;
 };
 struct alignas(std::max_align_t) ControlAllocation {
   ControlAllocation *next;
@@ -200,6 +201,8 @@ void releaseBacking(Backing *backing) noexcept {
         pending = child;
       }
     }
+    if (current->cleanup)
+      current->cleanup(current + 1);
     current->~Backing();
     std::free(current);
   }
@@ -339,7 +342,7 @@ void Invocation::remove(Owner *owner) noexcept {
   if (owner->next)
     owner->next->previous = owner->previous;
   auto *backing = owner->backing;
-  const bool recycle = !owners().spareSmall_ && owner->embedded && !backing->record &&
+  const bool recycle = !owners().spareSmall_ && owner->embedded && !backing->record && !backing->cleanup &&
                        backing->bytes <= 256 && !backing->dependencyCount &&
                        backing->references.load(std::memory_order_acquire) == 1;
   if (!owner->embedded) {
@@ -386,6 +389,28 @@ void *Invocation::allocate(std::uint64_t bytes) noexcept {
   reservation.bytes = 0;
   attach(&backing->initial);
   return backing + 1;
+}
+void *Invocation::allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept {
+  if (!bytes || !cleanup) {
+    fault(3);
+    return nullptr;
+  }
+  auto *data = allocate(bytes);
+  if (data)
+    (static_cast<Backing *>(data) - 1)->cleanup = cleanup;
+  return data;
+}
+void *Invocation::readResource(void *address, void (*cleanup)(void *) noexcept,
+                               std::uint64_t minimumBytes) noexcept {
+  if (poll() || !usable())
+    return nullptr;
+  auto *owner = findOwner(address);
+  if (!cleanup || !owner || owner->backing->cleanup != cleanup ||
+      owner->backing->bytes < minimumBytes) {
+    fault(3);
+    return nullptr;
+  }
+  return address;
 }
 void *Invocation::allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept {
   auto &state = ledger();
@@ -446,6 +471,14 @@ void Invocation::releaseControl(void *address) noexcept {
   while (state.controls_ != control)
     clearControl();
   clearControl();
+}
+void *Invocation::latestControl(void (*cleanup)(void *) noexcept) noexcept {
+  if (!(flags_ & Materialized))
+    return nullptr;
+  for (auto *control = storage_.value.controls_; control; control = control->next)
+    if (control->cleanup == cleanup)
+      return control + 1;
+  return nullptr;
 }
 void *Invocation::allocateRecord(std::uint64_t bytes) noexcept {
   if (!bytes)

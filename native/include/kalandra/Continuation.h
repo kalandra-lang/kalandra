@@ -48,7 +48,9 @@ enum class Code {
   PropagateGroup,
   CollectInit,
   CollectAppend,
-  CollectFinish
+  CollectFinish,
+  ResourceEnter,
+  ResourceLeave
 };
 struct Instruction {
   Code code;

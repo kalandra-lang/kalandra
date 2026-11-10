@@ -19,13 +19,15 @@ class IsolatedHarnessTests(unittest.TestCase):
             prepare_tests(ROOT, tests)
             self.assertEqual(
                 {p.name for p in tests.iterdir()},
-                {"PortableCPUAcceptance.py", "VersionCheck.py", "WindowsPlatform.py", "LoopCases.py", "expected-version.txt",
+                {"PortableCPUAcceptance.py", "VersionCheck.py", "WindowsPlatform.py", "LoopCases.py", "FileSystemCases.py", "expected-version.txt",
                  "ProtocolClient.py", "ProtocolTests.py", "RecoveryProtocolTests.py"})
             result = subprocess.run(
                 [sys.executable, "-I", "-c",
                  "import sys,json;sys.path.insert(0,sys.argv[1]);"
                  "from VersionCheck import expected_version;"
                  "from ProtocolClient import expected_server_version;"
+                 "import PortableCPUAcceptance;"
+                 "assert PortableCPUAcceptance.FILESYSTEM_EXPECTED == 'λ:2:206:9\\n';"
                  "print(json.dumps([expected_version(),expected_server_version()]))", str(tests)],
                 cwd=folder, capture_output=True, text=True, check=True)
             version = (ROOT / "VERSION").read_text().strip()

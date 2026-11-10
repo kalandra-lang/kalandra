@@ -31,6 +31,9 @@ def compile_plan(backend, repo, compiler, root):
     jobs.append(('console-applications', [sys.executable, repo/'native/tests/GpuConsoleSourceTests.py',
                  '--compiler', compiler, '--target', backend, '--variant', 'optimized',
                  '--compile-only', '--output', root/'console-applications']))
+    jobs.append(('filesystem-applications', [sys.executable, repo/'native/tests/FileSystemSourceTests.py',
+                 '--compiler', compiler, '--target', backend, '--variant', 'optimized',
+                 '--compile-only', '--output', root/'filesystem-applications']))
     for name, script in (
         ('host-arrays', 'HostArrayTests.py'), ('scalar-control', 'ScalarControlTests.py'),
         ('device-arrays', 'DeviceArrayTests.py'), ('device-array-entry', 'DeviceArrayEntryTests.py'),

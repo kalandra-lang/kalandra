@@ -14,6 +14,7 @@ h2 { "Standard modules" }
 Standard modules are explicit imports included with the compiler. They do not require package installation.
 
 list {
+  link { url = "/docs/filesystem", "std/fs — owned files, byte and line I/O, buffering" },
   link { url = "/docs/console", "std/io — console input, output, Line and IoError" },
   link { url = "/docs/console#format", "std/fmt — literal-template scalar formatting" },
   link { url = "/docs/applications#choose-an-exit-status", "std/process — application ExitStatus" }
@@ -77,7 +78,7 @@ list {
 
 h2 { "Program output and external libraries" }
 
-Applications display output explicitly with std/io and return unit or std/process ExitStatus from main. Console I/O and formatting are standard-module imports; file and network I/O are not provided by these modules. Packages can export their own functions; those names belong to the package rather than this built-in index.
+Applications display output explicitly with std/io and return unit or std/process ExitStatus from main. Console I/O and formatting are standard-module imports; file I/O is provided by std/fs. Network I/O is not provided by these modules. Packages can export their own functions; those names belong to the package rather than this built-in index.
 
 list {
   link { url = "/docs/packages", "Using source packages" }

@@ -2,6 +2,7 @@
 from VersionCheck import expected_version, verify_binary_version
 from WindowsPlatform import has_sanitizers, pe_machine, rename_after_process_exit
 from LoopCases import CASES as LOOP_CASES
+from FileSystemCases import SOURCE as FILESYSTEM_SOURCE, EXPECTED as FILESYSTEM_EXPECTED
 import argparse
 import json
 import os
@@ -130,6 +131,20 @@ fn main()->[i64]:
         for flags in ([], ["-O2"]):
             run([compiler, source, "-o", executable, *flags])
             assert run([executable, "é🙂"], expected=42).stdout.strip() == "1:é🙂"
+        # Normal filesystem entry, owned handles and buffered transport must also
+        # work from a downloaded package, not only the source-tree compiler.
+        source.write_text(FILESYSTEM_SOURCE, encoding="utf-8")
+        for mode, flags in modes:
+            run([compiler, source, "-o", executable, *flags])
+            environment = dict(os.environ)
+            if windows and mode == "address-undefined":
+                resources = compiler.parent.parent / "lib/kalandra/toolchain/clang/lib/windows"
+                if not resources.is_dir():
+                    resources, = Path(os.environ["KALANDRA_LLVM_ROOT"]).glob("lib/clang/*/lib/windows")
+                environment["PATH"] = str(resources) + os.pathsep + environment.get("PATH", "")
+            result = subprocess.run([str(executable)], cwd=work, capture_output=True,
+                encoding="utf-8", timeout=60, env=environment)
+            assert result.returncode == 0 and not result.stderr and result.stdout == FILESYSTEM_EXPECTED, result
         project = work / "starter project λ🙂"
         run([compiler, "new", project])
         run([compiler, "--project", project / "kalandra.toml", "-o", executable])

@@ -86,6 +86,9 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
       if (field == 0 && !active.insert(id).second)
         return reject("recursive owned device records require device storage");
       const auto &record = input.records[id];
+      if (record.standard == StandardRecord::File || record.standard == StandardRecord::BufferedReader ||
+          record.standard == StandardRecord::BufferedWriter)
+        return reject("file handles are host resources and cannot be transferred to a GPU");
       const auto boxed = [&](std::size_t index) {
         return storage && storage->fields.at(id).at(index) == RecordFieldStorage::ManagedReference;
       };

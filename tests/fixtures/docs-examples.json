@@ -468,5 +468,19 @@
       "kind": "cpu",
       "expected": "count=42, ready=true, name=Kalandra\n{42}"
     }
+  ],
+  "filesystem": [
+    {
+      "kind": "cpu",
+      "expected": "Hello, Kalandra!"
+    },
+    {
+      "kind": "cpu",
+      "expected": "3"
+    },
+    {
+      "kind": "cpu",
+      "expected": "3:97:9"
+    }
   ]
 }

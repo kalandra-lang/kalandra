@@ -2884,7 +2884,8 @@ private:
             func::CallOp::create(builder_, loc, "kalandra_application_arguments", TypeRange{},
                                  ValueRange{output});
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
-          } else if constexpr (std::is_same_v<T, ConsoleOperation>) {
+          } else if constexpr (std::is_same_v<T, ConsoleOperation> ||
+                               std::is_same_v<T, FileOperation>) {
             throw LoweringFailure{"console I/O requires host continuation lowering"};
           } else if constexpr (std::is_same_v<T, FormatOperation>) {
             // Evaluate every source argument once, left to right, BEFORE any

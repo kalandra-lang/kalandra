@@ -5,6 +5,7 @@
 #include "../gpu-source/ConsoleHostBridge.h"
 #include "../gpu-source/DeviceErrorEntry.h"
 #include "../gpu-source/DeviceErrorLayout.h"
+#include "../gpu-source/FileHostBridge.h"
 #include "../gpu-source/PointerBridge.h"
 #include "../gpu-source/Supervisor.h"
 #include "../lib/NativeLayout.h"
@@ -98,6 +99,12 @@ class Compiler {
     ValueType result;
   };
   std::vector<ConsoleBridgeRequest> consoleBridges;
+  struct FileBridgeRequest {
+    std::string name;
+    FileOperation operation;
+    ValueType result;
+  };
+  std::vector<FileBridgeRequest> fileBridges;
   Module syntax;
   std::map<std::string, std::size_t> cpuFunctions;
   TypedModule cpu;
@@ -1396,7 +1403,7 @@ class Compiler {
       for (const auto &name : sharedNominalKeys)
         linked->getNamedGlobal(name)->setLinkage(llvm::GlobalValue::InternalLinkage);
     if (!aggregateTypes.empty() || !callableTypes.empty() || hostText || hostTextArray ||
-        !consoleBridges.empty()) {
+        !consoleBridges.empty() || !fileBridges.empty()) {
       if (!linked) {
         linked = std::make_unique<llvm::Module>("gpu-host-layouts", context);
         linked->setDataLayout(nativeCpuDataLayout);
@@ -1449,6 +1456,8 @@ class Compiler {
                                           : "kalandra_gpu_string_layout");
         layout->setLinkage(llvm::GlobalValue::ExternalLinkage);
       }
+      for (const auto &request : fileBridges)
+        emitFileHostBridge(placement, *linked, request.operation, request.result, request.name);
       for (const auto &request : consoleBridges)
         emitConsoleHostBridge(placement, *linked, request.operation, request.result, request.name);
     }
@@ -1910,7 +1919,7 @@ class Compiler {
         "Frame)," + prefix + "Construct," + prefix + "Destroy," + prefix + "Resume," +
         (arrayResult || recordResult || callableResult || textResult ? "&" + arrayLayout(value)
          : tensorResult                                              ? "&m::Runtime::bufferLayout()"
-         : booleanResult                                             ? "&boolScalarLayout()"
+         : booleanResult ? "&boolScalarLayout()"
                          : "numericScalarLayout(" + elementName(value.element) + ")") +
         "};\n";
     auto taskField = field("TaskHandle");
@@ -2263,7 +2272,7 @@ class Compiler {
           closure                        ? closure->arenaLayouts[l]
           : schema->captureJoin == l + 1 ? 0
           : layout.type.record           ? runtime::DeviceHeapBlockABI::nominalLayout(
-                                     static_cast<unsigned>(*layout.type.record), layout.type.array)
+                                               static_cast<unsigned>(*layout.type.record), layout.type.array)
           : deviceTensorValue(layout.type)
               ? runtime::DeviceHeapBlockABI::tensorLayout(layout.type.element,
                                                           layout.type.shape.size())
@@ -3935,8 +3944,69 @@ class Compiler {
         bind(op.output,
              arithmetic(std::get<ScalarBinary>(node(op.source).operation).operation, args, span));
         break;
+      case Code::ResourceEnter: {
+        const auto output = get(op.output);
+        std::string pointers = "const FileDescriptor *owned_files[]={";
+        for (std::size_t n = 0; n < args.size(); ++n) {
+          if (n)
+            pointers += ",";
+          pointers += "reinterpret_cast<const FileDescriptor*>(&" + ref(args[n]) + ")";
+        }
+        if (args.empty())
+          pointers += "nullptr";
+        pointers += "};\n";
+        steps.push_back("{" + pointers + ref(output) +
+                        "=reinterpret_cast<std::uintptr_t>(kalandra_file_scope_enter_v1(&task."
+                        "context(),owned_files," +
+                        std::to_string(args.size()) + "));if(!" + ref(output) +
+                        "){hostArrayFailure(task);return;}}\n");
+        break;
+      }
+      case Code::ResourceLeave: {
+        std::string escaping = "nullptr";
+        if (args.size() > 1) {
+          const auto value = args[1];
+          escaping = "reinterpret_cast<const FileDescriptor*>(&" + ref(value) + ")";
+          if (value.failure) {
+            auto success = failureRef(value) + ".kind==TaskFailure::None";
+            if (value.applicationError)
+              success += " && " + hostErrorTag(applicationError(value)) + "==0";
+            escaping = "((" + success + ")?" + escaping + ":nullptr)";
+          }
+        }
+        steps.push_back(
+            "kalandra_file_scope_leave_v1(&task.context(),reinterpret_cast<void*>(std::uintptr_t(" +
+            ref(args[0]) + "))," + escaping +
+            ");if(task.context().status()){hostArrayFailure(task);return;}\n");
+        break;
+      }
       case Code::Kernel:
-        if (const auto *console = std::get_if<ConsoleOperation>(&node(op.source).operation)) {
+        if (const auto *file = std::get_if<FileOperation>(&node(op.source).operation)) {
+          const auto output = get(op.output);
+          if (!output.failure || !output.applicationError)
+            reject(span, "filesystem operation requires FsError");
+          const auto bridge = "kalandra_gpu_file_" + std::to_string(fileBridges.size());
+          fileBridges.push_back({bridge, *file, plan.slots.at(op.output)});
+          declarations += "extern \"C\" bool " + bridge +
+                          "(Invocation*,void**,const void*const*,void*,void*,void*);\n";
+          const auto state = "f." + field("void *");
+          auto error = applicationError(output);
+          std::string pointers = "const void *file_arguments[]={";
+          for (std::size_t n = 0; n < args.size(); ++n) {
+            if (n)
+              pointers += ",";
+            pointers += "&" + ref(args[n]);
+          }
+          pointers += "};\n";
+          steps.push_back("{" + pointers + "if(!" + bridge + "(&task.context(),&" + state +
+                          ",file_arguments,&" + ref(output) + ",&" + failureRef(output) + ",&" +
+                          ref(error) + ")){f.pc=@pc" + std::to_string(i) +
+                          "@;kalandra_file_pause_v1(&task," + state + ");return;}\n" +
+                          "if(task.context().status()){hostArrayFailure(task);return;}if(task."
+                          "cancelled())return;\n" +
+                          commitOutcome(output) + "}\n");
+        } else if (const auto *console =
+                       std::get_if<ConsoleOperation>(&node(op.source).operation)) {
           const auto output = get(op.output);
           if (!output.failure || !output.applicationError)
             reject(span, "console operation requires a checked IoError result");
@@ -5424,6 +5494,7 @@ public:
     host << (backend_ != GpuBackend::Metal ? "#include \"Language.h\"\n" : "#include \"Metal.h\"\n")
          << R"(#include "../runtime/HostArrays.h"
 #include "../runtime/Console.h"
+#include "../runtime/FileSystem.h"
 #include "../runtime/StringArray.h"
 #include "../runtime/Application.h"
 #include "../runtime/DeviceArrayInputJob.h"

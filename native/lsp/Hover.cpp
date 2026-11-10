@@ -51,6 +51,8 @@ struct TypePrinter {
       for (std::size_t i = 0; i < value.callable->parameters.size(); ++i) {
         if (i)
           result += ", ";
+        if (value.callable->owns(i))
+          result += "own ";
         if (value.callable->mutates(i))
           result += "mut ";
         result += type(value.callable->parameters[i], depth + 1);
@@ -112,8 +114,9 @@ struct TypePrinter {
       if (i)
         result += ", ";
       const auto &parameter = module.symbols[function.parameters[i]];
-      const auto label =
-          (parameter.mutableAccess ? "mut " : "") + parameter.name + ": " + type(parameter.type);
+      const auto label = std::string(parameter.owned ? "own " : "") +
+                         (parameter.mutableAccess ? "mut " : "") + parameter.name + ": " +
+                         type(parameter.type);
       result += label;
       if (parameters)
         parameters->push_back(label);
@@ -143,6 +146,8 @@ std::optional<SignatureInfo> callableSignature(const TypedModule &module, const 
     auto label = printer.type(parameter);
     if (!parameterNames.empty())
       label = parameterNames[result.parameters.size()] + ": " + label;
+    if (type.callable->owns(result.parameters.size()))
+      label = "own " + label;
     if (type.callable->mutates(result.parameters.size()))
       label = "mut " + label;
     result.parameters.push_back(std::move(label));
@@ -476,7 +481,10 @@ std::optional<SignatureInfo> signatureInfo(ParseResult syntax, std::string_view 
     const bool hasFormatModule =
         std::ranges::any_of(syntax.module.standardModules,
                             [](auto module) { return module == StandardModule::Format; });
-    if (hasBuiltinSignature(name) || hasFormatModule) {
+    const bool hasFileModule = std::ranges::any_of(syntax.module.standardModules, [](auto module) {
+      return module == StandardModule::Filesystem;
+    });
+    if (hasBuiltinSignature(name) || hasFormatModule || hasFileModule) {
       auto checked = check(syntax, {}, options);
       if (checked.ok()) {
         for (const auto &expression : checked.module->expressions)
@@ -489,6 +497,29 @@ std::optional<SignatureInfo> signatureInfo(ParseResult syntax, std::string_view 
             result.activeParameter = std::min(active, std::size_t{1});
             return result;
           }
+        for (const auto &expression : checked.module->expressions) {
+          if (expression.span.begin != invocationSpan.begin ||
+              expression.span.end != invocationSpan.end)
+            continue;
+          const auto *file = std::get_if<FileOperation>(&expression.operation);
+          if (!file || !file->declaration)
+            continue;
+          const auto &function = checked.module->functions.at(*file->declaration);
+          FunctionSignature signature;
+          std::vector<std::string> names;
+          for (std::size_t i = 0; i < file->arguments.size(); ++i) {
+            signature.parameters.push_back(checked.module->expressions.at(file->arguments[i]).type);
+            const auto &parameter = checked.module->symbols.at(function.parameters.at(i));
+            signature.mutableParameters.push_back(parameter.mutableAccess);
+            signature.ownedParameters.push_back(parameter.owned);
+            names.push_back(parameter.name);
+          }
+          signature.result = expression.type;
+          ValueType callable;
+          callable.builtin = BuiltinValue::Function;
+          callable.callable = std::make_shared<const FunctionSignature>(std::move(signature));
+          return callableSignature(*checked.module, callable, name, active, names);
+        }
         if (auto result = builtinSignature(*checked.module, invocationSpan, name, active,
                                            call.arguments.size() + (piped ? 1u : 0u)))
           return result;

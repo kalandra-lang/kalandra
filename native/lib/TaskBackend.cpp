@@ -1,6 +1,7 @@
 #include "CollectionMetadata.h"
 #include "ConsoleLowering.h"
 #include "ErrorFamilies.h"
+#include "FileLowering.h"
 #include "NativeCallFoundation.h"
 #include "NativeLayout.h"
 #include "NativeStack.h"
@@ -61,7 +62,7 @@ class Emitter {
   std::vector<llvm::GlobalVariable *> scopeTables;
   std::vector<Function *> frameDestroyers;
   std::vector<llvm::GlobalVariable *> entries;
-  std::map<Function *, Value *> consoleScratch;
+  std::map<Function *, Value *> consoleScratch, fileScratch, fileArguments;
   Function *closedApplication = nullptr;
   std::optional<std::size_t> closedApplicationId;
   Function *destroy;
@@ -120,8 +121,10 @@ public:
       consoleFields.emplace_back();
       for (std::size_t n = 0; n < plan.code.size(); ++n)
         if (plan.code[n].code == Code::Kernel &&
-            std::holds_alternative<ConsoleOperation>(
-                planner.input.expressions[plan.code[n].source].operation)) {
+            (std::holds_alternative<ConsoleOperation>(
+                 planner.input.expressions[plan.code[n].source].operation) ||
+             std::holds_alternative<FileOperation>(
+                 planner.input.expressions[plan.code[n].source].operation))) {
           consoleFields.back()[n] = fields.size();
           fields.push_back(pointer);
         }
@@ -1654,7 +1657,12 @@ private:
                              retain);
         builder.SetInsertPoint(retain);
         retainRecord(type, builder.CreateStructGEP(wrapper, fn->getArg(3), 1), fn, failed);
-        builder.CreateBr(ready);
+        if (isFileResource(planner.input, type)) {
+          auto *ok = call("kalandra_file_receive_v1", boolean,
+                          {fn->getArg(0), builder.CreateStructGEP(wrapper, fn->getArg(3), 1)});
+          builder.CreateCondBr(ok, ready, failed);
+        } else
+          builder.CreateBr(ready);
         builder.SetInsertPoint(failed);
         builder.CreateRet(builder.getFalse());
       } else
@@ -2019,6 +2027,35 @@ private:
       };
       const auto &type = plan.slots[instruction.output];
       switch (instruction.code) {
+      case Code::ResourceEnter: {
+        llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+        auto *arrayType = llvm::ArrayType::get(pointer, instruction.args.size());
+        auto *owned = entry.CreateAlloca(arrayType, nullptr, "resource.owned");
+        for (std::size_t i = 0; i < instruction.args.size(); ++i)
+          builder.CreateStore(payload(instruction.args[i]),
+                              builder.CreateGEP(arrayType, owned, {c64(0), c64(i)}));
+        auto *scope = call("kalandra_file_scope_enter_v1", pointer,
+                           {ctx, owned, c64(instruction.args.size())});
+        builder.CreateStore(builder.CreatePtrToInt(scope, i64), payload(instruction.output));
+        builder.CreateCondBr(builder.CreateIsNotNull(scope), next, abort);
+        break;
+      }
+      case Code::ResourceLeave: {
+        Value *escaping = llvm::ConstantPointerNull::get(builder.getPtrTy());
+        if (instruction.args.size() > 1) {
+          const auto value = instruction.args[1];
+          escaping = payload(value);
+          if (plan.slots[value].fallible)
+            escaping =
+                builder.CreateSelect(hasResultError(plan.slots[value], slot(value)),
+                                     llvm::ConstantPointerNull::get(builder.getPtrTy()), escaping);
+        }
+        auto *scope =
+            builder.CreateIntToPtr(builder.CreateLoad(i64, payload(instruction.args[0])), pointer);
+        call("kalandra_file_scope_leave_v1", voidType, {ctx, scope, escaping});
+        check();
+        break;
+      }
       case Code::Literal: {
         const auto &literal = planner.input.expressions[instruction.source].operation;
         if (const auto *integer = std::get_if<Int32Literal>(&literal)) {
@@ -2091,6 +2128,28 @@ private:
         break;
       }
       case Code::Kernel: {
+        if (const auto *file = std::get_if<FileOperation>(
+                &planner.input.expressions[instruction.source].operation)) {
+          auto *&scratch = fileScratch[resume];
+          auto *&arguments = fileArguments[resume];
+          if (!scratch) {
+            llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+            scratch =
+                entry.CreateAlloca(fileResultType(*taskTypes, context), nullptr, "file.result");
+            arguments = entry.CreateAlloca(fileArgumentsType(*taskTypes, context), nullptr,
+                                           "file.arguments");
+          }
+          std::vector<Value *> inputs;
+          for (auto arg : instruction.args)
+            inputs.push_back(payload(arg));
+          emitFileOperation(
+              builder, module, planner.input, *taskTypes, *file, type, valueType(type), inputs,
+              slot(instruction.output), scratch, arguments,
+              closed ? nullptr
+                     : builder.CreateStructGEP(frameType, frame, consoleFields.at(id).at(n)),
+              ctx, task, pc, n, next, leave, abort, closed);
+          break;
+        }
         if (const auto *console = std::get_if<ConsoleOperation>(
                 &planner.input.expressions[instruction.source].operation)) {
           auto *&scratch = consoleScratch[resume];

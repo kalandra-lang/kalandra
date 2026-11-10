@@ -109,22 +109,30 @@ test("public documentation links resolve to authored pages and heading anchors",
 
 test("standard-module callables have individual public reference entries", async () => {
   const declarations = await read("native/include/kalandra/StandardLibrary.h");
-  const functions = [...declarations.matchAll(/export fn (\w+)\(/g)].map(
-    (match) => match[1]!,
-  );
-  expect(functions.sort()).toEqual([
-    "eprint",
-    "eprintln",
-    "format",
-    "print",
-    "println",
-    "readLine",
-  ]);
-  const console = await readFile(new URL("console.tiramisu", content), "utf8");
-  for (const name of functions) {
-    expect(console).toContain(`h2 { "${name}" }`);
-    expect(console).toContain(`code { "${name}(`);
+  const pages: Record<string, string> = {
+    Io: "console",
+    Format: "console",
+    Process: "applications",
+    Filesystem: "filesystem",
+  };
+  let count = 0;
+  for (const module of declarations.matchAll(
+    /case StandardModule::(\w+):\s*return R"k\(([\s\S]*?)\)k";/g,
+  )) {
+    const page = pages[module[1]!];
+    expect(page).toBeDefined();
+    const reference = await readFile(
+      new URL(`${page}.tiramisu`, content),
+      "utf8",
+    );
+    for (const fn of module[2]!.matchAll(/export fn (\w+)\(/g)) {
+      ++count;
+      expect(reference).toContain(`h2 { "${fn[1]}" }`);
+      expect(reference).toContain(`code { "${fn[1]}(`);
+    }
   }
+  expect(count).toBe(21);
+  const console = await readFile(new URL("console.tiramisu", content), "utf8");
   expect(console).toContain('h2 { "IoError" }');
   const applications = await readFile(
     new URL("applications.tiramisu", content),
