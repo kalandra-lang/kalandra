@@ -5,6 +5,7 @@
 #include "NativeCallFoundation.h"
 #include "NativeLayout.h"
 #include "NativeStack.h"
+#include "ParseLowering.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
 #include "TaskCallableOps.h"
@@ -62,7 +63,7 @@ class Emitter {
   std::vector<llvm::GlobalVariable *> scopeTables;
   std::vector<Function *> frameDestroyers;
   std::vector<llvm::GlobalVariable *> entries;
-  std::map<Function *, Value *> consoleScratch, fileScratch, fileArguments;
+  std::map<Function *, Value *> consoleScratch, fileScratch, fileArguments, parseScratch;
   Function *closedApplication = nullptr;
   std::optional<std::size_t> closedApplicationId;
   Function *destroy;
@@ -2128,6 +2129,18 @@ private:
         break;
       }
       case Code::Kernel: {
+        if (const auto *parse = std::get_if<ParseOperation>(
+                &planner.input.expressions[instruction.source].operation)) {
+          auto *&scratch = parseScratch[resume];
+          if (!scratch) {
+            llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+            scratch = entry.CreateAlloca(parseResultType(context), nullptr, "parse.result");
+          }
+          emitParseOperation(builder, module, planner.input, *taskTypes, *parse, type,
+                             valueType(type), payload(instruction.args.at(0)),
+                             slot(instruction.output), scratch, ctx, next, abort);
+          break;
+        }
         if (const auto *file = std::get_if<FileOperation>(
                 &planner.input.expressions[instruction.source].operation)) {
           auto *&scratch = fileScratch[resume];

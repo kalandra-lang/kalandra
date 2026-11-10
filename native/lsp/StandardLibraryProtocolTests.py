@@ -20,7 +20,7 @@ fn main()->unit ! IoError:
     client.open(path, text)
     assert not publications(client.barrier())[path.as_uri()]['diagnostics']
     for module, expected in [('io', 'export fn println'), ('fmt', 'export fn format'),
-                             ('process', 'export type ExitStatus'), ('fs', 'export fn open')]:
+                             ('process', 'export type ExitStatus'), ('fs', 'export fn open'), ('parse', 'export fn parseI64')]:
         result = client.rpc('kalandra/standardLibrary', {'uri': f'kalandra-stdlib:std/{module}.k'})
         assert expected in result['result'], result
     for uri in ('file:///etc/passwd', 'kalandra-stdlib:std/missing.k', 'kalandra-stdlib:std/../main.k'):
@@ -96,3 +96,29 @@ fn main()->unit:
         if version==3: assert 'BufferedReader' in result['signatures'][0]['label'],result
     client.finish()
 print('PASS: read-only standard declarations, definition URIs, format hover/signature and bounded content requests')
+with tempfile.TemporaryDirectory(dir=directory) as temp:
+    root=Path(temp).resolve()
+    path=root/'parsing.k'
+    text='''from "std/parse" import parseI64 as parseCount, ParseError
+fn main()->i64 ! ParseError:
+  return try parseCount("42")
+'''
+    client=Client(server)
+    client.init(rename=True,workspaceFolders=[{'uri':root.as_uri(),'name':'parsing'}])
+    client.open(path,text)
+    assert not publications(client.barrier())[path.as_uri()]['diagnostics']
+    params={'textDocument':{'uri':path.as_uri()},'position':{'line':2,'character':14}}
+    definition=client.rpc('textDocument/definition',params)['result']
+    assert definition['uri']=='kalandra-stdlib:std/parse.k',definition
+    hover=client.rpc('textDocument/hover',params)['result']
+    assert 'String' in str(hover) and 'i64' in str(hover) and 'ParseError' in str(hover),hover
+    signature=client.rpc('textDocument/signatureHelp',{
+        **params,'position':{'line':2,'character':25}})['result']
+    assert signature and 'text: String' in signature['signatures'][0]['label'],signature
+    renamed=client.rpc('textDocument/rename',{**params,'newName':'readCount'})['result']
+    changes=renamed['documentChanges']
+    assert len(changes)==1 and changes[0]['textDocument']['uri']==path.as_uri() and len(changes[0]['edits'])==2,renamed
+    declarations=client.rpc('kalandra/standardLibrary',{'uri':'kalandra-stdlib:std/parse.k'})['result']
+    assert 'export error ParseError:' in declarations and 'export fn parseBool' in declarations,declarations
+    client.finish()
+print('PASS: parsing declarations, alias definition, hover, signature and local-only rename')

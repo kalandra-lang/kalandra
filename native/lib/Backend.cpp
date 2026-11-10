@@ -2885,8 +2885,9 @@ private:
                                  ValueRange{output});
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, ConsoleOperation> ||
-                               std::is_same_v<T, FileOperation>) {
-            throw LoweringFailure{"console I/O requires host continuation lowering"};
+                               std::is_same_v<T, FileOperation> ||
+                               std::is_same_v<T, ParseOperation>) {
+            throw LoweringFailure{"host standard-library operation requires continuation lowering"};
           } else if constexpr (std::is_same_v<T, FormatOperation>) {
             // Evaluate every source argument once, left to right, BEFORE any
             // formatting allocations. This preserves ordinary call fault order.

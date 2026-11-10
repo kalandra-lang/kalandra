@@ -2,8 +2,10 @@
 #include <optional>
 #include <string_view>
 namespace kalandra {
-enum class StandardModule { Io, Format, Process, Filesystem };
+enum class StandardModule { Io, Format, Process, Filesystem, Parse };
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/parse")
+    return StandardModule::Parse;
   if (name == "std/fs")
     return StandardModule::Filesystem;
   if (name == "std/io")
@@ -16,6 +18,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Parse:
+    return "kalandra-stdlib:std/parse.k";
   case StandardModule::Filesystem:
     return "kalandra-stdlib:std/fs.k";
   case StandardModule::Io:
@@ -28,6 +32,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Parse))
+    return StandardModule::Parse;
   if (path == standardModulePath(StandardModule::Filesystem))
     return StandardModule::Filesystem;
   if (path == standardModulePath(StandardModule::Io))
@@ -43,6 +49,34 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Parse:
+    return R"k(export error ParseError:
+  Invalid:
+    offset: u64
+  OutOfRange
+export fn parseI8(text: String) -> i8 ! ParseError:
+  return __kalandra_parse_i8(text)
+export fn parseI16(text: String) -> i16 ! ParseError:
+  return __kalandra_parse_i16(text)
+export fn parseI32(text: String) -> i32 ! ParseError:
+  return __kalandra_parse_i32(text)
+export fn parseI64(text: String) -> i64 ! ParseError:
+  return __kalandra_parse_i64(text)
+export fn parseU8(text: String) -> u8 ! ParseError:
+  return __kalandra_parse_u8(text)
+export fn parseU16(text: String) -> u16 ! ParseError:
+  return __kalandra_parse_u16(text)
+export fn parseU32(text: String) -> u32 ! ParseError:
+  return __kalandra_parse_u32(text)
+export fn parseU64(text: String) -> u64 ! ParseError:
+  return __kalandra_parse_u64(text)
+export fn parseF32(text: String) -> f32 ! ParseError:
+  return __kalandra_parse_f32(text)
+export fn parseF64(text: String) -> f64 ! ParseError:
+  return __kalandra_parse_f64(text)
+export fn parseBool(text: String) -> bool ! ParseError:
+  return __kalandra_parse_bool(text)
+)k";
   case StandardModule::Filesystem:
     return R"k(from "std/io" import Line
 export type File:
