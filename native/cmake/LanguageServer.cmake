@@ -19,7 +19,7 @@ if(BUILD_TESTING)
     add_test(NAME native-lsp-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/lsp/ProtocolTests.py" "$<TARGET_FILE:${SERVER}>"
       "${CMAKE_CURRENT_BINARY_DIR}/lsp-${VARIANT}")
-    set_tests_properties(native-lsp-${VARIANT} PROPERTIES TIMEOUT 90)
+    set_tests_properties(native-lsp-${VARIANT} PROPERTIES TIMEOUT 90 LABELS "feature-io")
   endforeach()
 endif()
 if(BUILD_TESTING)

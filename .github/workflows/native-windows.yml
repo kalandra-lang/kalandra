@@ -93,6 +93,7 @@ jobs:
         run: cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized -j2 -- -k 0
       - name: Qualify application entries, console I/O and formatting
         run: |
+          $env:PYTHONUTF8 = '1'
           $variants = @('debug', 'optimized')
           if ('${{ matrix.arch }}' -eq 'x86_64') {
             $variants += 'sanitized'
@@ -108,6 +109,10 @@ jobs:
           }
           python native/tests/CompilerObserverTests.py --compiler build/windows/native/kalandra.exe --observer build/windows/native/kalandra-test-observer.exe --output build/windows/io/observer
           if ($LASTEXITCODE -ne 0) { throw 'Numerical observer argument forwarding failed' }
+          python native/lsp/ProtocolTests.py build/windows/native/kalandra-lsp.exe build/windows/io/lsp-protocol
+          if ($LASTEXITCODE -ne 0) { throw 'Language server protocol qualification failed' }
+          python native/lsp/StandardLibraryProtocolTests.py build/windows/native/kalandra-lsp.exe build/windows/io/lsp-standard-library
+          if ($LASTEXITCODE -ne 0) { throw 'Standard library editor qualification failed' }
       - name: Qualify explicit returns and primitive types
         run: |
           python native/tests/ExplicitReturnTests.py --compiler build/windows/native/kalandra-test-observer.exe --checker build/windows/native/kalandra-check.exe --output build/windows/explicit-returns
