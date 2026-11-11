@@ -122,7 +122,7 @@ public:
   std::size_t totalSlots = 0;
   Options options;
   const RecordStoragePlan &recordStorage;
-  std::vector<bool> resumable, coordinating, loopControl;
+  std::vector<bool> resumable, coordinating, loopControl, hostCallables;
   std::optional<FunctionInvocationFlow> invocationFlow;
   std::vector<FunctionId> pending;
   std::vector<bool> scheduled;
@@ -132,7 +132,10 @@ public:
                    const RecordStoragePlan &recordStorage)
       : ModulePlan(input), options(options), recordStorage(recordStorage),
         resumable(resumableFunctions(input)), coordinating(coordinatingFunctions(input)),
-        loopControl(loopControlFunctions(input)), invocationFlow(functionInvocationFlow(input)) {
+        loopControl(loopControlFunctions(input)),
+        hostCallables(options.preserveCalls ? hostCallableFunctions(input)
+                                           : std::vector<bool>(input.functions.size())),
+        invocationFlow(functionInvocationFlow(input)) {
     nonCompleting = nonCompletingValues(input);
     if (options.deviceCallFrames && (!options.entry || !options.deviceValues ||
                                      options.nativeSubgraphs || options.preserveCalls))
@@ -142,9 +145,8 @@ public:
         if (!coordinating[id] && !input.functions[id].resultType.fallible)
           resumable[id] = false;
     if (options.preserveCalls) {
-      const auto host = hostCallableFunctions(input);
       for (FunctionId id = 0; id < input.functions.size(); ++id)
-        resumable[id] = resumable[id] || host[id];
+        resumable[id] = resumable[id] || hostCallables[id];
     }
     if (options.entry && *options.entry >= input.functions.size())
       throw std::runtime_error("continuation entry function is out of range");
@@ -1199,7 +1201,7 @@ private:
           const bool gpuErrorEntry =
               options.preserveCalls && options.deviceValues && task->placement &&
               input.expressions.at(*task->placement).type.device && !coordinating.at(target) &&
-              input.functions.at(target).resultType.errorRecord;
+              (input.functions.at(target).resultType.errorRecord || hostCallables.at(target));
           if (!gpuErrorEntry && (!options.preserveCalls || resumable.at(target)) &&
               !scheduled.at(target)) {
             scheduled[target] = true;

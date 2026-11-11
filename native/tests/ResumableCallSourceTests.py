@@ -15,7 +15,8 @@ p.add_argument('--case', action='append', choices=(
     'deep-and-mutual', 'tail-retirement', 'owned-error', 'owned-file', 'repeated-results',
     'cancel-deep-sleeper', 'returned-callback', 'recursive-callback', 'borrowed-file',
     'mixed-callback-targets', 'fault-propagation', 'task-fault-catch',
-    'tensor-results', 'tensor-capture', 'returned-task-error', 'mutable-array-call'))
+    'tensor-results', 'tensor-capture', 'returned-task-error', 'mutable-array-call',
+    'host-device-callbacks'))
 a = p.parse_args()
 a.compiler = a.compiler.resolve()
 a.output = a.output.resolve()
@@ -322,3 +323,20 @@ fn main()->unit ! (TimeError | IoError | TaskError):
   try println(format("{}",values[0]))
   return ()
 ''', '10\n')
+
+placement = ('try parallel:\n    gpu=devices.gpu()\n    callback=double\n'
+             '    try await spawn apply(21,callback) on gpu' if a.target != 'cpu'
+             else 'apply(21,double)')
+run('host-device-callbacks', '''fn apply(n:i64,transform:fn(i64)->i64)->i64:
+  return transform(n)
+fn double(n:i64)->i64:
+  return n*2
+fn main()->unit ! (TimeError | IoError | TaskError):
+  host=fn()->unit ! TimeError:
+    try sleep(nanoseconds(u64(1)))
+    return ()
+  try host()
+  result=PLACEMENT
+  try println(format("{}",result))
+  return ()
+'''.replace('PLACEMENT', placement), '42\n')
