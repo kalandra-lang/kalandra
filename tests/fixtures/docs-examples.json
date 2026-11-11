@@ -497,7 +497,9 @@
     {
       "kind": "cpu",
       "expected": "port=9000",
-      "environment": { "APP_PORT": "9000" }
+      "environment": {
+        "APP_PORT": "9000"
+      }
     }
   ],
   "paths": [
@@ -509,6 +511,12 @@
     {
       "kind": "cpu",
       "expected": "file.txt\nfinal.txt"
+    }
+  ],
+  "time": [
+    {
+      "kind": "cpu",
+      "expected": "true"
     }
   ]
 }

@@ -2881,6 +2881,22 @@ private:
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, StringLiteral>) {
             return stringLiteral(loc, operation.value);
+          } else if constexpr (std::is_same_v<T, TimeOperation>) {
+            if (node.type.fallible)
+              throw LoweringFailure{"fallible time operation requires continuation lowering"};
+            auto input = expression(frame, operation.arguments.at(0));
+            if (operation.action == TimeAction::Nanoseconds) {
+              Value result = LLVM::ZeroOp::create(builder_, loc, type(node.type));
+              return LLVM::InsertValueOp::create(builder_, loc, result, input,
+                                                 ArrayRef<int64_t>{0});
+            }
+            Value nanos = LLVM::ExtractValueOp::create(builder_, loc, input, ArrayRef<int64_t>{0});
+            if (operation.action == TimeAction::AsNanoseconds)
+              return nanos;
+            auto seconds = arith::UIToFPOp::create(builder_, loc, builder_.getF64Type(), nanos);
+            auto divisor =
+                arith::ConstantOp::create(builder_, loc, builder_.getF64FloatAttr(1'000'000'000.0));
+            return arith::DivFOp::create(builder_, loc, seconds, divisor).getResult();
           } else if constexpr (std::is_same_v<T, PathOperation>) {
             auto argument = stringSlot(loc, expression(frame, operation.input));
             ValueType text;

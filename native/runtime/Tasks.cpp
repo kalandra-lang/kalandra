@@ -29,6 +29,7 @@ enum class State {
   WaitingTask,
   WaitingGroup,
   WaitingExternal,
+  WaitingTimer,
   Settling,
   Settled
 };
@@ -44,6 +45,7 @@ struct Record {
   bool counted = false, executing = false, cleaning = false;
   std::uint32_t readers = 0;
   bool externalPending = false;
+  std::chrono::steady_clock::time_point wakeAt{};
   std::uint64_t externalEpoch = 0;
   std::atomic<bool> cancel{false};
   std::thread::id runner{}, lastRunner{};
@@ -148,6 +150,38 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
 #else
     condition.wait(lock, ready);
 #endif
+  }
+  std::chrono::steady_clock::time_point nextTimer() const {
+    auto deadline = std::chrono::steady_clock::time_point::max();
+    for (auto slot = unfinishedTasks.next(0); slot < unfinishedTasks.size();
+         slot = unfinishedTasks.next(slot + 1))
+      if (tasks[slot].state == State::WaitingTimer)
+        deadline = std::min(deadline, tasks[slot].wakeAt);
+    return deadline;
+  }
+  template <class Predicate>
+  void waitForProgress(std::unique_lock<std::mutex> &lock, std::condition_variable &condition,
+                       Predicate ready, bool controller = false) {
+    while (!ready()) {
+      if (!stats.timers) {
+        wait(lock, condition, [&] { return ready() || stats.timers; }, controller);
+        continue;
+      }
+      const auto deadline = nextTimer();
+#ifdef KALANDRA_TASK_PROFILE
+      ++profile.waits;
+      const auto start = ProfileClock::now();
+#endif
+      const auto status = condition.wait_until(lock, deadline);
+#ifdef KALANDRA_TASK_PROFILE
+      ++profile.waitReturns;
+      profile.controllerWaitReturns += controller;
+      profile.workerWaitReturns += !controller;
+      profile.waitNs += nanos(start);
+#endif
+      if (status == std::cv_status::timeout)
+        return;
+    }
   }
   std::unique_ptr<Record[]> tasks;
   std::unique_ptr<Group[]> groups;
@@ -258,13 +292,14 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
               continue;
             }
             ++remaining;
-            if (!pumping && !preparing && !stats.externalPending) {
+            if (!pumping && !preparing && !stats.externalPending && !stats.timers) {
               draining = false;
               signal();
               continue;
             }
             const auto seen = revision;
-            wait(lock, workerChanged, [&] { return stopping || !draining || revision != seen; });
+            waitForProgress(lock, workerChanged,
+                            [&] { return stopping || !draining || revision != seen; });
           }
         });
       return true;
@@ -413,7 +448,9 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     if (record.externalPending)
       return;
     if (record.state == State::WaitingTask || record.state == State::WaitingGroup ||
-        record.state == State::WaitingExternal) {
+        record.state == State::WaitingExternal || record.state == State::WaitingTimer) {
+      if (record.state == State::WaitingTimer)
+        --stats.timers;
       record.state = State::Runnable;
       --stats.maintenanceTasks;
       record.dependency = {};
@@ -657,6 +694,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     bool changed;
     do {
       changed = false;
+      const auto now =
+          stats.timers ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
       TASK_PROBE(maintenancePasses, 1);
       for (auto i = liveGroups.next(0); i < liveGroups.size(); i = liveGroups.next(i + 1)) {
         TASK_PROBE(groupVisits, 1);
@@ -690,6 +729,10 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
            i = unfinishedTasks.next(i + 1)) {
         TASK_PROBE(recordVisits, 1);
         auto &task = tasks[i];
+        if (task.state == State::WaitingTimer && now >= task.wakeAt) {
+          wake(i);
+          changed = true;
+        }
         if (task.state == State::WaitingTask) {
           auto *dependency = get(task.dependency);
           if (dependency && dependency->state == State::Settled) {
@@ -778,8 +821,11 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     auto &task = tasks[slot];
     unlinkPending(slot);
     task.failure = failure;
+    if (task.state == State::WaitingTimer)
+      --stats.timers;
     if (task.state != State::Settling && task.state != State::WaitingTask &&
-        task.state != State::WaitingGroup && task.state != State::WaitingExternal)
+        task.state != State::WaitingGroup && task.state != State::WaitingExternal &&
+        task.state != State::WaitingTimer)
       ++stats.maintenanceTasks;
     task.state = State::Settling;
     if (failure.kind != TaskFailure::None) {
@@ -897,7 +943,7 @@ struct ClosedTaskRunner::Impl {
       const auto after = core->stats();
       // A scheduler step budget is not a language execution limit. Continue
       // productive batches; reject a deadlock with no external progress source.
-      if (after.resumes == before && !after.externalPending)
+      if (after.resumes == before && !after.externalPending && !after.timers)
         return false;
     }
   }
@@ -1047,10 +1093,10 @@ bool TaskCore::drain(std::size_t steps) noexcept {
     while (steps) {
       if (impl_->step(guard.lock)) {
         --steps;
-      } else if (impl_->stats.externalPending) {
+      } else if (impl_->stats.externalPending || impl_->stats.timers) {
         const auto seen = impl_->revision;
         impl_->externalControllerWaiting = true;
-        impl_->wait(
+        impl_->waitForProgress(
             guard.lock, impl_->controllerChanged, [&] { return impl_->revision != seen; }, true);
         impl_->externalControllerWaiting = false;
       } else {
@@ -1205,7 +1251,7 @@ bool Task::canExecuteSynchronously() const noexcept {
   if (!self.executing || self.state != State::Running ||
       self.runner != std::this_thread::get_id() || self.cancel.load() ||
       self.execution.executionStatus() || core_.running != 1 || core_.preparing ||
-      core_.stats.externalPending || core_.stopping)
+      core_.stats.externalPending || core_.stats.timers || core_.stopping)
     return false;
   for (auto i = core_.liveTasks.next(0); i < core_.liveTasks.size();
        i = core_.liveTasks.next(i + 1)) {
@@ -1218,9 +1264,8 @@ bool Task::canExecuteSynchronously() const noexcept {
         other.state != State::Settled)
       return false;
   }
-  // Deadlines currently enter through explicit host/source cancellation. This
-  // owner exposes no host capability and no other source can run. If internal
-  // timers are added, their pending events must invalidate this proof too.
+  // The owner exposes no host capability, pending timer or other source that
+  // could require independent progress while this callback runs.
   return true;
 }
 ExternalCompletion::ExternalCompletion(const std::shared_ptr<TaskCore::Impl> &core,
@@ -1269,6 +1314,26 @@ ExternalCompletion Task::suspendExternal() noexcept {
   ++core_.stats.externalPending;
   ++core_.stats.maintenanceTasks;
   return ExternalCompletion(core_.shared_from_this(), core_.handle(slot_), record.externalEpoch);
+}
+void Task::suspendUntil(std::chrono::steady_clock::time_point deadline) noexcept {
+  TaskCore::Impl::Guard guard(core_);
+  auto &record = core_.tasks[slot_];
+  if (record.state != State::Running) {
+    context().fault(3);
+    return;
+  }
+  if (record.cancel.load()) {
+    core_.finish(slot_, {TaskFailure::Cancelled});
+    return;
+  }
+  if (deadline <= std::chrono::steady_clock::now()) {
+    record.state = State::Runnable;
+    return;
+  }
+  record.wakeAt = deadline;
+  record.state = State::WaitingTimer;
+  ++core_.stats.timers;
+  ++core_.stats.maintenanceTasks;
 }
 void Task::yield() noexcept {
   TaskCore::Impl::Guard guard(core_);

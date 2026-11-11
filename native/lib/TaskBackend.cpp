@@ -17,6 +17,7 @@
 #include "TaskTraversal.h"
 #include "TaskValueCopy.h"
 #include "TaskValueTypes.h"
+#include "TimeLowering.h"
 #include "kalandra/Backend.h"
 #include "kalandra/Continuation.h"
 #include "llvm/AsmParser/Parser.h"
@@ -66,7 +67,7 @@ class Emitter {
   std::vector<Function *> frameDestroyers;
   std::vector<llvm::GlobalVariable *> entries;
   std::map<Function *, Value *> consoleScratch, fileScratch, fileArguments, parseScratch,
-      environmentScratch, pathScratch;
+      environmentScratch, pathScratch, timeScratch;
   Function *closedApplication = nullptr;
   std::optional<std::size_t> closedApplicationId;
   Function *destroy;
@@ -2141,6 +2142,29 @@ private:
         break;
       }
       case Code::Kernel: {
+        if (const auto *time = std::get_if<TimeOperation>(
+                &planner.input.expressions[instruction.source].operation)) {
+          auto *&scratch = timeScratch[resume];
+          if (!scratch) {
+            llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+            scratch = entry.CreateAlloca(timeResultType(context), nullptr, "time.result");
+          }
+          const bool sleep = time->action == TimeAction::Sleep;
+          if (sleep && closed)
+            throw std::invalid_argument("sleep requires resumable task lowering");
+          auto *success = sleep ? Block::Create(context, "time.pause", resume) : next;
+          auto *deadline = emitTimeOperation(
+              builder, module, *taskTypes, time->action, type, valueType(type),
+              instruction.args.empty() ? nullptr : payload(instruction.args.at(0)),
+              slot(instruction.output), scratch, ctx, success, next, abort);
+          if (sleep) {
+            builder.SetInsertPoint(success);
+            builder.CreateStore(c32(n + 1), pc);
+            call("kalandra_time_pause_v1", voidType, {task, deadline});
+            builder.CreateBr(leave);
+          }
+          break;
+        }
         if (const auto *path = std::get_if<PathOperation>(
                 &planner.input.expressions[instruction.source].operation)) {
           auto *&scratch = pathScratch[resume];

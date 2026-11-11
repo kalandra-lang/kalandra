@@ -1,0 +1,87 @@
+meta { title = "Time and sleep", description = "Measure monotonic elapsed time and suspend a task with std/time.", order = 10, group = "Library reference" }
+
+Use std/time to measure how long work takes or pause a CPU task. Import the functions you need; there are no implicit time units.
+
+h2 { "Measure elapsed time" }
+
+codeblock { language = kalandra, """from "std/time" import now, elapsed, milliseconds, asSeconds, sleep, TimeError
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! (TimeError | IoError):
+  start = try now()
+  try sleep(try milliseconds(u64(250)))
+  duration = try elapsed(start)
+  try println(format("{}", asSeconds(duration) >= 0.25))
+  return ()
+""" }
+
+This prints true: at least 0.25 seconds have elapsed. Resumption can be later when the operating system or other tasks delay it. Use asSeconds(duration) to display the measured duration. Clock resolution and scheduling precision depend on the platform; representing a duration in nanoseconds does not promise nanosecond precision.
+
+h2 { "Instant and Duration" }
+
+Instant is an opaque point on the host's monotonic clock. It is unaffected by calendar-clock adjustments. Use it with elapsed in the same running application; it is not a date, Unix timestamp or portable serialized value.
+
+Duration is an opaque, nonnegative count of nanoseconds, represented exactly as u64. These values can be copied, passed to functions and returned from tasks. Construct and inspect them through this module's functions; their fields are private.
+
+h2 { "now" }
+
+code { "now() -> Instant ! TimeError" }
+
+Read the current monotonic time. The clock can return the same Instant on successive reads when less than one clock tick has passed.
+
+h2 { "elapsed" }
+
+code { "elapsed(start: Instant) -> Duration ! TimeError" }
+
+Measure the nonnegative duration from start to the current monotonic time. Await a task before calling elapsed if the measurement should include that task's completion.
+
+h2 { "nanoseconds" }
+
+code { "nanoseconds(value: u64) -> Duration" }
+
+Construct an exact duration, including zero and the full u64 range. Constructing a duration does not guarantee that the operating system can sleep for that duration.
+
+h2 { "milliseconds" }
+
+code { "milliseconds(value: u64) -> Duration ! TimeError" }
+
+Multiply value by 1,000,000 with an overflow check. Values above 18,446,744,073,709 produce TimeError.OutOfRange.
+
+h2 { "asNanoseconds" }
+
+code { "asNanoseconds(duration: Duration) -> u64" }
+
+Read the exact integer nanosecond count. Compare durations through this representation when exact comparisons matter.
+
+h2 { "asSeconds" }
+
+code { "asSeconds(duration: Duration) -> f64" }
+
+Convert to floating-point seconds. This can round because f64 cannot represent every u64 nanosecond count exactly. Keep asNanoseconds for exact accounting.
+
+h2 { "sleep" }
+
+code { "sleep(duration: Duration) -> unit ! TimeError" }
+
+Suspend the current task until at least duration has elapsed. The scheduler releases its worker so other runnable tasks can progress. Zero duration makes no minimum-delay promise. A positive duration is rounded up to the host clock's next tick where necessary.
+
+Sleep responds to task or enclosing parallel-scope cancellation through the usual TaskError behavior. Cancellation does not wait for the original sleep deadline. A cancelled task follows the same ownership and cleanup rules as other suspended tasks. Sleep is not a source of wall-clock or task-deadline cancellation.
+
+Pending timers occupy their existing task records, so their number is bounded by admitted tasks. No extra timer task or sleeping thread is created for each call. Ordinary task admission and memory limits still apply.
+
+h2 { "TimeError" }
+
+list {
+  "Unavailable means the host clock cannot produce a supported monotonic reading.",
+  "OutOfRange means a conversion overflowed, an elapsed interval cannot be represented, or a sleep deadline exceeds the host clock's range. A Duration may be valid even when it is too large for sleep."
+}
+
+h2 { "GPU applications" }
+
+All std/time functions run on the CPU, including the host side of Metal, Vulkan and CUDA applications. They are rejected inside GPU functions. To measure end-to-end GPU work, read now before submission, await completion, and then call elapsed. That measurement includes submission, scheduling, synchronization and any transfers in the measured region; it is not device-kernel time alone.
+
+list {
+  link { url = "/docs/parallelism", "Tasks, cancellation and parallel scopes" },
+  link { url = "/docs/errors", "Handle application errors" }
+}

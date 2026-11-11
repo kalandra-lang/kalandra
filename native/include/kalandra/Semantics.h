@@ -6,6 +6,7 @@
 #include "kalandra/PathOperations.h"
 #include "kalandra/Syntax.h"
 #include "kalandra/TensorTransform.h"
+#include "kalandra/TimeOperations.h"
 #include <span>
 
 namespace kalandra {
@@ -210,6 +211,10 @@ struct FileOperation {
   FileAction action;
   std::vector<ValueId> arguments;
   std::optional<FunctionId> declaration = {};
+};
+struct TimeOperation {
+  TimeAction action;
+  std::vector<ValueId> arguments;
 };
 struct EnvironmentLookup {
   ValueId input;
@@ -450,7 +455,10 @@ enum class StandardRecord {
   FsError,
   ParseError,
   EnvError,
-  EnvValue
+  EnvValue,
+  Instant,
+  Duration,
+  TimeError
 };
 struct TypedRecord {
   std::string name;
@@ -472,14 +480,14 @@ struct TypedExpr {
       Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal, UInt64Literal,
       StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral, FormatOperation,
       ConsoleOperation, FileOperation, ParseOperation, PathOperation, EnvironmentLookup,
-      ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary, TensorUnary,
-      ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum,
-      TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat,
-      ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection, Transfer,
-      TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation, LoopTransferOperation,
-      IntegerRangeOperation, YieldOperation, CatchOperation, MatchOperation, ErrorFieldRead,
-      FailOperation, GuardOperation, RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference,
-      FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort>
+      TimeOperation, ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary,
+      TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall, Matmul,
+      ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray,
+      ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck,
+      DeviceSelection, Transfer, TaskOperation, ParallelOperation, ConditionalOperation,
+      WhileOperation, LoopTransferOperation, IntegerRangeOperation, YieldOperation, CatchOperation,
+      MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue, RecordFieldRead,
+      ErrorNarrow, FunctionReference, FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort>
       operation;
 };
 struct ShapeEquality {
@@ -620,4 +628,13 @@ struct CheckOptions {
 [[nodiscard]] std::optional<std::string> numericCapabilityError(const TypedModule &module,
                                                                 NumericTarget target,
                                                                 bool mixedPlacement = false);
+} // namespace kalandra
+
+namespace kalandra {
+inline bool isTimeValue(const TypedModule &module, const ValueType &type) {
+  if (!type.record || *type.record >= module.records.size())
+    return false;
+  const auto standard = module.records[*type.record].standard;
+  return standard == StandardRecord::Instant || standard == StandardRecord::Duration;
+}
 } // namespace kalandra

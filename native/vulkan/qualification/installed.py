@@ -90,6 +90,12 @@ environment = [sys.executable, repo/'native/tests/EnvironmentSourceTests.py',
 if not a.execute:
     environment.append('--compile-only')
 subprocess.run(environment, check=True, timeout=900)
+time_suite = [sys.executable, repo/'native/tests/TimeSourceTests.py',
+              '--compiler', compiler, '--target', 'vulkan', '--variant', 'optimized',
+              '--output', a.root/'time-applications']
+if not a.execute:
+    time_suite.append('--compile-only')
+subprocess.run(time_suite, check=True, timeout=900)
 
 script = Path(__file__).with_name('public_cli.py')
 command = [sys.executable, script, '--compiler', compiler, '--output', a.root/'applications']

@@ -6,6 +6,7 @@
 #include "PathCapabilities.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
+#include "TimeCapabilities.h"
 #include "kalandra/Continuation.h"
 #include "kalandra/Semantics.h"
 #include "kalandra/Utf8.h"
@@ -709,6 +710,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
     }
     if (auto invalid = pathCapabilityError(module, expression, target))
       return invalid;
+    if (auto invalid = timeCapabilityError(module, expression, target))
+      return invalid;
     if (auto invalid = environmentCapabilityError(module, expression, target))
       return invalid;
     if (auto invalid = parseCapabilityError(module, expression, target))
@@ -1195,6 +1198,10 @@ std::string dumpTypedIR(const TypedModule &module) {
                                                                    : "eprintln")
                   << " ";
               value(operation.input);
+            } else if constexpr (std::is_same_v<T, TimeOperation>) {
+              out << "time." << unsigned(operation.action);
+              for (auto argument : operation.arguments)
+                out << " %" << argument;
             } else if constexpr (std::is_same_v<T, EnvironmentLookup>) {
               out << "env.get %" << operation.input;
             } else if constexpr (std::is_same_v<T, PathOperation>) {
