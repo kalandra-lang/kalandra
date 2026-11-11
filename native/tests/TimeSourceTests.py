@@ -108,3 +108,43 @@ build("private-intrinsic", '''fn main()->unit:
   value=__kalandra_time_now()
   return ()
 ''', b"error[S031]")
+
+CALLBACK = '''from "std/time" import sleep, milliseconds, nanoseconds, TimeError
+from "std/io" import println, IoError
+from "std/fmt" import format
+fn main()->unit ! (TimeError | IoError):
+  duration=try milliseconds(u64(1))
+  pause=fn()->unit ! TimeError:
+    try sleep(duration)
+    return ()
+  for i in range(3):
+    try pause()
+  try sleep(nanoseconds(u64(0)))
+  try println("awake")
+  return ()
+'''
+if gpu:
+    build("sleep-callback-rejection", CALLBACK, b"error[G001]")
+else:
+    run("sleep-callback", CALLBACK, "awake\n")
+
+run("cancel-sibling", '''from "std/time" import sleep, milliseconds, TimeError
+from "std/io" import println, IoError
+from "std/fmt" import format
+fn wait()->i64 ! TimeError:
+  try sleep(try milliseconds(u64(86400000)))
+  return 1
+fn broken(divisor:i64)->i64:
+  return 42/divisor
+fn main()->unit ! (TimeError | TaskError | IoError):
+  result=parallel:
+    sleeper=spawn wait()
+    failure=spawn broken(0)
+    value=try await failure
+    try await sleeper
+    value
+  recovered=result catch fn(error):
+    return -1
+  try println(format("{}",recovered))
+  return ()
+''', "-1\n")

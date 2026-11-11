@@ -81,6 +81,8 @@ h2 { "GPU applications" }
 
 All std/time functions run on the CPU, including the host side of Metal, Vulkan and CUDA applications. They are rejected inside GPU functions. To measure end-to-end GPU work, read now before submission, await completion, and then call elapsed. That measurement includes submission, scheduling, synchronization and any transfers in the measured region; it is not device-kernel time alone.
 
+In mixed GPU applications, use named host functions for code that suspends. The mixed host backend currently rejects indirect calls to resumable closures, including closures that call sleep. Ordinary CPU applications support those calls.
+
 list {
   link { url = "/docs/parallelism", "Tasks, cancellation and parallel scopes" },
   link { url = "/docs/errors", "Handle application errors" }
