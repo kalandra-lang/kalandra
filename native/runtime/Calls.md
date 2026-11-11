@@ -58,7 +58,7 @@ Exhaustion produces allocation fault 2. There is no separate maximum call count.
 
 A compiler proof can mark a call as tail-positioned only if all remaining control
 paths transparently forward its result. It rejects cycles, additional computation,
-collection cleanup, handle resources, and lexical scheduling groups. The runtime
+collection cleanup, handle resources, and remaining scheduling-scope cleanup. The runtime
 also requires an identical result layout and no outstanding groups owned by the
 retiring frame. A failed runtime check keeps the ordinary call frame. A successful
 tail replacement first retains the new arguments, waits for the old lease to end,
@@ -75,8 +75,10 @@ budget is not a source-program execution limit.
 Metal, Vulkan, and CUDA supervisors use the same call runtime. Resumable host
 callables identify compiler-generated task entries rather than native synchronous
 function pointers. Their capture environments use the existing checked recursive
-backing graph, including code-bound identity and ownership validation. Native
-layout bridges construct, validate, and retain those environments; extracting
+backing graph, including code-bound identity and ownership validation. Helper result envelopes
+carry returned `TaskError` values separately from the task's execution failure,
+so a caller can catch a real child task's returned failure without manufacturing
+a new task boundary for an ordinary call. Native layout bridges construct, validate, and retain those environments; extracting
 multiple captures commits all affected ownership slots in one transaction.
 
 Functions that transport resumable host callables remain in the host continuation

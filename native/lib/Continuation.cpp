@@ -6,6 +6,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <tuple>
 #include <unordered_map>
 namespace kalandra::continuation {
 namespace {
@@ -214,13 +215,13 @@ public:
         });
     }
     // Prove transparent return paths after a suspending call. A failed proof
-    // keeps the ordinary continuation. Resource-owning functions and source
-    // scheduling scopes retain their cleanup boundaries, including borrows.
+    // keeps the ordinary continuation. Resource-owning functions and remaining
+    // scheduling cleanup retain their boundaries, including borrows. The runtime
+    // separately checks groups actually owned by the retiring frame.
     for (auto &pointer : plans) {
       auto &plan = *pointer;
-      if (plan.groups || std::ranges::any_of(plan.slots, [&](const auto &type) {
-            return isFileResource(input, type);
-          }))
+      if (std::ranges::any_of(plan.slots,
+                              [&](const auto &type) { return isFileResource(input, type); }))
         continue;
       for (std::size_t call = 0; call < plan.code.size(); ++call) {
         auto &op = plan.code[call];

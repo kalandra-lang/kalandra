@@ -15,7 +15,7 @@ p.add_argument('--case', action='append', choices=(
     'deep-and-mutual', 'tail-retirement', 'owned-error', 'owned-file', 'repeated-results',
     'cancel-deep-sleeper', 'returned-callback', 'recursive-callback', 'borrowed-file',
     'mixed-callback-targets', 'fault-propagation', 'task-fault-catch',
-    'tensor-results', 'tensor-capture'))
+    'tensor-results', 'tensor-capture', 'returned-task-error', 'mutable-array-call'))
 a = p.parse_args()
 a.compiler = a.compiler.resolve()
 a.output = a.output.resolve()
@@ -277,3 +277,48 @@ fn main()->unit ! (IoError | TaskError):
   try println(format("{}",callback()))
   return ()
 ''', '42\n')
+
+run('returned-task-error', '''fn broken(divisor:i64)->i64:
+  return 42/divisor
+fn descend(n:i64)->i64 ! TaskError:
+  if n==0:
+    return try parallel:
+      try await spawn broken(0)
+  return try descend(n-1)
+fn combine(n:i64)->i64 ! (TimeError | TaskError):
+  if n==0:
+    try sleep(nanoseconds(u64(1)))
+    return try parallel:
+      try await spawn broken(0)
+  return try combine(n-1)
+fn main()->unit ! (IoError | TaskError):
+  number=descend(2000) catch fn(error):
+    return match error:
+      TaskError.Fault {kind}:
+        match kind:
+          FaultKind.Arithmetic:42
+          _:0
+      _:0
+  try println(format("{}",number))
+  second=combine(2000) catch fn(error):return 42
+  try println(format("{}",second))
+  result=parallel:
+    try await spawn descend(2000)
+  third=result catch fn(error):return 42
+  try println(format("{}",third))
+  return ()
+''', '42\n42\n42\n')
+
+run('mutable-array-call', '''fn increment(mut values:[i64],n:i64)->unit ! TimeError:
+  if n==0:
+    try sleep(try milliseconds(u64(1)))
+    values[0]=values[0]+1
+    return ()
+  return try increment(values,n-1)
+fn main()->unit ! (TimeError | IoError | TaskError):
+  values=[0]
+  for i in range(10):
+    try increment(values,2000)
+  try println(format("{}",values[0]))
+  return ()
+''', '10\n')

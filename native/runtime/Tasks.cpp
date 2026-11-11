@@ -475,7 +475,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       unlinkPending(index);
       // Membership is removed before settlement/reclamation, never recovered
       // by scanning reusable slots. Ring entries still carry generations.
-      if (record.state != State::Runnable || record.executing || record.queued)
+      if (record.state != State::Runnable || record.executing || record.cleaning || record.queued)
         continue;
       pushReady(index);
       TASK_PROBE(pendingPromotions, 1);
@@ -483,7 +483,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
   }
   void enqueue(std::uint32_t index, bool admission = false) {
     auto &record = tasks[index];
-    if (record.queued || record.pending || record.state != State::Runnable || record.executing)
+    if (record.queued || record.pending || record.state != State::Runnable || record.executing ||
+        record.cleaning)
       return;
     TASK_PROBE(runnableEvents, 1);
     if ((admission || pendingHead == UINT32_MAX) && queueCount < limits.ready) {
@@ -930,7 +931,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     record->queued = false;
     // A lease extends until resume actually returns, even after await/yield or
     // complete changes the scheduling state. Never re-enter a live callback.
-    if (record->executing || record->state != State::Runnable)
+    if (record->executing || record->cleaning || record->state != State::Runnable)
       return true;
     record->state = State::Running;
     if (record->cancel.load())

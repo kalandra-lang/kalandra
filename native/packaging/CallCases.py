@@ -36,6 +36,13 @@ fn values(n:i64)->[i64] ! TimeError:
     try sleep(nanoseconds(u64(1)))
     return [20,22]
   return try values(n-1)
+fn broken(divisor:i64)->i64:
+  return 42/divisor
+fn taskFailure(n:i64)->i64 ! TaskError:
+  if n==0:
+    return try parallel:
+      try await spawn broken(0)
+  return try taskFailure(n-1)
 fn main()->unit ! (TimeError | IoError):
   try println(format("{}",try walk(2000)))
   try println(format("{}",try tail(10000)))
@@ -51,6 +58,8 @@ fn main()->unit ! (TimeError | IoError):
     found=try values(64)
     total=total+found[0]+found[1]
   try println(format("{}",total))
+  recovered=taskFailure(2000) catch fn(error):return 42
+  try println(format("{}",recovered))
   return ()
 '''
-EXPECTED = '2017\n17\ntrue\n42\n840\n'
+EXPECTED = '2017\n17\ntrue\n42\n840\n42\n'

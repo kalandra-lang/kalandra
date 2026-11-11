@@ -1988,7 +1988,7 @@ class Compiler {
       if ((input.kind != Value::Tensor && input.kind != Value::Array &&
            input.kind != Value::Scalar && input.kind != Value::Boolean &&
            input.kind != Value::Aggregate && input.kind != Value::Text &&
-           input.kind != Value::TextArray) ||
+           input.kind != Value::TextArray && input.kind != Value::Callable) ||
           input.gpu)
         reject(span, "resumable helper captures require completed host values");
       captures += "," + ref(input);
@@ -2001,7 +2001,7 @@ class Compiler {
                     admitted("f." + out));
     Value value{Value::Task, next - 1};
     const auto type = fn.declaredResult.value_or(fn.resultType);
-    if (fn.resultType.errorRecord)
+    if (fn.resultType.fallible)
       value.outcomeHelper = id;
     value.record = type.record;
     value.array = type.array;
@@ -4229,26 +4229,36 @@ class Compiler {
         }
         const auto lexical = op.group == SIZE_MAX ? "GroupHandle{}" : plannedGroups.at(op.group);
         std::string code = helper + "::PacketData packet{" + captures + "};\n";
-        const auto family = placement.functions.at(op.target).resultType.errorRecord;
-        const auto returnedType = family ? helper + "::Outcome" : valueStorage(output);
+        const auto &resultType = placement.functions.at(op.target).resultType;
+        const auto family = resultType.errorRecord;
+        const auto returnedType = resultType.fallible ? helper + "::Outcome" : valueStorage(output);
         code += "alignas(" + returnedType + ") std::byte bytes[sizeof(" + returnedType + ")];\n";
         code += "if(!task.call(" + helper + "::entry,{" + helper +
-                "::entry.packetLayout,&packet,sizeof(packet),&task.context()}," +
-                std::string("bytes") + "," + lexical + (op.tail ? ",true" : ",false") +
-                ")){f.pc=@pc" + std::to_string(i) + "@;return;}\n";
+                "::entry.packetLayout,&packet,sizeof(packet),&task.context()},bytes," + lexical +
+                (op.tail ? ",true" : ",false") + ")){f.pc=@pc" + std::to_string(i) + "@;return;}\n";
         if (output.failure)
           code += failureRef(output) + "={};\n";
-        if (family) {
-          const auto error = applicationError(output);
-          code += "auto &outcome=*std::launder(reinterpret_cast<" + helper +
-                  "::Outcome *>(bytes));\nif(outcome.failed){" + ref(error) + "=outcome.error;" +
-                  ref(output) + "={};}else{" + ref(output) + "=std::move(outcome.value);" +
-                  ref(error) + "={};}\n" + helper + "::outcomeLayout.destroy(&outcome);\n";
-        }
-        if (!family)
+        if (output.applicationError)
+          code += ref(applicationError(output)) + "={};\n";
+        if (resultType.fallible) {
+          code += "auto &outcome=*std::launder(reinterpret_cast<" + returnedType + " *>(bytes));\n";
+          code += failureRef(output) + "=outcome.failure;\n" + ref(output) +
+                  "={};\n"
+                  "if(outcome.failure.kind==TaskFailure::None){\n";
+          if (family) {
+            field(recordType(*family));
+            Value error{Value::Aggregate, next - 1};
+            error.record = *family;
+            code += "if(outcome.failed){" + ref(error) + "=outcome.error;\n" +
+                    hostErrorCopy(applicationError(output), error) + "}else ";
+          }
+          code += ref(output) + "=std::move(outcome.value);\n}\n" + helper +
+                  "::outcomeLayout.destroy(&outcome);\n";
+        } else {
           code += "auto &returned=*std::launder(reinterpret_cast<" + returnedType +
                   " *>(bytes));\n" + ref(output) + "=std::move(returned);\n" + helper +
                   "::entry.result->destroy(&returned);\n";
+        }
         steps.push_back(code + commitOutcome(output));
         break;
       }
@@ -4311,24 +4321,26 @@ class Compiler {
           gpuAwaitSites.push_back({i, found->second});
         std::string read;
         if (input.outcomeHelper) {
-          if (!output.applicationError)
-            reject(span, "host task application error requires a typed await channel");
           const auto helper = helperName(*input.outcomeHelper);
-          const auto family = *placement.functions.at(*input.outcomeHelper).resultType.errorRecord;
-          field(recordType(family));
-          Value error{Value::Aggregate, next - 1};
-          error.record = family;
+          const auto family = placement.functions.at(*input.outcomeHelper).resultType.errorRecord;
           read = "alignas(" + helper + "::Outcome) std::byte bytes[sizeof(" + helper +
                  "::Outcome)];\nif(!task.read(" + ref(input) + "," + helper +
                  "::outcomeLayout,bytes))return;\n"
                  "auto &outcome=*std::launder(reinterpret_cast<" +
-                 helper +
-                 "::Outcome *>(bytes));\n"
-                 "const bool failed=outcome.failed;\nif(failed)" +
-                 ref(error) + "=outcome.error;else " + ref(output) +
-                 "=std::move(outcome.value);\n" + helper +
-                 "::outcomeLayout.destroy(&outcome);\nif(failed){\n" +
-                 hostErrorCopy(applicationError(output), error) + "}\n";
+                 helper + "::Outcome *>(bytes));\n" + failureRef(output) +
+                 "=outcome.failure;\n"
+                 "if(outcome.failure.kind==TaskFailure::None){\n";
+          if (family) {
+            if (!output.applicationError)
+              reject(span, "host task application error requires a typed await channel");
+            field(recordType(*family));
+            Value error{Value::Aggregate, next - 1};
+            error.record = *family;
+            read += "if(outcome.failed){" + ref(error) + "=outcome.error;\n" +
+                    hostErrorCopy(applicationError(output), error) + "}else ";
+          }
+          read += ref(output) + "=std::move(outcome.value);\n}\n" + helper +
+                  "::outcomeLayout.destroy(&outcome);\n";
         } else if (input.outcomeRecord) {
           if (!output.applicationError)
             reject(span, "GPU task application error requires a typed await channel");
@@ -4597,6 +4609,26 @@ class Compiler {
         break;
       case Code::Return: {
         auto result = args.at(0);
+        if (!publishApplicationOutcome && fn.resultType.fallible) {
+          const auto error = result.applicationError
+                                 ? std::optional<Value>{applicationError(result)}
+                                 : std::nullopt;
+          auto code =
+              "Outcome outcome(" + (error ? hostErrorTag(*error) + "!=0" : "false") + ");\n";
+          if (result.failure)
+            code += "outcome.failure=" + failureRef(result) + ";\n";
+          code += "if(outcome.failure.kind==TaskFailure::None){";
+          if (error)
+            code += "if(outcome.failed)std::construct_at(&outcome.error," + ref(*error) + ");else ";
+          code += "std::construct_at(&outcome.value," + ref(result) +
+                  ");}\n"
+                  "task.complete(&outcome);\nif(outcome.failure.kind==TaskFailure::None){";
+          if (error)
+            code += "if(outcome.failed)std::destroy_at(&outcome.error);else ";
+          code += "std::destroy_at(&outcome.value);}return;\n";
+          steps.push_back(std::move(code));
+          break;
+        }
         auto code =
             (result.failure ? "if(" + failureRef(result) + ".kind!=TaskFailure::None){task.fail(" +
                                   failureRef(result) + ");return;}\n"
@@ -4668,6 +4700,33 @@ class Compiler {
            error + ".destroy(&value.error);else " + success + ".destroy(&value.value);\nvalue.~" +
            type + "();}};\n";
   }
+  std::string helperOutcomeDeclaration(const std::string &payload,
+                                       std::optional<std::size_t> family,
+                                       const std::string &success, std::uint64_t identity) const {
+    const auto error = family ? recordLayoutName(*family) : std::string{};
+    const auto copy =
+        family ? "from.failed ? " + error + ".copy(dst,&to.error,src,&from.error) : " + success +
+                     ".copy(dst,&to.value,src,&from.value)"
+               : "!from.failed && " + success + ".copy(dst,&to.value,src,&from.value)";
+    const auto destroy = family ? "if(value.failed)" + error + ".destroy(&value.error);else " +
+                                      success + ".destroy(&value.value);"
+                                : "if(!value.failed)" + success + ".destroy(&value.value);";
+    return "struct Outcome {Failure failure{};bool failed;union {" + payload + " value;" +
+           (family ? recordName(*family) + " error;" : "") +
+           "};explicit Outcome(bool failed) noexcept:failed(failed){}~Outcome() noexcept {}};\n"
+           "const ValueLayout outcomeLayout{" +
+           std::to_string(identity) +
+           "ull,sizeof(Outcome),alignof(Outcome),\n"
+           "+[](Invocation &dst,void *out,const Invocation &src,const void *in) noexcept {\n"
+           "const auto &from=*static_cast<const Outcome*>(in);auto &to=*new(out) "
+           "Outcome(from.failed);\n"
+           "to.failure=from.failure;const bool copied=from.failure.kind!=TaskFailure::None || (" +
+           copy +
+           ");if(!copied)to.~Outcome();return copied;},\n"
+           "+[](void *raw) noexcept {auto &value=*static_cast<Outcome*>(raw);"
+           "if(value.failure.kind==TaskFailure::None){" +
+           destroy + "}value.~Outcome();}};\n";
+  }
   std::string hostCaptureType(const ValueType &type) {
     if (type.builtin == BuiltinValue::Function)
       return callableName(callableType(type));
@@ -4712,23 +4771,16 @@ class Compiler {
         declarations += "extern \"C\" const void *kalandra_gpu_resumable_environment_" +
                         std::to_string(id) + "(Invocation*,const void*);\n";
     }
-    if (const auto family = fn.resultType.errorRecord) {
+    if (fn.resultType.fallible) {
       const auto &type = fn.resultType;
+      const auto family = type.errorRecord;
       const auto payload =
-          type.builtin == BuiltinValue::String
-              ? std::string(isStringArray(type) ? "StringArrayDescriptor" : "StringDescriptor")
-          : type.builtin == BuiltinValue::Function ? callableName(callableType(type))
-          : type.record                            ? recordName(*type.record)
-          : type.array  ? tensorDescriptor(isBoolArray(type) ? NumericType::UInt8 : type.element, 1)
-          : type.tensor ? std::string("m::Buffer")
-          : isBooleanStorage(type) ? std::string("bool")
-                                   : scalarType(type.element);
+          type.tensor && !type.array ? std::string("m::Buffer") : hostCaptureType(type);
       const auto success = helperSuccessLayout(type);
-      const auto key = success + ":" + std::to_string(*family);
+      const auto key = success + ":" + (family ? std::to_string(*family) : "task");
       auto [owner, inserted] = helperOutcomes.emplace(key, id);
       if (inserted)
-        code += outcomeDeclaration("Outcome", "outcomeLayout", payload, *family, success,
-                                   0x4b414c484f000000ULL + id);
+        code += helperOutcomeDeclaration(payload, family, success, 0x4b414c484f000000ULL + id);
       else
         code += "using Outcome=" + helperName(owner->second) +
                 "::Outcome;\n"
@@ -4800,7 +4852,7 @@ class Compiler {
         << 0x4b414c52534d0000ULL + id
         << "ull,sizeof(PacketData),alignof(PacketData),"
            "sizeof(Frame),alignof(Frame),construct,destroy,resume,"
-        << (fn.resultType.errorRecord ? "&outcomeLayout" : "&" + helperSuccessLayout(fn.resultType))
+        << (fn.resultType.fallible ? "&outcomeLayout" : "&" + helperSuccessLayout(fn.resultType))
         << "};\n}\n";
     if (hostResumableTargets.contains(id))
       out << "extern \"C\" const void *kalandra_gpu_resumable_code_" << id << "(){return &"

@@ -117,7 +117,7 @@ public:
       // in the budgeted frame rather than growing the native worker stack.
       observationFields.emplace_back();
       for (const auto &instruction : plan.code)
-        if (instruction.code == Code::Await &&
+        if ((instruction.code == Code::Await || instruction.code == Code::ResumableCall) &&
             !observationFields.back().contains(instruction.target)) {
           const auto &child = *planner.plans[instruction.target];
           if (key(child.slots[child.result]) != key(plan.slots[instruction.output])) {
@@ -2747,12 +2747,20 @@ private:
           copy(builder.CreateStructGEP(packets[instruction.target], staging[instruction.target], i),
                slot(instruction.args[i]), valueType(plan.slots[instruction.args[i]]));
         fillPacket(packet, instruction.target, staging[instruction.target], ctx);
+        auto *output = slot(instruction.output);
+        auto *returned = observations.contains(instruction.target)
+                             ? observations.at(instruction.target)
+                             : output;
         wait(call(instruction.tail ? "kalandra_task_tail_call_v1" : "kalandra_task_call_v1",
                   boolean,
-                  {task, entries[instruction.target], packet, slot(instruction.output),
+                  {task, entries[instruction.target], packet, returned,
                    instruction.group == SIZE_MAX
                        ? static_cast<Value *>(llvm::ConstantPointerNull::get(builder.getPtrTy()))
                        : group(instruction.group)}));
+        if (returned != output) {
+          const auto &child = *planner.plans[instruction.target];
+          copyResult(type, slot(instruction.output), child.slots[child.result], returned);
+        }
         check();
         break;
       }
