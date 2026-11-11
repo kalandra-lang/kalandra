@@ -123,10 +123,7 @@ fn main()->unit ! (TimeError | IoError):
   try println("awake")
   return ()
 '''
-if gpu:
-    build("sleep-callback-rejection", CALLBACK, b"error[G001]")
-else:
-    run("sleep-callback", CALLBACK, "awake\n")
+run("sleep-callback", CALLBACK, "awake\n")
 
 run("cancel-sibling", '''from "std/time" import sleep, milliseconds, TimeError
 from "std/io" import println, IoError

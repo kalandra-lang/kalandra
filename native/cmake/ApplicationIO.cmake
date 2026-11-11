@@ -452,6 +452,18 @@ if(BUILD_TESTING)
         --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/time-source-${variant}"
         --variant "${variant}")
     set_tests_properties(native-time-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io;feature-tasks")
+    add_test(NAME native-resumable-calls-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ResumableCallSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/resumable-calls-${variant}"
+        --variant "${variant}")
+    set_tests_properties(native-resumable-calls-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io;feature-tasks")
+    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF)
+      add_test(NAME native-metal-resumable-calls-${variant}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ResumableCallSourceTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/metal-resumable-calls-${variant}"
+          --target metal --variant "${variant}")
+      set_tests_properties(native-metal-resumable-calls-${variant} PROPERTIES TIMEOUT 900 LABELS "feature-io;feature-gpu" RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    endif()
     if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF)
       add_test(NAME native-metal-time-source-${variant}
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TimeSourceTests.py"

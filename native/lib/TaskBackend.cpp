@@ -76,6 +76,8 @@ class Emitter {
   std::vector<bool> coordinating, loopControl;
   bool recursiveClosures = false;
   std::map<std::size_t, Function *> environmentBoxes;
+  const TypedModule *hostCallables = nullptr;
+  std::vector<FunctionId> hostTargets;
 
 public:
   Emitter(ModulePlan &planner, llvm::Module &module)
@@ -229,7 +231,8 @@ public:
       const auto &source = planner.input.functions.at(id);
       if (planner.plans[id]->groups ||
           std::ranges::any_of(planner.plans[id]->code, [](const auto &op) {
-            return op.code == Code::Open || op.code == Code::Spawn || op.code == Code::Await ||
+            return op.code == Code::Open || op.code == Code::Spawn ||
+                   op.code == Code::ResumableCall || op.code == Code::Await ||
                    op.code == Code::Join || op.code == Code::MapJoin || op.code == Code::Device ||
                    op.code == Code::Transfer;
           }))
@@ -254,7 +257,8 @@ public:
         const auto &plan = *planner.plans[id];
         const bool local =
             !effects.at(id) && !plan.groups && std::ranges::none_of(plan.code, [](const auto &op) {
-              return op.code == Code::Open || op.code == Code::Spawn || op.code == Code::Await ||
+              return op.code == Code::Open || op.code == Code::Spawn ||
+                     op.code == Code::ResumableCall || op.code == Code::Await ||
                      op.code == Code::Join || op.code == Code::MapJoin || op.code == Code::Device ||
                      op.code == Code::Transfer || op.code == Code::Call ||
                      op.code == Code::FunctionInvoke;
@@ -655,6 +659,73 @@ public:
     }
   }
 
+  void setHostCallables(const TypedModule *source, std::span<const FunctionId> targets) {
+    hostCallables = source;
+    hostTargets.assign(targets.begin(), targets.end());
+  }
+  void emitHostCallableBridges() {
+    if (!hostCallables || hostTargets.empty())
+      return;
+    std::vector<FunctionId> captured;
+    for (auto id : hostTargets)
+      if (hostCallables->functions.at(id).captureCount)
+        captured.push_back(id);
+    const auto boxes = emitTaskEnvironmentBoxes(*hostCallables, captured, module);
+    for (auto id : hostTargets) {
+      const auto &target = hostCallables->functions.at(id);
+      std::vector<Type *> fields;
+      for (auto n = target.parameters.size() - target.captureCount; n < target.parameters.size();
+           ++n)
+        fields.push_back(scalarType(hostCallables->symbols.at(target.parameters[n]).type));
+      auto *captures = llvm::StructType::get(context, fields);
+      auto *getter = llvm::cast<Function>(
+          module
+              .getOrInsertFunction("kalandra_gpu_resumable_code_" + std::to_string(id),
+                                   llvm::FunctionType::get(pointer, false))
+              .getCallee());
+      if (target.captureCount) {
+        auto *construct = function("kalandra_gpu_resumable_environment_" + std::to_string(id),
+                                   pointer, {pointer, pointer});
+        construct->setLinkage(llvm::GlobalValue::ExternalLinkage);
+        builder.SetInsertPoint(Block::Create(context, "entry", construct));
+        auto *code = builder.CreateCall(getter);
+        auto *environment =
+            builder.CreateCall(boxes.at(id), {construct->getArg(1), construct->getArg(0)});
+        auto *bound = call("kalandra_recursive_environment_bind_v1", pointer,
+                           {construct->getArg(0), environment, code});
+        builder.CreateRet(bound);
+      }
+      auto *read = function("kalandra_gpu_resumable_captures_" + std::to_string(id), boolean,
+                            {pointer, pointer, pointer});
+      read->setLinkage(llvm::GlobalValue::ExternalLinkage);
+      builder.SetInsertPoint(Block::Create(context, "entry", read));
+      auto *failed = Block::Create(context, "invalid", read);
+      auto *ready = Block::Create(context, "known", read);
+      auto *pair = llvm::StructType::get(context, {pointer, pointer});
+      auto *closure = builder.CreateLoad(pair, read->getArg(1));
+      auto *code = builder.CreateCall(getter);
+      builder.CreateCondBr(builder.CreateICmpEQ(builder.CreateExtractValue(closure, {0}), code),
+                           ready, failed);
+      builder.SetInsertPoint(ready);
+      auto *environment = builder.CreateExtractValue(closure, {1});
+      if (target.captureCount) {
+        auto *storage = call("kalandra_recursive_environment_read_v1", pointer,
+                             {read->getArg(0), environment, c64(size(captures)), code});
+        auto *valid = Block::Create(context, "captures", read);
+        builder.CreateCondBr(builder.CreateIsNotNull(storage), valid, failed);
+        builder.SetInsertPoint(valid);
+        copy(read->getArg(2), storage, captures);
+      } else {
+        auto *valid = Block::Create(context, "empty", read);
+        builder.CreateCondBr(builder.CreateIsNull(environment), valid, failed);
+        builder.SetInsertPoint(valid);
+      }
+      builder.CreateRet(builder.getTrue());
+      builder.SetInsertPoint(failed);
+      call("kalandra_fault_v1", voidType, {read->getArg(0), c64(3), c64(0), c64(0)});
+      builder.CreateRet(builder.getFalse());
+    }
+  }
   llvm::GlobalVariable *emitValueLayout(const ValueType &type) {
     auto *result = layout(type);
     finishRecordRetainers();
@@ -1284,7 +1355,7 @@ private:
     TaskTraversal traversal(builder, *fn, environment, failed);
     std::unordered_set<Value *> accepted;
     const auto accept = [&](const TypedModule &inputModule, const FunctionReference &ref,
-                            const ValueType &actual, Value *entry) {
+                            const ValueType &actual, Value *entry, bool host = false) {
       const auto &target = inputModule.functions.at(ref.function);
       auto signature = type;
       signature.fallible = false;
@@ -1307,7 +1378,7 @@ private:
       builder.CreateCondBr(builder.CreateICmpEQ(code, entry), selected, next);
       builder.SetInsertPoint(selected);
       Value *copied = environment;
-      if (recursiveClosures) {
+      if (recursiveClosures || host) {
         TaskCallableOps(module).retain(builder, fn->getArg(0), fn->getArg(2), value, entry,
                                        llvm::StructType::get(context, fields), failed);
       } else if (captures.empty()) {
@@ -1399,6 +1470,22 @@ private:
                  coordinating.at(instruction.target)
                      ? static_cast<Value *>(entries.at(instruction.target))
                      : synchronousEntries.at(instruction.target));
+    if (hostCallables)
+      for (auto id : hostTargets) {
+        const auto found = std::ranges::find_if(hostCallables->expressions, [&](const auto &value) {
+          const auto *reference = std::get_if<FunctionReference>(&value.operation);
+          return reference && reference->function == id;
+        });
+        if (found == hostCallables->expressions.end())
+          throw std::runtime_error("host resumable callable lacks checked reference metadata");
+        auto *getter = llvm::cast<Function>(
+            module
+                .getOrInsertFunction("kalandra_gpu_resumable_code_" + std::to_string(id),
+                                     llvm::FunctionType::get(pointer, false))
+                .getCallee());
+        accept(*hostCallables, FunctionReference{id, {}}, found->type, builder.CreateCall(getter),
+               true);
+      }
     builder.CreateBr(failed);
     builder.SetInsertPoint(failed);
     auto *fault = Block::Create(context, "function.fault", fn);
@@ -1808,7 +1895,8 @@ private:
     // Packet staging belongs to one resume interval, never to a suspended frame.
     std::unordered_map<std::size_t, Value *> staging;
     for (const auto &instruction : plan.code)
-      if (instruction.code == Code::Spawn && !staging.contains(instruction.target))
+      if ((instruction.code == Code::Spawn || instruction.code == Code::ResumableCall) &&
+          !staging.contains(instruction.target))
         staging[instruction.target] = builder.CreateAlloca(packets[instruction.target]);
     auto *spawnFailure = staging.empty() ? nullptr : builder.CreateAlloca(failureType);
     std::unordered_map<std::size_t, Value *> callResults;
@@ -2002,6 +2090,7 @@ private:
       case Code::FunctionReference:
       case Code::CallableSyncGuard:
       case Code::SynchronousCall:
+      case Code::ResumableCall:
       case Code::FunctionInvoke:
       case Code::MapInit:
       case Code::CollectFinish:
@@ -2653,6 +2742,20 @@ private:
         builder.CreateCondBr(builder.CreateICmpNE(valid, c32(UINT32_MAX)), next, leave);
         break;
       }
+      case Code::ResumableCall: {
+        for (std::size_t i = 0; i < instruction.args.size(); ++i)
+          copy(builder.CreateStructGEP(packets[instruction.target], staging[instruction.target], i),
+               slot(instruction.args[i]), valueType(plan.slots[instruction.args[i]]));
+        fillPacket(packet, instruction.target, staging[instruction.target], ctx);
+        wait(call(instruction.tail ? "kalandra_task_tail_call_v1" : "kalandra_task_call_v1",
+                  boolean,
+                  {task, entries[instruction.target], packet, slot(instruction.output),
+                   instruction.group == SIZE_MAX
+                       ? static_cast<Value *>(llvm::ConstantPointerNull::get(builder.getPtrTy()))
+                       : group(instruction.group)}));
+        check();
+        break;
+      }
       case Code::Spawn: {
         for (std::size_t i = 0; i < instruction.args.size(); ++i)
           copy(builder.CreateStructGEP(packets[instruction.target], staging[instruction.target], i),
@@ -3015,7 +3118,9 @@ std::vector<llvm::GlobalVariable *> emitTaskPayloadValueLayouts(const TypedModul
 }
 std::vector<llvm::GlobalVariable *>
 emitTaskKernelPayloadValueLayouts(const TypedModule &input, const TypedModule &kernels,
-                                  llvm::Module &module, std::span<const ValueType> types) {
+                                  llvm::Module &module, std::span<const ValueType> types,
+                                  const TypedModule *hostCallables,
+                                  std::span<const FunctionId> hostTargets) {
   if (!input.functions.empty() || !input.expressions.empty())
     throw std::invalid_argument("component payload layout requires a schema-only source module");
   for (const auto &type : types)
@@ -3023,7 +3128,10 @@ emitTaskKernelPayloadValueLayouts(const TypedModule &input, const TypedModule &k
       throw std::invalid_argument("component payload layout requires completed storage");
   continuation::ModulePlan planner(input);
   planner.kernels = kernels;
-  return Emitter(planner, module).emitPayloadValueLayouts(types);
+  Emitter emitter(planner, module);
+  emitter.setHostCallables(hostCallables, hostTargets);
+  emitter.emitHostCallableBridges();
+  return emitter.emitPayloadValueLayouts(types);
 }
 std::vector<llvm::GlobalVariable *> emitTaskEntries(continuation::ModulePlan &planner,
                                                     llvm::Module &module) {

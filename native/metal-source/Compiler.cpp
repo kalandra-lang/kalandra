@@ -151,6 +151,8 @@ class Compiler {
   std::string declarations, cpuEntries, aggregateDeclarations;
   std::map<std::size_t, NativeAggregateABI> aggregateTypes;
   std::vector<ValueType> callableTypes;
+  std::set<FunctionId> hostResumableTargets;
+  std::map<std::string, FunctionId> helperOutcomes;
   std::optional<std::vector<NativeAggregateABI>> nativeAggregateLayouts;
   std::set<std::pair<bool, FunctionId>> declaredAggregateFunctions;
   std::set<std::pair<const TypedModule *, std::size_t>> checkedAggregateSchemas;
@@ -1463,10 +1465,12 @@ class Compiler {
         type.shape.push_back({});
         types.push_back(type);
       }
-      const auto layouts =
-          continuationCpu
-              ? emitTaskKernelPayloadValueLayouts(schema, *continuationCpu, *linked, types)
-              : emitTaskPayloadValueLayouts(schema, *linked, types);
+      const auto layouts = continuationCpu
+                               ? emitTaskKernelPayloadValueLayouts(
+                                     schema, *continuationCpu, *linked, types, &placement,
+                                     std::vector<FunctionId>(hostResumableTargets.begin(),
+                                                             hostResumableTargets.end()))
+                               : emitTaskPayloadValueLayouts(schema, *linked, types);
       for (std::size_t n = 0; n < types.size(); ++n) {
         auto *layout = layouts.at(n);
         auto fields = std::vector<llvm::Constant *>();
@@ -4127,6 +4131,127 @@ class Compiler {
         else
           bind(op.output, numericKernel(op.source, args));
         break;
+      case Code::FunctionReference: {
+        hostResumableTargets.insert(op.target);
+        const auto output = get(op.output);
+        const auto &fn = placement.functions.at(op.target);
+        std::string code, captures;
+        for (std::size_t n = 0; n < args.size(); ++n) {
+          const auto input = args[n];
+          completed(input, span);
+          if (input.gpu)
+            reject(span, "host callable captures require host values");
+          if (input.kind == Value::Tensor) {
+            const auto local = "capture" + std::to_string(n);
+            code += "auto " + local + "=r.toCpuTyped<" + elementName(input.element) + "," +
+                    std::to_string(input.rank) + ">(task.context()," + ref(input) +
+                    ");\n"
+                    "if(!" +
+                    local + "){" + error(local + ".error()") + "}\n";
+            captures += (n ? "," : "") + std::string("*") + local;
+          } else
+            captures += (n ? "," : "") + ref(input);
+        }
+        code += ref(output) + ".code=&" + helperName(op.target) + "::entry;\n";
+        if (fn.captureCount) {
+          code += helperName(op.target) + "::Captures captures{" + captures + "};\n" + ref(output) +
+                  ".environment=kalandra_gpu_resumable_environment_" + std::to_string(op.target) +
+                  "(&task.context(),&captures);\n";
+        } else
+          code += ref(output) + ".environment=nullptr;\n";
+        for (std::size_t n = 0; n < args.size(); ++n)
+          if (args[n].kind == Value::Tensor)
+            code += "task.context().release(capture" + std::to_string(n) + "->allocated);\n";
+        code += "if(task.context().poll()){hostArrayFailure(task);return;}\n";
+        steps.push_back(code + commitArray(output));
+        break;
+      }
+      case Code::CallableTarget: {
+        hostResumableTargets.insert(op.target);
+        steps.push_back(ref(get(op.output)) + "=" + ref(args.at(0)) + ".code==&" +
+                        helperName(op.target) + "::entry;\n");
+        break;
+      }
+      case Code::CallableCaptures: {
+        hostResumableTargets.insert(op.target);
+        const auto output = get(op.output);
+        auto code = payloadCopy(output, args.at(0));
+        std::vector<Value> written{output};
+        code += helperName(op.target) +
+                "::Captures captures{};\n"
+                "if(!kalandra_gpu_resumable_captures_" +
+                std::to_string(op.target) + "(&task.context(),&" + ref(output) +
+                ",&captures)){hostArrayFailure(task);return;}\n";
+        for (std::size_t n = 1; n < op.args.size(); ++n) {
+          const auto capture = get(op.args[n]);
+          if (capture.kind == Value::Tensor) {
+            const auto local = "imported" + std::to_string(n);
+            code += "auto " + local + "=r.fromCpu(task.context(),captures.arg" +
+                    std::to_string(n - 1) + ".view());\nif(!" + local + "){" +
+                    error(local + ".error()") + "}\n" + ref(capture) + "=*" + local + ";\n";
+          } else {
+            code += ref(capture) + "=captures.arg" + std::to_string(n - 1) + ";\n";
+            if (arrayFields.contains(capture.slot))
+              written.push_back(capture);
+          }
+        }
+        code += "const ValueScopes::Write writes[]{";
+        for (const auto &value : written)
+          code += "{" +
+                  std::to_string(std::distance(arrayFields.begin(), arrayFields.find(value.slot))) +
+                  ",&" + ref(value) + "},";
+        code += "};\nif(!f.arrayScopes.commitBatch(writes,std::size(writes))){hostArrayFailure("
+                "task);return;}\n";
+        steps.push_back(code);
+        break;
+      }
+      case Code::CallableSyncGuard: {
+        const auto output = get(op.output);
+        auto code = copy(output, args.at(0));
+        for (auto target : hostResumableTargets)
+          code += "if(" + ref(output) + ".code==&" + helperName(target) +
+                  "::entry){task.fault(3);return;}\n";
+        steps.push_back(code);
+        break;
+      }
+      case Code::InvalidCallable:
+        steps.push_back("task.fault(3);return;\n");
+        break;
+      case Code::ResumableCall: {
+        const auto helper = helperName(op.target);
+        const auto output = get(op.output);
+        std::string captures = "f.runtime,f.directory.c_str()";
+        for (const auto &input : args) {
+          completed(input, span);
+          if (input.gpu)
+            reject(span, "resumable host calls require completed host arguments");
+          captures += "," + ref(input);
+        }
+        const auto lexical = op.group == SIZE_MAX ? "GroupHandle{}" : plannedGroups.at(op.group);
+        std::string code = helper + "::PacketData packet{" + captures + "};\n";
+        const auto family = placement.functions.at(op.target).resultType.errorRecord;
+        const auto returnedType = family ? helper + "::Outcome" : valueStorage(output);
+        code += "alignas(" + returnedType + ") std::byte bytes[sizeof(" + returnedType + ")];\n";
+        code += "if(!task.call(" + helper + "::entry,{" + helper +
+                "::entry.packetLayout,&packet,sizeof(packet),&task.context()}," +
+                std::string("bytes") + "," + lexical + (op.tail ? ",true" : ",false") +
+                ")){f.pc=@pc" + std::to_string(i) + "@;return;}\n";
+        if (output.failure)
+          code += failureRef(output) + "={};\n";
+        if (family) {
+          const auto error = applicationError(output);
+          code += "auto &outcome=*std::launder(reinterpret_cast<" + helper +
+                  "::Outcome *>(bytes));\nif(outcome.failed){" + ref(error) + "=outcome.error;" +
+                  ref(output) + "={};}else{" + ref(output) + "=std::move(outcome.value);" +
+                  ref(error) + "={};}\n" + helper + "::outcomeLayout.destroy(&outcome);\n";
+        }
+        if (!family)
+          code += "auto &returned=*std::launder(reinterpret_cast<" + returnedType +
+                  " *>(bytes));\n" + ref(output) + "=std::move(returned);\n" + helper +
+                  "::entry.result->destroy(&returned);\n";
+        steps.push_back(code + commitOutcome(output));
+        break;
+      }
       case Code::Call:
         bind(op.output, cpuCall(cpuFunction(op.target, span), args, span));
         break;
@@ -4462,11 +4587,6 @@ class Compiler {
       case Code::MapStore:
       case Code::MapAdvance:
       case Code::MapSuccess:
-      case Code::CallableTarget:
-      case Code::CallableCaptures:
-      case Code::CallableSyncGuard:
-      case Code::InvalidCallable:
-      case Code::FunctionReference:
       case Code::FunctionInvoke:
       case Code::SynchronousCall:
         reject(span, "function values require the CPU backend");
@@ -4511,7 +4631,8 @@ class Compiler {
     return get(plan.result);
   }
   std::string helperSuccessLayout(const ValueType &type) const {
-    if (type.array || type.record || type.builtin == BuiltinValue::String)
+    if (type.array || type.record || type.builtin == BuiltinValue::String ||
+        type.builtin == BuiltinValue::Function)
       return arrayLayout(type);
     if (type.tensor)
       return "m::Runtime::bufferLayout()";
@@ -4547,7 +4668,19 @@ class Compiler {
            error + ".destroy(&value.error);else " + success + ".destroy(&value.value);\nvalue.~" +
            type + "();}};\n";
   }
-  std::string helperPacket(FunctionId id) const {
+  std::string hostCaptureType(const ValueType &type) {
+    if (type.builtin == BuiltinValue::Function)
+      return callableName(callableType(type));
+    if (type.builtin == BuiltinValue::String)
+      return isStringArray(type) ? "StringArrayDescriptor" : "StringDescriptor";
+    if (type.record)
+      return recordType(*type.record);
+    if (type.tensor)
+      return tensorDescriptor(isBoolArray(type) ? NumericType::UInt8 : type.element,
+                              type.shape.size());
+    return isBooleanStorage(type) ? "bool" : scalarType(type.element);
+  }
+  std::string helperPacket(FunctionId id) {
     std::string code = "namespace " + helperName(id) +
                        " { struct PacketData { m::Runtime *runtime; const char *directory;";
     const auto &fn = placement.functions.at(id);
@@ -4556,7 +4689,8 @@ class Compiler {
       code +=
           (type.builtin == BuiltinValue::String
                ? std::string(isStringArray(type) ? "StringArrayDescriptor" : "StringDescriptor")
-           : type.record ? recordName(*type.record)
+           : type.builtin == BuiltinValue::Function ? callableName(callableType(type))
+           : type.record                            ? recordName(*type.record)
            : type.array ? tensorDescriptor(isBoolArray(type) ? NumericType::UInt8 : type.element, 1)
            : type.tensor            ? "m::Buffer"
            : isBooleanStorage(type) ? "bool"
@@ -4564,18 +4698,42 @@ class Compiler {
           " arg" + std::to_string(n) + ";";
     }
     code += "}; extern const TaskEntry entry;\n";
+    if (hostResumableTargets.contains(id)) {
+      code += "struct Captures {";
+      for (auto n = fn.parameters.size() - fn.captureCount; n < fn.parameters.size(); ++n)
+        code += hostCaptureType(placement.symbols.at(fn.parameters[n]).type) + " arg" +
+                std::to_string(n - (fn.parameters.size() - fn.captureCount)) + ";";
+      code += "};\n";
+      declarations += "extern \"C\" const void *kalandra_gpu_resumable_code_" + std::to_string(id) +
+                      "();\n"
+                      "extern \"C\" bool kalandra_gpu_resumable_captures_" +
+                      std::to_string(id) + "(Invocation*,const void*,void*);\n";
+      if (fn.captureCount)
+        declarations += "extern \"C\" const void *kalandra_gpu_resumable_environment_" +
+                        std::to_string(id) + "(Invocation*,const void*);\n";
+    }
     if (const auto family = fn.resultType.errorRecord) {
       const auto &type = fn.resultType;
       const auto payload =
           type.builtin == BuiltinValue::String
               ? std::string(isStringArray(type) ? "StringArrayDescriptor" : "StringDescriptor")
-          : type.record ? recordName(*type.record)
+          : type.builtin == BuiltinValue::Function ? callableName(callableType(type))
+          : type.record                            ? recordName(*type.record)
           : type.array  ? tensorDescriptor(isBoolArray(type) ? NumericType::UInt8 : type.element, 1)
           : type.tensor ? std::string("m::Buffer")
           : isBooleanStorage(type) ? std::string("bool")
                                    : scalarType(type.element);
-      code += outcomeDeclaration("Outcome", "outcomeLayout", payload, *family,
-                                 helperSuccessLayout(type), 0x4b414c484f000000ULL + id);
+      const auto success = helperSuccessLayout(type);
+      const auto key = success + ":" + std::to_string(*family);
+      auto [owner, inserted] = helperOutcomes.emplace(key, id);
+      if (inserted)
+        code += outcomeDeclaration("Outcome", "outcomeLayout", payload, *family, success,
+                                   0x4b414c484f000000ULL + id);
+      else
+        code += "using Outcome=" + helperName(owner->second) +
+                "::Outcome;\n"
+                "const ValueLayout &outcomeLayout=" +
+                helperName(owner->second) + "::outcomeLayout;\n";
     }
     return code + "}\n";
   }
@@ -4644,6 +4802,9 @@ class Compiler {
            "sizeof(Frame),alignof(Frame),construct,destroy,resume,"
         << (fn.resultType.errorRecord ? "&outcomeLayout" : "&" + helperSuccessLayout(fn.resultType))
         << "};\n}\n";
+    if (hostResumableTargets.contains(id))
+      out << "extern \"C\" const void *kalandra_gpu_resumable_code_" << id << "(){return &"
+          << helperName(id) << "::entry;}\n";
     return out.str();
   }
   static std::string reductionShader() {
@@ -5277,7 +5438,12 @@ public:
       expression.type.shape = std::move(shape);
     }
     resumable = continuation::resumableFunctions(placement);
-    const auto coordinating = continuation::coordinatingFunctions(placement);
+    auto coordinating = continuation::coordinatingFunctions(placement);
+    const auto hostCallables = continuation::hostCallableFunctions(placement);
+    for (FunctionId id = 0; id < placement.functions.size(); ++id) {
+      coordinating[id] = coordinating[id] || hostCallables[id];
+      resumable[id] = resumable[id] || hostCallables[id];
+    }
     for (FunctionId id = 0; id < placement.functions.size(); ++id)
       if (!coordinating[id] && !placement.functions[id].resultType.fallible)
         resumable[id] = false;
@@ -5434,6 +5600,18 @@ public:
         {.preserveCalls = true, .entry = *main, .valueScopes = true, .deviceValues = true});
     if (!planned)
       reject(fn.span, planned.error());
+    bool recursiveMain = false;
+    for (const auto &plan : planned->plans)
+      for (const auto &op : plan->code) {
+        if (op.code == continuation::Code::FunctionReference ||
+            op.code == continuation::Code::CallableTarget ||
+            op.code == continuation::Code::CallableCaptures)
+          hostResumableTargets.insert(op.target);
+        if ((op.code == continuation::Code::ResumableCall || op.code == continuation::Code::Spawn ||
+             op.code == continuation::Code::FunctionReference) &&
+            op.target == *main)
+          recursiveMain = true;
+      }
     continuationCpu = &planned->kernels;
     continuationKernels = planned->kernelIds;
     continuationImports = planned->importedFunctions;
@@ -5454,7 +5632,7 @@ public:
     auto mainArrays = std::move(arrayFields);
     std::string helperDeclarations, helperBodies;
     for (FunctionId id = 0; id < planned->plans.size(); ++id) {
-      if (id == *main || planned->plans[id]->code.empty())
+      if ((id == *main && !recursiveMain) || planned->plans[id]->code.empty())
         continue;
       fields.clear();
       arrayFields.clear();

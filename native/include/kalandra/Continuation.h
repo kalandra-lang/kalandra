@@ -31,6 +31,7 @@ enum class Code {
   FunctionReference,
   FunctionInvoke,
   SynchronousCall,
+  ResumableCall,
   MapInit,
   MapPrepare,
   MapJoin,
@@ -61,6 +62,7 @@ struct Instruction {
   std::optional<Slot> placement = {};
   // Innermost first: collecting expressions abandoned by error propagation.
   std::vector<Slot> collections = {};
+  bool tail = false;
 };
 struct Plan {
   std::vector<ValueType> slots;
@@ -103,6 +105,9 @@ struct ModulePlan {
 };
 // Direct/transitive task or control effects require continuation lowering.
 [[nodiscard]] std::vector<bool> resumableFunctions(const TypedModule &input);
+// Host-only callable boundaries that must retain resumable closure identities
+// instead of being projected into the synchronous CPU bridge.
+[[nodiscard]] std::vector<bool> hostCallableFunctions(const TypedModule &input);
 // Suspension/device effects, excluding synchronous expected-error control flow.
 // Ignore console suspension only when proving an uncancellable outer application;
 // ordinary tasks and callable admission always use the default resumable mode.

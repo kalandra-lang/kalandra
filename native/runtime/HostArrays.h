@@ -76,6 +76,9 @@ public:
   }
   bool clear(std::size_t slot) noexcept { return scopes_ && scopes_->clear(slot); }
   bool discard(std::size_t slot) noexcept { return scopes_ && scopes_->discard(slot); }
+  bool commitBatch(const ValueScopes::Write *writes, std::uint64_t count) noexcept {
+    return scopes_ && scopes_->commitBatch(writes, count);
+  }
   bool commit(std::size_t slot, void *value) noexcept {
     return scopes_ && scopes_->commit(slot, value);
   }

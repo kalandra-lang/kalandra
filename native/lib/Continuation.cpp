@@ -140,6 +140,11 @@ public:
       for (FunctionId id = 0; id < input.functions.size(); ++id)
         if (!coordinating[id] && !input.functions[id].resultType.fallible)
           resumable[id] = false;
+    if (options.preserveCalls) {
+      const auto host = hostCallableFunctions(input);
+      for (FunctionId id = 0; id < input.functions.size(); ++id)
+        resumable[id] = resumable[id] || host[id];
+    }
     if (options.entry && *options.entry >= input.functions.size())
       throw std::runtime_error("continuation entry function is out of range");
     // A device entry can share its source module with unrelated host placement.
@@ -208,21 +213,74 @@ public:
                  type.builtin == BuiltinValue::String || type.builtin == BuiltinValue::Function;
         });
     }
-    if (options.preserveCalls) {
-      std::vector<unsigned> state(plans.size());
-      auto visit = [&](auto &&self, FunctionId id, unsigned depth) -> void {
-        if (state[id] == 1 || depth > 128)
-          throw std::runtime_error("recursive resumable task entries are not implemented yet");
-        if (state[id] == 2)
-          return;
-        state[id] = 1;
-        for (const auto &op : plans[id]->code)
-          if (op.code == Code::Spawn && resumable.at(op.target))
-            self(self, op.target, depth + 1);
-        state[id] = 2;
-      };
-      for (auto id : pending)
-        visit(visit, id, 0);
+    // Prove transparent return paths after a suspending call. A failed proof
+    // keeps the ordinary continuation. Resource-owning functions and source
+    // scheduling scopes retain their cleanup boundaries, including borrows.
+    for (auto &pointer : plans) {
+      auto &plan = *pointer;
+      if (plan.groups || std::ranges::any_of(plan.slots, [&](const auto &type) {
+            return isFileResource(input, type);
+          }))
+        continue;
+      for (std::size_t call = 0; call < plan.code.size(); ++call) {
+        auto &op = plan.code[call];
+        if (op.code != Code::ResumableCall)
+          continue;
+        std::vector<std::tuple<std::size_t, Slot, bool>> work{{call + 1, op.output, false}};
+        std::map<std::pair<std::size_t, Slot>, unsigned> seen;
+        bool valid = true;
+        while (!work.empty() && valid) {
+          auto [pc, value, finished] = work.back();
+          work.pop_back();
+          if (finished) {
+            seen[{pc, value}] = 2;
+            continue;
+          }
+          if (seen[{pc, value}] == 2)
+            continue;
+          if (pc >= plan.code.size() || seen.size() >= 4096 || seen[{pc, value}] == 1) {
+            valid = false;
+            break;
+          }
+          seen[{pc, value}] = 1;
+          work.emplace_back(pc, value, true);
+          const auto &next = plan.code[pc];
+          if (!next.collections.empty()) {
+            valid = false;
+            break;
+          }
+          switch (next.code) {
+          case Code::Label:
+            work.emplace_back(pc + 1, value, false);
+            break;
+          case Code::Jump:
+            work.emplace_back(next.jump, value, false);
+            break;
+          case Code::Copy:
+            if (next.args.at(0) != value) {
+              valid = false;
+              break;
+            }
+            work.emplace_back(pc + 1, next.output, false);
+            break;
+          case Code::Try:
+            if (next.args.at(0) != value || next.group != SIZE_MAX) {
+              valid = false;
+              break;
+            }
+            work.emplace_back(pc + 1, next.output, false);
+            work.emplace_back(next.jump, next.target, false);
+            break;
+          case Code::Return:
+            valid = next.args.at(0) == value;
+            break;
+          default:
+            valid = false;
+            break;
+          }
+        }
+        op.tail = valid;
+      }
     }
     TypedFunction main;
     main.name = "main";
@@ -818,7 +876,7 @@ private:
   }
   void indirectCall(Plan &plan, ValueId id, Slot output, const FunctionInvoke &call,
                     Environment &env, std::set<FunctionId> &stack) {
-    if (options.preserveCalls || !invocationFlow)
+    if (!invocationFlow)
       throw std::runtime_error("resumable callable dispatch requires proven ordinary CPU targets");
     if (invocationFlow->unknown.at(id)) {
       if (invocationFlow->reachable.at(id))
@@ -836,7 +894,7 @@ private:
     std::vector<std::size_t> exits;
     bool synchronous = false;
     for (auto target : invocationFlow->targets.at(id)) {
-      if (!coordinating.at(target)) {
+      if (!coordinating.at(target) && !(options.preserveCalls && resumable.at(target))) {
         synchronous = true;
         continue;
       }
@@ -856,8 +914,9 @@ private:
         args.push_back(capture);
       }
       plan.code.push_back({Code::CallableCaptures, copied, captures, target});
-      auto value = stack.contains(target) ? recursiveCall(plan, id, target, args, env)
-                                          : function(plan, target, args, stack, env.group);
+      auto value = (stack.contains(target) || stack.size() >= 32)
+                       ? recursiveCall(plan, id, target, args, env)
+                       : function(plan, target, args, stack, env.group);
       plan.code.push_back({Code::Copy, output, {value}});
       exits.push_back(plan.code.size());
       plan.code.push_back({Code::Jump, 0, {}});
@@ -917,30 +976,14 @@ private:
   }
   Slot recursiveCall(Plan &plan, ValueId id, FunctionId target, const std::vector<Slot> &args,
                      Environment &env) {
-    // A coordinating backedge suspends in a bounded child record, rather than
-    // expanding its body or recursing on the native worker stack.
+    // Call frames share the caller's task and lexical scheduling scope.
     if (!scheduled.at(target)) {
       scheduled[target] = true;
       pending.push_back(target);
     }
-    const auto result = input.expressions.at(id).type;
-    auto handleType = input.functions.at(target).resultType;
-    handleType.task = true;
-    auto observedType = result;
-    observedType.fallible = true;
-    const auto output = slot(plan, result), handle = slot(plan, handleType);
-    const auto observed = slot(plan, observedType), joined = slot(plan, observedType);
-    const auto group = plan.groups++;
-    plan.code.push_back({Code::Open, 0, {}, env.group.value_or(SIZE_MAX), group, 0, id});
-    plan.code.push_back({Code::Spawn, handle, args, target, group, 0, id});
-    plan.code.push_back({Code::Await, observed, {handle}, target, 0, 0, id});
-    plan.code.push_back({Code::Join, joined, {observed}, 0, group, 0, id});
-    // Scheduler failure is an execution failure of this call, not an invented
-    // member of the callee's declared application-error family.
-    if (!result.fallible || !errorSubset(input, {}, result.errorRecord))
-      plan.code.push_back({Code::PropagateGroup, 0, {}, 0, group, 0, id});
-    plan.code.push_back({Code::Copy, output, {joined}});
-    plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group});
+    const auto output = slot(plan, input.expressions.at(id).type);
+    plan.code.push_back(
+        {Code::ResumableCall, output, args, target, env.group.value_or(SIZE_MAX), 0, id});
     return output;
   }
   void deviceIndirectCall(Plan &plan, ValueId id, Slot output, const kalandra::FunctionInvoke &call,
@@ -1027,8 +1070,9 @@ private:
         env.values[id] = value;
         return value;
       }
-      if (!options.preserveCalls && stack.contains(call->function) &&
-          coordinating.at(call->function)) {
+      if ((stack.contains(call->function) || stack.size() >= 32) &&
+          (coordinating.at(call->function) ||
+           (options.preserveCalls && resumable.at(call->function)))) {
         auto value = recursiveCall(plan, id, call->function, args, env);
         env.values[id] = value;
         return value;
@@ -1082,6 +1126,10 @@ private:
       deviceIndirectCall(plan, id, output, *call, env, stack);
     } else if (const auto *reference = std::get_if<kalandra::FunctionReference>(&node.operation);
                reference && resumable.at(reference->function)) {
+      if (options.preserveCalls && !scheduled.at(reference->function)) {
+        scheduled[reference->function] = true;
+        pending.push_back(reference->function);
+      }
       std::vector<Slot> captures;
       for (auto capture : reference->captures)
         captures.push_back(expression(plan, capture, env, stack));
@@ -1100,8 +1148,9 @@ private:
       plan.code.push_back({Code::Kernel, output, {inputSlot, callable}, kernel(id), 0, 0, id});
     } else if (const auto *call = std::get_if<kalandra::FunctionInvoke>(&node.operation);
                call && invocationFlow &&
-               std::ranges::any_of(invocationFlow->targets.at(id),
-                                   [&](auto target) { return coordinating.at(target); })) {
+               std::ranges::any_of(invocationFlow->targets.at(id), [&](auto target) {
+                 return coordinating.at(target) || (options.preserveCalls && resumable.at(target));
+               })) {
       indirectCall(plan, id, output, *call, env, stack);
     } else if (const auto *call = std::get_if<kalandra::FunctionInvoke>(&node.operation);
                call && node.type.fallible) {
@@ -1499,6 +1548,37 @@ void indirectEffects(const TypedModule &input, std::vector<std::vector<FunctionI
       }
 }
 } // namespace
+std::vector<bool> hostCallableFunctions(const TypedModule &input) {
+  const auto coordinating = coordinatingFunctions(input);
+  std::vector<bool> result(input.functions.size());
+  const bool managed = std::ranges::any_of(input.expressions, [&](const auto &value) {
+    const auto *ref = std::get_if<FunctionReference>(&value.operation);
+    return ref && coordinating[ref->function];
+  });
+  if (!managed)
+    return result;
+  std::vector<std::vector<FunctionId>> callers(input.functions.size());
+  std::vector<FunctionId> pending;
+  for (FunctionId id = 0; id < input.functions.size(); ++id) {
+    const auto &fn = input.functions[id];
+    result[id] = containsFunctionStorage(input, fn.resultType) ||
+                 std::ranges::any_of(fn.parameters, [&](auto symbol) {
+                   return containsFunctionStorage(input, input.symbols[symbol].type);
+                 });
+    for (auto value : fn.expressions)
+      if (const auto *call = std::get_if<FunctionCall>(&input.expressions[value].operation))
+        callers.at(call->function).push_back(id);
+    if (result[id])
+      pending.push_back(id);
+  }
+  for (std::size_t n = 0; n < pending.size(); ++n)
+    for (auto id : callers[pending[n]])
+      if (!result[id]) {
+        result[id] = true;
+        pending.push_back(id);
+      }
+  return result;
+}
 std::vector<bool> loopControlFunctions(const TypedModule &input) {
   std::vector<bool> result(input.functions.size());
   std::vector<std::vector<FunctionId>> callers(input.functions.size());
@@ -1670,6 +1750,7 @@ std::string dump(const ModulePlan &module) {
                                           "function.reference",
                                           "function.invoke",
                                           "synchronous.call",
+                                          "resumable.call",
                                           "map.init",
                                           "map.prepare",
                                           "map.join",

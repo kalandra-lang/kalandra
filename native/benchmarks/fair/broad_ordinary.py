@@ -46,6 +46,7 @@ def main():
     a=parser.parse_args();assert not a.output.exists()
     src=Path(__file__).resolve().parent;root=p.ROOT;build=a.build_dir.resolve();build.mkdir(parents=True,exist_ok=True)
     compiler=a.compiler.resolve() if a.compiler else root/'build/native/native/kalandra';runtime=compiler.parent/'libkalandra-task-core-optimized.a'
+    if not runtime.exists():runtime=compiler.parent.parent/'lib/kalandra/native/libkalandra-native-runtime.a'
     sources=[Path(__file__).resolve(),src/'BroadScalar.k',src/'BroadMixed.k',src/'BroadDriver.cpp',src/'BroadReference.cpp',src/'broad_reference.rs',src/'protocol.py',root/'native/runtime/OrdinaryFault.h',root/'native/runtime/Runtime.h']
     signature={p.key(f):p.sha(f) for f in [*sources,compiler,runtime]};manifest=build/'manifest.json'
     if a.reuse_build:

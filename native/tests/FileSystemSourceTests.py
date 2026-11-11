@@ -35,8 +35,6 @@ def build(name, source, diagnostic=None):
     return executable if a.target == 'cpu' else output/executable.name
 
 def run(name, source, expected, contents=None):
-    if a.target != "cpu" and name == "own-callable":
-        return  # Existing mixed-GPU coordinator callable limitation; CPU case remains qualified.
     if a.target != 'cpu':
         source = source.replace('! (FsError | IoError):', '! (FsError | IoError | TaskError):')
         source = re.sub(r'(fn main\(args:\[String\]\)->unit ! [^\n]+:\n)', r'\1  answer=try parallel:\n    gpu=devices.gpu()\n    try await spawn double(21) on gpu\n  try println(format("{}",answer))\n', source)

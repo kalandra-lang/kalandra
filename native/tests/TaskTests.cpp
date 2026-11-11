@@ -6,6 +6,9 @@
 #include <cstdlib>
 #include <new>
 #include <thread>
+#ifndef _WIN32
+#include <pthread.h>
+#endif
 using namespace kalandra::runtime;
 static void require(bool condition, int line) {
   if (!condition) {
@@ -527,7 +530,144 @@ static void cancelledConstruction() {
               !stats.unfinished);
       }
 }
+// A recursive ordinary call must not acquire scheduler records or groups.
+struct CallInput {
+  unsigned depth;
+  unsigned *destroyed;
+  bool fault = false, tail = false;
+};
+struct CallState {
+  CallInput input;
+  float child = 0;
+  bool yielded = false;
+};
+static const TaskEntry &recursiveEntry();
+static const TaskEntry &mutualEntry();
+static bool constructCall(Invocation &, void *frame, const Packet &packet) {
+  new (frame) CallState{*static_cast<const CallInput *>(packet.data)};
+  return true;
+}
+static void destroyCall(void *frame) noexcept {
+  auto &f = *static_cast<CallState *>(frame);
+  ++*f.input.destroyed;
+  f.~CallState();
+}
+static void resumeCall(Task &task) {
+  auto &f = *static_cast<CallState *>(task.frame());
+  if (f.input.depth) {
+    auto input = f.input;
+    --input.depth;
+    auto *context = &task.context();
+    const auto &target = input.tail && input.depth % 2 ? mutualEntry() : recursiveEntry();
+    if (!task.call(target, {40, &input, sizeof(input), context}, &f.child, {}, input.tail)) {
+      // Pushing is staged: the caller's lease remains valid until resume returns.
+      CHECK(&task.context() == context && task.frame() == &f);
+      return;
+    }
+    if (!f.input.tail)
+      f.child += 1;
+  } else {
+    if (f.input.fault) {
+      task.fault(1, 9, 7);
+      return;
+    }
+    if (!f.yielded) {
+      f.yielded = true;
+      task.yield();
+      return;
+    }
+  }
+  task.complete(&f.child);
+}
+static const TaskEntry &recursiveEntry() {
+  static const TaskEntry entry{1,
+                               40,
+                               sizeof(CallInput),
+                               alignof(CallInput),
+                               sizeof(CallState),
+                               alignof(CallState),
+                               constructCall,
+                               destroyCall,
+                               resumeCall,
+                               &scalar};
+  return entry;
+}
+static const TaskEntry &mutualEntry() {
+  static const TaskEntry entry{1,
+                               40,
+                               sizeof(CallInput),
+                               alignof(CallInput),
+                               sizeof(CallState) + 16,
+                               alignof(CallState),
+                               constructCall,
+                               destroyCall,
+                               resumeCall,
+                               &scalar};
+  return entry;
+}
+static void callStacks() {
+  for (unsigned mode = 0; mode < 6; ++mode) {
+    TaskLimits limits;
+    limits.records = limits.groups = limits.ready = limits.inFlight = 1;
+    limits.depth = 0;
+    if (mode == 2)
+      limits.callBytes = 2048;
+    auto core = TaskCore::create(limits);
+    CHECK(core);
+    unsigned destroyed = 0;
+    CallInput input{mode == 5   ? 200000U
+                    : mode == 0 ? 20000U
+                                : 64U,
+                    &destroyed, mode == 1, mode == 5};
+    if (mode == 3)
+      core->failAllocationAt(3);
+    auto group = core->openRoot();
+    auto handle = core->submit(group, recursiveEntry(), {40, &input, sizeof(input)});
+    if (mode == 4) {
+      for (unsigned i = 0; i < 30; ++i)
+        CHECK(core->step());
+      CHECK(core->cancel(group));
+    }
+    CHECK(core->drainToCompletion() && core->settled(handle));
+    auto stats = core->stats();
+    CHECK(stats.records == 1 && stats.groups == 1);
+    CHECK(stats.callFrames == 0 && stats.callBytes == 0);
+    if (mode == 0 || mode == 5) {
+      Invocation receiver;
+      float value = 0;
+      CHECK(core->observe(handle, scalar, receiver, &value));
+      CHECK(value == (input.tail ? 0 : input.depth) && destroyed == input.depth + 1);
+      CHECK(stats.peakCallFrames == (input.tail ? 2 : input.depth));
+    } else if (mode == 4) {
+      CHECK(core->failure(handle).kind == TaskFailure::Cancelled);
+      CHECK(destroyed == 31);
+    } else {
+      CHECK(core->failure(handle).kind == TaskFailure::Fault);
+      CHECK(core->failure(handle).code == (mode == 1 ? 1 : 2));
+      CHECK(destroyed > 0);
+    }
+    CHECK(core->close(group) && core->drain() && core->release(group));
+    CHECK(core->stats().retainedBytes == 0);
+  }
+}
 int main() {
+#ifndef _WIN32
+  pthread_attr_t attributes;
+  CHECK(pthread_attr_init(&attributes) == 0);
+  CHECK(pthread_attr_setstacksize(&attributes, 512 * 1024) == 0);
+  pthread_t smallStack;
+  CHECK(pthread_create(
+            &smallStack, &attributes,
+            +[](void *) -> void * {
+              callStacks();
+              return nullptr;
+            },
+            nullptr) == 0);
+  CHECK(pthread_attr_destroy(&attributes) == 0);
+  CHECK(pthread_join(smallStack, nullptr) == 0);
+#else
+  callStacks();
+#endif
   cancelledConstruction();
   allocatedBufferBudgets();
   // Propagated errors preserve their variant and location. Recovery must never
