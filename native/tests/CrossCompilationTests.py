@@ -28,6 +28,7 @@ from LoopCases import CASES as LOOP_CASES
 from FileSystemCases import SOURCE as FILESYSTEM_SOURCE, EXPECTED as FILESYSTEM_EXPECTED
 from ParseCases import SOURCE as PARSE_SOURCE, EXPECTED as PARSE_EXPECTED
 from PathCases import SOURCE as PATH_SOURCE, expected as path_expected
+from TimeCases import SOURCE as TIME_SOURCE, EXPECTED as TIME_EXPECTED
 from EnvironmentCases import SOURCE as ENV_SOURCE, VARIABLES as ENV_VARIABLES
 from EnvironmentCases import expected as env_expected, with_environment
 
@@ -65,6 +66,7 @@ def program_cases():
     cases['filesystem-application'] = dict(source=FILESYSTEM_SOURCE, output=FILESYSTEM_EXPECTED, application=True, filesystem=True)
     cases['parsing-application'] = dict(source=PARSE_SOURCE, output=PARSE_EXPECTED, application=True)
     cases['path-application'] = dict(source=PATH_SOURCE, outputBySystem={system:path_expected(system=='windows') for system in ('linux','macos','windows')}, application=True)
+    cases['time-application'] = dict(source=TIME_SOURCE, output=TIME_EXPECTED, application=True)
     cases['environment-application'] = dict(
         source=ENV_SOURCE, environment=ENV_VARIABLES, application=True,
         outputBySystem={system: env_expected(system == 'windows')

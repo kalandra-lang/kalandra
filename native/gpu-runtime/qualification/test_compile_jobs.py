@@ -16,8 +16,8 @@ class CompileJobsTests(unittest.TestCase):
                   'host-aggregates': 'HostAggregateTests.py', 'device-bool': 'DeviceBoolTests.py'}
         for backend in ('cuda', 'vulkan'):
             plan = dict(compile_plan(backend, repo, compiler, root))
-            self.assertEqual(len(plan), 15)
-            self.assertEqual(set(plan), set(common) | {'applications', 'console-applications', 'filesystem-applications', 'parse-applications', 'path-applications', 'environment-applications', 'wide-arguments' if backend=='cuda' else 'shared-capabilities'})
+            self.assertEqual(len(plan), 16)
+            self.assertEqual(set(plan), set(common) | {'applications', 'console-applications', 'filesystem-applications', 'parse-applications', 'path-applications', 'environment-applications', 'time-applications', 'wide-arguments' if backend=='cuda' else 'shared-capabilities'})
             self.assertEqual(plan['console-applications'], list(map(str, [sys.executable,
                 repo/'native/tests/GpuConsoleSourceTests.py', '--compiler', compiler,
                 '--target', backend, '--variant', 'optimized', '--compile-only',

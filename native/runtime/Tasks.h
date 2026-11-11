@@ -1,5 +1,6 @@
 #pragma once
 #include "Runtime.h"
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -60,7 +61,7 @@ struct TaskStats {
   std::size_t retainedBytes = 0, peakBytes = 0, environmentBytes = 0, recursiveBytes = 0;
   std::uint64_t retainedOwners = 0;
   std::uint32_t unfinished = 0, records = 0, groups = 0;
-  std::uint32_t ready = 0, pending = 0, maintenanceTasks = 0, externalPending = 0;
+  std::uint32_t ready = 0, pending = 0, maintenanceTasks = 0, externalPending = 0, timers = 0;
   std::uint64_t resumes = 0, publications = 0, migrations = 0;
   std::uint32_t peakRunning = 0;
 };
@@ -181,6 +182,7 @@ public:
   // no new independent work or externally usable capability before completion.
   bool canExecuteSynchronously() const noexcept;
   ExternalCompletion suspendExternal() noexcept;
+  void suspendUntil(std::chrono::steady_clock::time_point deadline) noexcept;
   void yield() noexcept;
   void complete(const void *value) noexcept;
   // Propagate a settled child/group error without converting its variant to Fault.

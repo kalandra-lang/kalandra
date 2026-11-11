@@ -42,6 +42,9 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
     assert not (prefix / "bin/kalandrac").exists()
     compiler = cwd / "compiler symlink"
     compiler.symlink_to(prefix / "bin/kalandra")
+    run([sys.executable, Path(__file__).resolve().parents[1] / "tests/TimeSourceTests.py",
+         "--compiler", compiler, "--output", cwd / "time applications",
+         "--variant", "optimized"], cwd)
     starter = cwd / "installed starter"
     run([compiler, "new", starter], cwd)
     run([compiler, "--project", starter / "kalandra.toml", "-o", cwd / "starter program"], cwd)

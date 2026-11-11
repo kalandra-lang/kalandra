@@ -963,6 +963,14 @@ private:
           header.standard = StandardRecord::Line;
         if (syntax_.standardModules[origin] == StandardModule::Parse && label == "ParseError")
           header.standard = StandardRecord::ParseError;
+        if (syntax_.standardModules[origin] == StandardModule::Time) {
+          if (label == "Instant")
+            header.standard = StandardRecord::Instant;
+          else if (label == "Duration")
+            header.standard = StandardRecord::Duration;
+          else if (label == "TimeError")
+            header.standard = StandardRecord::TimeError;
+        }
         if (syntax_.standardModules[origin] == StandardModule::Env) {
           if (label == "EnvValue")
             header.standard = StandardRecord::EnvValue;
@@ -1427,6 +1435,43 @@ private:
         {*statement.binding, symbol.definition.value_or(symbol.declaration), symbol.type, {}});
     return found->second;
   }
+  std::optional<TimeAction> standardTime(FunctionId id) const {
+    if (id >= syntax_.functions.size())
+      return {};
+    const auto &fn = syntax_.functions[id];
+    if (fn.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[fn.moduleIndex] != StandardModule::Time)
+      return {};
+    const auto label = name(fn.name);
+    if (label == "now")
+      return TimeAction::Now;
+    if (label == "elapsed")
+      return TimeAction::Elapsed;
+    if (label == "nanoseconds")
+      return TimeAction::Nanoseconds;
+    if (label == "milliseconds")
+      return TimeAction::Milliseconds;
+    if (label == "asNanoseconds")
+      return TimeAction::AsNanoseconds;
+    if (label == "asSeconds")
+      return TimeAction::AsSeconds;
+    if (label == "sleep")
+      return TimeAction::Sleep;
+    return {};
+  }
+  std::optional<ValueId> timeBody(Frame &frame, FunctionId id, TimeAction action) {
+    const auto &fn = output_.functions[id];
+    std::vector<ValueId> arguments;
+    for (auto parameter : fn.parameters) {
+      auto value =
+          add(frame, output_.symbols[parameter].type, fn.declaration, SymbolRead{parameter});
+      if (!value)
+        return {};
+      arguments.push_back(*value);
+    }
+    return add(frame, *fn.declaredResult, fn.declaration,
+               TimeOperation{action, std::move(arguments)});
+  }
   bool standardEnvironmentLookup(FunctionId id) const {
     if (id >= syntax_.functions.size())
       return false;
@@ -1740,6 +1785,7 @@ private:
     output_.functions[id].compileTimeOnly = standardFormat(id);
     auto result = standardFormat(id) ? add(frame, *output_.functions[id].declaredResult,
                                            syntax_.functions[id].span, StringLiteral{std::string{}})
+                  : standardTime(id) ? timeBody(frame, id, *standardTime(id))
                   : standardEnvironmentLookup(id) ? environmentBody(frame, id)
                   : standardPath(id)              ? pathBody(frame, id, *standardPath(id))
                   : standardParse(id)             ? parseBody(frame, id, *standardParse(id))
@@ -1749,7 +1795,7 @@ private:
                       : functionSuite(frame, body, output_.functions[id].declaredResult, statements,
                                       syntax_.functions[id].span, parameters);
     if ((standardFormat(id) || standardConsole(id) || standardFile(id) || standardParse(id) ||
-         standardPath(id) || standardEnvironmentLookup(id)) &&
+         standardPath(id) || standardEnvironmentLookup(id) || standardTime(id)) &&
         result)
       statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);
@@ -2251,6 +2297,10 @@ private:
       }
       result = recordType(found->second);
     }
+    if (isTimeValue(output_, result)) {
+      error("S081", "time values are opaque; use std/time constructors", span);
+      return {};
+    }
     if (isFileResource(output_, result)) {
       error("S081", "file handles are opaque and can only be created by std/fs", span);
       return {};
@@ -2313,6 +2363,10 @@ private:
     if (!output_.records[*type.record].variants.empty()) {
       error("S071", "enum payload fields are available only inside a matching variant branch",
             span);
+      return {};
+    }
+    if (isTimeValue(output_, type)) {
+      error("S081", "time values are opaque; use std/time functions", read.field);
       return {};
     }
     if (isFileResource(output_, type)) {

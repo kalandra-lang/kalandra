@@ -85,6 +85,12 @@ environment = [sys.executable, repo/'native/tests/EnvironmentSourceTests.py',
 if not a.execute:
     environment.append('--compile-only')
 subprocess.run(environment, check=True, timeout=900)
+time_suite = [sys.executable, repo/'native/tests/TimeSourceTests.py',
+              '--compiler', compiler, '--target', 'cuda', '--variant', 'optimized',
+              '--output', a.root/'time-applications']
+if not a.execute:
+    time_suite.append('--compile-only')
+subprocess.run(time_suite, check=True, timeout=900)
 
 subprocess.run([sys.executable,Path(__file__).with_name('applications.py'),
     '--build',a.root,'--compiler',compiler,'--output',a.root/'applications',

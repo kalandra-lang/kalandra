@@ -510,7 +510,8 @@ private:
                                std::is_same_v<T, EnvironmentLookup>) {
             input(op.input);
             return {};
-          } else if constexpr (std::is_same_v<T, FormatOperation>) {
+          } else if constexpr (std::is_same_v<T, FormatOperation> ||
+                               std::is_same_v<T, TimeOperation>) {
             for (auto value : op.arguments)
               input(value);
             return {};

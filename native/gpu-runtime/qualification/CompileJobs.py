@@ -44,6 +44,10 @@ def compile_plan(backend, repo, compiler, root):
                  repo/'native/tests/EnvironmentSourceTests.py', '--compiler', compiler,
                  '--target', backend, '--variant', 'optimized', '--compile-only',
                  '--output', root/'environment-applications']))
+    jobs.append(('time-applications', [sys.executable,
+                 repo/'native/tests/TimeSourceTests.py', '--compiler', compiler,
+                 '--target', backend, '--variant', 'optimized', '--compile-only',
+                 '--output', root/'time-applications']))
     for name, script in (
         ('host-arrays', 'HostArrayTests.py'), ('scalar-control', 'ScalarControlTests.py'),
         ('device-arrays', 'DeviceArrayTests.py'), ('device-array-entry', 'DeviceArrayEntryTests.py'),

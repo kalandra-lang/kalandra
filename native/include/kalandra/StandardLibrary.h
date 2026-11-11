@@ -2,8 +2,10 @@
 #include <optional>
 #include <string_view>
 namespace kalandra {
-enum class StandardModule { Io, Format, Process, Filesystem, Parse, Path, Env };
+enum class StandardModule { Io, Format, Process, Filesystem, Parse, Path, Env, Time };
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/time")
+    return StandardModule::Time;
   if (name == "std/env")
     return StandardModule::Env;
   if (name == "std/path")
@@ -22,6 +24,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Time:
+    return "kalandra-stdlib:std/time.k";
   case StandardModule::Env:
     return "kalandra-stdlib:std/env.k";
   case StandardModule::Path:
@@ -40,6 +44,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Time))
+    return StandardModule::Time;
   if (path == standardModulePath(StandardModule::Env))
     return StandardModule::Env;
   if (path == standardModulePath(StandardModule::Path))
@@ -61,6 +67,29 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Time:
+    return R"k(export type Instant:
+  __ticks: u64
+export type Duration:
+  __nanoseconds: u64
+export error TimeError:
+  Unavailable
+  OutOfRange
+export fn now() -> Instant ! TimeError:
+  return __kalandra_time_now()
+export fn elapsed(start: Instant) -> Duration ! TimeError:
+  return __kalandra_time_elapsed(start)
+export fn nanoseconds(value: u64) -> Duration:
+  return __kalandra_time_nanoseconds(value)
+export fn milliseconds(value: u64) -> Duration ! TimeError:
+  return __kalandra_time_milliseconds(value)
+export fn asNanoseconds(duration: Duration) -> u64:
+  return __kalandra_time_as_nanoseconds(duration)
+export fn asSeconds(duration: Duration) -> f64:
+  return __kalandra_time_as_seconds(duration)
+export fn sleep(duration: Duration) -> unit ! TimeError:
+  return __kalandra_time_sleep(duration)
+)k";
   case StandardModule::Env:
     return R"k(export enum EnvValue:
   Missing

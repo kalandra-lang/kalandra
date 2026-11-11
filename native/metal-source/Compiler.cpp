@@ -11,6 +11,7 @@
 #include "../gpu-source/PathHostBridge.h"
 #include "../gpu-source/PointerBridge.h"
 #include "../gpu-source/Supervisor.h"
+#include "../gpu-source/TimeHostBridge.h"
 #include "../lib/NativeLayout.h"
 #include "../lib/TaskValueCopy.h"
 #include "../metal/ElementwiseLayout.h"
@@ -119,6 +120,12 @@ class Compiler {
     ValueType result;
   };
   std::vector<EnvironmentBridgeRequest> environmentBridges;
+  struct TimeBridgeRequest {
+    std::string name;
+    TimeOperation operation;
+    ValueType result;
+  };
+  std::vector<TimeBridgeRequest> timeBridges;
   struct PathBridgeRequest {
     std::string name;
     PathOperation operation;
@@ -1424,7 +1431,7 @@ class Compiler {
         linked->getNamedGlobal(name)->setLinkage(llvm::GlobalValue::InternalLinkage);
     if (!aggregateTypes.empty() || !callableTypes.empty() || hostText || hostTextArray ||
         !consoleBridges.empty() || !fileBridges.empty() || !parseBridges.empty() ||
-        !pathBridges.empty() || !environmentBridges.empty()) {
+        !pathBridges.empty() || !environmentBridges.empty() || !timeBridges.empty()) {
       if (!linked) {
         linked = std::make_unique<llvm::Module>("gpu-host-layouts", context);
         linked->setDataLayout(nativeCpuDataLayout);
@@ -1479,6 +1486,8 @@ class Compiler {
       }
       for (const auto &request : pathBridges)
         emitPathHostBridge(placement, *linked, request.operation, request.result, request.name);
+      for (const auto &request : timeBridges)
+        emitTimeHostBridge(placement, *linked, request.operation, request.result, request.name);
       for (const auto &request : environmentBridges)
         emitEnvironmentHostBridge(placement, *linked, request.result, request.name);
       for (const auto &request : parseBridges)
@@ -4008,7 +4017,26 @@ class Compiler {
         break;
       }
       case Code::Kernel:
-        if (const auto *path = std::get_if<PathOperation>(&node(op.source).operation)) {
+        if (const auto *time = std::get_if<TimeOperation>(&node(op.source).operation)) {
+          const auto output = get(op.output);
+          const auto bridge = "kalandra_gpu_time_" + std::to_string(timeBridges.size());
+          timeBridges.push_back({bridge, *time, plan.slots.at(op.output)});
+          declarations += "extern \"C\" std::uint64_t " + bridge +
+                          "(Invocation*,const void*,void*,void*,void*);\n";
+          auto argument = args.empty() ? "nullptr" : "&" + ref(args.at(0));
+          auto failure = output.failure ? "&" + failureRef(output) : "nullptr";
+          auto error = output.applicationError ? "&" + ref(applicationError(output)) : "nullptr";
+          auto code = "[[maybe_unused]] auto deadline=" + bridge + "(&task.context()," + argument +
+                      ",&" + ref(output) + "," + failure + "," + error +
+                      ");\n"
+                      "if(task.context().status()){hostArrayFailure(task);return;}if(task."
+                      "cancelled())return;\n";
+          code += commitOutcome(output);
+          if (time->action == TimeAction::Sleep)
+            code += "if(" + hostErrorTag(applicationError(output)) + "==0){f.pc=@pc" +
+                    std::to_string(i + 1) + "@;kalandra_time_pause_v1(&task,deadline);return;}\n";
+          steps.push_back(std::move(code));
+        } else if (const auto *path = std::get_if<PathOperation>(&node(op.source).operation)) {
           const auto output = get(op.output);
           const auto bridge = "kalandra_gpu_path_" + std::to_string(pathBridges.size());
           pathBridges.push_back({bridge, *path, plan.slots.at(op.output)});
@@ -5567,6 +5595,7 @@ public:
 #include "../runtime/StringArray.h"
 #include "../runtime/Application.h"
 #include "../runtime/Environment.h"
+#include "../runtime/Time.h"
 #include "../runtime/DeviceArrayInputJob.h"
 #include "../runtime/DeviceGraphCapture.h"
 #include <array>

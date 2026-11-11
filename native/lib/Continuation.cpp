@@ -26,7 +26,8 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           values.insert(values.begin(), op.callee);
           return values;
         } else if constexpr (std::is_same_v<T, FunctionCall> ||
-                             std::is_same_v<T, FormatOperation> || std::is_same_v<T, FileOperation>)
+                             std::is_same_v<T, FormatOperation> ||
+                             std::is_same_v<T, FileOperation> || std::is_same_v<T, TimeOperation>)
           return op.arguments;
         else if constexpr (std::is_same_v<T, RecordValue>) {
           std::vector<ValueId> values;
@@ -384,7 +385,8 @@ private:
             for (auto &argument : op.arguments)
               argument = importValue(argument);
           } else if constexpr (std::is_same_v<T, FormatOperation> ||
-                               std::is_same_v<T, FileOperation>) {
+                               std::is_same_v<T, FileOperation> ||
+                               std::is_same_v<T, TimeOperation>) {
             for (auto &argument : op.arguments)
               argument = importValue(argument);
           } else if constexpr (std::is_same_v<T, ArrayMap>) {
@@ -587,6 +589,8 @@ private:
     if (auto *call = std::get_if<FunctionCall>(&op)) {
       call->function = called;
       call->arguments = reads;
+    } else if (auto *time = std::get_if<TimeOperation>(&op)) {
+      time->arguments = reads;
     } else if (auto *lookup = std::get_if<EnvironmentLookup>(&op)) {
       lookup->input = reads.at(0);
     } else if (auto *path = std::get_if<PathOperation>(&op)) {
@@ -1382,6 +1386,11 @@ private:
       auto subject = expression(plan, field->subject, env, stack);
       plan.code.push_back(
           {Code::Field, output, {subject}, static_cast<std::size_t>(field->field), 0, 0, id});
+    } else if (const auto *time = std::get_if<TimeOperation>(&node.operation)) {
+      std::vector<Slot> arguments;
+      for (auto argument : time->arguments)
+        arguments.push_back(expression(plan, argument, env, stack));
+      plan.code.push_back({Code::Kernel, output, std::move(arguments), 0, 0, 0, id});
     } else if (const auto *lookup = std::get_if<EnvironmentLookup>(&node.operation)) {
       auto input = expression(plan, lookup->input, env, stack);
       plan.code.push_back({Code::Kernel, output, {input}, 0, 0, 0, id});
@@ -1593,7 +1602,9 @@ std::vector<bool> coordinatingFunctions(const TypedModule &input, bool consoleMa
         callers.at(map->function).push_back(id);
       const auto *task = std::get_if<TaskOperation>(&op);
       const auto *map = std::get_if<ArrayMap>(&op);
-      if (isFileResource(input, input.expressions.at(value).type) ||
+      if ((std::get_if<TimeOperation>(&op) &&
+           std::get<TimeOperation>(op).action == TimeAction::Sleep) ||
+          isFileResource(input, input.expressions.at(value).type) ||
           (consoleMaySuspend && (std::holds_alternative<ConsoleOperation>(op) ||
                                  std::holds_alternative<FileOperation>(op))) ||
           (map && map->parallel) || (task && task->prefix != TaskPrefix::Try) ||
