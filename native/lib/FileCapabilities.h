@@ -28,12 +28,14 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
       !result.errorRecord || *result.errorRecord >= module.records.size() ||
       module.records[*result.errorRecord].standard != StandardRecord::FsError)
     return bad("requires host execution and its nominal FsError channel");
-  if (unsigned(op->action) > unsigned(FileAction::WriteLine))
+  if (unsigned(op->action) > unsigned(FileAction::WriteAllBuffer))
     return bad("has an invalid action");
-  const auto count = op->action == FileAction::Flush || op->action == FileAction::Finish ||
-                             op->action == FileAction::Close
-                         ? 1u
-                         : 2u;
+  const auto count =
+      op->action == FileAction::Flush || op->action == FileAction::Finish ||
+              op->action == FileAction::Close
+          ? 1u
+      : op->action == FileAction::ReadIntoBuffer || op->action == FileAction::ReadAppend ? 3u
+                                                                                         : 2u;
   if (op->arguments.size() != count)
     return bad("has an invalid argument count");
   for (auto id : op->arguments)
@@ -49,8 +51,12 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
     if (!scalar(first) || !isFileResource(module, first))
       return bad("requires a completed opaque host handle");
     const bool reading = op->action == FileAction::Read || op->action == FileAction::ReadExact ||
-                         op->action == FileAction::ReadInto || op->action == FileAction::ReadLine;
+                         op->action == FileAction::ReadInto ||
+                         op->action == FileAction::ReadIntoBuffer ||
+                         op->action == FileAction::ReadAppend || op->action == FileAction::ReadLine;
     const bool writing = op->action == FileAction::Write || op->action == FileAction::WriteAll ||
+                         op->action == FileAction::WriteBuffer ||
+                         op->action == FileAction::WriteAllBuffer ||
                          op->action == FileAction::WriteText ||
                          op->action == FileAction::WriteLine || op->action == FileAction::Flush;
     if ((reading && nominal(first, StandardRecord::BufferedWriter)) ||
@@ -62,8 +68,13 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
       return bad("has an incompatible handle kind");
     if (count > 1) {
       const auto &second = module.expressions[op->arguments[1]].type;
-      if (op->action == FileAction::ReadInto || op->action == FileAction::Write ||
-          op->action == FileAction::WriteAll) {
+      if (op->action == FileAction::ReadIntoBuffer || op->action == FileAction::ReadAppend ||
+          op->action == FileAction::WriteBuffer || op->action == FileAction::WriteAllBuffer) {
+        if (!scalar(second) || !isByteBuffer(module, second) ||
+            (count == 3 && !u64(module.expressions[op->arguments[2]].type)))
+          return bad("requires ByteBuffer and a u64 read limit");
+      } else if (op->action == FileAction::ReadInto || op->action == FileAction::Write ||
+                 op->action == FileAction::WriteAll) {
         if (!bytes(second))
           return bad("requires a completed host [u8] array");
       } else if (op->action == FileAction::WriteText || op->action == FileAction::WriteLine) {
@@ -93,6 +104,9 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
       return bad("byte reads require a [u8] result");
     break;
   case FileAction::ReadInto:
+  case FileAction::ReadIntoBuffer:
+  case FileAction::ReadAppend:
+  case FileAction::WriteBuffer:
   case FileAction::Write:
     if (!u64(result))
       return bad("counted operations require a u64 result");

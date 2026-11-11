@@ -45,7 +45,8 @@ public:
         std::ranges::any_of(module.expressions, [](const auto &v) {
           return std::holds_alternative<ArrayStore>(v.operation) ||
                  std::holds_alternative<ArraySort>(v.operation) ||
-                 std::holds_alternative<FileOperation>(v.operation);
+                 std::holds_alternative<FileOperation>(v.operation) ||
+                 std::holds_alternative<BufferOperation>(v.operation);
         });
     const bool indirect = std::ranges::any_of(module.expressions, [&](const auto &value) {
       const auto *call = std::get_if<FunctionInvoke>(&value.operation);
@@ -326,8 +327,8 @@ private:
         for (auto other : b)
           if (parameterRoot(other)) {
             const auto a = root - module.expressions.size(), b = other - module.expressions.size();
-            if (isFileResource(module, module.symbols[a].type) &&
-                isFileResource(module, module.symbols[b].type))
+            if (isOwnedResource(module, module.symbols[a].type) &&
+                isOwnedResource(module, module.symbols[b].type))
               continue;
             return true;
           }
@@ -349,8 +350,10 @@ private:
         })) {
       diagnostics.push_back(
           {"S077",
-           "mutating parameter requires writable array storage; parameters and captures are "
-           "read-only unless explicitly mut; use copy for independent storage",
+           isByteBuffer(module, module.expressions[id].type)
+               ? "mutating ByteBuffer requires a local owner or an explicit mut parameter"
+               : "mutating parameter requires writable array storage; parameters and captures are "
+                 "read-only unless explicitly mut; use copy for independent storage",
            module.expressions[id].span});
       return;
     }
@@ -359,7 +362,9 @@ private:
         const auto [line, column] = module.source->location(module.expressions[reader].span.begin);
         diagnostics.push_back({"S077",
                                (file ? "can't access file handle while task at "
-                                     : "can't mutate array while task at ") +
+                                : isByteBuffer(module, module.expressions[id].type)
+                                    ? "can't mutate ByteBuffer while task at "
+                                    : "can't mutate array while task at ") +
                                    std::to_string(line) + ":" + std::to_string(column) +
                                    " may still read it; await every reader or use copy",
                                module.expressions[id].span});
@@ -389,12 +394,12 @@ private:
         unite(roots, found->second);
   }
   void consume(ValueId id, const Roots &roots, Environment &env) {
-    if (!isFileResource(module, module.expressions[id].type))
+    if (!isOwnedResource(module, module.expressions[id].type))
       return;
     for (auto root : roots) {
       if (parameterRoot(root)) {
         const auto symbol = root - module.expressions.size();
-        if (isFileResource(module, module.symbols[symbol].type) && !module.symbols[symbol].owned &&
+        if (isOwnedResource(module, module.symbols[symbol].type) && !module.symbols[symbol].owned &&
             checking)
           diagnostics.push_back(
               {"S081",
@@ -404,7 +409,7 @@ private:
     }
     write(id, roots, env, false);
     for (const auto &[symbol, value] : env.symbols)
-      if (isFileResource(module, module.symbols[symbol].type) && overlap(roots, value))
+      if (isOwnedResource(module, module.symbols[symbol].type) && overlap(roots, value))
         env.moved.insert(symbol);
   }
   Roots body(const std::vector<TypedStatement> &statements, ValueId result, Environment &env) {
@@ -438,7 +443,7 @@ private:
       if (storage(module.symbols[symbol].type)) {
         const auto root = module.expressions.size() + symbol;
         env.symbols[symbol] = {root};
-        writable[root] = module.symbols[symbol].mutableAccess ||
+        writable[root] = module.symbols[symbol].mutableAccess || module.symbols[symbol].owned ||
                          isFileResource(module, module.symbols[symbol].type);
       }
     return body(function.body, function.result, env);
@@ -468,7 +473,10 @@ private:
             if (checking && env.moved.contains(op.symbol))
               diagnostics.push_back(
                   {"S081",
-                   "file handle '" + module.symbols[op.symbol].name + "' was moved or closed",
+                   (isByteBuffer(module, node.type) ? "ByteBuffer '" : "file handle '") +
+                       module.symbols[op.symbol].name +
+                       (isByteBuffer(module, node.type) ? "' was moved or consumed"
+                                                        : "' was moved or closed"),
                    node.span});
             if (auto found = env.symbols.find(op.symbol); found != env.symbols.end())
               return found->second;
@@ -484,14 +492,29 @@ private:
                 write(op.arguments[i], args[i], env, spawned);
               if (parameter.owned)
                 consume(op.arguments[i], args[i], env);
-              if (checking && isFileResource(module, parameter.type))
+              if (checking && isOwnedResource(module, parameter.type))
                 for (std::size_t j = 0; j < i; ++j)
-                  if (overlap(args[i], args[j]))
+                  if (overlap(args[i], args[j]) &&
+                      (parameter.mutableAccess || parameter.owned ||
+                       isFileResource(module, parameter.type) ||
+                       module.symbols[function.parameters.at(j)].mutableAccess ||
+                       module.symbols[function.parameters.at(j)].owned ||
+                       isFileResource(module, module.symbols[function.parameters.at(j)].type)))
                     diagnostics.push_back(
                         {"S081", "a call cannot access the same file through multiple parameters",
                          node.span});
             }
             return storage(node.type) ? returned(op.function, id, args) : Roots{};
+          } else if constexpr (std::is_same_v<T, BufferOperation>) {
+            std::vector<Roots> args;
+            for (auto argument : op.arguments)
+              args.push_back(input(argument));
+            if (op.action != BufferAction::Create && mutatesBuffer(op.action)) {
+              write(op.arguments[0], args[0], env, spawned);
+              if (op.action == BufferAction::IntoArray)
+                consume(op.arguments[0], args[0], env);
+            }
+            return storage(node.type) ? fresh(id) : Roots{};
           } else if constexpr (std::is_same_v<T, FileOperation>) {
             std::vector<Roots> args;
             for (auto argument : op.arguments)
@@ -501,7 +524,8 @@ private:
               if (consumesFile(op.action))
                 consume(op.arguments[0], args[0], env);
             }
-            if (op.action == FileAction::ReadInto)
+            if (op.action == FileAction::ReadInto || op.action == FileAction::ReadIntoBuffer ||
+                op.action == FileAction::ReadAppend)
               write(op.arguments[1], args[1], env, spawned);
             return storage(node.type) ? fresh(id) : Roots{};
           } else if constexpr (std::is_same_v<T, ConsoleOperation> ||
@@ -539,9 +563,13 @@ private:
               if (type.callable && type.callable->owns(i))
                 consume(op.arguments[i], roots, env);
               if (checking && type.callable &&
-                  isFileResource(module, type.callable->parameters.at(i)))
-                for (const auto &previous : args)
-                  if (overlap(roots, previous))
+                  isOwnedResource(module, type.callable->parameters.at(i)))
+                for (std::size_t j = 0; j < args.size(); ++j)
+                  if (overlap(roots, args[j]) &&
+                      (type.callable->mutates(i) || type.callable->owns(i) ||
+                       isFileResource(module, type.callable->parameters.at(i)) ||
+                       type.callable->mutates(j) || type.callable->owns(j) ||
+                       isFileResource(module, type.callable->parameters.at(j))))
                     diagnostics.push_back(
                         {"S081", "a call cannot access the same file through multiple parameters",
                          node.span});

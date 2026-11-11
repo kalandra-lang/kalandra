@@ -1,0 +1,154 @@
+#include "OwnedResources.h"
+#include <utility>
+namespace kalandra::runtime {
+std::mutex &resourceMutex() {
+  static auto *value = new std::mutex;
+  return *value;
+}
+void OwnedState::detach() noexcept {
+  if (!scope)
+    return;
+  if (previous)
+    previous->next = next;
+  else
+    scope->first = next;
+  if (next)
+    next->previous = previous;
+  scope = nullptr;
+  previous = next = nullptr;
+}
+OwnedState::~OwnedState() {
+  std::lock_guard lock(resourceMutex());
+  detach();
+}
+ResourceControl::~ResourceControl() {
+  if (!scope)
+    return;
+  std::lock_guard lock(resourceMutex());
+  scope->active = false;
+  while (scope->first) {
+    auto *value = scope->first;
+    value->detach();
+    value->scopeOwner = {};
+    value->retired.store(true, std::memory_order_release);
+    std::unique_lock access(value->mutex, std::try_to_lock);
+    if (access)
+      value->retire(value);
+  }
+}
+ResourceControl *currentScope(Invocation &ctx) noexcept {
+  return static_cast<ResourceControl *>(ctx.latestControl(ResourceControl::cleanup));
+}
+void adopt(Invocation &ctx, OwnedState &file, ResourceScope *scope) noexcept {
+  auto owner = scope ? ctx.lease(scope) : std::optional<AllocationLease>{};
+  if (scope && !owner) {
+    ctx.fault(3);
+    return;
+  }
+  std::lock_guard lock(resourceMutex());
+  file.detach();
+  file.scopeOwner = owner ? std::move(*owner) : AllocationLease{};
+  if (!scope)
+    return;
+  file.scope = scope;
+  file.next = scope->first;
+  if (file.next)
+    file.next->previous = &file;
+  scope->first = &file;
+}
+OwnedDescriptor ownedDescriptor(OwnedState *value) noexcept {
+  OwnedDescriptor result;
+  if (value) {
+    auto &s = result.storage;
+    s.allocated = s.aligned = reinterpret_cast<std::uint8_t *>(value);
+    s.sizes[0] = static_cast<std::int64_t>(value->bytes);
+    s.strides[0] = 1;
+  }
+  return result;
+}
+OwnedState *inspectOwned(Invocation &ctx, const OwnedDescriptor &value) noexcept {
+  const auto &s = value.storage;
+  if (!s.allocated || s.aligned != s.allocated || s.offset || s.strides[0] != 1 ||
+      s.sizes[0] < std::int64_t(sizeof(OwnedState))) {
+    ctx.fault(3);
+    return nullptr;
+  }
+  auto *p = static_cast<OwnedState *>(
+      ctx.readResource(s.allocated, OwnedState::cleanup, std::uint64_t(s.sizes[0])));
+  if (p && std::uint64_t(s.sizes[0]) != p->bytes) {
+    ctx.fault(3);
+    return nullptr;
+  }
+  return p;
+}
+} // namespace kalandra::runtime
+using namespace kalandra::runtime;
+namespace {
+bool healthy(Invocation &ctx) noexcept { return !ctx.poll() && ctx.usable(); }
+} // namespace
+extern "C" void *kalandra_file_scope_enter_v1(Invocation *ctx, const OwnedDescriptor *const *owned,
+                                              std::uint64_t count) noexcept {
+  if (!healthy(*ctx))
+    return nullptr;
+  auto *parent = currentScope(*ctx);
+  auto *memory = ctx->allocateControl(sizeof(ResourceControl), ResourceControl::cleanup);
+  if (!memory)
+    return nullptr;
+  auto *control = new (memory) ResourceControl(*ctx);
+  if (!control->storage.valid())
+    return nullptr;
+  {
+    Invocation::OwnershipSelection selected(control->storage);
+    auto *data = ctx->allocateResource(sizeof(ResourceScope), ResourceScope::cleanup);
+    if (!data)
+      return nullptr;
+    control->scope = new (data) ResourceScope;
+    if (parent) {
+      control->scope->parent = parent->scope;
+      auto lease = ctx->lease(parent->scope);
+      if (!lease) {
+        ctx->fault(3);
+        return nullptr;
+      }
+      control->scope->parentOwner = std::move(*lease);
+    }
+    for (std::uint64_t n = 0; n < count; ++n) {
+      if (!owned || !owned[n]) {
+        ctx->fault(3);
+        return nullptr;
+      }
+      auto *file = inspectOwned(*ctx, *owned[n]);
+      if (!file)
+        return nullptr;
+      adopt(*ctx, *file, control->scope);
+    }
+  }
+  return healthy(*ctx) ? control : nullptr;
+}
+extern "C" void kalandra_file_scope_leave_v1(Invocation *ctx, void *scope,
+                                             const OwnedDescriptor *escaping) noexcept {
+  if (!scope)
+    return;
+  auto *control = static_cast<ResourceControl *>(scope);
+  if (escaping && healthy(*ctx)) {
+    if (auto *file = inspectOwned(*ctx, *escaping))
+      adopt(*ctx, *file, control->scope->parent);
+  }
+  ctx->releaseControl(scope);
+}
+extern "C" bool kalandra_file_receive_v1(Invocation *ctx, const OwnedDescriptor *value) noexcept {
+  auto *file = inspectOwned(*ctx, *value);
+  if (!file)
+    return false;
+  bool unowned;
+  {
+    std::lock_guard lock(resourceMutex());
+    unowned = file->scope == nullptr && !file->retired.load(std::memory_order_acquire);
+  }
+  // A returned worker value has left its producer's logical scope. Adopt it in
+  // its receiver; ordinary borrowed task parameters keep their existing owner.
+  if (unowned)
+    if (auto *scope = currentScope(*ctx))
+      adopt(*ctx, *file, scope->scope);
+  return healthy(*ctx);
+}

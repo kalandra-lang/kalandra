@@ -1,14 +1,14 @@
 #pragma once
 #include "../include/kalandra/FileOperations.h"
+#include "ByteBuffer.h"
+#include "OwnedResources.h"
 #include "String.h"
 #include "Tensor.h"
 namespace kalandra::runtime {
 using FileBytes = CpuTensor<NumericType::UInt8, 1>;
 // Private ABI: source File/BufferedReader/BufferedWriter are opaque nominal
 // records with one inaccessible backing field. No OS descriptor is exposed.
-struct FileDescriptor {
-  FileBytes storage;
-};
+using FileDescriptor = OwnedDescriptor;
 using kalandra::FileAction;
 enum class FileMode : std::uint64_t { Read, Write, Create, CreateNew, Append, ReadWrite };
 enum class FileKind : std::uint32_t {
@@ -26,6 +26,7 @@ struct FileArguments {
   StringDescriptor path;
   FileBytes bytes;
   std::uint64_t value = 0, mode = 0;
+  BufferDescriptor buffer;
 };
 struct FileResult {
   FileKind kind = FileKind::Success;

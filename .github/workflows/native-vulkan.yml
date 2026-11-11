@@ -105,6 +105,12 @@ jobs:
           kalandra-vulkan-supervisor kalandra-vulkan-kernels kalandra-vulkan-lower
           kalandra-vulkan-extract kalandra-vulkan-language kalandra-vulkan-conversion-kernels
           kalandra kalandra-test-observer
+      - name: Compile owned byte buffers and filesystem overloads
+        run: >-
+          python3 native/tests/BufferSourceTests.py
+          --compiler build/vulkan-source/native/kalandra --target vulkan
+          --variant optimized --compile-only
+          --output build/vulkan-artifacts/buffers
       - name: Compile resumable host calls and owned callback cases
         run: >-
           python3 native/tests/ResumableCallSourceTests.py

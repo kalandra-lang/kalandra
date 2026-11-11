@@ -2918,6 +2918,7 @@ private:
                                  ValueRange{output});
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, ConsoleOperation> ||
+                               std::is_same_v<T, BufferOperation> ||
                                std::is_same_v<T, FileOperation> ||
                                std::is_same_v<T, ParseOperation> ||
                                std::is_same_v<T, EnvironmentLookup>) {

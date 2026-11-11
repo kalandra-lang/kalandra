@@ -25,6 +25,8 @@ public:
   std::span<const std::byte> bytes() const noexcept;
   // Private diagnostic snapshot, not a synchronization/uniqueness predicate.
   std::uint64_t referenceCount() const noexcept;
+  std::optional<AllocationLease> retain() const noexcept;
+  std::uint64_t reservationBytes() const noexcept;
   std::optional<AllocationLease> dependency(std::size_t index) const noexcept;
   // Private typed projection of an immutable recursive payload. The retained
   // lease, rather than the originating invocation, owns the returned view.
@@ -80,7 +82,8 @@ public:
   // must be infallible after allocation; cleanup runs exactly once when the last
   // retained owner retires, including fault/cancellation settlement. Resource
   // backing is never recycled as numeric storage.
-  void *allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept;
+  void *allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept,
+                         std::uint64_t (*additionalCost)(const void *) noexcept = nullptr) noexcept;
   // Validate a private resource capability without dereferencing an unowned
   // address. The cleanup identity distinguishes resources from ordinary bytes.
   void *readResource(void *address, void (*cleanup)(void *) noexcept,
@@ -143,6 +146,8 @@ public:
   bool retainRecursiveGraph(const AllocationLease &root, const void *key, std::uint64_t bytes,
                             std::uint64_t alignment) noexcept;
   bool retainFrom(const Invocation &source, void *buffer) noexcept;
+  // Private checked handoff from independently pinned runtime storage.
+  bool retainLease(const AllocationLease &) noexcept;
   bool holdArrayReference(void *buffer) noexcept;
   void release(void *buffer) noexcept;
   // Requires exclusive source-context access, like retainFrom. Reject unknown,
@@ -269,6 +274,7 @@ private:
                                      std::span<const AllocationLease>, std::span<const void *const>,
                                      bool) noexcept;
   bool reserve() noexcept;
+  bool holdBacking(Backing *) noexcept;
   std::int64_t pollObserved() noexcept;
   void settleResources() noexcept;
   void attach(Owner *owner) noexcept;

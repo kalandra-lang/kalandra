@@ -144,6 +144,7 @@ struct alignas(std::max_align_t) Backing {
   std::size_t dependencyCount = 0;
   Backing *releaseNext = nullptr; // Used exclusively after the final reference retires.
   void (*cleanup)(void *) noexcept = nullptr;
+  std::uint64_t (*additionalCost)(const void *) noexcept = nullptr;
 };
 struct alignas(std::max_align_t) ControlAllocation {
   ControlAllocation *next;
@@ -151,6 +152,11 @@ struct alignas(std::max_align_t) ControlAllocation {
   std::uint64_t charge;
 };
 namespace {
+std::uint64_t retainedBytes(const Backing *backing) noexcept {
+  const auto extra = backing->additionalCost ? backing->additionalCost(backing + 1) : 0;
+  const auto maximum = std::numeric_limits<std::uint64_t>::max();
+  return extra > maximum - backing->storageBytes ? maximum : backing->storageBytes + extra;
+}
 // Reservations are transferred only when the corresponding owner is published.
 struct BackingReservation {
   void *state;
@@ -390,14 +396,19 @@ void *Invocation::allocate(std::uint64_t bytes) noexcept {
   attach(&backing->initial);
   return backing + 1;
 }
-void *Invocation::allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept {
+void *
+Invocation::allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept,
+                             std::uint64_t (*additionalCost)(const void *) noexcept) noexcept {
   if (!bytes || !cleanup) {
     fault(3);
     return nullptr;
   }
   auto *data = allocate(bytes);
-  if (data)
-    (static_cast<Backing *>(data) - 1)->cleanup = cleanup;
+  if (data) {
+    auto *backing = static_cast<Backing *>(data) - 1;
+    backing->cleanup = cleanup;
+    backing->additionalCost = additionalCost;
+  }
   return data;
 }
 void *Invocation::readResource(void *address, void (*cleanup)(void *) noexcept,
@@ -757,10 +768,18 @@ bool Invocation::holdArrayReference(void *buffer) noexcept {
   owners().head_->arrayEscape = true;
   return true;
 }
+std::optional<AllocationLease> AllocationLease::retain() const noexcept {
+  if (!backing_ || !retainBacking(backing_))
+    return {};
+  return AllocationLease(backing_);
+}
+std::uint64_t AllocationLease::reservationBytes() const noexcept {
+  if (!backing_)
+    return 0;
+  const auto bytes = retainedBytes(backing_);
+  return bytes > UINT64_MAX - sizeof(Owner) ? UINT64_MAX : bytes + sizeof(Owner);
+}
 bool Invocation::retainFrom(const Invocation &source, void *buffer) noexcept {
-  auto &ledgerState = ledger();
-  if (poll() || !usable() || !reserve())
-    return false;
   if (!source.usable()) {
     fault(3);
     return false;
@@ -770,11 +789,24 @@ bool Invocation::retainFrom(const Invocation &source, void *buffer) noexcept {
     fault(3);
     return false;
   }
-  auto *backing = existing->backing;
+  return holdBacking(existing->backing);
+}
+bool Invocation::retainLease(const AllocationLease &lease) noexcept {
+  if (!lease.backing_) {
+    fault(3);
+    return false;
+  }
+  return holdBacking(lease.backing_);
+}
+bool Invocation::holdBacking(Backing *backing) noexcept {
+  auto &ledgerState = ledger();
+  if (poll() || !usable() || !reserve())
+    return false;
   // Every ordinary retain creates an owner. Conservatively reserve its backing
   // again, even if this invocation already has another owner for the same bytes.
   BackingReservation reservation{ledgerState.recursiveBudget_, ledgerState.recursiveRelease_};
-  if (!reservation.acquire(*this, backing->storageBytes, ledgerState.recursiveBytes_, ledgerState.recursiveReserve_))
+  if (!reservation.acquire(*this, retainedBytes(backing), ledgerState.recursiveBytes_,
+                           ledgerState.recursiveReserve_))
     return false;
   auto *storage = std::malloc(sizeof(Owner));
   if (!storage) {
@@ -853,12 +885,12 @@ bool Invocation::retainRecursiveGraph(const AllocationLease &root, const void *k
       edges += backing->dependencyCount;
       if (!charged.contains(backing)) {
         constexpr auto maximum = std::numeric_limits<std::uint64_t>::max();
-        if (backing->storageBytes > maximum - sizeof(Owner) ||
-            backing->storageBytes + sizeof(Owner) > maximum - charge) {
+        const auto cost = retainedBytes(backing);
+        if (cost > maximum - sizeof(Owner) || cost + sizeof(Owner) > maximum - charge) {
           fault(2);
           return false;
         }
-        charge += backing->storageBytes + sizeof(Owner);
+        charge += cost + sizeof(Owner);
         if (auto found = owned.find(backing); found != owned.end())
           existingCharges.push_back(found->second);
       }

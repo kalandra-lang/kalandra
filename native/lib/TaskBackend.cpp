@@ -1,3 +1,4 @@
+#include "BufferLowering.h"
 #include "CollectionMetadata.h"
 #include "ConsoleLowering.h"
 #include "EnvironmentLowering.h"
@@ -67,7 +68,7 @@ class Emitter {
   std::vector<Function *> frameDestroyers;
   std::vector<llvm::GlobalVariable *> entries;
   std::map<Function *, Value *> consoleScratch, fileScratch, fileArguments, parseScratch,
-      environmentScratch, pathScratch, timeScratch;
+      environmentScratch, pathScratch, timeScratch, bufferScratch, bufferArguments;
   Function *closedApplication = nullptr;
   std::optional<std::size_t> closedApplicationId;
   Function *destroy;
@@ -1758,7 +1759,7 @@ private:
                              retain);
         builder.SetInsertPoint(retain);
         retainRecord(type, builder.CreateStructGEP(wrapper, fn->getArg(3), 1), fn, failed);
-        if (isFileResource(planner.input, type)) {
+        if (isOwnedResource(planner.input, type)) {
           auto *ok = call("kalandra_file_receive_v1", boolean,
                           {fn->getArg(0), builder.CreateStructGEP(wrapper, fn->getArg(3), 1)});
           builder.CreateCondBr(ok, ready, failed);
@@ -2231,6 +2232,25 @@ private:
         break;
       }
       case Code::Kernel: {
+        if (const auto *buffer = std::get_if<BufferOperation>(
+                &planner.input.expressions[instruction.source].operation)) {
+          auto *&scratch = bufferScratch[resume];
+          auto *&arguments = bufferArguments[resume];
+          if (!scratch) {
+            llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+            scratch =
+                entry.CreateAlloca(bufferResultType(*taskTypes, context), nullptr, "buffer.result");
+            arguments = entry.CreateAlloca(bufferArgumentsType(*taskTypes, context), nullptr,
+                                           "buffer.arguments");
+          }
+          std::vector<Value *> inputs;
+          for (auto arg : instruction.args)
+            inputs.push_back(payload(arg));
+          emitBufferOperation(builder, module, planner.input, *taskTypes, *buffer, type,
+                              valueType(type), inputs, slot(instruction.output), scratch, arguments,
+                              ctx, next, abort);
+          break;
+        }
         if (const auto *time = std::get_if<TimeOperation>(
                 &planner.input.expressions[instruction.source].operation)) {
           auto *&scratch = timeScratch[resume];

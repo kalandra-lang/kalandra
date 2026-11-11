@@ -2,8 +2,10 @@
 #include <optional>
 #include <string_view>
 namespace kalandra {
-enum class StandardModule { Io, Format, Process, Filesystem, Parse, Path, Env, Time };
+enum class StandardModule { Io, Format, Process, Filesystem, Buffer, Parse, Path, Env, Time };
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/buffer")
+    return StandardModule::Buffer;
   if (name == "std/time")
     return StandardModule::Time;
   if (name == "std/env")
@@ -24,6 +26,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Buffer:
+    return "kalandra-stdlib:std/buffer.k";
   case StandardModule::Time:
     return "kalandra-stdlib:std/time.k";
   case StandardModule::Env:
@@ -44,6 +48,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Buffer))
+    return StandardModule::Buffer;
   if (path == standardModulePath(StandardModule::Time))
     return StandardModule::Time;
   if (path == standardModulePath(StandardModule::Env))
@@ -67,6 +73,31 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Buffer:
+    return R"k(export type ByteBuffer:
+  __storage: [u8]
+export error BufferError:
+  InvalidSize
+  OutOfRange
+export fn byteBuffer(capacity: i64) -> ByteBuffer ! BufferError:
+  return __kalandra_buffer_create(capacity)
+export fn length(buffer: ByteBuffer) -> i64:
+  return __kalandra_buffer_length(buffer)
+export fn capacity(buffer: ByteBuffer) -> i64:
+  return __kalandra_buffer_capacity(buffer)
+export fn reserve(mut buffer: ByteBuffer, minimum: i64) -> unit ! BufferError:
+  return __kalandra_buffer_reserve(buffer, minimum)
+export fn append(mut buffer: ByteBuffer, bytes: [u8]) -> unit ! BufferError:
+  return __kalandra_buffer_append(buffer, bytes)
+export fn truncate(mut buffer: ByteBuffer, count: i64) -> unit ! BufferError:
+  return __kalandra_buffer_truncate(buffer, count)
+export fn clear(mut buffer: ByteBuffer) -> unit:
+  return __kalandra_buffer_clear(buffer)
+export fn toArray(buffer: ByteBuffer) -> [u8]:
+  return __kalandra_buffer_to_array(buffer)
+export fn intoArray(own buffer: ByteBuffer) -> [u8]:
+  return __kalandra_buffer_into_array(buffer)
+)k";
   case StandardModule::Time:
     return R"k(export type Instant:
   __ticks: u64
@@ -143,6 +174,7 @@ export fn parseBool(text: String) -> bool ! ParseError:
 )k";
   case StandardModule::Filesystem:
     return R"k(from "std/io" import Line
+from "std/buffer" import ByteBuffer
 export type File:
   __storage: [u8]
 export type BufferedReader:
@@ -179,6 +211,8 @@ export fn readExact(file: File, count: u64) -> [u8] ! FsError:
   return __kalandra_fs_read_exact(file, count)
 export fn readInto(file: File, mut bytes: [u8]) -> u64 ! FsError:
   return __kalandra_fs_read_into(file, bytes)
+export fn readAppend(file: File, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! FsError:
+  return __kalandra_fs_read_append(file, buffer, maxBytes)
 export fn readLine(file: File, maxBytes: u64) -> Line ! FsError:
   return __kalandra_fs_read_line(file, maxBytes)
 export fn write(file: File, bytes: [u8]) -> u64 ! FsError:
