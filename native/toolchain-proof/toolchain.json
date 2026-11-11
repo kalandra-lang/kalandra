@@ -34,5 +34,14 @@
     "tag": "arm64_sequoia",
     "sha256": "cd68b4b54d1bcd70da83984a3fd139b96cdfc4b4db3171b2b836b29d8e1f7ab6",
     "formulaCommit": "39aa53fea3b4f53cfa5129dd9d2ebe870f33f54a"
-  }
+  },
+  "homebrewDependencies": [
+    {
+      "formula": "z3",
+      "version": "5.3.1",
+      "tag": "arm64_sequoia",
+      "sha256": "5436cd3b3c2a314525e5190e9d0bf57d0c90103db9f4828c646a3c8a647165ee",
+      "manifestSha256": "c4b5471f2850024b6b328380a25a801b4a14dee257964300bd1bbd6104d6a5fd"
+    }
+  ]
 }

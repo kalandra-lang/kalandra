@@ -49,7 +49,7 @@ def download(lock, directory):
 
 def download_bottle(bottle, directory):
     formula = bottle["formula"]
-    if (formula not in ("llvm", "spirv-cross", "spirv-tools") or
+    if (formula not in ("llvm", "spirv-cross", "spirv-tools", "z3") or
             bottle["tag"] != "arm64_sequoia" or
             not re.fullmatch(r"\d+(?:\.\d+){2,3}(?:_\d+)?", bottle["version"]) or
             not re.fullmatch(r"[0-9a-f]{64}", bottle["sha256"])):
@@ -82,6 +82,22 @@ def install(lock, bottle):
     existing = subprocess.run(["brew", "list", "--versions", "llvm"], capture_output=True)
     if existing.returncode == 0:
         subprocess.run(["brew", "uninstall", "--force", "--ignore-dependencies", "llvm"], check=True)
+    # LLVM's bottle links a specific Z3 ABI. A newer runner image can carry a
+    # newer Z3 ABI even while the LLVM bottle itself remains checksum-pinned.
+    # Replace only the explicitly pinned CI dependency; never alias incompatible
+    # dylib names or change a developer's Homebrew installation.
+    for dependency in lock.get("homebrewDependencies", []):
+        if dependency["formula"] != "z3":
+            raise ValueError("Unsupported pinned LLVM runtime dependency")
+        verified = download_bottle(dependency, bottle.parent)
+        previous = subprocess.run(["brew", "list", "--versions", dependency["formula"]],
+                                  capture_output=True)
+        if previous.returncode == 0:
+            subprocess.run(["brew", "uninstall", "--force", "--ignore-dependencies",
+                            dependency["formula"]], check=True)
+        environment = dict(os.environ, HOMEBREW_DEVELOPER="1")
+        subprocess.run(["brew", "install", "--ignore-dependencies", "--force-bottle", str(verified)],
+                       env=environment, check=True)
     # Homebrew disables local package paths by default. Its documented developer
     # mode permits this SHA-256-verified official bottle; scope it to this call.
     environment = dict(os.environ, HOMEBREW_DEVELOPER="1")
