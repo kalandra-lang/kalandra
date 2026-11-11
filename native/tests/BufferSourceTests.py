@@ -223,6 +223,9 @@ run('bounds-high-u64','''fn index(b:ByteBuffer)->u64:
 ''','',fault='BoundsFault')
 # These diagnostics are source contracts, checked identically for every backend.
 negative={
+ 'array-type':(main+'  values:[ByteBuffer]=[]\n  return ()\n','S081','owned ByteBuffer cannot be stored in arrays'),
+ 'record-field':('type Holder:\n  buffer:ByteBuffer\n'+main+'  return ()\n','S081','owned ByteBuffer requires standalone ownership'),
+ 'implicit-capture':(main+'  b=try byteBuffer()\n  inspect=fn():return length(b)\n  answer=inspect()\n  return ()\n','S081','ByteBuffer requires explicit function parameters'),
  'use-after-move':(main+'  a=try byteBuffer()\n  b=a\n  try println(format("{}",length(a)))\n  return ()\n','S081'),
  'use-after-consume':(main+'  b=try byteBuffer()\n  values=intoArray(b)\n  try println(format("{}",length(b)))\n  return ()\n','S081'),
  'readonly-mutation':('fn change(b:ByteBuffer)->unit ! BufferError:\n  try append(b,[1])\n  return ()\n'+main+'  b=try byteBuffer()\n  try change(b)\n  return ()\n','S077'),
@@ -234,10 +237,12 @@ negative={
  'missing-read-limit':(main+'  b=try byteBuffer()\n  file=try open("bytes.bin",OpenMode.Read)\n  count=try readInto(file,b)\n  return ()\n','S027'),
  'array-extra-read-limit':(main+'  b:[u8]=[0]\n  file=try open("bytes.bin",OpenMode.Read)\n  count=try readInto(file,b,1)\n  return ()\n','S081'),
 }
-for name,(source,code) in negative.items():
+for name,case in negative.items():
+    source,code,*messages=case
     root=a.output/name;root.mkdir(exist_ok=True);path=root/'main.k';path.write_text(prelude+source,encoding='utf-8')
     command=[a.compiler,path,'-O2','-o',root/'unexpected']
     if a.target!='cpu':command+=['--target',a.target]
     r=subprocess.run(command,capture_output=True,timeout=120);(root/'build.log').write_bytes(r.stdout+r.stderr)
     assert r.returncode==1 and ('error['+code+']').encode() in r.stderr,(name,r.returncode,r.stderr)
+    assert all(message.encode() in r.stderr for message in messages),(name,r.stderr)
     print('PASS: diagnosed',name,flush=True)

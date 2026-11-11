@@ -99,7 +99,21 @@ class EditorProcessScope:
                         raise ctypes.WinError(error)
                 if self.kernel.WaitForSingleObject(handle, 5000) != 0:
                     raise RuntimeError('Owned editor helper did not settle')
-            if self.children():
+            # Windows can briefly list an exited process after its handle has
+            # signaled. Verify liveness, rather than treating that stale job
+            # snapshot as a surviving descendant. New live children still fail;
+            # this verification never terminates any additional process.
+            survivors = []
+            for pid in self.children():
+                handle = self.kernel.OpenProcess(0x100000, False, pid)
+                if not handle:
+                    if ctypes.get_last_error() == 87:
+                        continue
+                    raise ctypes.WinError(ctypes.get_last_error())
+                handles.append(handle)
+                if self.kernel.WaitForSingleObject(handle, 0) != 0:
+                    survivors.append(pid)
+            if survivors:
                 raise RuntimeError('Editor descendants survived helper settlement')
         finally:
             for handle in handles:

@@ -220,11 +220,17 @@ public:
       for (const auto &record : output_.records)
         for (const auto &field : record.fields)
           if (isOwnedResource(output_, field.type))
-            error("S081", "owned file handles require standalone ownership, not aggregate fields",
+            error("S081",
+                  isByteBuffer(output_, field.type)
+                      ? "owned ByteBuffer requires standalone ownership, not aggregate fields"
+                      : "owned file handles require standalone ownership, not aggregate fields",
                   field.declaration);
       for (const auto &value : output_.expressions)
         if (isOwnedResource(output_, value.type) && value.type.array)
-          error("S081", "owned file handles cannot be stored in arrays", value.span);
+          error("S081",
+                isByteBuffer(output_, value.type) ? "owned ByteBuffer cannot be stored in arrays"
+                                                  : "owned file handles cannot be stored in arrays",
+                value.span);
     }
     if (!syntax_.editorOnly && diagnostics_.empty())
       for (auto &diagnostic : arrayAccessDiagnostics(output_))
@@ -588,8 +594,10 @@ private:
         auto result = recordType(id);
         if (syntax.array && isOwnedResource(output_, result)) {
           error("S081",
-                "owned file handles cannot be stored in arrays; pass them through explicit "
-                "parameters",
+                isByteBuffer(output_, result) ? "owned ByteBuffer cannot be stored in arrays; pass "
+                                                "it through explicit parameters"
+                                              : "owned file handles cannot be stored in arrays; "
+                                                "pass them through explicit parameters",
                 syntax.span);
           return {};
         }
@@ -1091,7 +1099,10 @@ private:
           if (!value)
             continue;
           if (isOwnedResource(output_, *value)) {
-            error("S081", "owned file handles require standalone ownership, not aggregate fields",
+            error("S081",
+                  isByteBuffer(output_, *value)
+                      ? "owned ByteBuffer requires standalone ownership, not aggregate fields"
+                      : "owned file handles require standalone ownership, not aggregate fields",
                   field.type.span);
             continue;
           }
@@ -2332,9 +2343,12 @@ private:
       return {};
     const auto capture = output_.symbols[*origin];
     if (isOwnedResource(output_, capture.type)) {
-      error("S081",
-            "file handles require explicit function parameters, not implicit closure captures",
-            span);
+      error(
+          "S081",
+          isByteBuffer(output_, capture.type)
+              ? "ByteBuffer requires explicit function parameters, not implicit closure captures"
+              : "file handles require explicit function parameters, not implicit closure captures",
+          span);
       return {};
     }
     auto type = capture.type;
