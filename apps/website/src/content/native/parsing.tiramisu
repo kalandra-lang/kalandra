@@ -1,4 +1,4 @@
-meta { title = "Parsing text", description = "Convert strings to checked integers, floating-point numbers and booleans with std/parse.", order = 7, group = "Library reference" }
+meta { title = "Parsing text", description = "Convert strings to checked integers, floating-point numbers and booleans with std/parse.", order = 8, group = "Library reference" }
 
 Import parsers from std/parse to turn user input, configuration values and text fields into typed values. Every parser consumes the entire string and returns either a value of its named type or ParseError. Standard modules are included with the compiler.
 

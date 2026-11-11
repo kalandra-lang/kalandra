@@ -15,7 +15,6 @@ struct OwnedState {
   AllocationLease scopeOwner;
   OwnedState *previous = nullptr, *next = nullptr;
   std::atomic<bool> retired{false};
-  std::atomic<std::uint64_t> additionalBytes{0};
   OwnedKind kind;
   std::uint64_t bytes;
   void (*destroy)(void *) noexcept;
@@ -28,9 +27,6 @@ struct OwnedState {
   static void cleanup(void *p) noexcept {
     auto *s = static_cast<OwnedState *>(p);
     s->destroy(p);
-  }
-  static std::uint64_t cost(const void *p) noexcept {
-    return static_cast<const OwnedState *>(p)->additionalBytes.load(std::memory_order_acquire);
   }
 };
 struct ResourceScope {

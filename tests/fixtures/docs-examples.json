@@ -518,5 +518,15 @@
       "kind": "cpu",
       "expected": "true"
     }
+  ],
+  "buffers": [
+    {
+      "kind": "cpu",
+      "expected": "5:104:111"
+    },
+    {
+      "kind": "cpu",
+      "expected": "6"
+    }
   ]
 }

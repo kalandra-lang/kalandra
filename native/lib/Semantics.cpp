@@ -1627,6 +1627,31 @@ private:
     if (action == BufferAction::Length)
       return collectionQuery(frame, span, "length", arguments);
     const auto &fn = output_.functions[id];
+    if (queryingSignature(span)) {
+      if (!analyzeFunction(id))
+        return {};
+      FunctionSignature signature;
+      std::vector<std::string> names;
+      for (auto parameter : fn.parameters) {
+        const auto &symbol = output_.symbols[parameter];
+        signature.parameters.push_back(symbol.type);
+        signature.mutableParameters.push_back(symbol.mutableAccess);
+        signature.ownedParameters.push_back(symbol.owned);
+        names.push_back(symbol.name);
+      }
+      const auto prefix = options_.signature->argumentIndex.value_or(arguments.size());
+      for (std::size_t i = 0; i < std::min(prefix, arguments.size()); ++i) {
+        if (i >= signature.parameters.size())
+          return {};
+        auto actual = expression(frame, arguments[i], signature.parameters[i]);
+        if (!actual)
+          return {};
+      }
+      signature.result = fn.resultType;
+      captureSignature(frame, signature, std::move(names));
+      error("S027", "editing buffer argument requires a signature snapshot", span);
+      return {};
+    }
     const bool defaultCapacity = action == BufferAction::Create && arguments.empty();
     if (arguments.size() != fn.parameters.size() && !defaultCapacity) {
       error("S027", "wrong argument count for buffer operation", span);
@@ -1703,6 +1728,28 @@ private:
           return {};
         signature.parameters[0] = node(*actual).type;
       }
+      if (prefix > 1 && arguments.size() > 1 &&
+          (action == FileAction::ReadInto || action == FileAction::Write ||
+           action == FileAction::WriteAll)) {
+        auto actual = expression(frame, arguments[1]);
+        if (!actual)
+          return {};
+        const auto &type = node(*actual).type;
+        if (type.task || type.fallible || type.device)
+          return {};
+        if (isByteBuffer(output_, type)) {
+          signature.parameters[1] = type;
+          if (action == FileAction::ReadInto) {
+            ValueType count;
+            count.element = NumericType::UInt64;
+            signature.parameters.push_back(count);
+            signature.mutableParameters.push_back(false);
+            signature.ownedParameters.push_back(false);
+            names.push_back("maxBytes");
+          }
+        } else if (!type.array || type.element != NumericType::UInt8)
+          return {};
+      }
       signature.result = fn.resultType;
       captureSignature(frame, signature, std::move(names));
       error("S027", "editing filesystem argument requires a signature snapshot", span);
@@ -1728,8 +1775,10 @@ private:
         size.element = NumericType::UInt64;
         context = size;
       }
-      if (i == 1 && (action == FileAction::ReadInto || action == FileAction::Write ||
-                     action == FileAction::WriteAll))
+      if (i == 1 &&
+          (action == FileAction::ReadInto || action == FileAction::Write ||
+           action == FileAction::WriteAll) &&
+          !std::holds_alternative<ArrayExpr>(syntax_.expressions[arguments[i]].value))
         context.reset();
       if (i == 0 && action != FileAction::Open)
         context.reset();

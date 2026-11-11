@@ -76,8 +76,7 @@ FileState *createFile(Invocation &ctx, std::uint64_t capacity) noexcept {
     ctx.fault(2);
     return nullptr;
   }
-  auto *p =
-      ctx.allocateResource(sizeof(FileState) + capacity, OwnedState::cleanup, OwnedState::cost);
+  auto *p = ctx.allocateResource(sizeof(FileState) + capacity, OwnedState::cleanup);
   return p ? new (p) FileState(capacity) : nullptr;
 }
 FileState *inspectFile(Invocation &ctx, const FileDescriptor &value) noexcept {

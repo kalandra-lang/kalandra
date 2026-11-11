@@ -13,15 +13,24 @@ bufferCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericT
   if (target != NumericTarget::Cpu || unsigned(op->action) > unsigned(BufferAction::WriteByte))
     return bad();
   const auto scalar = [](const ValueType &t) {
-    return !t.array && !t.tensor && !t.task && !t.fallible && !t.device;
+    return !t.array && !t.tensor && !t.task && !t.fallible && !t.errorRecord && !t.device &&
+           t.shape.empty();
   };
   const auto bytes = [](const ValueType &t) {
     return t.array && t.tensor && t.builtin == BuiltinValue::Numeric &&
            t.element == NumericType::UInt8 && t.shape.size() == 1 && !t.task && !t.fallible &&
-           !t.device;
+           !t.errorRecord && !t.record && !t.device;
   };
   const auto integer = [&](const ValueType &t) {
-    return scalar(t) && t.builtin == BuiltinValue::Numeric && t.element == NumericType::Int64;
+    return scalar(t) && !t.record && t.builtin == BuiltinValue::Numeric &&
+           t.element == NumericType::Int64;
+  };
+  const auto buffer = [&](const ValueType &t) {
+    if (!scalar(t) || t.builtin != BuiltinValue::Record || !isByteBuffer(module, t))
+      return false;
+    const auto &record = module.records[*t.record];
+    return !record.error && record.variants.empty() && record.fields.size() == 1 &&
+           record.fields[0].name == "__storage" && bytes(record.fields[0].type);
   };
   auto result = expr.type;
   if (result.fallible != fallibleBuffer(op->action) || result.task || result.device)
@@ -29,6 +38,15 @@ bufferCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericT
   if (result.fallible &&
       (!result.errorRecord || *result.errorRecord >= module.records.size() ||
        module.records[*result.errorRecord].standard != StandardRecord::BufferError))
+    return bad();
+  if (result.fallible) {
+    const auto &error = module.records[*result.errorRecord];
+    if (!error.error || error.fields.size() != 1 || error.fields[0].name != "$tag" ||
+        !integer(error.fields[0].type) || error.variants.size() != 2 ||
+        error.variants[0].name != "InvalidSize" || error.variants[1].name != "OutOfRange" ||
+        !error.variants[0].fields.empty() || !error.variants[1].fields.empty())
+      return bad();
+  } else if (result.errorRecord)
     return bad();
   result.fallible = false;
   result.errorRecord.reset();
@@ -46,21 +64,22 @@ bufferCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericT
       return bad();
   const auto &first = module.expressions[op->arguments[0]].type;
   if (op->action == BufferAction::Create) {
-    if (!integer(first) || !scalar(result) || !isByteBuffer(module, result))
+    if (!integer(first) || !buffer(result))
       return bad();
   } else {
-    if (!scalar(first) || !isByteBuffer(module, first))
+    if (!buffer(first))
       return bad();
     const bool indexing = op->action == BufferAction::CheckIndex ||
                           op->action == BufferAction::ReadByte ||
                           op->action == BufferAction::WriteByte;
     if (indexing) {
       const auto &index = module.expressions[op->arguments[1]].type;
-      if (!scalar(index) || index.builtin != BuiltinValue::Numeric || !isInteger(index.element))
+      if (!scalar(index) || index.record || index.builtin != BuiltinValue::Numeric ||
+          !isInteger(index.element))
         return bad();
       if (op->action == BufferAction::WriteByte) {
         const auto &byte = module.expressions[op->arguments[2]].type;
-        if (!scalar(byte) || byte.builtin != BuiltinValue::Numeric ||
+        if (!scalar(byte) || byte.record || byte.builtin != BuiltinValue::Numeric ||
             byte.element != NumericType::UInt8)
           return bad();
       }
@@ -74,16 +93,16 @@ bufferCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericT
       if (!integer(result))
         return bad();
     } else if (op->action == BufferAction::ReadByte) {
-      if (!scalar(result) || result.builtin != BuiltinValue::Numeric ||
+      if (!scalar(result) || result.record || result.builtin != BuiltinValue::Numeric ||
           result.element != NumericType::UInt8)
         return bad();
     } else if (op->action == BufferAction::WriteByte) {
-      if (!scalar(result) || result.builtin != BuiltinValue::Bool)
+      if (!scalar(result) || result.record || result.builtin != BuiltinValue::Bool)
         return bad();
     } else if (op->action == BufferAction::ToArray || op->action == BufferAction::IntoArray) {
       if (!bytes(result))
         return bad();
-    } else if (!scalar(result) || result.builtin != BuiltinValue::Unit)
+    } else if (!scalar(result) || result.record || result.builtin != BuiltinValue::Unit)
       return bad();
   }
   return {};

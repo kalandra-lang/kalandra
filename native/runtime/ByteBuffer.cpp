@@ -17,7 +17,6 @@ struct BufferState : OwnedState {
     s.payload = {};
     s.data = nullptr;
     s.length = s.capacity = 0;
-    s.additionalBytes.store(0, std::memory_order_release);
   }
 };
 BufferState *inspect(Invocation &ctx, const BufferDescriptor &value) noexcept {
@@ -72,13 +71,16 @@ bool grow(Invocation &ctx, BufferState &s, std::uint64_t minimum, bool exact = f
   }
   // The resource owns its payload independently of the allocating frame. The
   // allocating context keeps its normal conservative budget reservation.
+  if (!ctx.resizeResource(&s, lease->reservationBytes())) {
+    ctx.release(data);
+    return false;
+  }
   ctx.release(data);
   s.payload = std::move(*lease);
   s.data = data;
   s.capacity = capacity;
   ++s.growths;
   s.copiedBytes += s.length;
-  s.additionalBytes.store(s.payload.reservationBytes(), std::memory_order_release);
   return true;
 }
 BufferBytes view(const BufferState &s) noexcept {
@@ -120,6 +122,12 @@ bool bufferReadView(Invocation &ctx, const BufferDescriptor &desc, std::uint64_t
   }
   if (!grow(ctx, *s, offset + maximum, false, true) || !pin(ctx, *s, out))
     return false;
+  // A cancelled native read may still be writing this span after its source
+  // task has settled. Replacement reads expose no initialized bytes until
+  // commit; append reads write strictly beyond the existing initialized prefix.
+  // Future mutations detach pinned storage before writing or extending length.
+  if (!append)
+    s->length = 0;
   out.offset = offset;
   out.size = maximum;
   out.data = s->data ? s->data + offset : nullptr;
@@ -141,8 +149,9 @@ bool bufferReadCommit(Invocation &ctx, BufferIO &io, std::uint64_t count) noexce
     return false;
   auto &s = *static_cast<BufferState *>(io.state);
   std::lock_guard lock(s.mutex);
-  if (s.retired.load(std::memory_order_acquire) || count > io.size ||
-      io.offset + count > s.capacity) {
+  if (s.retired.load(std::memory_order_acquire) || count > io.size || io.offset > s.capacity ||
+      count > s.capacity - io.offset || s.length != io.offset ||
+      (s.data ? s.data + io.offset : nullptr) != io.data) {
     ctx.fault(3);
     return false;
   }
@@ -174,12 +183,11 @@ extern "C" void kalandra_buffer_v1(Invocation *ctx, BufferResult *out, std::uint
       out->kind = unsigned(BufferKind::InvalidSize);
       return;
     }
-    auto *memory =
-        ctx->allocateResource(sizeof(BufferState), OwnedState::cleanup, OwnedState::cost);
+    auto *memory = ctx->allocateResource(sizeof(BufferState), OwnedState::cleanup, true);
     if (!memory)
       return;
     auto *s = new (memory) BufferState;
-    if (!grow(*ctx, *s, std::uint64_t(args->value), true))
+    if (!ctx->trackResource(s) || !grow(*ctx, *s, std::uint64_t(args->value), true))
       return;
     if (auto *scope = currentScope(*ctx))
       adopt(*ctx, *s, scope->scope);

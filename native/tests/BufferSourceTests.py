@@ -16,7 +16,7 @@ from "std/fmt" import format
 from "std/time" import sleep, milliseconds, TimeError
 '''
 main='fn main()->unit ! (BufferError | FsError | IoError | TimeError | TaskError):\n'
-def run(name,source,expected):
+def run(name,source,expected,fault=None):
     root=a.output/name;root.mkdir(exist_ok=True)
     if a.target!='cpu':
         source='fn twice(n:i64)->i64:\n  return n*2\n'+source
@@ -35,7 +35,15 @@ def run(name,source,expected):
         (root/f'run-{workers}.log').write_bytes(r.stdout+r.stderr)
         stderr=r.stderr
         if a.target=='metal':stderr=b''.join(x for x in stderr.splitlines(keepends=True) if not re.fullmatch(rb'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+ program\[\d+:\d+\] Metal API Validation Enabled\r?\n?',x))
-        assert r.returncode==0 and r.stdout==expected.encode() and not stderr,(name,workers,r.returncode,r.stdout,stderr)
+        if fault:
+            # Mixed GPU supervisors report the typed runtime fault as task
+            # failure kind/code (Fault=1, BoundsFault=5), rather than CPU CLI text.
+            diagnosed = fault.encode() in stderr or (fault == 'BoundsFault' and a.target != 'cpu' and
+                        re.search(rb'task failed: 1/5(?:\s|$)', stderr) is not None)
+            assert r.returncode>0 and r.stdout==expected.encode() and diagnosed,(name,workers,r.returncode,r.stdout,stderr)
+            assert not any(x in stderr for x in (b'AddressSanitizer',b'ThreadSanitizer',b'runtime error:')),(name,stderr)
+        else:
+            assert r.returncode==0 and r.stdout==expected.encode() and not stderr,(name,workers,r.returncode,r.stdout,stderr)
     print('PASS: executed',name,flush=True)
 run('operations',main+'''  b=try byteBuffer(2)
   try append(b,[1,2,3])
@@ -153,6 +161,66 @@ fn invalidTruncate(mut b:ByteBuffer)->i64 ! BufferError:
   try println(format("{}:{}:{}",total,invalid,outside))
   return ()
 ''','42000:11:22\n')
+placement = ' on gpu' if a.target != 'cpu' else ''
+run('converted-array-input','''fn sumBytes(values:[u8])->i64:
+  return i64(values[0])+i64(values[1])
+'''+main+'''  b=try byteBuffer()
+  try append(b,[40,2])
+  values=intoArray(b)
+  answer=try parallel:
+'''+('    gpu=devices.gpu()\n' if a.target!='cpu' else '')+f'''    task=spawn sumBytes(values){placement}
+    try await task
+  try println(format("{{}}",answer))
+  return ()
+''','42\n')
+run('array-literal-io',main+'''  output=try open("literal.bin",OpenMode.Create)
+  try writeAll(output,[42])
+  try writeAll(output,[])
+  try close(output)
+  input=try open("literal.bin",OpenMode.Read)
+  b=try byteBuffer()
+  count=try readInto(input,b,1)
+  try println(format("{}:{}",count,b[0]))
+  try close(input)
+  return ()
+''','1:42\n')
+run('readonly-aliases','''fn inspect(a:ByteBuffer,b:ByteBuffer)->i64:
+  return length(a)+length(b)
+'''+main+'''  b=try byteBuffer()
+  try append(b,[1,2,3])
+  try println(format("{}",inspect(b,b)))
+  return ()
+''','6\n')
+run('spare-capacity',main+'''  b=try byteBuffer(16)
+  try println(format("{}",b[0]))
+  return ()
+''','',fault='BoundsFault')
+run('bounds-before-rhs','''fn index(b:ByteBuffer)->i64:
+  return length(b)
+fn rhs()->u8 ! IoError:
+  try println("unexpected RHS")
+  return 1
+'''+main+'''  b=try byteBuffer(16)
+  b[index(b)]=try rhs()
+  return ()
+''','',fault='BoundsFault')
+run('bounds-after-rhs','''fn index(b:ByteBuffer)->i64:
+  return length(b)-1
+fn erase(mut b:ByteBuffer)->u8:
+  clear(b)
+  return 1
+'''+main+'''  b=try byteBuffer(16)
+  try append(b,[5])
+  b[index(b)]=erase(b)
+  return ()
+''','',fault='BoundsFault')
+run('bounds-high-u64','''fn index(b:ByteBuffer)->u64:
+  return u64(capacity(b))+9223372036854775808
+'''+main+'''  b=try byteBuffer()
+  try append(b,[5])
+  try println(format("{}",b[index(b)]))
+  return ()
+''','',fault='BoundsFault')
 # These diagnostics are source contracts, checked identically for every backend.
 negative={
  'use-after-move':(main+'  a=try byteBuffer()\n  b=a\n  try println(format("{}",length(a)))\n  return ()\n','S081'),

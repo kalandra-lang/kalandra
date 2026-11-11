@@ -401,10 +401,13 @@ private:
         const auto symbol = root - module.expressions.size();
         if (isOwnedResource(module, module.symbols[symbol].type) && !module.symbols[symbol].owned &&
             checking)
-          diagnostics.push_back(
-              {"S081",
-               "can't move a borrowed file handle; declare an own parameter to transfer ownership",
-               module.expressions[id].span});
+          diagnostics.push_back({"S081",
+                                 isByteBuffer(module, module.expressions[id].type)
+                                     ? "can't move a borrowed ByteBuffer; declare an own parameter "
+                                       "to transfer ownership"
+                                     : "can't move a borrowed file handle; declare an own "
+                                       "parameter to transfer ownership",
+                                 module.expressions[id].span});
       }
     }
     write(id, roots, env, false);
@@ -501,7 +504,11 @@ private:
                        module.symbols[function.parameters.at(j)].owned ||
                        isFileResource(module, module.symbols[function.parameters.at(j)].type)))
                     diagnostics.push_back(
-                        {"S081", "a call cannot access the same file through multiple parameters",
+                        {"S081",
+                         isByteBuffer(module, parameter.type)
+                             ? "a call cannot borrow the same ByteBuffer through mutable or owned "
+                               "and other parameters"
+                             : "a call cannot access the same file through multiple parameters",
                          node.span});
             }
             return storage(node.type) ? returned(op.function, id, args) : Roots{};
@@ -571,7 +578,11 @@ private:
                        type.callable->mutates(j) || type.callable->owns(j) ||
                        isFileResource(module, type.callable->parameters.at(j))))
                     diagnostics.push_back(
-                        {"S081", "a call cannot access the same file through multiple parameters",
+                        {"S081",
+                         isByteBuffer(module, type.callable->parameters.at(i))
+                             ? "a call cannot borrow the same ByteBuffer through mutable or owned "
+                               "and other parameters"
+                             : "a call cannot access the same file through multiple parameters",
                          node.span});
               args.push_back(std::move(roots));
             }
