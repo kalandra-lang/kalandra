@@ -124,11 +124,15 @@ jobs:
             $env:PATH = "$($sanitizerRuntime[0].FullName);$env:PATH"
           }
           foreach ($variant in $variants) {
-            foreach ($suite in @('ApplicationSourceTests', 'ConsoleSourceTests', 'FormatSourceTests', 'FileSystemSourceTests', 'ParseSourceTests', 'PathSourceTests')) {
+            foreach ($suite in @('ApplicationSourceTests', 'ConsoleSourceTests', 'FormatSourceTests', 'FileSystemSourceTests', 'ParseSourceTests', 'PathSourceTests', 'EnvironmentSourceTests')) {
               python "native/tests/$suite.py" --compiler build/windows/native/kalandra.exe --variant $variant --output "build/windows/io/$suite-$variant"
               if ($LASTEXITCODE -ne 0) { throw "$suite $variant failed" }
             }
           }
+          & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/EnvironmentRuntimeTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/environment-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Environment runtime compilation failed' }
+          & build/windows/environment-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Environment runtime qualification failed' }
           python native/tests/CompilerObserverTests.py --compiler build/windows/native/kalandra.exe --observer build/windows/native/kalandra-test-observer.exe --output build/windows/io/observer
           if ($LASTEXITCODE -ne 0) { throw 'Numerical observer argument forwarding failed' }
           python native/lsp/ProtocolTests.py build/windows/native/kalandra-lsp.exe build/windows/io/lsp-protocol

@@ -963,6 +963,12 @@ private:
           header.standard = StandardRecord::Line;
         if (syntax_.standardModules[origin] == StandardModule::Parse && label == "ParseError")
           header.standard = StandardRecord::ParseError;
+        if (syntax_.standardModules[origin] == StandardModule::Env) {
+          if (label == "EnvValue")
+            header.standard = StandardRecord::EnvValue;
+          else if (label == "EnvError")
+            header.standard = StandardRecord::EnvError;
+        }
         if (syntax_.standardModules[origin] == StandardModule::Filesystem) {
           if (label == "File")
             header.standard = StandardRecord::File;
@@ -1421,6 +1427,21 @@ private:
         {*statement.binding, symbol.definition.value_or(symbol.declaration), symbol.type, {}});
     return found->second;
   }
+  bool standardEnvironmentLookup(FunctionId id) const {
+    if (id >= syntax_.functions.size())
+      return false;
+    const auto &fn = syntax_.functions[id];
+    return fn.moduleIndex < syntax_.standardModules.size() &&
+           syntax_.standardModules[fn.moduleIndex] == StandardModule::Env && name(fn.name) == "get";
+  }
+  std::optional<ValueId> environmentBody(Frame &frame, FunctionId id) {
+    const auto &fn = output_.functions[id];
+    auto input = add(frame, output_.symbols[fn.parameters[0]].type, fn.declaration,
+                     SymbolRead{fn.parameters[0]});
+    if (!input)
+      return {};
+    return add(frame, *fn.declaredResult, fn.declaration, EnvironmentLookup{*input});
+  }
   std::optional<runtime::ParseScalarKind> standardParse(FunctionId id) const {
     if (id >= syntax_.functions.size())
       return {};
@@ -1719,15 +1740,16 @@ private:
     output_.functions[id].compileTimeOnly = standardFormat(id);
     auto result = standardFormat(id) ? add(frame, *output_.functions[id].declaredResult,
                                            syntax_.functions[id].span, StringLiteral{std::string{}})
-                  : standardPath(id) ? pathBody(frame, id, *standardPath(id))
-                  : standardParse(id) ? parseBody(frame, id, *standardParse(id))
-                  : standardFile(id)  ? fileBody(frame, id, *standardFile(id))
+                  : standardEnvironmentLookup(id) ? environmentBody(frame, id)
+                  : standardPath(id)              ? pathBody(frame, id, *standardPath(id))
+                  : standardParse(id)             ? parseBody(frame, id, *standardParse(id))
+                  : standardFile(id)              ? fileBody(frame, id, *standardFile(id))
                   : standardConsole(id)
                       ? consoleBody(frame, id, *standardConsole(id))
                       : functionSuite(frame, body, output_.functions[id].declaredResult, statements,
                                       syntax_.functions[id].span, parameters);
     if ((standardFormat(id) || standardConsole(id) || standardFile(id) || standardParse(id) ||
-         standardPath(id)) &&
+         standardPath(id) || standardEnvironmentLookup(id)) &&
         result)
       statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);

@@ -40,6 +40,10 @@ def compile_plan(backend, repo, compiler, root):
     jobs.append(('path-applications', [sys.executable, repo/'native/tests/PathSourceTests.py',
                  '--compiler', compiler, '--target', backend, '--variant', 'optimized',
                  '--compile-only', '--output', root/'path-applications']))
+    jobs.append(('environment-applications', [sys.executable,
+                 repo/'native/tests/EnvironmentSourceTests.py', '--compiler', compiler,
+                 '--target', backend, '--variant', 'optimized', '--compile-only',
+                 '--output', root/'environment-applications']))
     for name, script in (
         ('host-arrays', 'HostArrayTests.py'), ('scalar-control', 'ScalarControlTests.py'),
         ('device-arrays', 'DeviceArrayTests.py'), ('device-array-entry', 'DeviceArrayEntryTests.py'),

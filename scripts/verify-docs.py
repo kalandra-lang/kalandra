@@ -167,7 +167,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
             command([TOOLS / 'kalandra', directory / 'main.k', *compile_flags, mode, '-o', output], directory)
             binary = output / 'program' if plan['kind'] == 'gpu' else output
             execution = subprocess.run([str(binary), *plan.get('args', [])], cwd=directory,
-                                       env=ENV, input=plan.get('input', ''),
+                                       env={**ENV, **plan.get('environment', {})}, input=plan.get('input', ''),
                                        capture_output=True, text=True, timeout=30)
             assert execution.returncode == 0 and not execution.stderr, (page, ordinal, execution)
             outputs[mode] = execution.stdout.strip()

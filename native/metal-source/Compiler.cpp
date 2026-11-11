@@ -5,6 +5,7 @@
 #include "../gpu-source/ConsoleHostBridge.h"
 #include "../gpu-source/DeviceErrorEntry.h"
 #include "../gpu-source/DeviceErrorLayout.h"
+#include "../gpu-source/EnvironmentHostBridge.h"
 #include "../gpu-source/FileHostBridge.h"
 #include "../gpu-source/ParseHostBridge.h"
 #include "../gpu-source/PathHostBridge.h"
@@ -113,6 +114,11 @@ class Compiler {
     ValueType result;
   };
   std::vector<ParseBridgeRequest> parseBridges;
+  struct EnvironmentBridgeRequest {
+    std::string name;
+    ValueType result;
+  };
+  std::vector<EnvironmentBridgeRequest> environmentBridges;
   struct PathBridgeRequest {
     std::string name;
     PathOperation operation;
@@ -1418,7 +1424,7 @@ class Compiler {
         linked->getNamedGlobal(name)->setLinkage(llvm::GlobalValue::InternalLinkage);
     if (!aggregateTypes.empty() || !callableTypes.empty() || hostText || hostTextArray ||
         !consoleBridges.empty() || !fileBridges.empty() || !parseBridges.empty() ||
-        !pathBridges.empty()) {
+        !pathBridges.empty() || !environmentBridges.empty()) {
       if (!linked) {
         linked = std::make_unique<llvm::Module>("gpu-host-layouts", context);
         linked->setDataLayout(nativeCpuDataLayout);
@@ -1473,6 +1479,8 @@ class Compiler {
       }
       for (const auto &request : pathBridges)
         emitPathHostBridge(placement, *linked, request.operation, request.result, request.name);
+      for (const auto &request : environmentBridges)
+        emitEnvironmentHostBridge(placement, *linked, request.result, request.name);
       for (const auto &request : parseBridges)
         emitParseHostBridge(placement, *linked, request.operation, request.result, request.name);
       for (const auto &request : fileBridges)
@@ -4012,6 +4020,21 @@ class Compiler {
           if (output.failure)
             code += failureRef(output) + "={};\n";
           steps.push_back(code + commitOutcome(output));
+        } else if (std::holds_alternative<EnvironmentLookup>(node(op.source).operation)) {
+          const auto output = get(op.output);
+          if (!output.failure || !output.applicationError)
+            reject(span, "environment lookup requires EnvError");
+          const auto bridge = "kalandra_gpu_env_" + std::to_string(environmentBridges.size());
+          environmentBridges.push_back({bridge, plan.slots.at(op.output)});
+          declarations +=
+              "extern \"C\" void " + bridge + "(Invocation*,const void*,void*,void*,void*);\n";
+          auto error = applicationError(output);
+          steps.push_back(bridge + "(&task.context(),&" + ref(args.at(0)) + ",&" + ref(output) +
+                          ",&" + failureRef(output) + ",&" + ref(error) +
+                          ");\n"
+                          "if(task.context().status()){hostArrayFailure(task);return;}if(task."
+                          "cancelled())return;\n" +
+                          commitOutcome(output));
         } else if (const auto *parse = std::get_if<ParseOperation>(&node(op.source).operation)) {
           const auto output = get(op.output);
           if (!output.failure || !output.applicationError)
@@ -5543,6 +5566,7 @@ public:
 #include "../runtime/FileSystem.h"
 #include "../runtime/StringArray.h"
 #include "../runtime/Application.h"
+#include "../runtime/Environment.h"
 #include "../runtime/DeviceArrayInputJob.h"
 #include "../runtime/DeviceGraphCapture.h"
 #include <array>
@@ -5686,6 +5710,14 @@ void resume(Task &task) {
   if (argc!=1 && argc!=2) { std::fprintf(stderr,"expected optional shader directory\n"); return 2; }
   const auto directory=argc==2 ? std::string(argv[1]) : std::filesystem::absolute(argv[0]).parent_path().string();
 )";
+    const bool usesEnvironment =
+        std::ranges::any_of(placement.expressions, [](const auto &expression) {
+          return std::holds_alternative<EnvironmentLookup>(expression.operation);
+        });
+    if (usesEnvironment)
+      host << "Invocation context;\n"
+              "if(!kalandra_environment_initialize_v1(&context))"
+              "context.reportApplicationFailure();\n";
     host << R"(
   auto made=m::Runtime::create();
   if (!made) { std::fprintf(stderr,"Metal unavailable: %lld\n",(long long)made.error()); return 1; }
@@ -5697,8 +5729,9 @@ void resume(Task &task) {
     limits.workers=count;
   }
   auto runner=ClosedTaskRunner::create(limits); if (!runner) return 1;
-  Invocation context;
 )";
+    if (!usesEnvironment)
+      host << "Invocation context;\n";
     if (!plannedParameters.empty())
       host << "StringArrayDescriptor arguments{};\n"
               "kalandra_application_arguments_v1(&context,&arguments);\n"

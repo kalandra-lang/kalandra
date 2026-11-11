@@ -79,6 +79,12 @@ paths = [sys.executable, repo/'native/tests/PathSourceTests.py',
 if not a.execute:
     paths.append('--compile-only')
 subprocess.run(paths, check=True, timeout=900)
+environment = [sys.executable, repo/'native/tests/EnvironmentSourceTests.py',
+              '--compiler', compiler, '--target', 'cuda', '--variant', 'optimized',
+              '--output', a.root/'environment-applications']
+if not a.execute:
+    environment.append('--compile-only')
+subprocess.run(environment, check=True, timeout=900)
 
 subprocess.run([sys.executable,Path(__file__).with_name('applications.py'),
     '--build',a.root,'--compiler',compiler,'--output',a.root/'applications',

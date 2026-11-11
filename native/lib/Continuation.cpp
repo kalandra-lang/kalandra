@@ -54,9 +54,10 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           return {op.left, op.right};
         else if constexpr (std::is_same_v<T, ReduceSum> || std::is_same_v<T, CollectionQuery> ||
                            std::is_same_v<T, StringQuery> || std::is_same_v<T, ParseOperation> ||
-                           std::is_same_v<T, PathOperation> || std::is_same_v<T, NumericConvert> ||
-                           std::is_same_v<T, TensorToArray> || std::is_same_v<T, ArraySort> ||
-                           std::is_same_v<T, ShapeCheck>)
+                           std::is_same_v<T, PathOperation> ||
+                           std::is_same_v<T, EnvironmentLookup> ||
+                           std::is_same_v<T, NumericConvert> || std::is_same_v<T, TensorToArray> ||
+                           std::is_same_v<T, ArraySort> || std::is_same_v<T, ShapeCheck>)
           return {op.input};
         else if constexpr (std::is_same_v<T, StringSlice> || std::is_same_v<T, ArraySlice>)
           return {op.input, op.start, op.end};
@@ -424,8 +425,9 @@ private:
                                std::is_same_v<T, CollectionQuery> ||
                                std::is_same_v<T, StringQuery> ||
                                std::is_same_v<T, ParseOperation> ||
-                               std::is_same_v<T, PathOperation> || std::is_same_v<T, ReduceSum> ||
-                               std::is_same_v<T, ShapeCheck>)
+                               std::is_same_v<T, PathOperation> ||
+                               std::is_same_v<T, EnvironmentLookup> ||
+                               std::is_same_v<T, ReduceSum> || std::is_same_v<T, ShapeCheck>)
             op.input = importValue(op.input);
           else if constexpr (std::is_same_v<T, ConditionalOperation>) {
             op.condition = importValue(op.condition);
@@ -585,6 +587,8 @@ private:
     if (auto *call = std::get_if<FunctionCall>(&op)) {
       call->function = called;
       call->arguments = reads;
+    } else if (auto *lookup = std::get_if<EnvironmentLookup>(&op)) {
+      lookup->input = reads.at(0);
     } else if (auto *path = std::get_if<PathOperation>(&op)) {
       path->input = reads.at(0);
     } else if (auto *parse = std::get_if<ParseOperation>(&op)) {
@@ -1378,6 +1382,9 @@ private:
       auto subject = expression(plan, field->subject, env, stack);
       plan.code.push_back(
           {Code::Field, output, {subject}, static_cast<std::size_t>(field->field), 0, 0, id});
+    } else if (const auto *lookup = std::get_if<EnvironmentLookup>(&node.operation)) {
+      auto input = expression(plan, lookup->input, env, stack);
+      plan.code.push_back({Code::Kernel, output, {input}, 0, 0, 0, id});
     } else if (const auto *path = std::get_if<PathOperation>(&node.operation)) {
       auto input = expression(plan, path->input, env, stack);
       plan.code.push_back({Code::Kernel, output, {input}, 0, 0, 0, id});

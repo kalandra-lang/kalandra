@@ -1,0 +1,58 @@
+meta { title = "Environment variables", description = "Read inherited application configuration with std/env.", order = 9, group = "Library reference" }
+
+Use std/env to read environment variables supplied when the application starts. Read configuration in host code and pass the resulting values to other functions or tasks.
+
+h2 { "Read configuration" }
+
+codeblock { language = kalandra, """from "std/env" import get, EnvValue, EnvError
+from "std/parse" import parseU16, ParseError
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn serverPort() -> u16 ! (EnvError | ParseError):
+  setting = try get("APP_PORT")
+  return match setting:
+    EnvValue.Missing: u16(8080)
+    EnvValue.Value {value}: try parseU16(value)
+
+fn main() -> unit ! (EnvError | ParseError | IoError):
+  port = try serverPort()
+  try println(format("port={}", port))
+  return ()
+""" }
+
+With APP_PORT set to 9000, this program prints port=9000. With APP_PORT unset, it prints port=8080. An explicitly empty value reaches parseU16 as an empty String and produces a ParseError.
+
+h2 { "get" }
+
+code { "get(name: String) -> EnvValue ! EnvError" }
+
+Read one variable by name. Names are case sensitive on Linux and macOS and case insensitive on Windows. The value preserves its text, including whitespace and equals signs.
+
+h2 { "EnvValue" }
+
+list {
+  "Missing means the variable was absent.",
+  "Value {value: String} contains the owned value. An explicitly empty variable returns Value with an empty String."
+}
+
+h2 { "EnvError" }
+
+list {
+  "InvalidName means the requested name is empty, contains an equals sign or contains a zero character.",
+  "InvalidEncoding means the selected variable's value cannot be decoded as Unicode. Linux and macOS expect UTF-8. Windows uses the native UTF-16 environment."
+}
+
+Encoding errors are reported when a value is read. An unrelated variable with invalid text does not prevent other lookups.
+
+h2 { "Execution and ownership" }
+
+An application using std/env captures the inherited environment before entering main. CPU tasks can read this snapshot concurrently. Each successful lookup gives its caller an owned String that can outlive the task that read it.
+
+Environment lookup runs on the CPU, including the host side of Metal, Vulkan and CUDA applications. Read and parse settings on the host before using them in a device kernel. The compiler rejects environment lookups in GPU functions.
+
+list {
+  link { url = "/docs/parsing", "Parse strings as numbers and booleans" },
+  link { url = "/docs/paths", "Compose and inspect paths" },
+  link { url = "/docs/applications", "Read command-line arguments" }
+}

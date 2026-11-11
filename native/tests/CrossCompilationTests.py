@@ -28,6 +28,8 @@ from LoopCases import CASES as LOOP_CASES
 from FileSystemCases import SOURCE as FILESYSTEM_SOURCE, EXPECTED as FILESYSTEM_EXPECTED
 from ParseCases import SOURCE as PARSE_SOURCE, EXPECTED as PARSE_EXPECTED
 from PathCases import SOURCE as PATH_SOURCE, expected as path_expected
+from EnvironmentCases import SOURCE as ENV_SOURCE, VARIABLES as ENV_VARIABLES
+from EnvironmentCases import expected as env_expected, with_environment
 
 
 def digest(path):
@@ -63,6 +65,10 @@ def program_cases():
     cases['filesystem-application'] = dict(source=FILESYSTEM_SOURCE, output=FILESYSTEM_EXPECTED, application=True, filesystem=True)
     cases['parsing-application'] = dict(source=PARSE_SOURCE, output=PARSE_EXPECTED, application=True)
     cases['path-application'] = dict(source=PATH_SOURCE, outputBySystem={system:path_expected(system=='windows') for system in ('linux','macos','windows')}, application=True)
+    cases['environment-application'] = dict(
+        source=ENV_SOURCE, environment=ENV_VARIABLES, application=True,
+        outputBySystem={system: env_expected(system == 'windows')
+                        for system in ('linux', 'macos', 'windows')})
     cases.update({'loop-' + name: dict(source=text, output=expected + '\n')
                   for name, (text, expected) in LOOP_CASES.items()})
     numeric_values = {'i8': '-42', 'u8': '255', 'i16': '-30000', 'u16': '65535',
@@ -479,7 +485,10 @@ def execute(a):
             with tempfile.TemporaryDirectory(prefix='kalandra-cross-files-') as cwd:
                 r = subprocess.run([str(binary)], cwd=cwd, capture_output=True, text=True, timeout=120, encoding='utf-8')
         else:
-            r = subprocess.run([str(binary)], capture_output=True, text=True, timeout=120, encoding='utf-8')
+            environment = (with_environment(os.environ, case['environment'], windows=os.name == 'nt')
+                           if 'environment' in case else None)
+            r = subprocess.run([str(binary)], capture_output=True, text=True, timeout=120,
+                               encoding='utf-8', env=environment)
         assert r.returncode == case.get('status', 0), (record['file'], r.returncode, r.stdout, r.stderr)
         if case.get('stderr'):
             assert case['stderr'] in r.stderr and not r.stdout
