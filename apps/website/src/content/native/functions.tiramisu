@@ -118,7 +118,13 @@ fn main() -> unit ! IoError:
   return ()
 """ }
 
-This displays 120. Functions can call themselves and each other on the CPU, including in CPU tasks. Recursive calls consume execution resources; very deep recursion can exhaust them. Do not depend on tail-call elimination for correctness.
+This displays 120. Functions can call themselves and each other on the CPU, including in CPU tasks and on the host side of mixed GPU applications.
+
+A function that can suspend, for example while waiting for I/O, a task or sleep, stores its pending calls in task-local frames. Calling a function does not create another scheduled task or parallel scope. Recursive calls therefore do not consume task-admission slots. Explicit spawn operations and parallel scopes still use their scheduling limits. An ordinary call does not introduce a task-error boundary: catch handles its declared application errors, while execution faults propagate to the enclosing task. Handle failures from spawned work at await or the surrounding parallel scope.
+
+Pending call frames and their retained backing share a 64 MiB call-storage budget per invocation. Exhaustion is an allocation fault, not a task-admission error. Cancellation drains outstanding task and I/O work before releasing owned resources and call storage. Transparent tail calls can retire their previous frame; calls that must preserve owned handle or parallel-scope cleanup retain it.
+
+Functions that cannot suspend keep their native call convention. Non-tail native recursion uses the host stack and can exhaust its execution resources. Do not depend on tail-call elimination for correctness.
 
 list {
   link { url = "/docs/arrays", "Map arrays sequentially" },

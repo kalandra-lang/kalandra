@@ -28,8 +28,7 @@ llvm::GlobalVariable *emitTaskFrameValueLayout(const TypedModule &, const TypedM
 std::vector<llvm::GlobalVariable *> emitTaskPayloadValueLayouts(const TypedModule &, llvm::Module &,
                                                                 std::span<const ValueType>);
 // Payload counterpart with linked continuation callable identities.
-std::vector<llvm::GlobalVariable *> emitTaskKernelPayloadValueLayouts(const TypedModule &,
-                                                                      const TypedModule &kernels,
-                                                                      llvm::Module &,
-                                                                      std::span<const ValueType>);
+std::vector<llvm::GlobalVariable *> emitTaskKernelPayloadValueLayouts(
+    const TypedModule &, const TypedModule &kernels, llvm::Module &, std::span<const ValueType>,
+    const TypedModule *hostCallables = nullptr, std::span<const FunctionId> hostTargets = {});
 } // namespace kalandra

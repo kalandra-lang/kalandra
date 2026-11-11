@@ -33,6 +33,15 @@ enum class State {
   Settling,
   Settled
 };
+struct CallFrame {
+  CallFrame *parent = nullptr;
+  const TaskEntry *entry = nullptr, *returnEntry = nullptr;
+  void *frame = nullptr, *value = nullptr;
+  std::size_t bytes = 0;
+  GroupHandle lexical;
+  bool initialized = false, valueInitialized = false;
+  Invocation execution, outcome;
+};
 struct Record {
   std::uint64_t generation = 1;
   State state = State::Free;
@@ -51,6 +60,8 @@ struct Record {
   std::thread::id runner{}, lastRunner{};
   std::uintptr_t interruptThread = 0;
   Invocation execution, outcome;
+  CallFrame *call = nullptr, *returned = nullptr;
+  bool callPushed = false, callCompleted = false, callTail = false;
   Failure failure;
   TaskHandle dependency;
   GroupHandle groupDependency;
@@ -59,6 +70,7 @@ struct Group {
   std::uint64_t generation = 1;
   bool used = false, closed = false, settled = false, observed = false, disposing = false;
   TaskHandle owner;
+  CallFrame *callOwner = nullptr;
   GroupHandle parent;
   std::uint32_t depth = 0, outstanding = 0;
   Failure failure;
@@ -358,6 +370,55 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     core.stats.retainedBytes -= static_cast<std::size_t>(bytes);
     core.stats.recursiveBytes -= static_cast<std::size_t>(bytes);
   }
+  static Invocation &execution(Record &record) {
+    return record.call ? record.call->execution : record.execution;
+  }
+  static bool reserveCallBytes(void *state, std::uint64_t bytes) noexcept {
+    auto &core = *static_cast<Impl *>(state);
+    Guard guard(core);
+    return core.chargeCallBytes(bytes);
+  }
+  static void releaseCallBytes(void *state, std::uint64_t bytes) noexcept {
+    auto &core = *static_cast<Impl *>(state);
+    Guard guard(core);
+    core.stats.callBytes -= bytes;
+  }
+  bool chargeCallBytes(std::uint64_t bytes) {
+    if (bytes > limits.callBytes - stats.callBytes)
+      return false;
+    stats.callBytes += bytes;
+    stats.peakCallBytes = std::max(stats.peakCallBytes, stats.callBytes);
+    return true;
+  }
+  // Destructors and Invocation settlement may run arbitrary ownership cleanup;
+  // keep them outside the scheduler mutex and never recurse through parents.
+  void destroyCall(CallFrame *node, std::unique_lock<std::mutex> &lock) {
+    const auto bytes = node->bytes;
+    lock.unlock();
+    if (node->valueInitialized)
+      node->entry->result->destroy(node->value);
+    node->outcome.settle();
+    if (node->initialized)
+      node->entry->destroy(node->frame);
+    node->execution.settle();
+    node->~CallFrame();
+    std::free(node);
+    acquire(lock);
+    stats.callBytes -= bytes;
+    --stats.callFrames;
+  }
+  void destroyCalls(Record &record, std::unique_lock<std::mutex> &lock) {
+    if (record.returned) {
+      auto *node = std::exchange(record.returned, nullptr);
+      destroyCall(node, lock);
+    }
+    while (record.call) {
+      auto *node = record.call;
+      record.call = node->parent;
+      destroyCall(node, lock);
+    }
+    record.callPushed = record.callCompleted = record.callTail = false;
+  }
   void freeBytes(void *&pointer, std::size_t bytes) {
     if (pointer) {
 #ifdef KALANDRA_TASK_PROFILE
@@ -414,7 +475,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       unlinkPending(index);
       // Membership is removed before settlement/reclamation, never recovered
       // by scanning reusable slots. Ring entries still carry generations.
-      if (record.state != State::Runnable || record.executing || record.queued)
+      if (record.state != State::Runnable || record.executing || record.cleaning || record.queued)
         continue;
       pushReady(index);
       TASK_PROBE(pendingPromotions, 1);
@@ -422,7 +483,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
   }
   void enqueue(std::uint32_t index, bool admission = false) {
     auto &record = tasks[index];
-    if (record.queued || record.pending || record.state != State::Runnable || record.executing)
+    if (record.queued || record.pending || record.state != State::Runnable || record.executing ||
+        record.cleaning)
       return;
     TASK_PROBE(runnableEvents, 1);
     if ((admission || pendingHead == UINT32_MAX) && queueCount < limits.ready) {
@@ -467,7 +529,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
         return {};
       parent = lexical ? lexical : task->group;
       if (!get(parent) || (lexical && get(parent)->owner != owner)) {
-        task->execution.fault(3);
+        execution(*task).fault(3);
         return {};
       }
       depth = get(parent)->depth + 1;
@@ -493,7 +555,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       }
     }
     if (auto *task = get(owner))
-      task->execution.fault(2);
+      execution(*task).fault(2);
     return {};
   }
   void failGroup(GroupHandle h, Failure failure) {
@@ -775,6 +837,9 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
           }
           task.outcome.settle();
         }
+        acquire(lock);
+        destroyCalls(task, lock);
+        lock.unlock();
         if (task.initialized) {
           task.entry->destroy(task.frame);
           task.initialized = false;
@@ -866,7 +931,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     record->queued = false;
     // A lease extends until resume actually returns, even after await/yield or
     // complete changes the scheduling state. Never re-enter a live callback.
-    if (record->executing || record->state != State::Runnable)
+    if (record->executing || record->cleaning || record->state != State::Runnable)
       return true;
     record->state = State::Running;
     if (record->cancel.load())
@@ -875,7 +940,9 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       record->executing = true;
       record->runner = std::this_thread::get_id();
       record->interruptThread = nativeInterrupts ? nativeCancellationThread() : 0;
-      record->execution.allowNativeInterrupts(record->interruptThread != 0);
+      auto &activeContext = execution(*record);
+      activeContext.allowNativeInterrupts(record->interruptThread != 0);
+      auto *activeEntry = record->call ? record->call->entry : record->entry;
       if (record->lastRunner != std::thread::id{} && record->lastRunner != record->runner)
         ++stats.migrations;
       record->lastRunner = record->runner;
@@ -885,22 +952,39 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       Task task(*this, h.slot);
       lock.unlock();
       try {
-        record->entry->resume(task);
+        activeEntry->resume(task);
       } catch (...) {
-        record->execution.fault(3);
+        activeContext.fault(3);
       }
       acquire(lock);
       record->executing = false;
       record->runner = {};
       record->interruptThread = 0;
       --running;
-      if (record->execution.status())
-        finish(h.slot, invocationFailure(record->execution));
+      if (activeContext.status())
+        finish(h.slot, invocationFailure(activeContext));
       else if (record->cancel.load() &&
                (record->state != State::Settling || record->failure.kind == TaskFailure::None))
         finish(h.slot, {TaskFailure::Cancelled});
       else if (record->state == State::Running)
         finish(h.slot, {TaskFailure::Fault, 3});
+      if (record->state == State::Runnable && record->callPushed) {
+        auto *previous = record->call;
+        record->call = std::exchange(record->returned, nullptr);
+        record->callPushed = false;
+        if (record->callTail) {
+          record->callTail = false;
+          record->call->parent = previous->parent;
+          record->call->returnEntry = previous->returnEntry;
+          record->cleaning = true;
+          destroyCall(previous, lock);
+          record->cleaning = false;
+        }
+      } else if (record->state == State::Runnable && record->callCompleted) {
+        record->returned = record->call;
+        record->call = record->call->parent;
+        record->callCompleted = false;
+      }
       // Yield/dependency wakeups observed during a live callback cannot queue
       // its frame until this execution lease has actually returned.
       enqueue(h.slot);
@@ -916,7 +1000,8 @@ std::unique_ptr<TaskCore> TaskCore::create(TaskLimits limits) noexcept {
 std::unique_ptr<TaskCore> TaskCore::create(TaskLimits limits, bool closedCaller) noexcept {
   if (!limits.workers || limits.workers > 64 || !limits.records || !limits.groups ||
       !limits.ready || !limits.inFlight ||
-      std::uint64_t(limits.records) + limits.groups >= UINT32_MAX || !limits.bytes)
+      std::uint64_t(limits.records) + limits.groups >= UINT32_MAX || !limits.bytes ||
+      !limits.callBytes)
     return {};
   try {
     auto impl = std::make_shared<Impl>(limits);
@@ -929,24 +1014,25 @@ std::unique_ptr<TaskCore> TaskCore::create(TaskLimits limits, bool closedCaller)
   }
 }
 TaskCore::TaskCore(std::shared_ptr<Impl> impl) noexcept : impl_(std::move(impl)) {}
+bool TaskCore::drainToCompletion() noexcept {
+  if (drain())
+    return true;
+  for (;;) {
+    const auto before = stats().resumes;
+    if (drain())
+      return true;
+    const auto after = stats();
+    // A scheduler step budget is not a language execution limit. Continue
+    // productive batches; reject a deadlock with no external progress source.
+    if (after.resumes == before && !after.externalPending && !after.timers)
+      return false;
+  }
+}
 struct ClosedTaskRunner::Impl {
   std::unique_ptr<TaskCore> core;
   std::mutex runMutex;
   explicit Impl(std::unique_ptr<TaskCore> value) : core(std::move(value)) {}
-  bool drain() {
-    if (core->drain())
-      return true;
-    for (;;) {
-      const auto before = core->stats().resumes;
-      if (core->drain())
-        return true;
-      const auto after = core->stats();
-      // A scheduler step budget is not a language execution limit. Continue
-      // productive batches; reject a deadlock with no external progress source.
-      if (after.resumes == before && !after.externalPending && !after.timers)
-        return false;
-    }
-  }
+  bool drain() { return core->drainToCompletion(); }
 };
 std::unique_ptr<ClosedTaskRunner> ClosedTaskRunner::create(TaskLimits limits) noexcept {
   try {
@@ -1135,15 +1221,128 @@ void TaskCore::failAllocationAt(std::uint64_t attempt) noexcept {
   impl_->attempts = 0;
   impl_->failAt = attempt;
 }
-Invocation &Task::context() noexcept { return core_.tasks[slot_].execution; }
-void *Task::frame() noexcept { return core_.tasks[slot_].frame; }
+Invocation &Task::context() noexcept { return TaskCore::Impl::execution(core_.tasks[slot_]); }
+void *Task::frame() noexcept {
+  auto &record = core_.tasks[slot_];
+  return record.call ? record.call->frame : record.frame;
+}
 GroupHandle Task::openGroup(GroupHandle parent) noexcept {
   TaskCore::Impl::Guard guard(core_);
-  return core_.open(core_.handle(slot_), parent);
+  auto &record = core_.tasks[slot_];
+  if (!parent && record.call)
+    parent = record.call->lexical;
+  auto group = core_.open(core_.handle(slot_), parent);
+  if (group)
+    core_.get(group)->callOwner = record.call;
+  return group;
 }
 TaskHandle Task::spawn(GroupHandle group, const TaskEntry &entry, Packet packet) noexcept {
   TaskCore::Impl::Guard guard(core_);
   return core_.submit(group, entry, packet, core_.handle(slot_), guard.lock);
+}
+bool Task::call(const TaskEntry &entry, Packet packet, void *output, GroupHandle lexical,
+                bool tail) noexcept {
+  TaskCore::Impl::Guard guard(core_);
+  auto &record = core_.tasks[slot_];
+  if (record.state != State::Running || record.callPushed || record.callCompleted ||
+      !entry.result || !validAlignment(entry.result->alignment) ||
+      !aligned(output, entry.result->alignment)) {
+    context().fault(3);
+    return false;
+  }
+  if (record.returned) {
+    auto *node = record.returned;
+    if (node->returnEntry != &entry || !node->valueInitialized) {
+      context().fault(3);
+      return false;
+    }
+    guard.lock.unlock();
+    const auto copied = entry.result->copy(context(), output, node->outcome, node->value);
+    core_.acquire(guard.lock);
+    record.returned = nullptr;
+    core_.destroyCall(node, guard.lock);
+    if (!copied && !context().poll())
+      context().fault(3);
+    return copied;
+  }
+  if (record.cancel.load())
+    return false;
+  if (entry.revision != 1 || !entry.construct || !entry.destroy || !entry.resume ||
+      !entry.result->copy || !entry.result->destroy || !entry.result->identity ||
+      !entry.frameBytes || !entry.result->bytes || !validAlignment(entry.frameAlignment) ||
+      !validAlignment(entry.result->alignment) || !validAlignment(entry.packetAlignment) ||
+      packet.layout != entry.packetLayout || packet.bytes != entry.packetBytes ||
+      (packet.bytes && !aligned(packet.data, entry.packetAlignment)) ||
+      (lexical && !core_.owned(lexical, core_.handle(slot_)))) {
+    context().fault(3);
+    return false;
+  }
+  // Reserve one aligned allocation for descriptor, frame, and return storage.
+  constexpr auto alignment = alignof(std::max_align_t);
+  auto padded = [](std::size_t n) { return (n + alignment - 1) & ~(alignment - 1); };
+  if (entry.frameBytes > core_.limits.callBytes || entry.result->bytes > core_.limits.callBytes) {
+    context().fault(2);
+    return false;
+  }
+  const auto headerBytes = padded(sizeof(CallFrame));
+  if (entry.frameBytes > SIZE_MAX - (alignment - 1) || headerBytes > core_.limits.callBytes ||
+      padded(entry.frameBytes) > core_.limits.callBytes - headerBytes ||
+      entry.result->bytes > core_.limits.callBytes - headerBytes - padded(entry.frameBytes)) {
+    context().fault(2);
+    return false;
+  }
+  const auto bytes = headerBytes + padded(entry.frameBytes) + entry.result->bytes;
+  if (++core_.attempts == core_.failAt || !core_.chargeCallBytes(bytes)) {
+    context().fault(2);
+    return false;
+  }
+  auto *memory = std::malloc(bytes);
+  if (!memory) {
+    core_.stats.callBytes -= bytes;
+    context().fault(2);
+    return false;
+  }
+  auto *node = new (memory) CallFrame;
+  node->parent = record.call;
+  node->entry = node->returnEntry = &entry;
+  node->bytes = bytes;
+  node->lexical = lexical ? lexical : record.call ? record.call->lexical : GroupHandle{};
+  node->frame = static_cast<char *>(memory) + padded(sizeof(CallFrame));
+  node->value = static_cast<char *>(node->frame) + padded(entry.frameBytes);
+  for (auto *invocation : {&node->execution, &node->outcome}) {
+    invocation->bindCancellation(&record.cancel);
+    invocation->bindRecursiveBudget(&core_, TaskCore::Impl::reserveCallBytes,
+                                    TaskCore::Impl::releaseCallBytes);
+    invocation->bindEnvironmentBudget(&core_, TaskCore::Impl::reserveCallBytes,
+                                      TaskCore::Impl::releaseCallBytes);
+  }
+  ++core_.stats.callFrames;
+  core_.stats.peakCallFrames = std::max(core_.stats.peakCallFrames, core_.stats.callFrames);
+  guard.lock.unlock();
+  try {
+    node->initialized = entry.construct(node->execution, node->frame, packet);
+  } catch (...) {
+    node->execution.fault(3);
+  }
+  core_.acquire(guard.lock);
+  if (!node->initialized || node->execution.status()) {
+    if (node->execution.status())
+      context().fault(node->execution.status(), node->execution.line(), node->execution.column());
+    else if (!record.cancel.load())
+      context().fault(3);
+    core_.destroyCall(node, guard.lock);
+    return false;
+  }
+  record.callTail = tail && record.call && record.call->entry->result == entry.result;
+  if (record.callTail)
+    for (auto i = core_.liveGroups.next(0); i < core_.liveGroups.size();
+         i = core_.liveGroups.next(i + 1))
+      if (core_.groups[i].owner == core_.handle(slot_) && core_.groups[i].callOwner == record.call)
+        record.callTail = false;
+  record.returned = node;
+  record.callPushed = true;
+  record.state = State::Runnable;
+  return false;
 }
 bool Task::await(TaskHandle h) noexcept {
   TaskCore::Impl::Guard guard(core_);
@@ -1250,7 +1449,7 @@ bool Task::canExecuteSynchronously() const noexcept {
   auto &self = core_.tasks[slot_];
   if (!self.executing || self.state != State::Running ||
       self.runner != std::this_thread::get_id() || self.cancel.load() ||
-      self.execution.executionStatus() || core_.running != 1 || core_.preparing ||
+      TaskCore::Impl::execution(self).executionStatus() || core_.running != 1 || core_.preparing ||
       core_.stats.externalPending || core_.stats.timers || core_.stopping)
     return false;
   for (auto i = core_.liveTasks.next(0); i < core_.liveTasks.size();
@@ -1354,24 +1553,41 @@ void Task::complete(const void *value) noexcept {
     core_.finish(slot_, {TaskFailure::Cancelled});
     return;
   }
-  const auto &layout = *task.entry->result;
+  auto *node = task.call;
+  if (node)
+    for (auto i = core_.liveGroups.next(0); i < core_.liveGroups.size();
+         i = core_.liveGroups.next(i + 1))
+      if (core_.groups[i].owner == core_.handle(slot_) && core_.groups[i].callOwner == node) {
+        context().fault(3);
+        core_.finish(slot_, invocationFailure(context()));
+        return;
+      }
+  const auto &layout = *(node ? node->entry : task.entry)->result;
+  auto &outcome = node ? node->outcome : task.outcome;
+  auto *output = node ? node->value : task.value;
   bool copied = false;
   if (aligned(value, layout.alignment)) {
     guard.lock.unlock();
-    copied = layout.copy(task.outcome, task.value, context(), value);
+    copied = layout.copy(outcome, output, context(), value);
     core_.acquire(guard.lock);
   }
   if (!copied) {
-    if (task.cancel.load() && !task.outcome.status()) {
+    if (task.cancel.load() && !outcome.status()) {
       core_.finish(slot_, {TaskFailure::Cancelled});
       return;
     }
-    task.execution.fault(task.outcome.status() ? task.outcome.status() : 3);
-    core_.finish(slot_, invocationFailure(task.execution));
+    context().fault(outcome.status() ? outcome.status() : 3);
+    core_.finish(slot_, invocationFailure(context()));
     return;
   }
-  task.valueInitialized = true;
-  core_.finish(slot_, task.cancel.load() ? Failure{TaskFailure::Cancelled} : Failure{});
+  if (node) {
+    node->valueInitialized = true;
+    task.callCompleted = true;
+    task.state = State::Runnable;
+  } else {
+    task.valueInitialized = true;
+    core_.finish(slot_, task.cancel.load() ? Failure{TaskFailure::Cancelled} : Failure{});
+  }
 }
 void Task::fail(Failure failure) noexcept {
   TaskCore::Impl::Guard guard(core_);

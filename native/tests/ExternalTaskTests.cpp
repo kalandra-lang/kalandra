@@ -110,7 +110,90 @@ void clean(TaskCore &core, GroupHandle group) {
   CHECK(!stats.records && !stats.groups && !stats.retainedBytes && !stats.unfinished &&
         !stats.externalPending);
 }
+struct CallerInput {
+  Shared *shared;
+  unsigned depth;
+};
+struct CallerFrame {
+  CallerInput input;
+  int value = 0;
+};
+const TaskEntry &callerEntry();
+bool constructCaller(Invocation &, void *out, const Packet &packet) {
+  new (out) CallerFrame{*static_cast<const CallerInput *>(packet.data)};
+  return true;
+}
+void destroyCaller(void *raw) noexcept {
+  auto &frame = *static_cast<CallerFrame *>(raw);
+  ++frame.input.shared->destroyed;
+  frame.~CallerFrame();
+}
+void resumeCaller(Task &task) {
+  auto &frame = *static_cast<CallerFrame *>(task.frame());
+  if (frame.input.depth) {
+    CallerInput input{frame.input.shared, frame.input.depth - 1};
+    if (!task.call(callerEntry(), {19003, &input, sizeof(input)}, &frame.value))
+      return;
+  } else {
+    Input input{frame.input.shared};
+    if (!task.call(entry, {19002, &input, sizeof(input)}, &frame.value))
+      return;
+  }
+  task.complete(&frame.value);
+}
+const TaskEntry &callerEntry() {
+  static const TaskEntry value{1,
+                               19003,
+                               sizeof(CallerInput),
+                               alignof(CallerInput),
+                               sizeof(CallerFrame),
+                               alignof(CallerFrame),
+                               constructCaller,
+                               destroyCaller,
+                               resumeCaller,
+                               &layout};
+  return value;
+}
+void suspendedCalls() {
+  for (unsigned workers : {1u, 4u}) {
+    for (unsigned mode = 0; mode < 3; ++mode) {
+      TaskLimits limits;
+      limits.workers = workers;
+      limits.records = limits.groups = limits.ready = limits.inFlight = 1;
+      auto core = TaskCore::create(limits);
+      Shared shared;
+      CallerInput input{&shared, 64};
+      auto group = core->openRoot();
+      auto handle = core->submit(group, callerEntry(), {19003, &input, sizeof(input)});
+      while (!shared.suspended)
+        CHECK(core->step());
+      auto completion = token(shared);
+      CHECK(shared.destroyed == 0 && core->stats().callFrames == 65);
+      if (mode) {
+        CHECK(core->cancel(group, mode == 2));
+        CHECK(core->step() == false);
+        CHECK(shared.destroyed == 0 && !core->settled(handle));
+      }
+      CHECK(completion.signal());
+      CHECK(core->drain());
+      if (!mode) {
+        Invocation receiver;
+        int result = 0;
+        CHECK(core->observe(handle, layout, receiver, &result) && result == 42);
+      } else {
+        CHECK(core->failure(handle).kind == TaskFailure::Cancelled);
+        CHECK(core->failure(group).kind ==
+              (mode == 2 ? TaskFailure::DeadlineExceeded : TaskFailure::Cancelled));
+      }
+      CHECK(shared.destroyed == 66);
+      CHECK(core->stats().callBytes == 0 && core->stats().callFrames == 0);
+      CHECK(core->stats().records == 1 && core->stats().groups == 1);
+      clean(*core, group);
+    }
+  }
+}
 int main() {
+  suspendedCalls();
   CHECK(ExternalCompletion{}.cancelled());
   for (unsigned workers : {1u, 2u, 4u}) {
     TaskLimits limits;

@@ -19,6 +19,14 @@ void kalandra_task_spawn_v1(Task *task, const GroupHandle *group, const TaskEntr
                             const Packet *packet, TaskHandle *handle) noexcept {
   *handle = task->spawn(*group, *entry, *packet);
 }
+bool kalandra_task_call_v1(Task *task, const TaskEntry *entry, const Packet *packet, void *output,
+                           const GroupHandle *lexical) noexcept {
+  return task->call(*entry, *packet, output, lexical ? *lexical : GroupHandle{});
+}
+bool kalandra_task_tail_call_v1(Task *task, const TaskEntry *entry, const Packet *packet,
+                                void *output, const GroupHandle *lexical) noexcept {
+  return task->call(*entry, *packet, output, lexical ? *lexical : GroupHandle{}, true);
+}
 bool kalandra_task_await_v1(Task *task, const TaskHandle *handle) noexcept {
   return task->await(*handle);
 }
@@ -79,7 +87,7 @@ void kalandra_run_task_v1(const TaskEntry *entry, const Packet *packet, void *ou
   }
   auto group = core->openRoot();
   auto task = core->submit(group, *entry, *packet);
-  if (!task || !core->drain()) {
+  if (!task || !core->drainToCompletion()) {
     *failure = {TaskFailure::Fault, 3};
     return;
   }
@@ -89,7 +97,7 @@ void kalandra_run_task_v1(const TaskEntry *entry, const Packet *packet, void *ou
   if (failure->kind == TaskFailure::None && !core->observe(task, *entry->result, *context, output))
     *failure = {TaskFailure::Fault, context->status(), context->line(), context->column()};
   core->close(group);
-  if (!core->drain()) {
+  if (!core->drainToCompletion()) {
     *failure = {TaskFailure::Fault, 3};
     return;
   }

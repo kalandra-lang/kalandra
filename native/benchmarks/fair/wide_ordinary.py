@@ -67,7 +67,9 @@ def main():
   result=p.measure_paired(cells,call,reference,blocks=9,rounds=3,target_ms=10,adaptive=True,max_iterations=20000000)
   files=[Path(f) for m in ms.values() for f in m['hashes']];result['manifests']=ms
  else:
-  directory=a.build_dir.resolve();compiler=a.compiler.resolve();runtime=compiler.parent/'libkalandra-task-core-optimized.a';signature={p.key(f):p.sha(f) for f in sources}
+  directory=a.build_dir.resolve();compiler=a.compiler.resolve();runtime=compiler.parent/'libkalandra-task-core-optimized.a'
+  if not runtime.exists():runtime=compiler.parent.parent/'lib/kalandra/native/libkalandra-native-runtime.a'
+  signature={p.key(f):p.sha(f) for f in sources}
   if not a.reuse_build:
    assert not (directory/'manifest.json').exists(),'Use a fresh build directory'
    p.run([sys.executable,src/'broad_ordinary.py','--compiler',compiler,'--build-dir',directory,'--build-only','--output',directory/'unused.json'])

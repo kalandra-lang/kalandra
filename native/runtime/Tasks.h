@@ -56,9 +56,13 @@ struct TaskLimits {
   std::uint32_t workers = 1;
   std::uint32_t records = 128, groups = 32, ready = 32, inFlight = 64, depth = 16;
   std::size_t bytes = 1024 * 1024;
+  // Ordinary resumable calls consume memory, never task/group admission slots.
+  std::size_t callBytes = 64 * 1024 * 1024;
 };
 struct TaskStats {
   std::size_t retainedBytes = 0, peakBytes = 0, environmentBytes = 0, recursiveBytes = 0;
+  std::size_t callBytes = 0, peakCallBytes = 0;
+  std::uint64_t callFrames = 0, peakCallFrames = 0;
   std::uint64_t retainedOwners = 0;
   std::uint32_t unfinished = 0, records = 0, groups = 0;
   std::uint32_t ready = 0, pending = 0, maintenanceTasks = 0, externalPending = 0, timers = 0;
@@ -100,6 +104,9 @@ public:
   bool release(GroupHandle) noexcept;
   bool step() noexcept;
   bool drain(std::size_t steps = 100000) noexcept;
+  // Finish productive scheduling batches; a controller slice is not a source
+  // execution limit. Return false only if no progress source remains.
+  bool drainToCompletion() noexcept;
   TaskStats stats() const noexcept;
 #ifdef KALANDRA_TASK_PROFILE
   // Cumulative snapshot; sampling itself is not counted.
@@ -163,6 +170,10 @@ public:
   void *frame() noexcept;
   GroupHandle openGroup(GroupHandle parent = {}) noexcept;
   TaskHandle spawn(GroupHandle, const TaskEntry &, Packet) noexcept;
+  // Retry the same call after suspension. A successful retry copies its result
+  // into the caller's active ownership scope. No native recursion is involved.
+  bool call(const TaskEntry &, Packet, void *output, GroupHandle lexical = {},
+            bool tail = false) noexcept;
   bool await(TaskHandle) noexcept;
   bool join(GroupHandle) noexcept;
   bool releaseGroup(GroupHandle) noexcept;
