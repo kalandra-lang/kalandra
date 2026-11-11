@@ -39,10 +39,6 @@ def run(name,source,expected):
         source=re.sub(r'(fn main\([^\n]+\n)',r'\1  answer=try parallel:\n    gpu=devices.gpu()\n    try await spawn double(21) on gpu\n  try println(format("{}",answer))\n',source)
         source='fn double(n:i64)->i64:\n  return n*2\n'+source
         expected='42\n'+expected
-    if a.target!='cpu' and name=='function-values':
-        build(name,source,b'function values require the CPU backend')
-        print('PASS: mixed-backend function-value limitation diagnosed',flush=True)
-        return
     executable=build(name,source)
     if a.compile_only:print('PASS: compiled',name,flush=True);return
     for workers in (1,4):
