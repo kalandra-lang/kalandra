@@ -1,5 +1,6 @@
 #include "GeneratorFrame.h"
 #include <algorithm>
+#include <cstring>
 #include <limits>
 #include <utility>
 extern "C" bool kalandra_source_run_v3(kalandra::runtime::Invocation *, bool (*)(void *),
@@ -141,6 +142,68 @@ GeneratorStep resumeRange(Invocation &, void *frame, void *out) {
   range.start = __builtin_add_overflow(range.start, range.step, &advanced) ? range.stop : advanced;
   return GeneratorStep::Item;
 }
+// Copy the common rank-one descriptor without aliasing another element type.
+struct ArrayValue {
+  void *allocated, *aligned;
+  std::int64_t offset, count, stride;
+};
+static_assert(sizeof(ArrayValue) == 40 && alignof(ArrayValue) == 8);
+struct ArrayCapture {
+  const ValueLayout *source, *item;
+  const void *descriptor;
+};
+struct ArrayFrame {
+  const ValueLayout *source;
+  ArrayValue value;
+  std::uint64_t bytes, position = 0;
+};
+constexpr auto arrayPacket = UINT64_C(0x4b414c4152524159);
+bool constructArray(Invocation &ctx, void *out, const Packet &input) {
+  if (input.layout != arrayPacket || input.bytes != sizeof(ArrayCapture) || !input.data ||
+      !input.source) {
+    ctx.fault(3);
+    return false;
+  }
+  const auto &capture = *static_cast<const ArrayCapture *>(input.data);
+  auto &frame = *new (out) ArrayFrame{capture.source, {}, capture.item->bytes};
+  if (!capture.source->copy(ctx, &frame.value, *input.source, capture.descriptor))
+    return false;
+  const auto fail = [&] {
+    capture.source->destroy(&frame.value);
+    ctx.fault(3);
+    return false;
+  };
+  const auto &value = frame.value;
+  if (value.offset < 0 || value.count < 0 || value.stride != 1)
+    return fail();
+  if (value.count) {
+    const auto base = reinterpret_cast<std::uintptr_t>(value.allocated);
+    const auto aligned = reinterpret_cast<std::uintptr_t>(value.aligned);
+    auto lease = ctx.lease(value.allocated);
+    if (!lease || aligned < base || aligned % capture.item->alignment)
+      return fail();
+    const auto available = lease->bytes().size();
+    const auto shift = aligned - base;
+    const auto end = std::uint64_t(value.offset) + std::uint64_t(value.count);
+    if (shift > available || end > (available - shift) / frame.bytes)
+      return fail();
+  }
+  return true;
+}
+void destroyArray(void *p) noexcept {
+  auto &frame = *static_cast<ArrayFrame *>(p);
+  frame.source->destroy(&frame.value);
+  frame.~ArrayFrame();
+}
+GeneratorStep resumeArray(Invocation &, void *p, void *out) {
+  auto &frame = *static_cast<ArrayFrame *>(p);
+  if (frame.position == std::uint64_t(frame.value.count))
+    return GeneratorStep::Exhausted;
+  const auto index = std::uint64_t(frame.value.offset) + frame.position++;
+  std::memcpy(out, static_cast<const std::byte *>(frame.value.aligned) + index * frame.bytes,
+              frame.bytes);
+  return GeneratorStep::Item;
+}
 } // namespace
 GeneratorDescriptor generatorCreate(Invocation &ctx, const GeneratorEntry &entry,
                                       const Packet &packet) noexcept {
@@ -277,6 +340,26 @@ GeneratorDescriptor generatorRange(Invocation &ctx, IntegerRangeValue range,
                              &item,
                              nullptr};
   return generatorCreate(ctx, entry, {rangePacket, &range, sizeof(range), &ctx});
+}
+GeneratorDescriptor generatorArray(Invocation &ctx, const ValueLayout &source,
+                                   const ValueLayout &item, const void *descriptor) noexcept {
+  if (!healthy(ctx))
+    return {};
+  if (!layout(source) || !layout(item) || source.bytes != sizeof(ArrayValue) ||
+      source.alignment != alignof(ArrayValue) || !descriptor) {
+    ctx.fault(3);
+    return {};
+  }
+  const ArrayCapture capture{&source, &item, descriptor};
+  const GeneratorEntry entry{1,
+                             sizeof(ArrayFrame),
+                             alignof(ArrayFrame),
+                             constructArray,
+                             destroyArray,
+                             resumeArray,
+                             &item,
+                             nullptr};
+  return generatorCreate(ctx, entry, {arrayPacket, &capture, sizeof(capture), &ctx});
 }
 } // namespace kalandra::runtime
 using namespace kalandra::runtime;

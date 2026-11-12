@@ -1,5 +1,7 @@
 #include "../runtime/GeneratorFrame.h"
+#include "../runtime/HostArrays.h"
 #include "../runtime/String.h"
+#include "../runtime/StringArray.h"
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -393,6 +395,138 @@ void rangeSources() {
   (void)generatorRange(cancelled, {0, 0, 0}, integer, 23, 5);
   CHECK(cancelled.status() == 0 && cancelled.poll() == -1);
 }
+template <kalandra::NumericType Element> void numericArraySources() {
+  Invocation ctx;
+  using Scalar = NumericValue<Element>;
+  auto *values = static_cast<Scalar *>(ctx.allocate(5 * sizeof(Scalar)));
+  CHECK(values);
+  for (unsigned n = 0; n < 5; ++n)
+    values[n] = Scalar(2 * n + 3);
+  CpuTensor<Element, 1> source{values, values, 1, {3}, {1}};
+  const auto &item = hostScalarLayout<Element>();
+  auto left = generatorArray(ctx, hostArrayLayout<Element>(), item, &source);
+  auto right = generatorArray(ctx, hostArrayLayout<Element>(), item, &source);
+  CHECK(!ctx.poll());
+  source.sizes[0] = 0; // Cursor metadata is a snapshot, not a descriptor borrow.
+  const auto allocations = ctx.allocations();
+  Scalar value = 0;
+  for (unsigned n = 0; n < 3; ++n)
+    CHECK(generatorNext(ctx, left, item, nullptr, &value, nullptr) == GeneratorStep::Item &&
+          value == Scalar(2 * n + 5));
+  CHECK(generatorNext(ctx, left, item, nullptr, &value, nullptr) == GeneratorStep::Exhausted);
+  CHECK(generatorNext(ctx, left, item, nullptr, &value, nullptr) == GeneratorStep::Exhausted);
+  CHECK(generatorNext(ctx, right, item, nullptr, &value, nullptr) == GeneratorStep::Item &&
+        value == Scalar(5));
+  CHECK(ctx.allocations() == allocations);
+  CHECK(generatorClose(ctx, left) && generatorClose(ctx, right));
+  CpuTensor<Element, 1> empty{nullptr, nullptr, 0, {0}, {1}};
+  auto absent = generatorArray(ctx, hostArrayLayout<Element>(), item, &empty);
+  CHECK(!ctx.poll());
+  CHECK(generatorNext(ctx, absent, item, nullptr, &value, nullptr) == GeneratorStep::Exhausted);
+  CHECK(generatorClose(ctx, absent));
+  ctx.settle();
+  CHECK(ctx.live() == 0);
+}
+bool copyStringArray(Invocation &to, void *out, const Invocation &from, const void *in) noexcept {
+  if (!kalandra_string_array_retain_v1(&to, &from, static_cast<const StringArrayDescriptor *>(in)))
+    return false;
+  std::memcpy(out, in, sizeof(StringArrayDescriptor));
+  return true;
+}
+const ValueLayout stringArray{0x47454e03, sizeof(StringArrayDescriptor),
+                              alignof(StringArrayDescriptor), copyStringArray, nothing};
+void arrayBackingLifetime() {
+  Invocation owner;
+  GeneratorDescriptor cursor;
+  {
+    Invocation creator;
+    auto *values = static_cast<StringDescriptor *>(creator.allocate(2 * sizeof(StringDescriptor)));
+    CHECK(values);
+    kalandra_string_literal_v1(&creator, &values[0], "alpha", 5);
+    kalandra_string_literal_v1(&creator, &values[1], "beta", 4);
+    StringArrayDescriptor source{values, values, 0, 2, 1};
+    cursor = generatorArray(creator, stringArray, string, &source);
+    CHECK(!creator.poll());
+    CHECK(owner.retainFrom(creator, cursor.storage.allocated));
+  }
+  StringDescriptor first, second;
+  CHECK(generatorNext(owner, cursor, string, nullptr, &first, nullptr) == GeneratorStep::Item);
+  CHECK(generatorNext(owner, cursor, string, nullptr, &second, nullptr) == GeneratorStep::Item);
+  CHECK(generatorClose(owner, cursor));
+  CHECK(validateString(owner, first) && std::string_view(first.data, first.byteLength) == "alpha");
+  CHECK(validateString(owner, second) &&
+        std::string_view(second.data, second.byteLength) == "beta");
+  owner.settle();
+  CHECK(owner.live() == 0);
+}
+void arraySourceFailures() {
+  for (unsigned attempt = 1; attempt <= 16; ++attempt) {
+    Invocation source, target;
+    auto *values = static_cast<std::int64_t *>(source.allocate(16));
+    CHECK(values);
+    values[0] = 7;
+    values[1] = 9;
+    CpuTensor<kalandra::NumericType::Int64, 1> descriptor{values, values, 0, {2}, {1}};
+    target.failAllocationAt(attempt);
+    // A failed item retain or frame allocation must not strand a source lease.
+    CHECK(target.retainFrom(source, values) || target.status() == 2);
+    if (!target.poll()) {
+      const auto &layout = hostArrayLayout<kalandra::NumericType::Int64>();
+      auto cursor = generatorArray(target, layout, integer, &descriptor);
+      if (!target.poll())
+        CHECK(generatorClose(target, cursor));
+    }
+    target.settle();
+    source.settle();
+    CHECK(target.live() == 0 && source.live() == 0);
+  }
+  for (unsigned mode = 0; mode < 5; ++mode) {
+    Invocation ctx;
+    auto *values = static_cast<std::int64_t *>(ctx.allocate(16));
+    CHECK(values);
+    CpuTensor<kalandra::NumericType::Int64, 1> descriptor{values, values, 0, {2}, {1}};
+    if (mode == 0)
+      descriptor.offset = -1;
+    else if (mode == 1)
+      descriptor.sizes[0] = -1;
+    else if (mode == 2)
+      descriptor.strides[0] = 0;
+    else if (mode == 3)
+      descriptor.sizes[0] = 3;
+    else
+      descriptor.offset = INT64_MAX;
+    (void)generatorArray(ctx, hostArrayLayout<kalandra::NumericType::Int64>(), integer,
+                         &descriptor);
+    CHECK(ctx.status() == 3);
+    ctx.settle();
+    CHECK(ctx.live() == 0);
+  }
+  Invocation cancelled;
+  std::atomic<bool> token{true};
+  cancelled.bindCancellation(&token);
+  (void)generatorArray(cancelled, integer, integer, nullptr);
+  CHECK(cancelled.status() == 0 && cancelled.poll() == -1 && cancelled.allocations() == 0);
+}
+void booleanArraySource() {
+  Invocation ctx;
+  auto *values = static_cast<std::uint8_t *>(ctx.allocate(3));
+  CHECK(values);
+  values[0] = 1;
+  values[1] = 0;
+  values[2] = 1;
+  CpuTensor<kalandra::NumericType::UInt8, 1> descriptor{values, values, 0, {3}, {1}};
+  const auto &item = hostScalarLayout<kalandra::NumericType::UInt8, true>();
+  auto cursor =
+      generatorArray(ctx, hostArrayLayout<kalandra::NumericType::UInt8, true>(), item, &descriptor);
+  for (auto expected : {1u, 0u, 1u}) {
+    std::uint8_t result = 2;
+    CHECK(generatorNext(ctx, cursor, item, nullptr, &result, nullptr) == GeneratorStep::Item &&
+          result == expected);
+  }
+  CHECK(generatorClose(ctx, cursor));
+  ctx.settle();
+  CHECK(ctx.live() == 0);
+}
 } // namespace
 int main() {
   independent();
@@ -404,5 +538,18 @@ int main() {
   outlivesCreator();
   invalid();
   rangeSources();
+  numericArraySources<kalandra::NumericType::Int8>();
+  numericArraySources<kalandra::NumericType::Int16>();
+  numericArraySources<kalandra::NumericType::Int32>();
+  numericArraySources<kalandra::NumericType::Int64>();
+  numericArraySources<kalandra::NumericType::UInt8>();
+  numericArraySources<kalandra::NumericType::UInt16>();
+  numericArraySources<kalandra::NumericType::UInt32>();
+  numericArraySources<kalandra::NumericType::UInt64>();
+  numericArraySources<kalandra::NumericType::Float32>();
+  numericArraySources<kalandra::NumericType::Float64>();
+  arrayBackingLifetime();
+  booleanArraySource();
+  arraySourceFailures();
   std::puts("PASS: lazy owned frames, typed terminal results, capture lifetime and bounds");
 }

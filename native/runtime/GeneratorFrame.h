@@ -31,6 +31,12 @@ GeneratorStep generatorNext(Invocation &, const GeneratorDescriptor &, const Val
 bool generatorClose(Invocation &, const GeneratorDescriptor &) noexcept;
 GeneratorDescriptor generatorRange(Invocation &, IntegerRangeValue, const ValueLayout &item,
                                    std::int64_t line, std::int64_t column) noexcept;
+// Private compiler bridge. The source layout validates/retains a contiguous
+// rank-one descriptor; the checker must keep its backing read-borrowed for the
+// cursor lifetime. Contents are not cloned; retaining nested backing follows
+// the source layout's validation and ownership rules.
+GeneratorDescriptor generatorArray(Invocation &, const ValueLayout &source, const ValueLayout &item,
+                                   const void *descriptor) noexcept;
 } // namespace kalandra::runtime
 extern "C" {
 void kalandra_generator_create_v1(kalandra::runtime::Invocation *,
