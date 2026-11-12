@@ -114,6 +114,8 @@ struct TypeSyntax {
   std::optional<SourceSpan> element;
   std::vector<Dimension> dimensions;
   bool array = false;
+  std::vector<TypeSyntax> arguments = {};
+  std::vector<SourceSpan> members = {}; // Associated type path, such as T.Item.
   // Immutable recursive syntax; copies preserve ownership without borrowing parser storage.
   std::shared_ptr<const FunctionTypeSyntax> function = {};
 };
@@ -156,6 +158,7 @@ struct CallExpr {
 struct IndexExpr {
   ExprId input;
   std::vector<ExprId> indices;
+  std::vector<TypeSyntax> typeArguments = {}; // A generic specialization, when its input names one.
 };
 struct ArraySetExpr {
   ExprId input, index, value;
@@ -171,6 +174,7 @@ struct RecordExpr {
   SourceSpan name;
   std::vector<FieldInitializer> fields;
   std::optional<SourceSpan> family = {}; // Qualified enum construction.
+  std::vector<TypeSyntax> typeArguments = {};
 };
 struct FieldExpr {
   ExprId input;
@@ -278,6 +282,11 @@ struct Parameter {
   bool mutableAccess = false;
   bool owned = false;
 };
+struct GenericParameter {
+  SourceSpan name;
+  std::vector<SourceSpan> bounds;
+  std::string internalName = {}; // Synthesized Self parameters retain original source spans.
+};
 struct Function {
   SourceSpan span;
   SourceSpan name;
@@ -289,6 +298,8 @@ struct Function {
   std::size_t moduleIndex = 0;
   std::optional<SourceSpan> errorType = {};
   std::vector<SourceSpan> errorTypes = {};
+  std::vector<GenericParameter> generics = {};
+  std::string specializedName = {}; // Internal only; source names/spans remain unchanged.
 };
 struct ImportedName {
   SourceSpan name;
@@ -312,6 +323,21 @@ struct RecordDeclaration {
   std::vector<VariantDeclaration> variants = {};
   bool error = false;
   std::vector<SourceSpan> errorAlias = {};
+  std::vector<GenericParameter> generics = {};
+};
+struct TraitDeclaration {
+  SourceSpan name;
+  bool exported = false;
+  std::vector<SourceSpan> associatedTypes;
+  std::vector<std::vector<SourceSpan>> associatedBounds;
+  std::vector<Function> methods;
+};
+struct TraitImplementation {
+  SourceSpan trait;
+  TypeSyntax target;
+  std::vector<GenericParameter> generics;
+  std::vector<std::pair<SourceSpan, TypeSyntax>> associatedTypes;
+  std::vector<Function> methods;
 };
 struct Module {
   // Source storage outlives all borrowed slices/byte spans. Expressions use flat
@@ -321,6 +347,8 @@ struct Module {
   std::vector<Function> functions;
   std::vector<Import> imports;
   std::vector<RecordDeclaration> records;
+  std::vector<TraitDeclaration> traits;
+  std::vector<TraitImplementation> implementations;
   // Populated only by the module loader, never inferred from source filenames.
   std::vector<std::optional<StandardModule>> standardModules;
   bool editorOnly = false; // Structural recovery and unresolved expression holes.

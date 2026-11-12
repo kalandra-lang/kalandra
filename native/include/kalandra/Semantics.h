@@ -504,6 +504,13 @@ struct ShapeEquality {
   Extent left;
   Extent right;
 };
+// Source spelling for editor guidance on a statically specialized declaration.
+// Runtime lowering uses only its ordinary concrete signature.
+struct SourceCallableSignature {
+  std::string typeParameters;
+  std::vector<std::string> parameters;
+  std::string result;
+};
 struct TypedFunction {
   std::string name;
   SourceSpan declaration;
@@ -518,6 +525,10 @@ struct TypedFunction {
   std::size_t captureCount = 0;
   bool anonymous = false;
   bool compileTimeOnly = false; // No runtime callable/C interface for compiler syntax helpers.
+  std::shared_ptr<const SourceCallableSignature> sourceSignature = {};
+  // Checked compiler adapter: parameter target flow comes from this original
+  // entry. Symbols and runtime arguments remain distinct; signatures must match.
+  std::optional<FunctionId> parameterOrigin = {};
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.
@@ -538,6 +549,8 @@ struct ResolvedSourceToken {
   // Shorthand pattern labels also declare a local binding at this same token.
   // Keep the field-reference role without overriding primary binding navigation.
   bool secondary = false;
+  std::optional<FunctionId> function = {};
+  std::string label = {};
 };
 struct TypedModule {
   std::shared_ptr<const SourceFile> source;
@@ -572,6 +585,7 @@ struct SemanticLimits {
   std::size_t maxTensorElements = 200000;
   std::size_t maxLiteralBytes = 4096;
   std::size_t maxShapeRequirements = 100000;
+  std::size_t maxSpecializations = 2048;
 };
 struct CheckResult {
   std::shared_ptr<const SourceFile> source;
@@ -617,6 +631,7 @@ struct CallableSignatureSnapshot {
   std::vector<std::string> parameterNames;
   std::vector<SignatureErrorFamily> errorFamilies;
   bool formatIntrinsic = false; // Editor guidance, never a first-class callable type.
+  std::shared_ptr<const SourceCallableSignature> sourceSignature = {};
 };
 struct CallableSignatureQuery {
   SourceSpan site;

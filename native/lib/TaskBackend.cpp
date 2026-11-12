@@ -79,6 +79,7 @@ class Emitter {
   std::map<std::size_t, Function *> environmentBoxes;
   const TypedModule *hostCallables = nullptr;
   std::vector<FunctionId> hostTargets;
+  std::map<FunctionId, FunctionId> hostNativeTargets;
 
 public:
   Emitter(ModulePlan &planner, llvm::Module &module)
@@ -660,9 +661,11 @@ public:
     }
   }
 
-  void setHostCallables(const TypedModule *source, std::span<const FunctionId> targets) {
+  void setHostCallables(const TypedModule *source, std::span<const FunctionId> targets,
+                        std::span<const std::pair<FunctionId, FunctionId>> nativeTargets) {
     hostCallables = source;
     hostTargets.assign(targets.begin(), targets.end());
+    hostNativeTargets.insert(nativeTargets.begin(), nativeTargets.end());
   }
   void emitHostCallableBridges() {
     if (!hostCallables || hostTargets.empty())
@@ -684,6 +687,27 @@ public:
               .getOrInsertFunction("kalandra_gpu_resumable_code_" + std::to_string(id),
                                    llvm::FunctionType::get(pointer, false))
               .getCallee());
+      Function *nativeCode = nullptr;
+      if (auto native = hostNativeTargets.find(id); native != hostNativeTargets.end()) {
+        nativeCode =
+            module.getFunction(std::string(target.resultType.fallible ? "kalandra_callable_plan_"
+                                                                      : "kalandra_callable_") +
+                               std::to_string(native->second));
+        if (!nativeCode || nativeCode->isDeclaration())
+          throw std::runtime_error("host callable native projection is missing its checked code");
+        nativeCode->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::None);
+      }
+      auto *matches =
+          function("kalandra_gpu_resumable_matches_" + std::to_string(id), boolean, {pointer});
+      matches->setLinkage(llvm::GlobalValue::ExternalLinkage);
+      builder.SetInsertPoint(Block::Create(context, "entry", matches));
+      auto *carrier = llvm::StructType::get(context, {pointer, pointer});
+      auto *candidate =
+          builder.CreateExtractValue(builder.CreateLoad(carrier, matches->getArg(0)), 0);
+      Value *known = builder.CreateICmpEQ(candidate, builder.CreateCall(getter));
+      if (nativeCode)
+        known = builder.CreateOr(known, builder.CreateICmpEQ(candidate, nativeCode));
+      builder.CreateRet(known);
       if (target.captureCount) {
         auto *construct = function("kalandra_gpu_resumable_environment_" + std::to_string(id),
                                    pointer, {pointer, pointer});
@@ -705,6 +729,30 @@ public:
       auto *pair = llvm::StructType::get(context, {pointer, pointer});
       auto *closure = builder.CreateLoad(pair, read->getArg(1));
       auto *code = builder.CreateCall(getter);
+      if (nativeCode) {
+        auto *native = Block::Create(context, "native", read);
+        auto *managed = Block::Create(context, "managed", read);
+        builder.CreateCondBr(
+            builder.CreateICmpEQ(builder.CreateExtractValue(closure, 0), nativeCode), native,
+            managed);
+        builder.SetInsertPoint(native);
+        auto *environment = builder.CreateExtractValue(closure, 1);
+        if (target.captureCount) {
+          auto *storage = call("kalandra_gpu_environment_read", pointer,
+                               {read->getArg(0), environment, c64(size(captures)),
+                                c64(alignment(captures)), nativeCode});
+          auto *valid = Block::Create(context, "native.captures", read);
+          builder.CreateCondBr(builder.CreateIsNotNull(storage), valid, failed);
+          builder.SetInsertPoint(valid);
+          copy(read->getArg(2), storage, captures);
+        } else {
+          auto *valid = Block::Create(context, "native.empty", read);
+          builder.CreateCondBr(builder.CreateIsNull(environment), valid, failed);
+          builder.SetInsertPoint(valid);
+        }
+        builder.CreateRet(builder.getTrue());
+        builder.SetInsertPoint(managed);
+      }
       builder.CreateCondBr(builder.CreateICmpEQ(builder.CreateExtractValue(closure, {0}), code),
                            ready, failed);
       builder.SetInsertPoint(ready);
@@ -3144,11 +3192,11 @@ std::vector<llvm::GlobalVariable *> emitTaskPayloadValueLayouts(const TypedModul
   continuation::ModulePlan planner(input);
   return Emitter(planner, module).emitPayloadValueLayouts(types);
 }
-std::vector<llvm::GlobalVariable *>
-emitTaskKernelPayloadValueLayouts(const TypedModule &input, const TypedModule &kernels,
-                                  llvm::Module &module, std::span<const ValueType> types,
-                                  const TypedModule *hostCallables,
-                                  std::span<const FunctionId> hostTargets) {
+std::vector<llvm::GlobalVariable *> emitTaskKernelPayloadValueLayouts(
+    const TypedModule &input, const TypedModule &kernels, llvm::Module &module,
+    std::span<const ValueType> types, const TypedModule *hostCallables,
+    std::span<const FunctionId> hostTargets,
+    std::span<const std::pair<FunctionId, FunctionId>> hostNativeTargets) {
   if (!input.functions.empty() || !input.expressions.empty())
     throw std::invalid_argument("component payload layout requires a schema-only source module");
   for (const auto &type : types)
@@ -3157,7 +3205,7 @@ emitTaskKernelPayloadValueLayouts(const TypedModule &input, const TypedModule &k
   continuation::ModulePlan planner(input);
   planner.kernels = kernels;
   Emitter emitter(planner, module);
-  emitter.setHostCallables(hostCallables, hostTargets);
+  emitter.setHostCallables(hostCallables, hostTargets, hostNativeTargets);
   emitter.emitHostCallableBridges();
   return emitter.emitPayloadValueLayouts(types);
 }

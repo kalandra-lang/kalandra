@@ -70,6 +70,9 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
          "--compiler", compiler, "--output", cwd / "console applications",
          "--target", "metal", "--variant", "optimized",
          "--case", "streams", "--case", "arguments-and-status"], cwd)
+    run([sys.executable, fixtures.parent / "tests/GenericsSourceTests.py",
+         "--compiler", compiler, "--output", cwd / "generic applications",
+         "--target", "metal", "--variant", "optimized"], cwd)
     run([sys.executable, fixtures.parent / "tests/FileSystemSourceTests.py",
          "--compiler", compiler, "--output", cwd / "filesystem applications",
          "--target", "metal", "--variant", "optimized"], cwd)

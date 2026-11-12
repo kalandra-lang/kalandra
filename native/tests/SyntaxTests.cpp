@@ -411,10 +411,52 @@ void malformedCorpus() {
     require(result.diagnostics.size() <= 32, "unbounded diagnostics");
   }
 }
+void genericsAndTraits() {
+  auto parsed = syntax(
+      "export type Pair[A, B]:\n  first: A\n  second: B\n"
+      "enum Option[T]:\n  None\n  Some:\n    value: T\n"
+      "export trait Measurable:\n  type Item\n  fn measure(value: Self) -> f64\n"
+      "impl Measurable for Pair[f64, f64]:\n  type Item = f64\n"
+      "  fn measure(value: Pair[f64, f64]) -> f64:\n    return value.first\n"
+      "fn measured[T: Measurable](value: T) -> f64:\n  return Measurable.measure(value)\n"
+      "fn main() -> unit:\n  a = Pair[i64, i64] {first: 1, second: 2}\n"
+      "  b = Option[i64].Some {value: 1}\n  c = measured[Pair[f64, f64]]\n"
+      "  values = [1, 2]\n  i = 0\n  d = values[i]\n  e = values[i + 1]\n  return ()\n");
+  for (const auto &d : parsed.diagnostics)
+    std::cerr << renderDiagnostic(*parsed.module.source, d);
+  require(parsed.ok(), "generic/trait syntax");
+  require(parsed.module.records[0].generics.size() == 2 &&
+              parsed.module.records[1].generics.size() == 1,
+          "generic nominal parameters lost");
+  require(parsed.module.traits.size() == 1 &&
+              parsed.module.traits[0].associatedTypes.size() == 1 &&
+              parsed.module.implementations.size() == 1 &&
+              parsed.module.implementations[0].associatedTypes.size() == 1,
+          "trait requirements or implementation lost");
+  require(parsed.module.functions[0].generics[0].bounds.size() == 1,
+          "generic bounds lost");
+  const auto &body = parsed.module.functions[1].body;
+  require(std::get<RecordExpr>(parsed.module.expressions[body[0].expression].value)
+                  .typeArguments.size() == 2 &&
+              std::get<RecordExpr>(parsed.module.expressions[body[1].expression].value)
+                  .typeArguments.size() == 1,
+          "specialized record/enum constructor lost");
+  require(std::get<IndexExpr>(parsed.module.expressions[body[5].expression].value)
+                  .indices.size() == 1 &&
+              std::get<IndexExpr>(parsed.module.expressions[body[6].expression].value)
+                  .indices.size() == 1,
+          "ordinary indexing changed by type argument projection");
+  validTree(parsed);
+  require(!syntax("fn f[]() -> unit:\n  return ()\n").ok(),
+          "empty generic parameter list accepted");
+  require(!syntax("trait Bad:\n  fn x(value: Self) -> i64:\n    return 1\n").ok(),
+          "trait requirement body accepted");
+}
 } // namespace
 int main(int argc, char **argv) {
   try {
     const std::vector<std::pair<std::string, std::function<void()>>> tests{
+        {"generics and traits", genericsAndTraits},
         {"lexer lines", lexerLines},
         {"lexer failures", lexerFailures},
         {"operator spans and meaning", operatorSpans},

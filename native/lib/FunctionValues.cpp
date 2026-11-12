@@ -140,6 +140,36 @@ public:
         references_[ref->function] = id;
       }
     }
+    // A generated ABI/error adapter has the original entry's incoming callback
+    // proof. Treating its distinct, uncalled parameters as external inputs would
+    // poison the original entry with an unknown target through its forwarding
+    // call. Never infer this relationship from a name or approximate signature.
+    for (FunctionId id = 0; id < module_.functions.size(); ++id) {
+      const auto &adapter = module_.functions[id];
+      if (!adapter.parameterOrigin)
+        continue;
+      if (!step() || *adapter.parameterOrigin >= module_.functions.size() ||
+          *adapter.parameterOrigin == id)
+        return false;
+      const auto &original = module_.functions[*adapter.parameterOrigin];
+      if (original.parameterOrigin || original.parameters.size() != adapter.parameters.size())
+        return false;
+      for (std::size_t i = 0; i < original.parameters.size(); ++i) {
+        const auto from = original.parameters[i], to = adapter.parameters[i];
+        if (from >= module_.symbols.size() || to >= module_.symbols.size())
+          return false;
+        const auto &sourceParameter = module_.symbols[from], &destination = module_.symbols[to];
+        if (!sourceParameter.parameter || !destination.parameter ||
+            sourceParameter.owner != *adapter.parameterOrigin || destination.owner != id ||
+            sourceParameter.mutableAccess != destination.mutableAccess ||
+            sourceParameter.owned != destination.owned ||
+            !sameFunctionValueType(sourceParameter.type, destination.type))
+          return false;
+        if (auto reads = reads_.find(from); reads != reads_.end())
+          for (auto value : reads->second)
+            source(to, value);
+      }
+    }
     for (ValueId id = 0; id < module_.expressions.size() && valid_; ++id) {
       const auto &value = module_.expressions[id];
       if (const auto *ref = std::get_if<FunctionReference>(&value.operation)) {

@@ -34,6 +34,9 @@ int main() {
     auto outerNames = query("fn main()->i64:\n  for item in [1]:\n    item+1\n  return it|\n");
     require(!has(outerNames, "item"), "for binding escaped its body scope");
 
+    auto traitMembers = query("trait Read:\n  fn read(value:Self)->i64\n"
+                              "fn main()->i64:\n  return Read.re|\n");
+    require(has(traitMembers, "read"), "trait member completion");
     auto generator = query("fn main():\n  return gen|(4,fn(i):return i)\n");
     require(has(generator, "generate"), "generator builtin completion");
     generator = query("fn main():\n  offset=3\n  return generate(4,fn(index:i64): return off|)\n");

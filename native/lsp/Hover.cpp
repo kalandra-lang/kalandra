@@ -4,6 +4,15 @@
 #include <algorithm>
 namespace kalandra::lsp {
 namespace {
+std::string sourceSignatureLabel(const SourceCallableSignature &signature, std::string_view name) {
+  std::string result = "fn " + std::string(name) + signature.typeParameters + "(";
+  for (const auto &parameter : signature.parameters) {
+    if (result.back() != '(')
+      result += ", ";
+    result += parameter;
+  }
+  return result + ")" + signature.result;
+}
 struct TypePrinter {
   const TypedModule &module;
   std::size_t budget = 4096;
@@ -103,6 +112,11 @@ struct TypePrinter {
   }
   std::string function(const TypedFunction &function, std::string_view name,
                        std::vector<std::string> *parameters = nullptr) {
+    if (function.sourceSignature) {
+      if (parameters)
+        *parameters = function.sourceSignature->parameters;
+      return sourceSignatureLabel(*function.sourceSignature, name);
+    }
     if (function.compileTimeOnly) {
       if (parameters)
         *parameters = {"template: String", "values..."};
@@ -290,6 +304,12 @@ std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceS
 }
 std::optional<SignatureInfo> snapshotSignature(const CallableSignatureSnapshot &snapshot,
                                                std::string_view name, std::size_t active) {
+  if (snapshot.sourceSignature) {
+    if (active >= snapshot.sourceSignature->parameters.size())
+      return {};
+    return SignatureInfo{sourceSignatureLabel(*snapshot.sourceSignature, name),
+                         snapshot.sourceSignature->parameters, active};
+  }
   if (snapshot.formatIntrinsic)
     return SignatureInfo{"fn " + std::string(name) + "(template: String, values...) -> String",
                          {"template: String", "values..."},
@@ -367,7 +387,9 @@ std::optional<HoverInfo> hoverInfo(ParseResult syntax, std::string_view path, st
   TypePrinter printer{selected->module};
   const auto word = selected->token.source->slice(selected->token.span);
   std::string text;
-  if (selected->function)
+  if (!selected->label.empty())
+    text = selected->label;
+  else if (selected->function)
     text = printer.function(selected->module.functions[*selected->function], word);
   else if (selected->record) {
     const auto &record = selected->module.records[*selected->record];

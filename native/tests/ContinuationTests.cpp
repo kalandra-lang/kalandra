@@ -162,13 +162,14 @@ int main(int argc, char **argv) {
               "CPU plan contains target-only operations");
       ++fixtures;
     }
-    auto helpers = analyze("fn numeric(x:f32) -> f32:\n  return x*2\n"
-                           "fn leaf(x:f32) -> f32 ! TaskError:\n  return try parallel:\n"
-                           "    try await spawn numeric(x)\n"
-                           "fn recovered(x:f32) -> f32:\n  return leaf(x) catch fn(error): return 0\n"
-                           "fn wrapper(x:f32) -> f32:\n  return recovered(x)\n"
-                           "fn main() -> f32:\n  return wrapper(3)\n",
-                           true);
+    auto helpers =
+        analyze("fn numeric(x:f32) -> f32:\n  return x*2\n"
+                "fn leaf(x:f32) -> f32 ! TaskError:\n  return try parallel:\n"
+                "    try await spawn numeric(x)\n"
+                "fn recovered(x:f32) -> f32:\n  return leaf(x) catch fn(error): return 0\n"
+                "fn wrapper(x:f32) -> f32:\n  return recovered(x)\n"
+                "fn main() -> f32:\n  return wrapper(3)\n",
+                true);
     require(helpers.ok(), "helper effects fixture checking failed");
     const auto effects = resumableFunctions(*helpers.module);
     require(effects == std::vector<bool>({false, true, true, true, true}),
@@ -231,8 +232,8 @@ int main(int argc, char **argv) {
     auto result = plan(*builtin.module);
     require(bool(result) && result->plans.size() == 2, "builtin child plan missing");
     verify(*result);
-    auto projected =
-        analyze("type Row:\n  value:i64\nfn main()->i64:\n  row=Row {value:42}\n  return row.value\n");
+    auto projected = analyze(
+        "type Row:\n  value:i64\nfn main()->i64:\n  row=Row {value:42}\n  return row.value\n");
     require(projected.ok(), "record projection plan source rejected");
     for (bool preserved : {false, true}) {
       auto planned = plan(*projected.module, {.preserveCalls = preserved});
@@ -249,10 +250,11 @@ int main(int argc, char **argv) {
       require(found, "record field projection missing from plan");
       verify(*planned);
     }
-    auto narrowed = analyze("error A:\n  Retry:\n    code:i64\nerror B:\n  Other:\n    code:i64\n"
-                            "fn source()->i64 ! (A | B):\n  fail A.Retry {code:1}\n"
-                            "fn main()->i64 ! B:\n  return source() catch fn(error):\n    return match error:\n"
-                            "      A.Retry {code}:code\n      _:fail error\n");
+    auto narrowed =
+        analyze("error A:\n  Retry:\n    code:i64\nerror B:\n  Other:\n    code:i64\n"
+                "fn source()->i64 ! (A | B):\n  fail A.Retry {code:1}\n"
+                "fn main()->i64 ! B:\n  return source() catch fn(error):\n    return match error:\n"
+                "      A.Retry {code}:code\n      _:fail error\n");
     require(narrowed.ok(), "error narrowing plan source rejected");
     for (bool preserved : {false, true}) {
       auto planned = plan(*narrowed.module, {.preserveCalls = preserved});
@@ -281,6 +283,33 @@ int main(int argc, char **argv) {
     require(bool(embedded) && embedded->plans[0]->slots.size() < 20,
             "embedded constants consumed continuation frame slots");
     verify(*embedded);
+    auto fallibleFactory =
+        analyze("error Invalid:\n  Bad\n"
+                "fn checked(value:i64)->i64 ! Invalid:\n"
+                "  if value<0:\n    fail Invalid.Bad\n  return value\n"
+                "fn retain(callback:fn(i64)->i64 ! Invalid)->fn(i64)->i64 ! Invalid:\n"
+                "  return fn(value:i64)->i64 ! Invalid:return try callback(value)\n"
+                "fn main()->i64 ! TaskError:\n  return try parallel:\n"
+                "    callback=retain(checked)\n    callback(-1) catch fn(error):return 7\n");
+    require(fallibleFactory.ok(), "fallible captured factory source rejected");
+    auto fallibleProjection =
+        plan(*fallibleFactory.module,
+             {.preserveCalls = true, .entry = 2, .valueScopes = true, .deviceValues = true});
+    if (!fallibleProjection)
+      std::cerr << fallibleProjection.error() << '\n';
+    require(bool(fallibleProjection), "fallible captured factory projection failed");
+    bool retainedIdentity = false;
+    for (const auto &function : fallibleProjection->plans)
+      for (const auto &op : function->code)
+        if (op.code == Code::CallableTarget || op.code == Code::CallableCaptures) {
+          retainedIdentity = true;
+          require(
+              op.target < fallibleProjection->plans.size() &&
+                  !fallibleProjection->plans[op.target]->code.empty(),
+              "captured fallible callable identity was omitted from its selected-entry projection");
+        }
+    require(retainedIdentity, "fallible closure dispatch regression did not exercise identity");
+    verify(*fallibleProjection);
     auto factory = analyze("fn make(n:i64)->fn(i64)->i64:\n  return fn(v:i64):return v+n\n"
                            "fn main()->i64:\n  callback=make(3)\n  return callback(2)\n");
     require(factory.ok(), "host callable factory source rejected");

@@ -18,7 +18,7 @@ list {
 
 h2 { "Values and function results" }
 
-A .k file contains function and type declarations. Execution starts at main. Use fn to define a function; the indented body ends with the expression to return. You do not need a return keyword.
+A .k file contains function and type declarations. Execution starts at main. Use fn to define a function and return to produce its result. The indented body ends when the next declaration begins.
 
 codeblock { language = kalandra, """from "std/io" import println, IoError
 from "std/fmt" import format
@@ -32,7 +32,7 @@ fn main() -> unit ! IoError:
   return ()
 """ }
 
-This displays 42. The = introduces a name for a value. width has an inferred type; height explicitly declares i64. The -> i64 after main() declares the function's result type. i64 is a signed 64-bit integer on every supported platform. Use # for a line comment and two spaces for each indentation level.
+This displays 42. The = introduces a name for a value. width has an inferred type; height explicitly declares i64. The -> unit after main() declares the function's result type; this example displays a number and returns (). i64 is a signed 64-bit integer on every supported platform. Use # for a line comment and two spaces for each indentation level.
 
 list {
   link { url = "/docs/syntax", "Syntax, bindings and comments" },
@@ -261,4 +261,13 @@ list {
   link { url = "/docs/gpu", "Run your first GPU program" },
   link { url = "/docs/language-reference", "Language reference" },
   link { url = "/docs/library", "Alphabetical function index" }
+}
+
+
+h2 { "Reuse an algorithm across types" }
+
+A generic function declares type parameters in square brackets: fn identity[T](value: T) -> T returns its argument with return value. identity(42) works with i64 and identity("hello") works with String; the compiler specializes the same declaration for each type. For operations that require a named capability, declare a trait and constrain the type parameter, such as T: Add. Generic records and enums use the same square-bracket syntax.
+
+list {
+  link { url = "/docs/generics-traits", "Write generic functions, data types and explicit trait implementations" }
 }

@@ -290,6 +290,10 @@ CompletionInfo completeNames(const std::string &path, const std::string &text, s
     while (!site && !types.empty()) {
       const auto *type = types.back();
       types.pop_back();
+      for (const auto &argument : type->arguments)
+        types.push_back(&argument);
+      for (auto member : type->members)
+        locate(member);
       if (type->function) {
         for (const auto channel : type->function->errorTypes)
           locate(channel);

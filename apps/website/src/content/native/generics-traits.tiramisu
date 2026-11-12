@@ -1,0 +1,208 @@
+meta { title = "Generics and traits", description = "Reuse algorithms and data types with static specialization and explicit contracts.", order = 9, group = "Language reference" }
+
+Generics let one declaration work with several types. Traits name capabilities that a type explicitly implements. Both are resolved at compile time: calling a generic function or a trait function produces ordinary concrete code, without runtime method lookup or mandatory boxing.
+
+h2 { "Generic functions" }
+
+Declare type parameters in square brackets after the function name. Use those names in parameter and result types. The compiler can usually infer them from arguments; supply explicit arguments when you need a particular type.
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn identity[T](value: T) -> T:
+  return value
+
+fn main() -> unit ! IoError:
+  number = identity(42)
+  text = identity("yes")
+  callback = identity[i32]
+  try println(format("{}:{}:{}", number, text, callback(7)))
+  return ()
+""" }
+
+This displays 42:yes:7. identity(42) infers i64; identity[i32] selects an i32 function value. An unspecialized generic function cannot be stored as a function value. A declared expected result can also provide type information. Conflicting information is an error, rather than an implicit conversion between numeric types. Arguments and field initializers still evaluate once, in source order.
+
+h2 { "Generic records and enums" }
+
+Type arguments are part of nominal identity. Pair[i64, String] and Pair[String, i64] are different types. Constructor fields and expected types can determine arguments; a payload-free enum alternative often needs an annotation or explicit arguments.
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+type Pair[A, B]:
+  first: A
+  second: B
+
+enum Option[T]:
+  None
+  Some:
+    value: T
+
+fn first[A, B](pair: Pair[A, B]) -> A:
+  return pair.first
+
+fn orDefault[T](option: Option[T], fallback: T) -> T:
+  return match option:
+    Option.None: fallback
+    Option.Some {value}: value
+
+fn main() -> unit ! IoError:
+  pair = Pair {first: 42, second: "answer"}
+  missing: Option[i64] = Option.None
+  present = Option[i64].Some {value: 7}
+  try println(format("{}:{}:{}", first(pair), orDefault(missing, 12), orDefault(present, 0)))
+  return ()
+""" }
+
+This displays 42:12:7. Importing a generic declaration through an alias preserves its identity. An unrelated declaration with the same fields or type-parameter names does not become interchangeable with it.
+
+h2 { "Declare a capability" }
+
+A trait declares required functions, without bodies. Self means the implementing type. An impl supplies those functions for one type; matching names alone do not establish conformance. Write a bound after a type parameter, such as T: Add. Combine requirements with +.
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+trait Add:
+  fn add(left: Self, right: Self) -> Self
+
+impl Add for i64:
+  fn add(left: Self, right: Self) -> Self:
+    return left + right
+
+impl Add for f64:
+  fn add(left: Self, right: Self) -> Self:
+    return left + right
+
+fn twice[T: Add](value: T) -> T:
+  return Add.add(value, value)
+
+fn main() -> unit ! IoError:
+  try println(format("{}:{}", twice(21), twice[f64](21.0)))
+  return ()
+""" }
+
+This displays 42:42. Add.add infers Self from its arguments. Add[i64].add(20, 22) selects the implementation explicitly. Use that form when arguments and the expected result cannot determine Self. A generic caller must declare the bounds it needs, including bounds required when forwarding an abstract type argument to another generic function.
+
+Each implementation must provide every required function with matching parameter types, mut/own access, result type and error channel. A type does not inherit fields or methods from a trait. Trait functions are called through the trait name, rather than becoming instance methods.
+
+h2 { "Associated types" }
+
+An associated type names a type chosen by an implementation. Refer to it as Self.Item in a trait and as T.Item when T has the corresponding bound. Generic implementations can describe a whole family of types.
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+type Box[T]:
+  value: T
+
+trait Read:
+  type Item
+  fn read(value: Self) -> Self.Item
+
+impl[T] Read for Box[T]:
+  type Item = T
+  fn read(value: Self) -> Self.Item:
+    return value.value
+
+fn contents[T: Read](value: T) -> T.Item:
+  return Read.read(value)
+
+fn main() -> unit ! IoError:
+  try println(contents(Box {value: "hello"}))
+  return ()
+""" }
+
+This displays hello. A trait can require capabilities of an associated type by declaring type Item: SomeTrait. The implementation must satisfy that requirement. Associated definitions cannot form a cycle or disagree with the required function signatures.
+
+h2 { "Callbacks and expected errors" }
+
+Generic parameters can occur inside function types, including a declared error channel. A callback's signature can supply both its result type and its error family.
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+error Invalid:
+  Negative
+
+fn checked(value: i64) -> i64 ! Invalid:
+  if value < 0:
+    fail Invalid.Negative
+  return value
+
+fn apply[T, U, E](value: T, callback: fn(T) -> U ! E) -> U ! E:
+  return try callback(value)
+
+fn main() -> unit ! IoError:
+  value = apply(-1, checked) catch fn(error): return 7
+  try println(format("{}", value))
+  return ()
+""" }
+
+This displays 7. E is a declared error family, not an arbitrary numeric or data type. A single error parameter can be inferred from a fallible callback, including its declared union. If several unknown parameters occur in a union, supply explicit type arguments. An infallible callback does not invent an empty error type to satisfy a fallible signature. Handle expected errors with the ordinary try, fail and catch rules. A bound on E describes E itself; it does not give E | Other or E | TaskError the same capability. Constrain the complete error type when an algorithm needs that contract. Matching a named concrete error alternative exposes that alternative’s concrete type.
+
+h2 { "Access, ownership and tasks" }
+
+Generic code follows the same access rules as concrete code. A plain array parameter provides read access; mut must be declared to write its backing. own transfers a supported owned resource. Neither a generic alias nor an associated type grants extra permissions.
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn replaceFirst[T](mut values: [T], value: T) -> unit:
+  values[0] = value
+  return ()
+
+fn main() -> unit ! IoError:
+  numbers = [1, 2]
+  flags = [false, false]
+  replaceFirst(numbers, 42)
+  replaceFirst(flags, true)
+  try println(format("{}:{}", numbers[0], flags[0]))
+  return ()
+""" }
+
+This displays 42:true. These specializations use writable numeric and bool arrays. Other element types must support the operations used by the body. A generic declaration cannot enable element mutation for Strings or records, store owned files or ByteBuffer values in an aggregate, or write an array while an unfinished task may read it.
+
+Concrete specializations can be spawned, recurse and capture supported values. Calling a generic function does not create an extra task or change cancellation, cleanup or fault precedence.
+
+h2 { "GPU specialization" }
+
+The compiler specializes first, then checks the resulting functions against the selected GPU backend. A generic declaration does not promise that every possible specialization can run on a GPU. Device-incompatible captures, types or operations are diagnosed; generic calls do not introduce hidden CPU execution.
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+trait Add:
+  fn add(left: Self, right: Self) -> Self
+
+impl Add for i64:
+  fn add(left: Self, right: Self) -> Self:
+    return left + right
+
+fn total[T: Add](left: T, right: T) -> T:
+  return Add.add(left, right)
+
+fn main() -> unit ! (IoError | TaskError):
+  result = try parallel:
+    gpu = devices.gpu()
+    try await spawn total[i64](20, 22) on gpu
+  try println(format("{}", result))
+  return ()
+""" }
+
+Compile this example with the appropriate --target metal, --target vulkan or --target cuda option. On a supported GPU it displays 42. Existing numerical policies still apply: Metal f64 requires an explicit software-fallback arithmetic policy because Apple GPUs have no hardware double precision.
+
+h2 { "Checking and implementation rules" }
+
+Concrete specializations are cached. Their bodies are checked when those specializations are needed, so an unused generic body's operations are not a guarantee that every possible type argument is valid. For reusable capability contracts, declare trait bounds explicitly. Named trait requirements remain explicit even when a concrete argument happens to have an implementation.
+
+An implementation belongs to the module that defines its trait or its outer target type. There can be only one applicable implementation of a trait for a type. The compiler rejects overlapping implementation patterns; bounds do not establish that two patterns are disjoint. Bare blanket implementations for an arbitrary type parameter are not supported.
+
+Type arguments are types, not arbitrary compile-time values or type constructors. Traits do not provide runtime trait objects, inheritance, default method bodies or generic methods inside trait declarations. Associated type projections use T.Item or Self.Item. Generic functions and nominal types share a bounded specialization budget; recursively producing new concrete types is diagnosed instead of growing compilation without limit.
+
+list {
+  link { url = "/docs/functions", "Function values, access contracts and recursion" },
+  link { url = "/docs/records-enums", "Record and enum values" },
+  link { url = "/docs/errors", "Expected errors" },
+  link { url = "/docs/gpu-numerics", "Device-compatible operations and numerical policies" }
+}
