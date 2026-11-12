@@ -10,7 +10,7 @@ p.add_argument('--compile-only',action='store_true')
 a=p.parse_args();a.compiler=a.compiler.resolve();a.output=a.output.resolve();a.output.mkdir(parents=True,exist_ok=True)
 flag={'debug':'-O0','optimized':'-O2','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[a.variant]
 prelude='''from "std/buffer" import ByteBuffer, BufferError, byteBuffer, append, reserve, truncate, clear, toArray, intoArray, capacity, length
-from "std/fs" import open, OpenMode, FsError, readInto, readAppend, write, writeAll, close, bufferedReader, bufferedWriter, finish, seekTo
+from "std/fs" import File, open, OpenMode, FsError, readInto, readAppend, write, writeAll, close, bufferedReader, bufferedWriter, finish, seekTo
 from "std/io" import println, IoError
 from "std/fmt" import format
 from "std/time" import sleep, milliseconds, TimeError
@@ -173,6 +173,34 @@ run('converted-array-input','''fn sumBytes(values:[u8])->i64:
   try println(format("{{}}",answer))
   return ()
 ''','42\n')
+bufferFactory='''fn makeBuffer()->ByteBuffer ! BufferError:
+  b=try byteBuffer()
+  try append(b,[40,2])
+  return b
+'''
+run('owned-result-task',bufferFactory+main+'''  b=try parallel:
+    task=spawn makeBuffer()
+    try await task
+  values=intoArray(b)
+  try println(format("{}:{}",values[0],values[1]))
+  return ()
+''','40:2\n')
+run('argument-ownership','''fn moved(own b:ByteBuffer)->ByteBuffer:
+  return b
+fn prepare(mut b:ByteBuffer)->i64:
+  clear(b)
+  return 32
+'''+main+'''  b=try byteBuffer()
+  try append(b,[1,2])
+  try reserve(b,prepare(b))
+  try reserve(moved(b),64)
+  c=try byteBuffer()
+  try append(c,[40,2])
+  take=intoArray
+  values=take(c)
+  try println(format("{}:{}",length(values),values[0]))
+  return ()
+''','2:40\n')
 run('array-literal-io',main+'''  output=try open("literal.bin",OpenMode.Create)
   try writeAll(output,[42])
   try writeAll(output,[])
@@ -223,6 +251,11 @@ run('bounds-high-u64','''fn index(b:ByteBuffer)->u64:
 ''','',fault='BoundsFault')
 # These diagnostics are source contracts, checked identically for every backend.
 negative={
+ 'double-await-buffer':(bufferFactory+main+'  try parallel:\n    task=spawn makeBuffer()\n    first=try await task\n    second=try await task\n    intoArray(first)\n  return ()\n','S081','moved'),
+ 'consume-later-builtin':(main+'  b=try byteBuffer()\n  try append(b,intoArray(b))\n  return ()\n','S081','later argument'),
+ 'consume-later-helper':('fn size(own b:ByteBuffer)->i64:\n  values=intoArray(b)\n  return length(values)\n'+main+'  b=try byteBuffer()\n  try reserve(b,size(b))\n  return ()\n','S081','later argument'),
+ 'consume-later-callable':('fn size(own b:ByteBuffer)->i64:\n  values=intoArray(b)\n  return length(values)\n'+main+'  b=try byteBuffer()\n  change=reserve\n  try change(b,size(b))\n  return ()\n','S081','later argument'),
+ 'consume-later-file':('fn contents(own file:File)->[u8] ! FsError:\n  try close(file)\n  return [42]\n'+main+'  file=try open("discarded.bin",OpenMode.Create)\n  try writeAll(file,try contents(file))\n  return ()\n','S081','later argument'),
  'array-type':(main+'  values:[ByteBuffer]=[]\n  return ()\n','S081','owned ByteBuffer cannot be stored in arrays'),
  'record-field':('type Holder:\n  buffer:ByteBuffer\n'+main+'  return ()\n','S081','owned ByteBuffer requires standalone ownership'),
  'implicit-capture':(main+'  b=try byteBuffer()\n  inspect=fn():return length(b)\n  answer=inspect()\n  return ()\n','S081','ByteBuffer requires explicit function parameters'),

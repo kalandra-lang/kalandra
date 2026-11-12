@@ -296,9 +296,11 @@ std::uint64_t Invocation::recursiveBytes() const noexcept {
 }
 bool Invocation::watchResource(Backing *backing) noexcept {
   auto &state = ledger();
+  // Remember dynamic ownership even in an unbound context. This makes the
+  // once-before-resource budget-binding rule constant-time for ordinary calls.
+  flags_ |= DynamicResources;
   if (!state.recursiveReserve_)
     return true;
-  flags_ |= DynamicResources;
   std::lock_guard lock(resourceAccountingMutex);
   auto &scope = owners();
   auto *store = resourceStore(scope.spareSmall_);
@@ -890,17 +892,8 @@ void Invocation::bindRecursiveBudget(void *state, EnvironmentReserve reserve,
                                      EnvironmentRelease release) noexcept {
   AccountingGuard accounting(flags_ & DynamicResources);
   auto &ledgerState = ledger();
-  const auto dynamic = [](const OwnerStore &store) {
-    for (auto *owner = store.head_; owner; owner = owner->next)
-      if (owner->backing->resource)
-        return true;
-    return false;
-  };
-  bool dynamicOwners = dynamic(ledgerState.root_);
-  for (auto *scope = ledgerState.scopes_; scope && !dynamicOwners; scope = scope->next_)
-    dynamicOwners = dynamic(*scope);
-  if (dynamicOwners || ledgerState.recursiveBytes_ || ledgerState.recursiveReserve_ || !state ||
-      !reserve || !release) {
+  if ((flags_ & DynamicResources) || ledgerState.recursiveBytes_ || ledgerState.recursiveReserve_ ||
+      !state || !reserve || !release) {
     fault(3);
     return;
   }

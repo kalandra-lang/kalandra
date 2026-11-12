@@ -25,11 +25,11 @@ h2 { "ByteBuffer" }
 
 An opaque owned host resource containing initialized bytes followed by spare capacity. Indexing reads or writes a u8 in the initialized prefix. It never grows the buffer. Indexes must be integers; an index outside the initialized length produces a checked bounds fault, as with arrays. Reserved bytes are inaccessible until append or a successful read initializes them.
 
-Assigning a buffer moves ownership. Ordinary function parameters borrow read-only; a mut parameter grants mutation, and an own parameter consumes ownership. Borrowed buffers cannot be consumed or returned as owned results. Source functions can return an owned ByteBuffer, including across suspension.
+Assigning a buffer moves ownership. Ordinary function parameters borrow read-only; a mut parameter grants mutation, and an own parameter consumes ownership. Borrowed buffers cannot be consumed or returned as owned results. A later argument cannot move or consume a buffer that an earlier argument still needs: append(data, intoArray(data)) is rejected. Source functions can return an owned ByteBuffer, including across suspension.
 
 Buffers are cleaned up when their owning scope exits, including on errors, faults and cancellation. No close call is needed. Like other opaque owned host resources, ByteBuffer cannot be constructed with record syntax, stored in arrays or record fields, or captured implicitly by a closure. Pass it as an explicit parameter instead.
 
-Concurrent task readers keep the buffer read-locked until they settle. Mutating a shared buffer is rejected, including passing it to a spawned mut parameter. An explicit ownership transfer to an own task parameter makes the buffer private to that task and invalidates the parent's binding.
+Concurrent task readers keep the buffer read-locked until they settle. Mutating a shared buffer is rejected, including passing it to a spawned mut parameter. An explicit ownership transfer to an own task parameter makes the buffer private to that task and invalidates the parent's binding. A task can also return an owned buffer. Move that result into one binding with await, then use the resulting buffer; claiming the same owned result into a second binding is rejected.
 
 h2 { "byteBuffer" }
 

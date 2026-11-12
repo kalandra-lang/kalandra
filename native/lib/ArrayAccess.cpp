@@ -371,6 +371,39 @@ private:
         return;
       }
   }
+  struct ResourceUse {
+    ValueId value;
+    std::vector<SymbolId> lenders;
+  };
+  void rememberResource(ValueId value, const Roots &roots, const Environment &env,
+                        std::vector<ResourceUse> &uses) {
+    if (!checking || !isOwnedResource(module, module.expressions[value].type))
+      return;
+    ResourceUse use{value, {}};
+    // A returned owning expression may share provenance with its consumed input.
+    // Only bindings still lending this value after its evaluation are live loans.
+    for (const auto &[symbol, stored] : env.symbols)
+      if (!env.moved.contains(symbol) && isOwnedResource(module, module.symbols[symbol].type) &&
+          overlap(roots, stored))
+        use.lenders.push_back(symbol);
+    uses.push_back(std::move(use));
+  }
+  void validateResources(const std::vector<ResourceUse> &uses, const Environment &env) {
+    if (!checking || env.stopped)
+      return;
+    for (const auto &use : uses)
+      if (std::ranges::any_of(use.lenders,
+                              [&](auto symbol) { return env.moved.contains(symbol); })) {
+        diagnostics.push_back(
+            {"S081",
+             isByteBuffer(module, module.expressions[use.value].type)
+                 ? "ByteBuffer was moved or consumed while evaluating a later argument"
+                 : "file handle was moved or closed while evaluating a later argument",
+             module.expressions[use.value].span});
+        if (diagnostics.size() >= 32)
+          return;
+      }
+  }
   Roots returned(FunctionId target, ValueId call, const std::vector<Roots> &args) {
     if (target >= summaries.size())
       return {unknown};
@@ -486,8 +519,12 @@ private:
             return storage(node.type) ? Roots{unknown} : Roots{};
           } else if constexpr (std::is_same_v<T, FunctionCall>) {
             std::vector<Roots> args;
-            for (auto value : op.arguments)
+            std::vector<ResourceUse> uses;
+            for (auto value : op.arguments) {
               args.push_back(input(value));
+              rememberResource(value, args.back(), env, uses);
+            }
+            validateResources(uses, env);
             const auto &function = module.functions.at(op.function);
             for (std::size_t i = 0; i < args.size(); ++i) {
               const auto &parameter = module.symbols[function.parameters.at(i)];
@@ -514,8 +551,12 @@ private:
             return storage(node.type) ? returned(op.function, id, args) : Roots{};
           } else if constexpr (std::is_same_v<T, BufferOperation>) {
             std::vector<Roots> args;
-            for (auto argument : op.arguments)
+            std::vector<ResourceUse> uses;
+            for (auto argument : op.arguments) {
               args.push_back(input(argument));
+              rememberResource(argument, args.back(), env, uses);
+            }
+            validateResources(uses, env);
             if (op.action != BufferAction::Create && mutatesBuffer(op.action)) {
               write(op.arguments[0], args[0], env, spawned);
               if (op.action == BufferAction::IntoArray)
@@ -524,8 +565,12 @@ private:
             return storage(node.type) ? fresh(id) : Roots{};
           } else if constexpr (std::is_same_v<T, FileOperation>) {
             std::vector<Roots> args;
-            for (auto argument : op.arguments)
+            std::vector<ResourceUse> uses;
+            for (auto argument : op.arguments) {
               args.push_back(input(argument));
+              rememberResource(argument, args.back(), env, uses);
+            }
+            validateResources(uses, env);
             if (op.action != FileAction::Open && !args.empty()) {
               write(op.arguments[0], args[0], env, spawned);
               if (consumesFile(op.action))
@@ -562,8 +607,13 @@ private:
             auto captures = input(op.callee);
             const auto &type = module.expressions[op.callee].type;
             std::vector<Roots> args;
+            std::vector<ResourceUse> uses;
             for (std::size_t i = 0; i < op.arguments.size(); ++i) {
               auto roots = input(op.arguments[i]);
+              // Existing callable-value moves happen as each owning argument is
+              // evaluated. Its own transfer must not be mistaken for a later use.
+              if (!type.callable || !type.callable->owns(i))
+                rememberResource(op.arguments[i], roots, env, uses);
               if (type.callable && (type.callable->mutates(i) ||
                                     isFileResource(module, type.callable->parameters.at(i))))
                 write(op.arguments[i], roots, env, spawned);
@@ -586,6 +636,7 @@ private:
                          node.span});
               args.push_back(std::move(roots));
             }
+            validateResources(uses, env);
             if (!storage(node.type))
               return {};
             if (!flow || flow->unknown[id] || flow->targets[id].empty())
