@@ -36,8 +36,10 @@ inline std::optional<Diagnostic> recordFieldError(const TypedModule &module) {
   const auto fail = [](std::string message, SourceSpan span) {
     return std::optional<Diagnostic>{{"S068", std::move(message), span}};
   };
-  bool sawTaskError = false;
+  bool sawTaskError = false, sawNever = false;
   for (const auto &record : module.records) {
+    if (record.name == "never" && !record.uninhabited)
+      return fail("reserved never identity requires an uninhabited type", record.declaration);
     if (record.name == "TaskError" && !record.taskErrorFamily)
       return fail("reserved TaskError identity requires its canonical family metadata",
                   record.declaration);
@@ -65,7 +67,7 @@ inline std::optional<Diagnostic> recordFieldError(const TypedModule &module) {
       std::size_t count = 0;
       for (auto member : record.errorMembers) {
         if (member >= module.records.size() || !module.records[member].error ||
-            !module.records[member].errorMembers.empty())
+            !module.records[member].errorMembers.empty() || module.records[member].uninhabited)
           return fail("invalid error-union member", record.declaration);
         const auto &original = module.records[member];
         for (std::size_t variant = 0; variant < original.variants.size(); ++variant, ++count) {
@@ -97,7 +99,18 @@ inline std::optional<Diagnostic> recordFieldError(const TypedModule &module) {
       return fail("non-union type carries error origins", record.declaration);
     if (record.fields.empty())
       return fail("record declarations require fields", record.declaration);
-    if (record.error && record.variants.empty())
+    if (record.uninhabited) {
+      const auto &tag = record.fields.front().type;
+      if (sawNever || record.name != "never" || !record.error || record.taskErrorFamily ||
+          !record.variants.empty() || !record.errorMembers.empty() ||
+          !record.errorOrigins.empty() || record.fields.size() != 1 ||
+          record.fields.front().name != "$tag" || tag.builtin != BuiltinValue::Numeric ||
+          tag.element != NumericType::Int64 || tag.tensor || tag.array || tag.task ||
+          tag.fallible || tag.device || tag.record)
+        return fail("invalid uninhabited type layout", record.declaration);
+      sawNever = true;
+    }
+    if (record.error && record.variants.empty() && !record.uninhabited)
       return fail("error declarations require variants", record.declaration);
     if (!record.variants.empty()) {
       const auto &tag = record.fields.front().type;

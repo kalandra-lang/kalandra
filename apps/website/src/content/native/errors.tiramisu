@@ -115,3 +115,23 @@ Match a variant to bind its fields, or use a catch-all handler when every failur
 list {
   link { url = "/docs/task-functions", "Fallible task built-ins" }
 }
+
+h2 { "never and infallible error channels" }
+
+never is a type with no possible values. An error channel written ! never cannot produce an expected error. It is equivalent to an infallible signature: callers do not need try, and there is no runtime error wrapper.
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn answer() -> i64 ! never:
+  return 42
+
+fn main() -> unit ! IoError:
+  value = answer()
+  try println(format("{}", value))
+  return ()
+""" }
+
+This displays 42. never | InputError is the same error family as InputError. A generic callback with an error parameter E infers E as never when the supplied callback is infallible. This lets one generic algorithm handle both cases without inventing a sentinel error value.
+
+An empty expected-error channel does not prove termination or prevent execution faults. Arithmetic, bounds, allocation and cancellation behavior still follows the ordinary execution rules. No value or constructor can create a never value.

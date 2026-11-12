@@ -506,7 +506,7 @@ private:
     for (const auto &numeric : numericTypes)
       names.emplace_back(numeric.sourceName);
     if (!syntax.tensor) {
-      names.insert(names.end(), {"bool", "unit", "String"});
+      names.insert(names.end(), {"bool", "unit", "never", "String"});
       if (!syntax.array)
         names.insert(names.end(), {"TaskError", "Tensor"});
       const auto prefix = functionKey(syntax_.source->partIndex(site->begin), "");
@@ -611,6 +611,7 @@ private:
         result->fallible = true;
         result->errorRecord = normalizedError(*family);
       }
+      *result = eraseNeverError(std::move(*result));
       auto callable =
           callableType(std::move(parameters), *result, syntax.span,
                        syntax.function->mutableParameters, syntax.function->ownedParameters);
@@ -619,6 +620,14 @@ private:
         callable->shape = {dynamic()};
       }
       return callable;
+    }
+    if (!syntax.tensor && name(syntax.name) == "never") {
+      auto result = recordType(neverFamily());
+      if (syntax.array) {
+        result.tensor = result.array = true;
+        result.shape = {dynamic()};
+      }
+      return result;
     }
     if (!syntax.tensor && !syntax.array && name(syntax.name) == "TaskError") {
       ValueType result;
@@ -734,6 +743,7 @@ private:
   std::optional<ValueType> callableType(std::vector<ValueType> parameters, ValueType result,
                                         SourceSpan span, std::vector<bool> mutations = {},
                                         std::vector<bool> ownership = {}) {
+    result = eraseNeverError(std::move(result));
     for (std::size_t i = 0; i < mutations.size(); ++i)
       if (mutations[i] && (i >= parameters.size() || !mutableParameterType(parameters[i]))) {
         error("S076", "mut parameters require flat numeric/bool array storage or ByteBuffer", span);
@@ -911,7 +921,7 @@ private:
     std::ranges::sort(flattened);
     flattened.erase(std::unique(flattened.begin(), flattened.end()), flattened.end());
     if (flattened.empty())
-      return {};
+      return neverFamily();
     if (flattened.size() == 1)
       return flattened.front();
     for (std::size_t i = 0; i < output_.records.size(); ++i)
@@ -994,7 +1004,7 @@ private:
   void completeErrorTypes(SourceSpan site, const std::unordered_set<std::size_t> &active) {
     if (!completing(site))
       return;
-    std::vector<std::string> names{"TaskError"};
+    std::vector<std::string> names{"TaskError", "never"};
     const auto prefix = functionKey(syntax_.source->partIndex(site.begin), "");
     for (const auto &[key, id] : records_)
       if (key.starts_with(prefix) && output_.records[id].error)
@@ -1012,6 +1022,11 @@ private:
   std::optional<std::size_t> resolveError(SourceSpan member,
                                           std::unordered_set<std::size_t> &active) {
     completeErrorTypes(member, active);
+    if (qualifiedErrorName(member) == "never") {
+      auto id = neverFamily();
+      rememberTypeUse(member, recordType(id));
+      return id;
+    }
     if (genericBindings_)
       if (auto found = genericBindings_->find(qualifiedErrorName(member));
           found != genericBindings_->end()) {
@@ -1061,8 +1076,8 @@ private:
         continue;
       const auto label = name(record.name);
       if (reservedControl(label) || resolveNumeric(label) || label == "bool" || label == "unit" ||
-          label == "Tensor" || label == "TaskError" || label == "FaultKind" || label == "String" ||
-          label == "Device") {
+          label == "never" || label == "Tensor" || label == "TaskError" || label == "FaultKind" ||
+          label == "String" || label == "Device") {
         error("S068", "reserved record type name '" + label + "'", record.name);
         continue;
       }
@@ -1146,7 +1161,7 @@ private:
         const auto binding = imported.alias.value_or(imported.name);
         const auto label = name(binding);
         if (reservedControl(label) || resolveNumeric(label) || label == "bool" || label == "unit" ||
-            label == "Tensor" || label == "TaskError" || label == "FaultKind" ||
+            label == "never" || label == "Tensor" || label == "TaskError" || label == "FaultKind" ||
             label == "String" || label == "Device") {
           error("S067", "reserved import alias '" + label + "'", binding);
           continue;
@@ -1284,7 +1299,7 @@ private:
     for (FunctionId id = start; id < end; ++id) {
       if (output_.functions[id].anonymous)
         continue;
-      const auto function = syntax_.functions[id];
+      auto function = syntax_.functions[id];
       GenericScope scope(*this, functionBindings_.contains(id) ? functionBindings_.at(id) : nullptr,
                          proofOwnerForFunction(id));
       output_.functions[id].name = functionName(function);
@@ -1302,7 +1317,8 @@ private:
           traitNames_.contains(declarationKey))
         error("S068", "function conflicts with nominal type or trait name", function.name);
       if (output_.functions[id].name == "bool" || output_.functions[id].name == "unit" ||
-          output_.functions[id].name == "String" || reservedControl(output_.functions[id].name))
+          output_.functions[id].name == "never" || output_.functions[id].name == "String" ||
+          reservedControl(output_.functions[id].name))
         error("S056", "reserved builtin/control-flow name", function.name);
       if (resolveNumeric(output_.functions[id].name)) {
         error("S055", "numeric type names are reserved conversion functions", function.name);
@@ -1378,9 +1394,14 @@ private:
             signatures_[id] = false;
         }
         if (signatures_[id]) {
-          if (auto family = combineErrors(std::move(families), *function.errorType))
+          if (auto family = combineErrors(std::move(families), *function.errorType)) {
             errorFamilies_[id] = normalizedError(*family);
-          else
+            if (isNeverFamily(*family)) {
+              neverErrorFunctions_.insert(id);
+              function.taskError = false;
+              syntax_.functions[id].taskError = false;
+            }
+          } else
             signatures_[id] = false;
         }
       }
@@ -1390,7 +1411,10 @@ private:
           signatures_[id] = false;
         else {
           output_.functions[id].declaredResult->fallible = function.taskError;
-          output_.functions[id].declaredResult->errorRecord = errorFamilies_[id];
+          output_.functions[id].declaredResult->errorRecord =
+              function.taskError ? errorFamilies_[id] : std::nullopt;
+          output_.functions[id].declaredResult->emptyErrorChannel =
+              neverErrorFunctions_.contains(id);
           if (genericOrigins_.contains(id))
             genericReturnTerms_[id] =
                 instantiateGenericTerm(*function.result, *output_.functions[id].declaredResult,
@@ -1418,8 +1442,8 @@ private:
           error("S068", "import conflicts with record type name", binding);
           continue;
         }
-        if (local == "bool" || local == "unit" || local == "String" || reservedControl(local) ||
-            resolveNumeric(local)) {
+        if (local == "bool" || local == "unit" || local == "never" || local == "String" ||
+            reservedControl(local) || resolveNumeric(local)) {
           error("S067", "reserved import alias '" + local + "'", binding);
           continue;
         }
@@ -2156,6 +2180,9 @@ private:
       output_.functions[id].resultType.fallible = true;
       output_.functions[id].resultType.errorRecord = errorFamilies_[id];
     }
+    output_.functions[id].resultType = eraseNeverError(output_.functions[id].resultType);
+    if (neverErrorFunctions_.contains(id))
+      output_.functions[id].resultType.emptyErrorChannel = true;
     for (auto pending : frame.tasks->pending)
       if (!frame.tasks->handled.contains(pending))
         error("S036",
@@ -2174,6 +2201,7 @@ private:
   std::unordered_map<SymbolId, std::uint64_t> stringBindings_;
   template <class Operation>
   std::optional<ValueId> add(Frame &frame, ValueType type, SourceSpan span, Operation operation) {
+    type = eraseNeverError(std::move(type));
     if (output_.expressions.size() >= limits_.maxValues) {
       error("S009", "typed value limit exceeded", span);
       return {};
@@ -2901,6 +2929,7 @@ private:
       declaredResult.fallible = true;
       declaredResult.errorRecord = declaredError;
     }
+    declaredResult = eraseNeverError(std::move(declaredResult));
     if (declaredResult.fallible && resultType.fallible &&
         !errorSubset(output_, resultType.errorRecord, declaredResult.errorRecord)) {
       error("S072", "anonymous function return channel does not cover every error family", span);
@@ -2924,6 +2953,8 @@ private:
       output_.functions[id].resultType.fallible = true;
       output_.functions[id].resultType.errorRecord = declaredResult.errorRecord;
     }
+    output_.functions[id].resultType = eraseNeverError(output_.functions[id].resultType);
+    output_.functions[id].resultType.emptyErrorChannel |= declaredResult.emptyErrorChannel;
     if (resultType.fallible)
       nested.tasks->handled.insert(resultType.identity);
     for (auto pending : nested.tasks->pending)
@@ -3926,6 +3957,8 @@ private:
       result.identity = 0;
       return add(frame, result, span, TaskOperation{operation.prefix, *value});
     }
+    if (!result.task && !result.fallible && result.emptyErrorChannel)
+      return value;
     if (result.task || !result.fallible) {
       error("S036", "try requires an expected-error result", span);
       return {};
@@ -6623,12 +6656,14 @@ private:
     resultType.fallible = syntax_.functions[id].taskError;
     if (resultType.fallible)
       resultType.errorRecord = errorFamilies_[id];
+    resultType.emptyErrorChannel |= neverErrorFunctions_.contains(id);
     resultType.identity = 0;
     if (!validSize(resultType, span))
       return {};
     return add(frame, std::move(resultType), span, FunctionCall{id, std::move(operands)});
   }
 #include "GenericChecking.h"
+#include "NeverChecking.h"
   std::size_t nextLoop_ = 1;
   Module syntax_;
   SemanticLimits limits_;

@@ -51,6 +51,8 @@ struct ValueType {
       {};                      // Expected application-error family; null means TaskError.
   std::string recordName = {}; // User-facing spelling; identity is the table index above.
   std::shared_ptr<const FunctionSignature> callable = {};
+  // Checking provenance only: an explicit/generic error channel normalized to never.
+  bool emptyErrorChannel = false;
 };
 // unit uses a canonical zero bit in physical value layouts. Its semantic
 // identity remains distinct from bool, including in callable signatures.
@@ -481,6 +483,7 @@ struct TypedRecord {
   std::vector<std::pair<std::size_t, std::size_t>> errorOrigins =
       {};                                      // Original family/variant per case.
   std::optional<StandardRecord> standard = {}; // Loader-proven nominal standard type.
+  bool uninhabited = false; // The compiler-owned empty type has no constructors/variants.
 };
 struct TypedExpr {
   SourceSpan span;

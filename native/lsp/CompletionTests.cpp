@@ -240,9 +240,9 @@ int main() {
                 info.names[0].kind == ScopeNameKind::Type,
             "declared function error channel");
     info = query(errors + "fn inspect()->i64 ! |:\n  return 0\nfn main():\n  return 0\n");
-    require(info.names.size() == 4 && has(info, "ParseError") && has(info, "ReadError") &&
-                has(info, "Problem") && has(info, "TaskError") && !has(info, "Plain") &&
-                !has(info, "i64"),
+    require(info.names.size() == 5 && has(info, "never") && has(info, "ParseError") &&
+                has(info, "ReadError") && has(info, "Problem") && has(info, "TaskError") &&
+                !has(info, "Plain") && !has(info, "i64"),
             "error channel offers only error families and aliases");
     info = query(errors +
                  "fn inspect()->i64 ! (ParseError | Re|):\n  return 0\nfn main():\n  return 0\n");

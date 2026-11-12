@@ -9,7 +9,7 @@ list {
 
 h2 { "Values and types" }
 
-Numeric types are i8, i16, i32, i64, u8, u16, u32, u64, f32 and f64. bool has the values true and false. unit has the single value (). String holds UTF-8 text. Arrays use [T]; numerical tensors use Tensor[T, dimensions]. A scalar and a rank-zero tensor are different types. Define domain-specific values with records and enums.
+Numeric types are i8, i16, i32, i64, u8, u16, u32, u64, f32 and f64. bool has the values true and false. unit has the single value (); never has no possible values. String holds UTF-8 text. Arrays use [T]; numerical tensors use Tensor[T, dimensions]. A scalar and a rank-zero tensor are different types. Define domain-specific values with records and enums.
 
 list {
   link { url = "/docs/syntax", "Lexical structure, bindings and expressions" },
@@ -17,7 +17,8 @@ list {
   link { url = "/docs/strings", "String literals and Unicode indexing" },
   link { url = "/docs/arrays", "Array values" },
   link { url = "/docs/tensors", "Tensor types, shapes and indexing" },
-  link { url = "/docs/records-enums", "Record and enum declarations" }
+  link { url = "/docs/records-enums", "Record and enum declarations" },
+  link { url = "/docs/options", "Option[T] — present and absent values" }
 }
 
 h2 { "Mutation at a glance" }

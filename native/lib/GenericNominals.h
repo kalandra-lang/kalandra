@@ -26,8 +26,8 @@ bool validGenericParameters(const std::vector<GenericParameter> &parameters) {
 }
 bool reservedGenericDeclaration(const std::string &label) const {
   return reservedControl(label) || resolveNumeric(label) || label == "Self" || label == "bool" ||
-         label == "unit" || label == "String" || label == "Tensor" || label == "TaskError" ||
-         label == "FaultKind" || label == "Device";
+         label == "unit" || label == "never" || label == "String" || label == "Tensor" ||
+         label == "TaskError" || label == "FaultKind" || label == "Device";
 }
 void registerGenericDeclarations() {
   for (std::size_t i = 0; i < syntax_.records.size(); ++i) {

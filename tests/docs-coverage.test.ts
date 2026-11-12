@@ -119,6 +119,7 @@ test("standard-module callables have individual public reference entries", async
     Env: "environment",
     Time: "time",
     Buffer: "buffers",
+    Option: "options",
   };
   let count = 0;
   for (const module of declarations.matchAll(
@@ -137,6 +138,11 @@ test("standard-module callables have individual public reference entries", async
     }
   }
   expect(count).toBe(55);
+  const options = await readFile(new URL("options.tiramisu", content), "utf8");
+  expect(options).toContain('h2 { "Option[T]" }');
+  expect(options).toContain('from "std/option" import Option');
+  expect(options).toContain("Option.None");
+  expect(options).toContain("Option.Some");
   const console = await readFile(new URL("console.tiramisu", content), "utf8");
   expect(console).toContain('h2 { "IoError" }');
   const applications = await readFile(

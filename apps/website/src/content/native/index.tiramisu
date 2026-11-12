@@ -21,6 +21,7 @@ list {
   link { url = "/docs/language-reference", "Language reference — types, expressions, mutation and execution" },
   link { url = "/docs/library", "Built-in functions — alphabetical index" },
   link { url = "/docs/filesystem", "Files — owned handles and buffered byte/text I/O" },
+  link { url = "/docs/options", "std/option — present and absent values" },
   link { url = "/docs/buffers", "std/buffer — owned growable byte storage" },
   link { url = "/docs/parsing", "std/parse — convert text to typed numbers and booleans" },
   link { url = "/docs/paths", "std/path — join paths and inspect their components" },

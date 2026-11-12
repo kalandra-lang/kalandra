@@ -102,6 +102,10 @@
     {
       "kind": "gpu",
       "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
     }
   ],
   "functions": [
@@ -557,6 +561,12 @@
     {
       "kind": "gpu",
       "expected": "42"
+    }
+  ],
+  "options": [
+    {
+      "kind": "cpu",
+      "expected": "42:7"
     }
   ]
 }
