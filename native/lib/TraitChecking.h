@@ -42,6 +42,13 @@ std::string nominalPatternHead(const TypeSyntax &syntax) {
     return prefix + std::string("generic:") + std::to_string(generic->second);
   if (auto record = records_.find(key); record != records_.end())
     return prefix + std::string("record:") + std::to_string(record->second);
+  if (auto alias = aliases_.find(key); alias != aliases_.end()) {
+    std::unordered_set<std::size_t> active;
+    if (auto resolved = resolveAlias(alias->second, active))
+      return prefix + std::string("record:") + std::to_string(*resolved);
+  }
+  if (name(syntax.name) == "TaskError")
+    return prefix + std::string("record:") + std::to_string(taskFamily());
   return prefix + name(syntax.name);
 }
 bool overlappingPatterns(const TypeSyntax &a, const std::vector<GenericParameter> &ap,

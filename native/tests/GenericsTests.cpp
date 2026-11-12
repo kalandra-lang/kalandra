@@ -341,6 +341,26 @@ int main(int argc, char **argv) {
     require(invocationChecked, "adapter proof regression did not invoke a callback");
     adapter.module->functions[*entry].parameterOrigin = adapter.module->functions.size();
     require(!functionInvocationFlow(*adapter.module), "invalid adapter identity was trusted");
+    const std::string aliasedErrors =
+        "error A:\n  Bad\nerror B:\n  Other\ntype Both=A | B\ntype Reverse=B | A\n"
+        "trait Size:\n  fn size(value:Self)->i64\n";
+    bad("transparent aliases cannot duplicate a concrete implementation",
+        aliasedErrors + "impl Size for Both:\n  fn size(value:Self)->i64:\n    return 0\n"
+                        "impl Size for Reverse:\n  fn size(value:Self)->i64:\n    return 1\n"
+                        "fn main()->i64:\n  return 0\n",
+        "S083");
+    bad("transparent aliases cannot hide overlapping nominal patterns",
+        aliasedErrors + "type Box[T]:\n  value:T\n"
+                        "impl Size for Box[Both]:\n  fn size(value:Self)->i64:\n    return 0\n"
+                        "impl Size for Box[Reverse]:\n  fn size(value:Self)->i64:\n    return 1\n"
+                        "fn main()->i64:\n  return 0\n",
+        "S083");
+    bad("a TaskError alias does not create a second implementation identity",
+        "type Alias=TaskError\ntrait Size:\n  fn size(value:Self)->i64\n"
+        "impl Size for TaskError:\n  fn size(value:Self)->i64:\n    return 0\n"
+        "impl Size for Alias:\n  fn size(value:Self)->i64:\n    return 1\n"
+        "fn main()->i64:\n  return 0\n",
+        "S083");
     bad("missing implementation",
         measure + "fn use[T:Measure](x:T)->i64:\n  return Measure.size(x)\n"
                   "fn main()->i64:\n  return use(42)\n",
