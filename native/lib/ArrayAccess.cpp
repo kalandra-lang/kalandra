@@ -427,6 +427,10 @@ private:
         unite(roots, found->second);
   }
   void consume(ValueId id, const Roots &roots, Environment &env) {
+    // A task handle observes a future resource; binding or aliasing the handle
+    // does not claim that resource. An await result performs the owning move.
+    if (module.expressions[id].type.task)
+      return;
     if (!isOwnedResource(module, module.expressions[id].type))
       return;
     for (auto root : roots) {

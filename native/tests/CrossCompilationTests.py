@@ -31,6 +31,7 @@ from PathCases import SOURCE as PATH_SOURCE, expected as path_expected
 from TimeCases import SOURCE as TIME_SOURCE, EXPECTED as TIME_EXPECTED
 from CallCases import SOURCE as CALL_SOURCE, EXPECTED as CALL_EXPECTED
 from BufferCases import SOURCE as BUFFER_SOURCE, EXPECTED as BUFFER_EXPECTED
+from GenericsCases import SOURCE as GENERICS_SOURCE, EXPECTED as GENERICS_EXPECTED
 from EnvironmentCases import SOURCE as ENV_SOURCE, VARIABLES as ENV_VARIABLES
 from EnvironmentCases import expected as env_expected, with_environment
 
@@ -70,6 +71,7 @@ def program_cases():
     cases['path-application'] = dict(source=PATH_SOURCE, outputBySystem={system:path_expected(system=='windows') for system in ('linux','macos','windows')}, application=True)
     cases['time-application'] = dict(source=TIME_SOURCE, output=TIME_EXPECTED, application=True)
     cases['buffer-application'] = dict(source=BUFFER_SOURCE, output=BUFFER_EXPECTED, application=True, filesystem=True)
+    cases['generics-application'] = dict(source=GENERICS_SOURCE, output=GENERICS_EXPECTED, application=True)
     cases['resumable-calls-application'] = dict(source=CALL_SOURCE, output=CALL_EXPECTED, application=True)
     cases['environment-application'] = dict(
         source=ENV_SOURCE, environment=ENV_VARIABLES, application=True,

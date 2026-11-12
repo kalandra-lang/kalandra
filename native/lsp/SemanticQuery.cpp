@@ -223,6 +223,8 @@ std::optional<SemanticToken> semanticToken(ParseResult syntax, std::string_view 
       selected.declaration = token.declaration;
       selected.type = token.type;
       selected.record = token.record;
+      selected.function = token.function;
+      selected.label = token.label;
       return selected;
     }
   for (const auto &import : module.imports)

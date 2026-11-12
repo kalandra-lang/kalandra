@@ -322,7 +322,14 @@ private:
       auto member = expect(TokenKind::Identifier, "expected an error family");
       if (!member)
         return {};
-      members.push_back(member->span);
+      auto span = member->span;
+      while (consume(TokenKind::Dot)) {
+        auto associated = expect(TokenKind::Identifier, "expected an associated error type");
+        if (!associated)
+          return {};
+        span.end = associated->span.end;
+      }
+      members.push_back(span);
       if (members.size() > limits_.maxTokens) {
         error("P006", "error union exceeds configured token budget", member->span);
         return {};
@@ -387,9 +394,20 @@ private:
       if (word("type")) {
         advance();
         auto associated = expect(TokenKind::Identifier, "expected an associated type name");
-        if (!associated || !expect(TokenKind::Newline, "associated types are requirements, not defaults"))
+        if (!associated)
+          return {};
+        std::vector<SourceSpan> bounds;
+        if (consume(TokenKind::Colon))
+          do {
+            auto bound = expect(TokenKind::Identifier, "expected an associated type trait bound");
+            if (!bound)
+              return {};
+            bounds.push_back(bound->span);
+          } while (consume(TokenKind::Plus));
+        if (!expect(TokenKind::Newline, "associated types are requirements, not defaults"))
           return {};
         trait.associatedTypes.push_back(associated->span);
+        trait.associatedBounds.push_back(std::move(bounds));
       } else {
         auto method = parseFunction(true);
         if (!method)
@@ -925,9 +943,15 @@ private:
             typeArguments = specialization->typeArguments;
           } else if (const auto *qualified = std::get_if<FieldExpr>(&node(*left).value)) {
             const auto *owner = std::get_if<NameExpr>(&node(qualified->input).value);
-            if (const auto *specialization = std::get_if<IndexExpr>(&node(qualified->input).value)) {
+            if (const auto *specialization =
+                    std::get_if<IndexExpr>(&node(qualified->input).value)) {
               owner = std::get_if<NameExpr>(&node(specialization->input).value);
               typeArguments = specialization->typeArguments;
+              if (typeArguments.empty()) {
+                error("P035", "enum construction requires type arguments, not index expressions",
+                      node(qualified->input).span);
+                return {};
+              }
             }
             if (!owner) {
               error("P035", "variant construction requires Type.Variant", node(*left).span);

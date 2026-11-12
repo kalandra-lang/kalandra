@@ -285,6 +285,7 @@ struct Parameter {
 struct GenericParameter {
   SourceSpan name;
   std::vector<SourceSpan> bounds;
+  std::string internalName = {}; // Synthesized Self parameters retain original source spans.
 };
 struct Function {
   SourceSpan span;
@@ -328,6 +329,7 @@ struct TraitDeclaration {
   SourceSpan name;
   bool exported = false;
   std::vector<SourceSpan> associatedTypes;
+  std::vector<std::vector<SourceSpan>> associatedBounds;
   std::vector<Function> methods;
 };
 struct TraitImplementation {

@@ -156,6 +156,7 @@ public:
           reexports_.emplace(
               functionKey(import.moduleIndex, name(imported.alias.value_or(imported.name))),
               std::pair{*import.target, name(imported.name)});
+    registerGenericDeclarations();
     registerRecords();
     for (const auto &[key, id] : aliases_) {
       std::unordered_set<std::size_t> active;
@@ -180,6 +181,8 @@ public:
     }
     registerSignatures();
     if (diagnostics_.empty())
+      validateTraitImplementations();
+    if (diagnostics_.empty())
       if (auto invalid = recursiveRecordLayoutError(output_, limits_)) {
         error(invalid->code, invalid->message, invalid->span);
         return {syntax_.source, {}, std::move(diagnostics_)};
@@ -200,7 +203,9 @@ public:
       if (syntax_.editorOnly && ((options_.completion && options_.completion->reached) ||
                                  (options_.signature && options_.signature->snapshot)))
         break;
-      analyzeFunction(i);
+      if (!output_.functions[i].anonymous && !analyzeFunction(i) && diagnostics_.empty())
+        error("S082", "could not resolve the function's generic contract",
+              syntax_.functions[i].name);
     }
     // Transport provenance needs complete immutable bindings, including statements
     // in the parallel/conditional body currently being checked.
@@ -238,6 +243,7 @@ public:
     if (!diagnostics_.empty())
       return {syntax_.source, {}, std::move(diagnostics_)};
     recordImportOrigins();
+    rememberGenericDeclarations();
     for (auto &[span, token] : sourceTokens_)
       output_.sourceTokens.push_back(std::move(token));
     return {syntax_.source, std::move(output_), {}};
@@ -473,6 +479,23 @@ private:
         token.record = value.record;
       }
     }
+    if (genericProofOwner_)
+      for (const auto &parameter : genericProofOwner_->parameters)
+        if (genericParameterLabel(parameter) == name(span)) {
+          token.declaration = parameter.name;
+          token.type.reset();
+          token.record.reset();
+          token.label = "type " + genericParameterLabel(parameter);
+          for (std::size_t i = 0; i < parameter.bounds.size(); ++i)
+            token.label += (i ? " + " : ": ") + name(parameter.bounds[i]);
+        }
+    if (auto generic = genericRecords_.find(key);
+        generic != genericRecords_.end() && token.label.empty()) {
+      const auto &record = syntax_.records[generic->second];
+      token.declaration = record.name;
+      token.label = std::string(record.variants.empty() ? "type " : "enum ") + name(record.name) +
+                    sourceTypeParameters(record.generics);
+    }
     rememberSourceToken(std::move(token));
   }
   void completeTypes(const TypeSyntax &syntax) {
@@ -494,6 +517,16 @@ private:
         if (key.starts_with(prefix))
           names.push_back(key.substr(prefix.size()));
     }
+    const auto prefix = functionKey(syntax_.source->partIndex(site->begin), "");
+    for (const auto &[key, id] : genericRecords_)
+      if (key.starts_with(prefix))
+        names.push_back(key.substr(prefix.size()));
+    for (const auto &[key, id] : traitNames_)
+      if (key.starts_with(prefix))
+        names.push_back(key.substr(prefix.size()));
+    if (genericProofOwner_)
+      for (const auto &parameter : genericProofOwner_->parameters)
+        names.push_back(genericParameterLabel(parameter));
     completeMembers(*site, std::move(names), ScopeNameKind::Type);
   }
   std::optional<ValueType> type(const TypeSyntax &syntax) {
@@ -516,6 +549,42 @@ private:
     return result;
   }
   std::optional<ValueType> resolveType(const TypeSyntax &syntax) {
+    if (genericBindings_ && !syntax.function && !syntax.tensor) {
+      if (auto found = genericBindings_->find(associatedName(syntax));
+          found != genericBindings_->end()) {
+        auto result = found->second;
+        if (!syntax.arguments.empty()) {
+          error("S082", "type parameter cannot take additional type arguments", syntax.span);
+          return {};
+        }
+        if (syntax.array) {
+          if (result.tensor || result.array) {
+            error("S082", "array element type must be a scalar, record or function", syntax.span);
+            return {};
+          }
+          if (isOwnedResource(output_, result)) {
+            error("S081", "owned resources cannot be stored in arrays", syntax.span);
+            return {};
+          }
+          result.array = result.tensor = true;
+          result.shape = {dynamic()};
+        }
+        return result;
+      }
+      if (!syntax.members.empty() && genericBindings_->contains(name(syntax.name))) {
+        error("S083", "associated type is not provided by the declared trait bounds", syntax.span);
+        return {};
+      }
+    }
+    if (!syntax.function && !syntax.tensor) {
+      const auto key = functionKey(syntax_.source->partIndex(syntax.name.begin), name(syntax.name));
+      if (auto found = genericRecords_.find(key); found != genericRecords_.end())
+        return genericNominalType(syntax, found->second);
+      if (!syntax.arguments.empty()) {
+        error("S082", "type does not accept generic arguments", syntax.span);
+        return {};
+      }
+    }
     if (syntax.function) {
       std::vector<ValueType> parameters;
       for (const auto &parameter : syntax.function->parameters) {
@@ -608,9 +677,14 @@ private:
         return result;
       }
     }
-    const auto numeric =
-        syntax.tensor ? (syntax.element ? resolveNumeric(name(*syntax.element)) : std::nullopt)
-                      : resolveNumeric(name(syntax.name));
+    auto numeric = syntax.tensor
+                       ? (syntax.element ? resolveNumeric(name(*syntax.element)) : std::nullopt)
+                       : resolveNumeric(name(syntax.name));
+    if (!numeric && syntax.tensor && syntax.element && genericBindings_)
+      if (auto found = genericBindings_->find(name(*syntax.element));
+          found != genericBindings_->end() && found->second.builtin == BuiltinValue::Numeric &&
+          !found->second.tensor && !found->second.array)
+        numeric = found->second.element;
     if (!numeric ||
         !(syntax.array    ? numericCollectionStorageAvailable(*numeric, NumericTarget::Cpu)
           : syntax.tensor ? numericTensorElementwiseAvailable(*numeric, NumericTarget::Cpu)
@@ -707,6 +781,8 @@ private:
     bool record;
     std::size_t id;
     bool alias = false;
+    bool genericRecord = false;
+    bool trait = false;
   };
   std::optional<ExportBinding> exportedBinding(std::size_t module, const std::string &label,
                                                std::size_t depth = 0) {
@@ -751,9 +827,10 @@ private:
             query.truncated = true;
             break;
           }
-          query.names.push_back({label, binding->record || binding->alias
-                                            ? ScopeNameKind::Type
-                                            : ScopeNameKind::Function});
+          query.names.push_back(
+              {label, binding->record || binding->alias || binding->genericRecord || binding->trait
+                          ? ScopeNameKind::Type
+                          : ScopeNameKind::Function});
         }
         return;
       }
@@ -768,7 +845,11 @@ private:
         if (!target)
           continue; // Invalid graphs are never published.
         ResolvedImport origin{imported.name, imported.alias, {}, {}, {}, import.exported};
-        if (target->alias)
+        if (target->trait)
+          origin.declaration = syntax_.traits[target->id].name;
+        else if (target->genericRecord)
+          origin.declaration = syntax_.records[target->id].name;
+        else if (target->alias)
           origin.declaration = syntax_.records[target->id].name;
         else if (target->record) {
           origin.declaration = output_.records[target->id].declaration;
@@ -776,6 +857,21 @@ private:
         } else {
           origin.declaration = output_.functions[target->id].declaration;
           origin.function = target->id;
+        }
+        if (target->trait || target->genericRecord) {
+          for (auto site : {std::optional{imported.name}, imported.alias}) {
+            if (!site)
+              continue;
+            ResolvedSourceToken token{*site, origin.declaration, {}, {}};
+            if (target->trait)
+              token.label = "trait " + name(syntax_.traits[target->id].name);
+            else {
+              const auto &record = syntax_.records[target->id];
+              token.label = std::string(record.variants.empty() ? "type " : "enum ") +
+                            name(record.name) + sourceTypeParameters(record.generics);
+            }
+            rememberSourceToken(std::move(token));
+          }
         }
         output_.imports.push_back(std::move(origin));
       }
@@ -908,9 +1004,31 @@ private:
         names.push_back(key.substr(prefix.size()));
     completeMembers(site, std::move(names), ScopeNameKind::Type);
   }
+  std::string qualifiedErrorName(SourceSpan member) const {
+    auto label = name(member);
+    std::erase_if(label, [](char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; });
+    return label;
+  }
   std::optional<std::size_t> resolveError(SourceSpan member,
                                           std::unordered_set<std::size_t> &active) {
     completeErrorTypes(member, active);
+    if (genericBindings_)
+      if (auto found = genericBindings_->find(qualifiedErrorName(member));
+          found != genericBindings_->end()) {
+        const auto &value = found->second;
+        if (value.tensor || value.array || value.task || value.fallible || value.device) {
+          error("S072", "generic error channels require a declared error family", member);
+          return {};
+        }
+        if (value.builtin == BuiltinValue::TaskError)
+          return taskFamily();
+        if (value.record && output_.records[*value.record].error) {
+          rememberTypeUse(member, value);
+          return *value.record;
+        }
+        error("S072", "generic error channels require a declared error family", member);
+        return {};
+      }
     if (name(member) == "TaskError") {
       const auto id = taskFamily();
       ValueType value;
@@ -939,6 +1057,8 @@ private:
   void registerRecords() {
     for (std::size_t declaration = 0; declaration < syntax_.records.size(); ++declaration) {
       const auto &record = syntax_.records[declaration];
+      if (!record.generics.empty())
+        continue;
       const auto label = name(record.name);
       if (reservedControl(label) || resolveNumeric(label) || label == "bool" || label == "unit" ||
           label == "Tensor" || label == "TaskError" || label == "FaultKind" || label == "String" ||
@@ -947,7 +1067,8 @@ private:
         continue;
       }
       const auto key = functionKey(syntax_.source->partIndex(record.name.begin), label);
-      if (records_.contains(key) || aliases_.contains(key)) {
+      if (records_.contains(key) || aliases_.contains(key) || genericRecords_.contains(key) ||
+          traitNames_.contains(key)) {
         error("S068", "duplicate type '" + label + "'", record.name);
         continue;
       }
@@ -1020,7 +1141,7 @@ private:
         continue;
       for (const auto &imported : import.names) {
         const auto found = exportedBinding(*import.target, name(imported.name));
-        if (!found || (!found->record && !found->alias))
+        if (!found || (!found->record && !found->alias && !found->genericRecord && !found->trait))
           continue;
         const auto binding = imported.alias.value_or(imported.name);
         const auto label = name(binding);
@@ -1031,14 +1152,20 @@ private:
           continue;
         }
         const auto key = functionKey(import.moduleIndex, label);
-        if (records_.contains(key) || aliases_.contains(key))
+        if (records_.contains(key) || aliases_.contains(key) || genericRecords_.contains(key) ||
+            traitNames_.contains(key))
           error("S068", "duplicate module type binding '" + label + "'", binding);
+        else if (found->genericRecord)
+          genericRecords_.emplace(key, found->id);
+        else if (found->trait)
+          traitNames_.emplace(key, found->id);
         else if (found->alias)
           aliases_.emplace(key, found->id);
         else
           records_.emplace(key, found->id);
       }
     }
+    registerTraitImplementations();
     // Ordinary fields resolve predeclared identities without expanding children.
     // Error aliases reserve identities before copying their completed families.
     // No references into records survive lookup, which can append union records.
@@ -1074,7 +1201,9 @@ private:
     return valid;
   }
   void fillRecord(std::size_t id) {
-    const auto &record = syntax_.records[recordDeclarations_[id]];
+    GenericScope scope(*this, recordBindings_.contains(id) ? recordBindings_.at(id) : nullptr,
+                       proofOwnerForRecord(id));
+    const auto record = syntax_.records[recordDeclarations_[id]];
     if (!record.variants.empty()) {
       ValueType tag;
       tag.element = NumericType::Int64;
@@ -1150,29 +1279,60 @@ private:
       output_.records[id].fields.push_back({label, *fieldType, field.name});
     }
   }
-  void registerSignatures() {
-    for (FunctionId id = 0; id < syntax_.functions.size(); ++id) {
-      const auto &function = syntax_.functions[id];
-      auto &target = output_.functions[id];
-      target.name = name(function.name);
-      target.declaration = function.name;
-      if (records_.contains(functionKey(function.moduleIndex, target.name)))
-        error("S068", "function conflicts with nominal type name", function.name);
-      if (target.name == "bool" || target.name == "unit" || target.name == "String" ||
-          reservedControl(target.name))
+  void registerSignatures(FunctionId start = 0, bool imports = true) {
+    const auto end = syntax_.functions.size();
+    for (FunctionId id = start; id < end; ++id) {
+      if (output_.functions[id].anonymous)
+        continue;
+      const auto function = syntax_.functions[id];
+      GenericScope scope(*this, functionBindings_.contains(id) ? functionBindings_.at(id) : nullptr,
+                         proofOwnerForFunction(id));
+      output_.functions[id].name = functionName(function);
+      output_.functions[id].declaration = function.name;
+      if (!function.generics.empty()) {
+        auto signature = sourceCallableSignature(function);
+        if (implementationMethodOwners_.contains(id))
+          signature.typeParameters.clear();
+        output_.functions[id].sourceSignature =
+            std::make_shared<const SourceCallableSignature>(std::move(signature));
+      } else if (auto origin = genericOrigins_.find(id); origin != genericOrigins_.end())
+        output_.functions[id].sourceSignature = output_.functions[origin->second].sourceSignature;
+      const auto declarationKey = functionKey(function.moduleIndex, output_.functions[id].name);
+      if (records_.contains(declarationKey) || genericRecords_.contains(declarationKey) ||
+          traitNames_.contains(declarationKey))
+        error("S068", "function conflicts with nominal type or trait name", function.name);
+      if (output_.functions[id].name == "bool" || output_.functions[id].name == "unit" ||
+          output_.functions[id].name == "String" || reservedControl(output_.functions[id].name))
         error("S056", "reserved builtin/control-flow name", function.name);
-      if (resolveNumeric(target.name)) {
+      if (resolveNumeric(output_.functions[id].name)) {
         error("S055", "numeric type names are reserved conversion functions", function.name);
         signatures_[id] = false;
       }
-      if (options_.placement && (target.name == "devices" || target.name == "transfer" ||
-                                 target.name == "devices.cpu" || target.name == "devices.gpu")) {
+      if (options_.placement &&
+          (output_.functions[id].name == "devices" || output_.functions[id].name == "transfer" ||
+           output_.functions[id].name == "devices.cpu" ||
+           output_.functions[id].name == "devices.gpu")) {
         error("S049", "reserved placement builtin name", function.name);
         signatures_[id] = false;
       }
-      if (!functions_.emplace(functionKey(function.moduleIndex, target.name), id).second) {
-        error("S004", "duplicate function '" + target.name + "'", function.name);
+      if (!functions_.emplace(functionKey(function.moduleIndex, output_.functions[id].name), id)
+               .second) {
+        error("S004", "duplicate function '" + output_.functions[id].name + "'", function.name);
         signatures_[id] = false;
+      }
+      if (!function.generics.empty()) {
+        output_.functions[id].compileTimeOnly = true;
+        ValueType unit;
+        unit.builtin = BuiltinValue::Unit;
+        output_.functions[id].declaredResult = output_.functions[id].resultType = unit;
+        Frame frame{id, {}, 0, std::make_shared<TaskChecks>(), {}, {}, {}, 0, false};
+        auto result = add(frame, unit, function.span, BoolLiteral{false});
+        if (result) {
+          output_.functions[id].result = *result;
+          output_.functions[id].body.push_back({function.span, {}, *result});
+        }
+        states_[id] = State::Complete;
+        continue;
       }
       std::unordered_map<std::string, bool> parameters;
       for (const auto &parameter : function.parameters) {
@@ -1193,11 +1353,12 @@ private:
                 parameter.name);
           signatures_[id] = false;
         }
-        target.parameters.push_back(output_.symbols.size());
+        output_.functions[id].parameters.push_back(output_.symbols.size());
         output_.symbols.push_back(
             {parameterName, std::move(*parameterType), parameter.name, id, true});
         output_.symbols.back().mutableAccess = parameter.mutableAccess;
         output_.symbols.back().owned = parameter.owned;
+        recordGenericParameter(id, output_.functions[id].parameters.back(), parameter.type);
         if (parameter.owned && !isOwnedResource(output_, output_.symbols.back().type)) {
           error("S081", "own parameters require an owned resource type", parameter.name);
           signatures_[id] = false;
@@ -1224,17 +1385,24 @@ private:
         }
       }
       if (function.result) {
-        target.declaredResult = type(*function.result);
-        if (!target.declaredResult)
+        output_.functions[id].declaredResult = type(*function.result);
+        if (!output_.functions[id].declaredResult)
           signatures_[id] = false;
         else {
-          target.declaredResult->fallible = function.taskError;
-          target.declaredResult->errorRecord = errorFamilies_[id];
+          output_.functions[id].declaredResult->fallible = function.taskError;
+          output_.functions[id].declaredResult->errorRecord = errorFamilies_[id];
+          if (genericOrigins_.contains(id))
+            genericReturnTerms_[id] =
+                instantiateGenericTerm(*function.result, *output_.functions[id].declaredResult,
+                                       genericTermEnvironment(id));
         }
       }
       if (function.moduleIndex)
-        target.name = "__module_" + std::to_string(function.moduleIndex) + "::" + target.name;
+        output_.functions[id].name =
+            "__module_" + std::to_string(function.moduleIndex) + "::" + output_.functions[id].name;
     }
+    if (!imports)
+      return;
     for (const auto &import : syntax_.imports) {
       if (!import.target) {
         error("S067", "local imports require the file-module loader", import.path);
@@ -1244,7 +1412,7 @@ private:
         const auto binding = imported.alias.value_or(imported.name);
         const auto local = name(binding);
         const auto found = exportedBinding(*import.target, name(imported.name));
-        if (found && (found->record || found->alias))
+        if (found && (found->record || found->alias || found->genericRecord || found->trait))
           continue;
         if (records_.contains(functionKey(import.moduleIndex, local))) {
           error("S068", "import conflicts with record type name", binding);
@@ -1927,6 +2095,9 @@ private:
       states_[id] = State::Failed;
       return false;
     }
+    GenericScope genericScope(*this,
+                              functionBindings_.contains(id) ? functionBindings_.at(id) : nullptr,
+                              proofOwnerForFunction(id));
     if (functionDepth_ >= limits_.maxDepth) {
       error("S007", "function analysis depth limit exceeded", syntax_.functions[id].name);
       states_[id] = State::Failed;
@@ -1939,17 +2110,17 @@ private:
       frame.locals.emplace(output_.symbols[parameter].name, parameter);
     const auto initialErrors = errorCount_;
     bool success = true;
-    const auto &body = syntax_.functions[id].body;
+    const auto body = syntax_.functions[id].body;
     prepareBindings(frame, body);
     std::vector<TypedStatement> statements;
     std::unordered_set<std::string> parameters;
     for (auto parameter : output_.functions[id].parameters)
       parameters.insert(output_.symbols[parameter].name);
     output_.functions[id].compileTimeOnly = standardFormat(id);
-    auto result = standardFormat(id) ? add(frame, *output_.functions[id].declaredResult,
-                                           syntax_.functions[id].span, StringLiteral{std::string{}})
-                  : standardBuffer(id)            ? bufferBody(frame, id, *standardBuffer(id))
-                  : standardTime(id)              ? timeBody(frame, id, *standardTime(id))
+    auto result = standardFormat(id)   ? add(frame, *output_.functions[id].declaredResult,
+                                             syntax_.functions[id].span, StringLiteral{std::string{}})
+                  : standardBuffer(id) ? bufferBody(frame, id, *standardBuffer(id))
+                  : standardTime(id)   ? timeBody(frame, id, *standardTime(id))
                   : standardEnvironmentLookup(id) ? environmentBody(frame, id)
                   : standardPath(id)              ? pathBody(frame, id, *standardPath(id))
                   : standardParse(id)             ? parseBody(frame, id, *standardParse(id))
@@ -2015,7 +2186,8 @@ private:
     }
     if constexpr (std::is_same_v<Operation, StringLiteral>) {
       std::uint64_t count = 0;
-      validateUtf8(operation.value, [] { return true; }, &count);
+      validateUtf8(
+          operation.value, [] { return true; }, &count);
       stringCounts_[id] = count;
     } else if constexpr (std::is_same_v<Operation, StringSlice>) {
       auto a = intConstants_.find(operation.start), b = intConstants_.find(operation.end);
@@ -2035,6 +2207,7 @@ private:
     }
     output_.expressions.push_back({span, std::move(type), std::move(operation)});
     output_.functions[frame.function].expressions.push_back(id);
+    recordGenericValue(frame, id);
     return id;
   }
   std::optional<ValueId> conform(Frame &frame, ValueId value, const ValueType &expected,
@@ -2369,6 +2542,9 @@ private:
     output_.symbols.push_back({identifier, type, span, frame.function, true,
                                capture.definition.value_or(capture.declaration)});
     output_.symbols.back().reassignable = privateCopy;
+    if (auto provenance = genericSymbolTerms_.find(*origin);
+        provenance != genericSymbolTerms_.end())
+      genericSymbolTerms_[symbol] = provenance->second;
     output_.functions[frame.function].parameters.push_back(symbol);
     frame.closure->captures.emplace(identifier, symbol);
     frame.closure->origins.push_back(*origin);
@@ -2383,7 +2559,8 @@ private:
       error("S071", "expected an unshadowed enum type name", family);
       return {};
     }
-    const auto &record = output_.records[owner->second];
+    const auto ownerRecord = owner->second;
+    const auto record = output_.records[ownerRecord];
     if (record.errorMembers.empty() && completing(variant)) {
       std::vector<std::string> names;
       for (const auto &item : record.variants)
@@ -2396,9 +2573,9 @@ private:
       error("S071", "unknown enum variant '" + name(variant) + "'", variant);
       return {};
     }
-    rememberTypeUse(family, recordType(owner->second));
+    rememberTypeUse(family, recordType(ownerRecord));
     const auto [original, originalVariant] = errorOrigin(
-        output_, owner->second, static_cast<std::size_t>(found - record.variants.begin()));
+        output_, ownerRecord, static_cast<std::size_t>(found - record.variants.begin()));
     const auto variantDeclaration = output_.records[original].variants[originalVariant].declaration;
     rememberSourceToken({variant,
                          variantDeclaration.end > variantDeclaration.begin
@@ -2432,13 +2609,19 @@ private:
       error("S071", "variant construction requires every named payload field", span);
       return {};
     }
-    return add(frame, recordType(owner->second), span,
+    return add(frame, recordType(ownerRecord), span,
                RecordValue{{},
                            std::move(values),
                            static_cast<std::size_t>(found - record.variants.begin())});
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const RecordExpr &record,
-                               const std::optional<ValueType> &) {
+                               const std::optional<ValueType> &expected) {
+    if (!record.base)
+      if (auto found =
+              genericRecords_.find(functionKey(frame, name(record.family.value_or(record.name))));
+          found != genericRecords_.end() &&
+          !lookupSymbol(frame, record.family.value_or(record.name)))
+        return genericRecordValue(frame, span, record, expected, found->second);
     if (record.family)
       return variantValue(frame, span, *record.family, record.name, record.fields);
     std::optional<ValueId> base;
@@ -2474,7 +2657,7 @@ private:
             "owned host resources are opaque and require their standard-module constructors", span);
       return {};
     }
-    const auto &declaration = output_.records[*result.record];
+    const auto declaration = output_.records[*result.record];
     if (!declaration.variants.empty()) {
       error("S071",
             "enum construction requires Type.Variant; enum updates require an explicit match",
@@ -2513,8 +2696,40 @@ private:
     return add(frame, result, span, RecordValue{base, std::move(values)});
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const FieldExpr &read,
-                               const std::optional<ValueType> &) {
+                               const std::optional<ValueType> &expected) {
+    if (const auto *owner = std::get_if<NameExpr>(&syntax_.expressions[read.input].value))
+      if (!lookupSymbol(frame, owner->name))
+        if (auto trait = traitNames_.find(functionKey(frame, name(owner->name)));
+            trait != traitNames_.end()) {
+          completeTraitMember(owner->name, read.field, trait->second);
+          error("S083", "trait functions require a qualified call; use Trait[Type].function(...)",
+                span);
+          return {};
+        }
+    const auto genericFamily = [&](SourceSpan family,
+                                   std::vector<TypeSyntax> arguments) -> std::optional<ValueId> {
+      auto found = genericRecords_.find(functionKey(frame, name(family)));
+      if (found == genericRecords_.end() || lookupSymbol(frame, family))
+        return {};
+      return genericRecordValue(frame, span,
+                                RecordExpr{{}, read.field, {}, family, std::move(arguments)},
+                                expected, found->second);
+    };
+    if (const auto *indexed = std::get_if<IndexExpr>(&syntax_.expressions[read.input].value))
+      if (const auto *family = std::get_if<NameExpr>(&syntax_.expressions[indexed->input].value))
+        if (genericRecords_.contains(functionKey(frame, name(family->name))) &&
+            !lookupSymbol(frame, family->name)) {
+          if (indexed->typeArguments.empty()) {
+            error("S082", "enum specialization requires type arguments, not index expressions",
+                  span);
+            return {};
+          }
+          return genericFamily(family->name, indexed->typeArguments);
+        }
     if (const auto *family = std::get_if<NameExpr>(&syntax_.expressions[read.input].value)) {
+      if (genericRecords_.contains(functionKey(frame, name(family->name))) &&
+          !lookupSymbol(frame, family->name))
+        return genericFamily(family->name, {});
       const auto owner = records_.find(functionKey(frame, name(family->name)));
       if (owner != records_.end() && !output_.records[owner->second].variants.empty() &&
           !lookupSymbol(frame, family->name))
@@ -2567,6 +2782,7 @@ private:
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const LambdaExpr &lambda,
                                const std::optional<ValueType> &expected) {
+    const auto expectedGenericSignature = genericExpectedTerm_;
     const auto context =
         expected && expected->builtin == BuiltinValue::Function && !expected->tensor
             ? expected->callable
@@ -2639,6 +2855,12 @@ private:
     output_.functions[id].anonymous = true;
     output_.functions[id].declaration = span;
     output_.functions[id].declaredResult = resultContext;
+    if (genericContext(frame) && resultContext) {
+      if (lambda.result)
+        genericReturnTerms_[id] = sourceGenericTerm(frame, *lambda.result, *resultContext);
+      else if (expectedGenericSignature && !expectedGenericSignature->arguments.empty())
+        genericReturnTerms_[id] = expectedGenericSignature->arguments.back();
+    }
     Frame nested{id, {}, frame.depth, std::make_shared<TaskChecks>(), {}, {}, {}, 0, false};
     nested.closure = std::make_shared<ClosureScope>(ClosureScope{&frame, {}, {}});
     for (std::size_t i = 0; i < parameters.size(); ++i) {
@@ -2651,6 +2873,12 @@ private:
       output_.symbols.push_back({label, parameters[i], lambda.parameters[i].name, id, true});
       output_.symbols.back().mutableAccess = lambda.parameters[i].mutableAccess;
       output_.symbols.back().owned = lambda.parameters[i].owned;
+      if (lambda.parameters[i].annotation && genericContext(frame))
+        genericSymbolTerms_[symbol] =
+            sourceGenericTerm(frame, *lambda.parameters[i].annotation, parameters[i]);
+      else if (genericContext(frame) && expectedGenericSignature &&
+               expectedGenericSignature->arguments.size() == lambda.parameters.size() + 1)
+        genericSymbolTerms_[symbol] = expectedGenericSignature->arguments[i];
       output_.functions[id].parameters.push_back(symbol);
       nested.locals.emplace(label, symbol);
     }
@@ -2735,6 +2963,10 @@ private:
     }
     if (auto found = functions_.find(functionKey(frame, identifier)); found != functions_.end()) {
       const auto id = found->second;
+      if (!syntax_.functions[id].generics.empty()) {
+        error("S082", "generic function value requires explicit type arguments", read.name);
+        return {};
+      }
       if (standardFormat(id)) {
         error("S080", "format is a compile-time call form, not a function value", read.name);
         return {};
@@ -2960,10 +3192,57 @@ private:
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const CallExpr &call,
                                const std::optional<ValueType> &expected) {
+    return invokeSyntaxCall(frame, span, call, expected);
+  }
+  std::optional<ValueId> invokeSyntaxCall(Frame &frame, SourceSpan span, const CallExpr &call,
+                                          const std::optional<ValueType> &expected,
+                                          std::optional<ExprId> selection = {},
+                                          std::optional<ValueId> *checkedSelection = nullptr,
+                                          bool spawned = false) {
     const auto *callee = std::get_if<NameExpr>(&syntax_.expressions[call.callee].value);
-    if (!callee)
+    if (!callee) {
+      if (const auto *method = std::get_if<FieldExpr>(&syntax_.expressions[call.callee].value)) {
+        const NameExpr *owner = std::get_if<NameExpr>(&syntax_.expressions[method->input].value);
+        std::vector<TypeSyntax> types;
+        if (const auto *indexed =
+                std::get_if<IndexExpr>(&syntax_.expressions[method->input].value)) {
+          owner = std::get_if<NameExpr>(&syntax_.expressions[indexed->input].value);
+          types = indexed->typeArguments;
+        }
+        if (owner && !lookupSymbol(frame, owner->name) &&
+            traitNames_.contains(functionKey(frame, name(owner->name)))) {
+          if (std::holds_alternative<IndexExpr>(syntax_.expressions[method->input].value) &&
+              types.empty()) {
+            error("S082", "trait specialization requires a type argument, not an index expression",
+                  span);
+            return {};
+          }
+          return invokeTrait(frame, span, owner->name, method->field, types, call.arguments,
+                             expected, selection, checkedSelection, spawned);
+        }
+      }
+      if (const auto *indexed = std::get_if<IndexExpr>(&syntax_.expressions[call.callee].value))
+        if (const auto *named = std::get_if<NameExpr>(&syntax_.expressions[indexed->input].value))
+          if (!lookupSymbol(frame, named->name))
+            if (auto found = functions_.find(functionKey(frame, name(named->name)));
+                found != functions_.end() && !syntax_.functions[found->second].generics.empty()) {
+              if (indexed->typeArguments.empty()) {
+                error("S082",
+                      "generic specialization requires type arguments, not index expressions",
+                      span);
+                return {};
+              }
+              return invokeGeneric(frame, span, named->name, found->second, indexed->typeArguments,
+                                   call.arguments, expected, selection, checkedSelection, spawned);
+            }
+      if (selection) {
+        error("S074", "placed calls require a statically specialized function", span);
+        return {};
+      }
       return invokeValue(frame, span, call.callee, call.arguments);
-    return invoke(frame, span, callee->name, call.arguments, expected);
+    }
+    return invoke(frame, span, callee->name, call.arguments, expected, selection, checkedSelection,
+                  spawned);
   }
   std::optional<ValueId> invokeValue(Frame &frame, SourceSpan span, ExprId callee,
                                      const std::vector<ExprId> &arguments) {
@@ -3380,6 +3659,12 @@ private:
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const IndexExpr &read,
                                const std::optional<ValueType> &expected) {
+    if (const auto *named = std::get_if<NameExpr>(&syntax_.expressions[read.input].value))
+      if (!lookupSymbol(frame, named->name))
+        if (auto found = functions_.find(functionKey(frame, name(named->name)));
+            found != functions_.end() && !syntax_.functions[found->second].generics.empty())
+          return specializedFunctionValue(frame, span, found->second, read.typeArguments,
+                                          named->name);
     std::optional<ValueType> context;
     if (expected && expected->builtin == BuiltinValue::Numeric && !expected->tensor &&
         !expected->task && !expected->fallible && !expected->device &&
@@ -3567,17 +3852,8 @@ private:
     std::optional<ValueId> value;
     if (operation.prefix == TaskPrefix::Spawn) {
       const auto &call = std::get<CallExpr>(syntax_.expressions[operation.operand].value);
-      const auto *callee = std::get_if<NameExpr>(&syntax_.expressions[call.callee].value);
-      if (!callee) {
-        if (operation.placement) {
-          error("S074", "indirect spawn requires ordinary CPU execution", span);
-          return {};
-        }
-        value = invokeValue(frame, syntax_.expressions[operation.operand].span, call.callee,
-                            call.arguments);
-      } else
-        value = invoke(frame, syntax_.expressions[operation.operand].span, callee->name,
-                       call.arguments, {}, operation.placement, &placement, true);
+      value = invokeSyntaxCall(frame, syntax_.expressions[operation.operand].span, call, {},
+                               operation.placement, &placement, true);
     } else
       value = expression(frame, operation.operand, context);
     if (!value)
@@ -3701,6 +3977,8 @@ private:
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
           stringBindings_[*symbol] = known->second;
       }
+      if (symbol)
+        recordGenericBinding(frame, *symbol, *value, statement.annotation);
       statements.push_back({statement.span, symbol, *value});
       result = value;
     }
@@ -3751,6 +4029,17 @@ private:
       error("S079", "return requires an enclosing function", span);
       return {};
     }
+    std::optional<GenericTerm> returnTerm;
+    if (genericContext(frame)) {
+      if (frame.returns->handler)
+        returnTerm = genericExpectedTerm_;
+      else if (const auto declared = genericReturnTerms_.find(frame.function);
+               declared != genericReturnTerms_.end())
+        returnTerm = declared->second;
+      else if (frame.returns->context)
+        returnTerm = concreteGenericTerm(*frame.returns->context);
+    }
+    GenericExpectedScope expectedReturn(*this, std::move(returnTerm));
     auto &scope = *frame.returns;
     auto value = exit.value ? expression(frame, *exit.value, scope.context)
                             : infer(frame, span, UnitExpr{}, scope.context);
@@ -4108,6 +4397,7 @@ private:
                                  bindingType(node(value).type), label.value_or(span),
                                  frame.function, false});
       output_.symbols.back().reassignable = mutableCell;
+      recordGenericBinding(frame, symbol, value);
       into.push_back({span, symbol, value});
       if (label) {
         nested.locals[name(*label)] = symbol;
@@ -4329,6 +4619,17 @@ private:
         if (!expected)
           return {};
       }
+      auto expectedTerm = genericExpectedTerm_;
+      if (genericContext(frame) && expected && statement.binding) {
+        if (statement.annotation)
+          expectedTerm = sourceGenericTerm(frame, *statement.annotation, *expected);
+        else if (auto previous = frame.locals.find(name(*statement.binding));
+                 previous != frame.locals.end() && genericSymbolTerms_.contains(previous->second))
+          expectedTerm = genericSymbolTerms_.at(previous->second);
+        else
+          expectedTerm = concreteGenericTerm(*expected);
+      }
+      GenericExpectedScope expectedBinding(*this, std::move(expectedTerm));
       auto value =
           statementValue(frame, statement, expected, !statementBody && index + 1 == body.size());
       if (syntax_.editorOnly && options_.signature && options_.signature->snapshot)
@@ -4367,6 +4668,8 @@ private:
             floatBindings_.insert_or_assign(*symbol, known->second);
         }
       }
+      if (symbol)
+        recordGenericBinding(frame, *symbol, *value, statement.annotation);
       statements.push_back({statement.span, symbol, *value});
       result = value;
     }
@@ -4407,6 +4710,9 @@ private:
     const auto symbol = output_.symbols.size();
     output_.symbols.push_back(
         {name(handler.parameter), errorType, handler.parameter, frame.function, true});
+    if (genericContext(frame))
+      if (auto failure = genericTerm(*operand).failure)
+        genericSymbolTerms_[symbol] = *failure;
     nested.locals[name(handler.parameter)] = symbol;
     // A handler is a lexical function boundary. Its scalar/array rebindings
     // update private value snapshots, never the caller's symbol storage.
@@ -4435,6 +4741,7 @@ private:
                                  captured.definition.value_or(captured.declaration)});
       output_.symbols.back().reassignable = true;
       nested.locals[label] = local;
+      recordGenericBinding(frame, local, *value);
       snapshots.push_back({span, local, *value});
     }
     std::vector<TypedStatement> body;
@@ -4712,7 +5019,8 @@ private:
         } else {
           auto found = std::ranges::find(names, name(*arm.variant));
           const bool sameFamily =
-              enumeration ? (owner != records_.end() && owner->second == *subjectType.record &&
+              enumeration ? (((owner != records_.end() && owner->second == *subjectType.record) ||
+                              sameGenericFamily(frame, *arm.family, *subjectType.record)) &&
                              !lookupSymbol(frame, *arm.family))
                           : name(*arm.family) == family;
           if (sameFamily && !fallback && completing(*arm.variant)) {
@@ -4874,6 +5182,7 @@ private:
         const auto symbol = output_.symbols.size();
         output_.symbols.push_back({binding, fieldType, pattern.binding, frame.function, false});
         branch.locals[binding] = symbol;
+        recordGenericBinding(frame, symbol, *value);
         statements.push_back({fieldSpan, symbol, *value});
       }
       auto value = suite(branch, arm.body, context, statements, fieldBindings);
@@ -5577,6 +5886,16 @@ private:
     const auto parameter = output_.symbols.size();
     output_.symbols.push_back(
         {name(lambda.parameters[0].name), element, lambda.parameters[0].name, id, true});
+    if (genericContext(frame)) {
+      if (lambda.parameters[0].annotation)
+        genericSymbolTerms_[parameter] =
+            sourceGenericTerm(frame, *lambda.parameters[0].annotation, element);
+      else if (!generate) {
+        const auto source = genericTerm(*input);
+        if (!source.arguments.empty())
+          genericSymbolTerms_[parameter] = source.arguments[0];
+      }
+    }
     output_.functions[id].parameters.push_back(parameter);
     Frame nested{id, {}, frame.depth, std::make_shared<TaskChecks>(), {}, {}, {}, 0, false};
     nested.locals.emplace(name(lambda.parameters[0].name), parameter);
@@ -5684,11 +6003,21 @@ private:
       output_.functions[id].declaration = span;
       Frame helper{};
       helper.function = id;
+      if (genericContext(frame))
+        genericHelperOwners_[id] = genericRoot(frame);
       std::vector<ValueId> reads;
       for (const auto &parameter : {targetType.callable->parameters[0], targetType}) {
         const auto symbol = output_.symbols.size();
         output_.symbols.push_back({"argument", parameter, span, id, true});
         output_.functions[id].parameters.push_back(symbol);
+        if (genericContext(frame)) {
+          if (reads.empty()) {
+            const auto source = genericTerm(*input);
+            if (!generate && !source.arguments.empty())
+              genericSymbolTerms_[symbol] = source.arguments[0];
+          } else
+            genericSymbolTerms_[symbol] = genericTerm(*target);
+        }
         auto read = add(helper, parameter, span, SymbolRead{symbol});
         if (!read)
           return {};
@@ -5955,14 +6284,17 @@ private:
     }
     return result;
   }
-  std::optional<ValueId>
-  invoke(Frame &frame, SourceSpan span, SourceSpan calleeSpan, const std::vector<ExprId> &arguments,
-         const std::optional<ValueType> &expected, std::optional<ExprId> selection = {},
-         std::optional<ValueId> *checkedSelection = nullptr, bool spawned = false) {
+  std::optional<ValueId> invoke(Frame &frame, SourceSpan span, SourceSpan calleeSpan,
+                                const std::vector<ExprId> &arguments,
+                                const std::optional<ValueType> &expected,
+                                std::optional<ExprId> selection = {},
+                                std::optional<ValueId> *checkedSelection = nullptr,
+                                bool spawned = false, std::optional<FunctionId> concreteTarget = {},
+                                std::optional<std::vector<ValueId>> concreteArguments = {}) {
     completeDeviceSelector(frame, calleeSpan);
     completeScope(frame, calleeSpan, true, !spawned && !selection);
     const auto callee = name(calleeSpan);
-    if (auto symbol = lookupSymbol(frame, calleeSpan)) {
+    if (auto symbol = concreteTarget ? std::nullopt : lookupSymbol(frame, calleeSpan)) {
       if (output_.symbols[*symbol].type.builtin == BuiltinValue::Function) {
         if (selection) {
           error("S074", "indirect spawn requires ordinary CPU execution", span);
@@ -5985,7 +6317,7 @@ private:
       return placementBuiltin(frame, span, callee, arguments);
     }
     auto found = functions_.find(functionKey(frame, callee));
-    if (found == functions_.end()) {
+    if (!concreteTarget && found == functions_.end()) {
       if (selection) {
         error("S037", "placed spawn requires a statically named function", span);
         return {};
@@ -6066,7 +6398,10 @@ private:
       error("S031", "unknown function '" + callee + "'", calleeSpan);
       return {};
     }
-    const auto id = found->second;
+    const auto id = concreteTarget.value_or(found == functions_.end() ? 0 : found->second);
+    if (!concreteTarget && !syntax_.functions[id].generics.empty())
+      return invokeGeneric(frame, span, calleeSpan, id, {}, arguments, expected, selection,
+                           checkedSelection, spawned);
     if (auto action = standardBuffer(id))
       return bufferCall(frame, id, *action, span, arguments, spawned, bool(selection));
     if (auto action = standardFile(id))
@@ -6141,14 +6476,26 @@ private:
     }
     if (!analyzeFunction(id))
       return {};
-    std::vector<ValueId> operands;
-    for (std::size_t i = 0; i < arguments.size(); ++i) {
+    std::vector<ValueId> operands = concreteArguments.value_or(std::vector<ValueId>{});
+    for (std::size_t i = 0; !concreteArguments && i < arguments.size(); ++i) {
       const auto expectedType = output_.symbols[output_.functions[id].parameters[i]].type;
+      GenericExpectedScope expectedTerm(
+          *this,
+          genericContext(frame) ? std::optional{concreteGenericTerm(expectedType)} : std::nullopt);
       auto argument = expression(frame, arguments[i], expectedType, options_.placement && spawned);
       if (!argument)
         return {};
       operands.push_back(*argument);
     }
+    if (concreteArguments)
+      for (std::size_t i = 0; i < operands.size(); ++i) {
+        auto value =
+            conform(frame, operands[i], output_.symbols[output_.functions[id].parameters[i]].type,
+                    syntax_.expressions[arguments[i]].span, options_.placement && spawned);
+        if (!value)
+          return {};
+        operands[i] = *value;
+      }
     std::optional<std::uint32_t> device;
     if (selection) {
       if (literal_[*selection]) {
@@ -6225,6 +6572,7 @@ private:
       return {};
     return add(frame, std::move(resultType), span, FunctionCall{id, std::move(operands)});
   }
+#include "GenericChecking.h"
   std::size_t nextLoop_ = 1;
   Module syntax_;
   SemanticLimits limits_;

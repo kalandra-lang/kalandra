@@ -58,14 +58,15 @@ int main() {
     hover(code, code.find(":i64") + 1, "i64: i64");
     require(!lsp::definition(syntax(code), "types.k", code.find(":i64") + 1),
             "invented builtin declaration");
-    const std::string nested = "type Point:\n  x:i64\nfn apply(callback:fn(Point)->Point, "
-                               "points:[Point])->Point:\n  return callback(points[0])\nfn main():\n  return 0\n";
+    const std::string nested =
+        "type Point:\n  x:i64\nfn apply(callback:fn(Point)->Point, "
+        "points:[Point])->Point:\n  return callback(points[0])\nfn main():\n  return 0\n";
     target = lsp::definition(syntax(nested), "types.k", nested.find("Point"));
     require(target.has_value(), "missing nested fixture type");
     refs = lsp::references(syntax(nested), *target, false);
     require(refs && refs->size() == 4, "nested callable/array/result annotations lost");
-    const std::string tensor =
-        "fn scale(values:Tensor[f32,?])->Tensor[f32,?]:\n  return values*2\nfn main():\n  return 0\n";
+    const std::string tensor = "fn scale(values:Tensor[f32,?])->Tensor[f32,?]:\n  return "
+                               "values*2\nfn main():\n  return 0\n";
     hover(tensor, tensor.find("f32"), "f32: f32");
     require(lsp::hoverInfo(syntax(tensor), "types.k", tensor.find("Tensor")).has_value(),
             "missing tensor annotation hover");
@@ -82,6 +83,25 @@ int main() {
     const std::string invalid = "type Point:\n  x:i64\nfn main():\n  return Point {missing:1}\n";
     require(!lsp::definition(syntax(invalid), "types.k", invalid.find("missing")),
             "invalid constructor leaked metadata");
+    const std::string generic =
+        "type Box[T]:\n  value:T\nfn identity[T](value:T)->T:\n  return value\n"
+        "fn main()->i64:\n  b:Box[i64]=Box {value:identity[i64](42)}\n"
+        "  f=identity[i64]\n  return f(b.value)\n";
+    hover(generic, generic.find("identity"), "fn identity[T](value: T) -> T");
+    hover(generic, generic.find("identity[i64]"), "fn identity[T](value: T) -> T");
+    hover(generic, generic.rfind("identity[i64]"), "fn identity[T](value: T) -> T");
+    definition(generic, generic.find("identity[i64]"), generic.find("identity"));
+    definition(generic, generic.rfind("identity[i64]"), generic.find("identity"));
+    hover(generic, generic.find("Box[i64]"), "type Box[T]");
+    definition(generic, generic.find("Box[i64]"), generic.find("Box"));
+    definition(generic, generic.find("value:T") + 6, generic.find("[T]") + 1);
+    const std::string traits = "trait Size:\n  fn size(value:Self)->i64\n"
+                               "impl Size for i64:\n  fn size(value:Self)->i64:\n    return value\n"
+                               "fn use[T:Size](value:T)->i64:\n  return Size.size(value)\n"
+                               "fn main()->i64:\n  return use(42)\n";
+    hover(traits, traits.find("Size"), "trait Size");
+    definition(traits, traits.find("Size for"), traits.find("Size"));
+    hover(traits, traits.find("size(value)"), "fn size(value: Self) -> i64");
     std::cout << "Native type tokens: annotations, nested callable/array types, constructors, "
                  "updates, field identity, builtins and error aliases passed\n";
   } catch (const std::exception &e) {

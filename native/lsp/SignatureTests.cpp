@@ -25,6 +25,15 @@ static std::optional<lsp::SignatureInfo> recover(std::string text) {
 int main() {
   try {
     const std::string add = "fn add(left:i64,right:i64)->i64:\n  return left+right\n";
+    auto genericSignature = query("fn identity[T](value:T)->T:\n  return value\n"
+                                  "fn main()->i64:\n  return identity(|42)\n");
+    require(genericSignature && genericSignature->label == "fn identity[T](value: T) -> T",
+            "generic source signature lost");
+    genericSignature = recover("fn choose[T](left:T,right:T)->T:\n  return left\n"
+                               "fn main()->i64:\n  return choose(42, |\n");
+    require(genericSignature && genericSignature->label == "fn choose[T](left: T, right: T) -> T" &&
+                genericSignature->activeParameter == 1,
+            "incomplete generic argument signature lost");
     auto result = query(add + "fn main():\n  return add(|1,2)\n");
     require(result && result->label == "fn add(left: i64, right: i64) -> i64" &&
                 result->parameters == std::vector<std::string>{"left: i64", "right: i64"} &&

@@ -75,6 +75,12 @@ jobs:
         run: >-
           cmake --build build/cuda --parallel 2 --target kalandra kalandra-test-observer native-cuda-standalone-package
           kalandra-cuda-artifact-tests kalandra-cuda-float-tests kalandra-cuda-catalog-tests
+      - name: Compile generic algorithms and static trait dispatch
+        run: >-
+          python3 native/tests/GenericsSourceTests.py
+          --compiler build/cuda/native/kalandra --target cuda
+          --variant optimized --compile-only
+          --output build/cuda-artifacts/generics
       - name: Compile owned byte buffers and filesystem overloads
         run: >-
           python3 native/tests/BufferSourceTests.py

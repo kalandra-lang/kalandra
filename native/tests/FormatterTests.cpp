@@ -61,6 +61,12 @@ int main(int argc, char **argv) {
     expect("fn main():\n    return devices.gpu( 1 )\n", "fn main():\n  return devices.gpu(1)\n");
     require(!format("fn main():\n  return devices . gpu(1)\n").text,
             "selector source spelling changed");
+    expect("trait Size:\n    fn size(value:Self)->i64\n"
+           "impl Size for i64:\n    fn size(value:Self)->i64:\n        return value\n"
+           "fn use[ T : Size ]( value : T )->i64:\n    return Size.size(value)\n",
+           "trait Size:\n  fn size(value: Self) -> i64\n"
+           "impl Size for i64:\n  fn size(value: Self) -> i64:\n    return value\n"
+           "fn use[T: Size](value: T) -> i64:\n  return Size.size(value)\n");
     require(argc == 3, "missing corpus roots");
     std::size_t accepted = 0, rejected = 0;
     for (int root = 1; root < argc; ++root)

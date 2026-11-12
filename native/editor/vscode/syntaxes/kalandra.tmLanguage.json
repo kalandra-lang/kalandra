@@ -16,7 +16,7 @@
     },
     {
       "name": "keyword.declaration.kalandra",
-      "match": "\\b(fn|type|enum|error|export|from|import|as)\\b"
+      "match": "\\b(fn|type|enum|error|trait|impl|export|from|import|as)\\b"
     },
     {
       "name": "keyword.control.kalandra",

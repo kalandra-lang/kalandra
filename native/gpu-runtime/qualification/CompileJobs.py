@@ -28,6 +28,9 @@ def compile_plan(backend, repo, compiler, root):
         ]
     else:
         raise ValueError('unknown backend')
+    jobs.append(('generic-applications', [sys.executable, repo/'native/tests/GenericsSourceTests.py',
+                 '--compiler', compiler, '--target', backend, '--variant', 'optimized',
+                 '--compile-only', '--output', root/'generic-applications']))
     jobs.append(('console-applications', [sys.executable, repo/'native/tests/GpuConsoleSourceTests.py',
                  '--compiler', compiler, '--target', backend, '--variant', 'optimized',
                  '--compile-only', '--output', root/'console-applications']))

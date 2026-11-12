@@ -45,6 +45,7 @@ Functions return values explicitly with return. A function value can be passed t
 
 list {
   link { url = "/docs/functions", "Definitions, function values, closures and recursion" },
+  link { url = "/docs/generics-traits", "Generic functions, records, enums and trait contracts" },
   link { url = "/docs/control-flow", "Conditions, loops, exits and pattern matching" },
   link { url = "/docs/errors", "Error declarations, try, fail and catch" },
   link { url = "/docs/modules", "Imports, exports and re-exports" }

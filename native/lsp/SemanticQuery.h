@@ -12,6 +12,7 @@ struct SemanticToken {
   std::optional<ValueType> type;
   std::optional<FunctionId> function;
   std::optional<std::size_t> record;
+  std::string label = {};
 };
 [[nodiscard]] std::optional<SourceLocation> sourceLocation(std::shared_ptr<const SourceFile> source,
                                                            SourceSpan span);

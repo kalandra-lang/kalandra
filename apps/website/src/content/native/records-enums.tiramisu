@@ -52,6 +52,7 @@ Records and enums keep their contained values alive automatically and can be pas
 
 list {
   link { url = "/docs/errors", "Declare application-error alternatives" },
+  link { url = "/docs/generics-traits", "Generic functions, records, enums and trait contracts" },
   link { url = "/docs/modules", "Export a type from a module" },
   link { url = "/docs/gpu-numerics#records-and-enums-in-gpu-helpers", "Records and array fields inside GPU helpers" }
 }

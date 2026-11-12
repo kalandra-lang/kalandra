@@ -528,5 +528,35 @@
       "kind": "cpu",
       "expected": "6"
     }
+  ],
+  "generics-traits": [
+    {
+      "kind": "cpu",
+      "expected": "42:yes:7"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42:12:7"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42:42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "hello"
+    },
+    {
+      "kind": "cpu",
+      "expected": "7"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42:true"
+    },
+    {
+      "kind": "gpu",
+      "expected": "42"
+    }
   ]
 }

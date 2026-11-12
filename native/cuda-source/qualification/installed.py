@@ -61,6 +61,12 @@ console = [sys.executable, repo/'native/tests/GpuConsoleSourceTests.py',
 if not a.execute:
     console.append('--compile-only')
 subprocess.run(console, check=True, timeout=600)
+generics = [sys.executable, repo/'native/tests/GenericsSourceTests.py',
+            '--compiler', compiler, '--target', 'cuda', '--variant', 'optimized',
+            '--output', a.root/'generic-applications']
+if not a.execute:
+    generics.append('--compile-only')
+subprocess.run(generics, check=True, timeout=900)
 filesystem = [sys.executable, repo/'native/tests/FileSystemSourceTests.py',
               '--compiler', compiler, '--target', 'cuda', '--variant', 'optimized',
               '--output', a.root/'filesystem-applications']

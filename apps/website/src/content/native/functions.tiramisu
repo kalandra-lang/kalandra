@@ -138,3 +138,12 @@ A File, BufferedReader or BufferedWriter parameter borrows a handle unless it is
 list {
   link { url = "/docs/filesystem#ownership-and-lifetime", "File ownership, consuming calls and automatic cleanup" }
 }
+
+
+h2 { "Generic functions" }
+
+Use square brackets after a function name to declare type parameters. Arguments and an expected result can determine those types; explicit arguments such as identity[i64] also select a concrete function value. Trait bounds name capabilities required by an algorithm.
+
+list {
+  link { url = "/docs/generics-traits", "Generics, explicit traits, associated types and error parameters" }
+}

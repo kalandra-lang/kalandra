@@ -1969,7 +1969,7 @@ class Compiler {
         "Frame)," + prefix + "Construct," + prefix + "Destroy," + prefix + "Resume," +
         (arrayResult || recordResult || callableResult || textResult ? "&" + arrayLayout(value)
          : tensorResult                                              ? "&m::Runtime::bufferLayout()"
-         : booleanResult ? "&boolScalarLayout()"
+         : booleanResult                                             ? "&boolScalarLayout()"
                          : "numericScalarLayout(" + elementName(value.element) + ")") +
         "};\n";
     auto taskField = field("TaskHandle");
@@ -2322,7 +2322,7 @@ class Compiler {
           closure                        ? closure->arenaLayouts[l]
           : schema->captureJoin == l + 1 ? 0
           : layout.type.record           ? runtime::DeviceHeapBlockABI::nominalLayout(
-                                               static_cast<unsigned>(*layout.type.record), layout.type.array)
+                                     static_cast<unsigned>(*layout.type.record), layout.type.array)
           : deviceTensorValue(layout.type)
               ? runtime::DeviceHeapBlockABI::tensorLayout(layout.type.element,
                                                           layout.type.shape.size())
@@ -5531,96 +5531,54 @@ public:
     for (FunctionId id = 0; id < placement.functions.size(); ++id)
       if (!coordinating[id] && !placement.functions[id].resultType.fallible)
         resumable[id] = false;
-    Module hostModule = syntax;
-    hostModule.functions.clear();
     std::optional<std::size_t> main;
-    for (std::size_t i = 0; i < syntax.functions.size(); ++i) {
-      const auto &fn = syntax.functions[i];
-      auto name = placement.functions.at(i).name;
-      if (fn.moduleIndex == 0 && name == "main") {
+    for (std::size_t i = 0; i < syntax.functions.size(); ++i)
+      if (syntax.functions[i].moduleIndex == 0 && placement.functions.at(i).name == "main")
         main = i;
-        continue;
-      }
-      if (name == "devices" || name == "tensor" || name == "transfer")
-        reject(fn.name, "this GPU source slice reserves standard placement/transfer names");
-      if (!fn.result)
-        reject(fn.span, "mixed source functions require an explicit result");
-      if (fn.result->tensor && !fn.result->array)
-        tensorType(*fn.result);
-      else if (!placement.functions.at(i).resultType.record &&
-               placement.functions.at(i).resultType.builtin != BuiltinValue::Function &&
-               placement.functions.at(i).resultType.builtin != BuiltinValue::String &&
-               !resolveNumeric(text(fn.result->name)) &&
-               !isBooleanStorage(placement.functions.at(i).resultType))
-        reject(fn.result->span,
-               "mixed source results require numeric scalars, bool/unit, numeric/bool/unit arrays "
-               "or rank-zero through rank-eight numeric tensors");
-      for (std::size_t parameter = 0; parameter < fn.parameters.size(); ++parameter) {
-        const auto &p = fn.parameters[parameter];
-        const auto &type =
-            placement.symbols.at(placement.functions.at(i).parameters.at(parameter)).type;
-        if (type.record || type.builtin == BuiltinValue::Function ||
-            type.builtin == BuiltinValue::String)
-          continue; // Internal helpers do not imply a host transport ABI.
-        if (p.type.tensor && !p.type.array)
-          tensorType(p.type);
-        else if (!resolveNumeric(text(p.type.name)) && !isBooleanStorage(type))
-          reject(p.type.span, "mixed source parameters require numeric scalars, bool/unit, "
-                              "numeric/bool/unit arrays "
-                              "or rank-zero through rank-eight numeric tensors");
-      }
-      if (coordinating[i])
-        continue;
-      cpuFunctions.emplace(name, hostModule.functions.size());
-      // Synchronous error helpers can be dependencies of ordinary CPU
-      // bridges and GPU entries. Only completed results use the bridge ABI.
-      cpuExports.push_back(placement.functions.at(i).resultType.fallible ||
-                                   placement.functions.at(i).compileTimeOnly
-                               ? std::string{}
-                               : name);
-      hostModule.functions.push_back(fn);
-    }
     if (!main)
       reject({}, "missing main");
-    // The CPU bridge contains only synchronous helpers. Remove imports of
-    // coordinating functions from this projection too; their original resolved
-    // identities remain in the placement module and continuation plan.
-    using Binding = std::pair<std::size_t, std::string>;
-    std::map<Binding, FunctionId> exportedFunctions;
-    std::map<Binding, Binding> reexports;
-    for (FunctionId i = 0; i < syntax.functions.size(); ++i) {
-      const auto &fn = syntax.functions[i];
-      if (fn.exported)
-        exportedFunctions.emplace(Binding{fn.moduleIndex, text(fn.name)}, i);
-    }
-    for (const auto &import : syntax.imports)
-      if (import.exported && import.target)
-        for (const auto &name : import.names)
-          reexports.emplace(Binding{import.moduleIndex, text(name.alias.value_or(name.name))},
-                            Binding{*import.target, text(name.name)});
-    auto projectedAway = [&](Binding binding) {
-      // loadModules already rejects cycles and bounds graph depth. Keep this
-      // traversal explicitly bounded as the compiler also has in-memory
-      // callers.
-      for (std::size_t depth = 0; depth <= syntax.imports.size(); ++depth) {
-        if (auto found = exportedFunctions.find(binding); found != exportedFunctions.end())
-          return found->second == *main || coordinating[found->second];
-        auto next = reexports.find(binding);
-        if (next == reexports.end())
-          return false;
-        binding = next->second;
+    // Specialization and lifted callbacks create concrete functions without a
+    // one-to-one source declaration. Project the checked IR, preserving all
+    // function, symbol and nominal identities instead of rechecking an AST
+    // subset and independently discovering a different specialization order.
+    cpu = placement;
+    cpu.applicationEntry = false;
+    cpuExports.resize(cpu.functions.size());
+    std::vector<bool> hostValues(cpu.expressions.size());
+    ValueType unit;
+    unit.builtin = BuiltinValue::Unit;
+    for (FunctionId id = 0; id < cpu.functions.size(); ++id) {
+      auto &function = cpu.functions[id];
+      if (id == *main || coordinating[id] || function.compileTimeOnly) {
+        function.compileTimeOnly = true;
+        function.parameters.clear();
+        function.captureCount = 0;
+        function.resultType = unit;
+        function.declaredResult = unit;
+        function.preconditions.clear();
+        function.body.clear();
+        function.expressions.clear();
+        continue;
       }
-      reject({}, "cyclic module re-export in CPU projection");
-    };
-    for (auto &import : hostModule.imports)
-      std::erase_if(import.names, [&](const ImportedName &name) {
-        return import.target && projectedAway({*import.target, text(name.name)});
-      });
-    std::erase_if(hostModule.imports, [](const Import &import) { return import.names.empty(); });
-    auto checked = kalandra::check({std::move(hostModule), {}});
-    if (!checked.ok())
-      throw Rejected{checked.diagnostics.front()};
-    cpu = std::move(*checked.module);
+      cpuFunctions.emplace(function.name, id);
+      if (!function.resultType.fallible)
+        cpuExports[id] = function.name;
+      for (auto value : function.expressions)
+        hostValues.at(value) = true;
+    }
+    // Global backend capability scans must see only the host projection.
+    // Unreachable placement operations remain inert slots, so referenced IDs
+    // never shift and no partially checked source is introduced.
+    for (ValueId id = 0; id < cpu.expressions.size(); ++id)
+      if (!hostValues[id]) {
+        cpu.expressions[id].type = unit;
+        cpu.expressions[id].operation = BoolLiteral{false};
+      }
+    for (auto &symbol : cpu.symbols)
+      if (cpu.functions.at(symbol.owner).compileTimeOnly) {
+        symbol.type = unit;
+        symbol.parameter = symbol.mutableAccess = symbol.owned = symbol.reassignable = false;
+      }
     std::set<FunctionId> fallibleGpuFunctions;
     for (const auto &expression : placement.expressions) {
       const auto *spawn = std::get_if<TaskOperation>(&expression.operation);
