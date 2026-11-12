@@ -1205,6 +1205,7 @@ include(cmake/ApplicationErrors.cmake)
 
 include(cmake/FunctionValues.cmake)
 include(cmake/Generics.cmake)
+include(cmake/Iterators.cmake)
 
 include(cmake/Diagnostics.cmake)
 include(cmake/Overlays.cmake)

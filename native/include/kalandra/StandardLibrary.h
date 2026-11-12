@@ -2,8 +2,21 @@
 #include <optional>
 #include <string_view>
 namespace kalandra {
-enum class StandardModule { Io, Format, Process, Filesystem, Buffer, Parse, Path, Env, Time };
+enum class StandardModule {
+  Io,
+  Format,
+  Process,
+  Filesystem,
+  Buffer,
+  Parse,
+  Path,
+  Env,
+  Time,
+  Option
+};
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/option")
+    return StandardModule::Option;
   if (name == "std/buffer")
     return StandardModule::Buffer;
   if (name == "std/time")
@@ -26,6 +39,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Option:
+    return "kalandra-stdlib:std/option.k";
   case StandardModule::Buffer:
     return "kalandra-stdlib:std/buffer.k";
   case StandardModule::Time:
@@ -48,6 +63,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Option))
+    return StandardModule::Option;
   if (path == standardModulePath(StandardModule::Buffer))
     return StandardModule::Buffer;
   if (path == standardModulePath(StandardModule::Time))
@@ -73,6 +90,12 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Option:
+    return R"k(export enum Option[T]:
+  None
+  Some:
+    value: T
+)k";
   case StandardModule::Buffer:
     return R"k(export type ByteBuffer:
   __storage: [u8]
