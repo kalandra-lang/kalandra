@@ -219,12 +219,18 @@ public:
     if (diagnostics_.empty()) {
       for (const auto &record : output_.records)
         for (const auto &field : record.fields)
-          if (isFileResource(output_, field.type))
-            error("S081", "owned file handles require standalone ownership, not aggregate fields",
+          if (isOwnedResource(output_, field.type))
+            error("S081",
+                  isByteBuffer(output_, field.type)
+                      ? "owned ByteBuffer requires standalone ownership, not aggregate fields"
+                      : "owned file handles require standalone ownership, not aggregate fields",
                   field.declaration);
       for (const auto &value : output_.expressions)
-        if (isFileResource(output_, value.type) && value.type.array)
-          error("S081", "owned file handles cannot be stored in arrays", value.span);
+        if (isOwnedResource(output_, value.type) && value.type.array)
+          error("S081",
+                isByteBuffer(output_, value.type) ? "owned ByteBuffer cannot be stored in arrays"
+                                                  : "owned file handles cannot be stored in arrays",
+                value.span);
     }
     if (!syntax_.editorOnly && diagnostics_.empty())
       for (auto &diagnostic : arrayAccessDiagnostics(output_))
@@ -586,10 +592,12 @@ private:
         if (!registeringRecords_ && !populateRecord(id, syntax.span))
           return {};
         auto result = recordType(id);
-        if (syntax.array && isFileResource(output_, result)) {
+        if (syntax.array && isOwnedResource(output_, result)) {
           error("S081",
-                "owned file handles cannot be stored in arrays; pass them through explicit "
-                "parameters",
+                isByteBuffer(output_, result) ? "owned ByteBuffer cannot be stored in arrays; pass "
+                                                "it through explicit parameters"
+                                              : "owned file handles cannot be stored in arrays; "
+                                                "pass them through explicit parameters",
                 syntax.span);
           return {};
         }
@@ -641,6 +649,10 @@ private:
       return {};
     return result;
   }
+  bool mutableParameterType(const ValueType &value) const {
+    return mutableArrayType(value) || (isByteBuffer(output_, value) && !value.task &&
+                                       !value.fallible && !value.device && !value.array);
+  }
   static bool mutableArrayType(const ValueType &value) {
     return value.array && !value.task && !value.fallible && !value.device &&
            (value.builtin == BuiltinValue::Numeric || isBooleanStorage(value));
@@ -649,12 +661,12 @@ private:
                                         SourceSpan span, std::vector<bool> mutations = {},
                                         std::vector<bool> ownership = {}) {
     for (std::size_t i = 0; i < mutations.size(); ++i)
-      if (mutations[i] && (i >= parameters.size() || !mutableArrayType(parameters[i]))) {
-        error("S076", "mut parameters require flat numeric or bool array storage", span);
+      if (mutations[i] && (i >= parameters.size() || !mutableParameterType(parameters[i]))) {
+        error("S076", "mut parameters require flat numeric/bool array storage or ByteBuffer", span);
         return {};
       }
     for (std::size_t i = 0; i < ownership.size(); ++i)
-      if (ownership[i] && (i >= parameters.size() || !isFileResource(output_, parameters[i]))) {
+      if (ownership[i] && (i >= parameters.size() || !isOwnedResource(output_, parameters[i]))) {
         error("S081", "own parameters require an owned resource type", span);
         return {};
       }
@@ -977,6 +989,12 @@ private:
           else if (label == "EnvError")
             header.standard = StandardRecord::EnvError;
         }
+        if (syntax_.standardModules[origin] == StandardModule::Buffer) {
+          if (label == "ByteBuffer")
+            header.standard = StandardRecord::ByteBuffer;
+          else if (label == "BufferError")
+            header.standard = StandardRecord::BufferError;
+        }
         if (syntax_.standardModules[origin] == StandardModule::Filesystem) {
           if (label == "File")
             header.standard = StandardRecord::File;
@@ -1080,8 +1098,11 @@ private:
           auto value = type(field.type);
           if (!value)
             continue;
-          if (isFileResource(output_, *value)) {
-            error("S081", "owned file handles require standalone ownership, not aggregate fields",
+          if (isOwnedResource(output_, *value)) {
+            error("S081",
+                  isByteBuffer(output_, *value)
+                      ? "owned ByteBuffer requires standalone ownership, not aggregate fields"
+                      : "owned file handles require standalone ownership, not aggregate fields",
                   field.type.span);
             continue;
           }
@@ -1167,8 +1188,8 @@ private:
           signatures_[id] = false;
           continue;
         }
-        if (parameter.mutableAccess && !mutableArrayType(*parameterType)) {
-          error("S076", "mut parameters require flat numeric or bool array storage",
+        if (parameter.mutableAccess && !mutableParameterType(*parameterType)) {
+          error("S076", "mut parameters require flat numeric/bool array storage or ByteBuffer",
                 parameter.name);
           signatures_[id] = false;
         }
@@ -1177,7 +1198,7 @@ private:
             {parameterName, std::move(*parameterType), parameter.name, id, true});
         output_.symbols.back().mutableAccess = parameter.mutableAccess;
         output_.symbols.back().owned = parameter.owned;
-        if (parameter.owned && !isFileResource(output_, output_.symbols.back().type)) {
+        if (parameter.owned && !isOwnedResource(output_, output_.symbols.back().type)) {
           error("S081", "own parameters require an owned resource type", parameter.name);
           signatures_[id] = false;
         }
@@ -1583,6 +1604,91 @@ private:
       return ConsoleAction::ReadLine;
     return {};
   }
+  std::optional<BufferAction> standardBuffer(FunctionId id) const {
+    if (id >= syntax_.functions.size())
+      return {};
+    const auto &fn = syntax_.functions[id];
+    if (fn.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[fn.moduleIndex] != StandardModule::Buffer)
+      return {};
+    return bufferAction(name(fn.name));
+  }
+  std::optional<ValueId> bufferBody(Frame &frame, FunctionId id, BufferAction action) {
+    const auto &fn = output_.functions[id];
+    std::vector<ValueId> args;
+    for (auto parameter : fn.parameters) {
+      auto value =
+          add(frame, output_.symbols[parameter].type, fn.declaration, SymbolRead{parameter});
+      if (!value)
+        return {};
+      args.push_back(*value);
+    }
+    return add(frame, *fn.declaredResult, fn.declaration,
+               BufferOperation{action, std::move(args), fn.declaration});
+  }
+  std::optional<ValueId> bufferCall(Frame &frame, FunctionId id, BufferAction action,
+                                    SourceSpan span, const std::vector<ExprId> &arguments,
+                                    bool spawned, bool placed) {
+    if (spawned || placed) {
+      error("S081",
+            "buffer operations require host execution; wrap a call in a host function to spawn it",
+            span);
+      return {};
+    }
+    if (action == BufferAction::Length)
+      return collectionQuery(frame, span, "length", arguments);
+    const auto &fn = output_.functions[id];
+    if (queryingSignature(span)) {
+      if (!analyzeFunction(id))
+        return {};
+      FunctionSignature signature;
+      std::vector<std::string> names;
+      for (auto parameter : fn.parameters) {
+        const auto &symbol = output_.symbols[parameter];
+        signature.parameters.push_back(symbol.type);
+        signature.mutableParameters.push_back(symbol.mutableAccess);
+        signature.ownedParameters.push_back(symbol.owned);
+        names.push_back(symbol.name);
+      }
+      const auto prefix = options_.signature->argumentIndex.value_or(arguments.size());
+      for (std::size_t i = 0; i < std::min(prefix, arguments.size()); ++i) {
+        if (i >= signature.parameters.size())
+          return {};
+        auto actual = expression(frame, arguments[i], signature.parameters[i]);
+        if (!actual)
+          return {};
+      }
+      signature.result = fn.resultType;
+      captureSignature(frame, signature, std::move(names));
+      error("S027", "editing buffer argument requires a signature snapshot", span);
+      return {};
+    }
+    const bool defaultCapacity = action == BufferAction::Create && arguments.empty();
+    if (arguments.size() != fn.parameters.size() && !defaultCapacity) {
+      error("S027", "wrong argument count for buffer operation", span);
+      return {};
+    }
+    if (!analyzeFunction(id))
+      return {};
+    std::vector<ValueId> args;
+    for (std::size_t i = 0; i < arguments.size(); ++i) {
+      auto value = expression(frame, arguments[i], output_.symbols[fn.parameters[i]].type);
+      if (!value)
+        return {};
+      args.push_back(*value);
+    }
+    if (defaultCapacity) {
+      ValueType size;
+      size.element = NumericType::Int64;
+      auto value = add(frame, size, span, Int64Literal{0});
+      if (!value)
+        return {};
+      args.push_back(*value);
+    }
+    auto result = callResult(id, args, false);
+    result.identity = 0;
+    return add(frame, result, span, BufferOperation{action, std::move(args), span});
+  }
   std::optional<FileAction> standardFile(FunctionId id) const {
     if (id >= syntax_.functions.size())
       return {};
@@ -1633,6 +1739,28 @@ private:
           return {};
         signature.parameters[0] = node(*actual).type;
       }
+      if (prefix > 1 && arguments.size() > 1 &&
+          (action == FileAction::ReadInto || action == FileAction::Write ||
+           action == FileAction::WriteAll)) {
+        auto actual = expression(frame, arguments[1]);
+        if (!actual)
+          return {};
+        const auto &type = node(*actual).type;
+        if (type.task || type.fallible || type.device)
+          return {};
+        if (isByteBuffer(output_, type)) {
+          signature.parameters[1] = type;
+          if (action == FileAction::ReadInto) {
+            ValueType count;
+            count.element = NumericType::UInt64;
+            signature.parameters.push_back(count);
+            signature.mutableParameters.push_back(false);
+            signature.ownedParameters.push_back(false);
+            names.push_back("maxBytes");
+          }
+        } else if (!type.array || type.element != NumericType::UInt8)
+          return {};
+      }
       signature.result = fn.resultType;
       captureSignature(frame, signature, std::move(names));
       error("S027", "editing filesystem argument requires a signature snapshot", span);
@@ -1641,7 +1769,8 @@ private:
     const bool defaultCapacity =
         (action == FileAction::BufferedReader || action == FileAction::BufferedWriter) &&
         arguments.size() == 1;
-    if (arguments.size() != fn.parameters.size() && !defaultCapacity) {
+    if (arguments.size() != fn.parameters.size() && !defaultCapacity &&
+        !(action == FileAction::ReadInto && arguments.size() == 3)) {
       error("S027", "wrong argument count for filesystem call", span);
       return {};
     }
@@ -1649,7 +1778,19 @@ private:
       return {};
     std::vector<ValueId> args;
     for (std::size_t i = 0; i < arguments.size(); ++i) {
-      std::optional<ValueType> context = output_.symbols[fn.parameters[i]].type;
+      std::optional<ValueType> context;
+      if (i < fn.parameters.size())
+        context = output_.symbols[fn.parameters[i]].type;
+      else {
+        ValueType size;
+        size.element = NumericType::UInt64;
+        context = size;
+      }
+      if (i == 1 &&
+          (action == FileAction::ReadInto || action == FileAction::Write ||
+           action == FileAction::WriteAll) &&
+          !std::holds_alternative<ArrayExpr>(syntax_.expressions[arguments[i]].value))
+        context.reset();
       if (i == 0 && action != FileAction::Open)
         context.reset();
       const auto arg = expression(frame, arguments[i], context);
@@ -1664,7 +1805,8 @@ private:
         }
         const auto standard = output_.records[*type.record].standard;
         const bool read = action == FileAction::Read || action == FileAction::ReadExact ||
-                          action == FileAction::ReadInto || action == FileAction::ReadLine;
+                          action == FileAction::ReadInto || action == FileAction::ReadAppend ||
+                          action == FileAction::ReadLine;
         const bool write = action == FileAction::Write || action == FileAction::WriteAll ||
                            action == FileAction::WriteText || action == FileAction::WriteLine ||
                            action == FileAction::Flush;
@@ -1682,6 +1824,24 @@ private:
       }
       args.push_back(*arg);
     }
+    if ((action == FileAction::ReadInto || action == FileAction::Write ||
+         action == FileAction::WriteAll) &&
+        args.size() >= 2) {
+      const auto &type = node(args[1]).type;
+      if (isByteBuffer(output_, type) && !type.fallible && !type.task && !type.device) {
+        if (action == FileAction::ReadInto && args.size() != 3) {
+          error("S027", "ByteBuffer readInto requires a u64 maximum byte count", span);
+          return {};
+        }
+        action = action == FileAction::ReadInto ? FileAction::ReadIntoBuffer
+                 : action == FileAction::Write  ? FileAction::WriteBuffer
+                                                : FileAction::WriteAllBuffer;
+      } else if (args.size() != 2 || !type.array || type.builtin != BuiltinValue::Numeric ||
+                 type.element != NumericType::UInt8 || type.task || type.fallible || type.device) {
+        error("S081", "byte I/O requires a completed [u8] array or ByteBuffer", span);
+        return {};
+      }
+    }
     if (defaultCapacity) {
       ValueType size;
       size.element = NumericType::UInt64;
@@ -1690,7 +1850,10 @@ private:
         return {};
       args.push_back(*capacity);
     }
-    auto result = callResult(id, args, false);
+    const bool bufferOverload = action == FileAction::ReadIntoBuffer ||
+                                action == FileAction::WriteBuffer ||
+                                action == FileAction::WriteAllBuffer;
+    auto result = bufferOverload ? fn.resultType : callResult(id, args, false);
     result.fallible = true;
     result.errorRecord = errorFamilies_[id];
     result.identity = 0;
@@ -1785,7 +1948,8 @@ private:
     output_.functions[id].compileTimeOnly = standardFormat(id);
     auto result = standardFormat(id) ? add(frame, *output_.functions[id].declaredResult,
                                            syntax_.functions[id].span, StringLiteral{std::string{}})
-                  : standardTime(id) ? timeBody(frame, id, *standardTime(id))
+                  : standardBuffer(id)            ? bufferBody(frame, id, *standardBuffer(id))
+                  : standardTime(id)              ? timeBody(frame, id, *standardTime(id))
                   : standardEnvironmentLookup(id) ? environmentBody(frame, id)
                   : standardPath(id)              ? pathBody(frame, id, *standardPath(id))
                   : standardParse(id)             ? parseBody(frame, id, *standardParse(id))
@@ -1795,7 +1959,8 @@ private:
                       : functionSuite(frame, body, output_.functions[id].declaredResult, statements,
                                       syntax_.functions[id].span, parameters);
     if ((standardFormat(id) || standardConsole(id) || standardFile(id) || standardParse(id) ||
-         standardPath(id) || standardEnvironmentLookup(id) || standardTime(id)) &&
+         standardPath(id) || standardEnvironmentLookup(id) || standardTime(id) ||
+         standardBuffer(id)) &&
         result)
       statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);
@@ -2177,10 +2342,13 @@ private:
     if (!origin)
       return {};
     const auto capture = output_.symbols[*origin];
-    if (isFileResource(output_, capture.type)) {
-      error("S081",
-            "file handles require explicit function parameters, not implicit closure captures",
-            span);
+    if (isOwnedResource(output_, capture.type)) {
+      error(
+          "S081",
+          isByteBuffer(output_, capture.type)
+              ? "ByteBuffer requires explicit function parameters, not implicit closure captures"
+              : "file handles require explicit function parameters, not implicit closure captures",
+          span);
       return {};
     }
     auto type = capture.type;
@@ -2301,8 +2469,9 @@ private:
       error("S081", "time values are opaque; use std/time constructors", span);
       return {};
     }
-    if (isFileResource(output_, result)) {
-      error("S081", "file handles are opaque and can only be created by std/fs", span);
+    if (isOwnedResource(output_, result)) {
+      error("S081",
+            "owned host resources are opaque and require their standard-module constructors", span);
       return {};
     }
     const auto &declaration = output_.records[*result.record];
@@ -2369,8 +2538,9 @@ private:
       error("S081", "time values are opaque; use std/time functions", read.field);
       return {};
     }
-    if (isFileResource(output_, type)) {
-      error("S081", "file handles are opaque; use std/fs operations", read.field);
+    if (isOwnedResource(output_, type)) {
+      error("S081", "owned host resources are opaque; use their standard-module operations",
+            read.field);
       return {};
     }
     const auto &fields = output_.records[*type.record].fields;
@@ -2422,8 +2592,9 @@ private:
                 parameter.name);
         return {};
       }
-      if (parameter.mutableAccess && !mutableArrayType(*resolved)) {
-        error("S076", "mut parameters require flat numeric or bool array storage", parameter.name);
+      if (parameter.mutableAccess && !mutableParameterType(*resolved)) {
+        error("S076", "mut parameters require flat numeric/bool array storage or ByteBuffer",
+              parameter.name);
         return {};
       }
       if (context &&
@@ -3095,6 +3266,11 @@ private:
       return {};
     const auto type = node(*input).type;
     const bool length = callee == "length";
+    if (length && isByteBuffer(output_, type) && !type.task && !type.fallible && !type.device) {
+      ValueType result;
+      result.element = NumericType::Int64;
+      return add(frame, result, span, BufferOperation{BufferAction::Length, {*input}, span});
+    }
     if ((length || callee == "byteLength") && type.builtin == BuiltinValue::String &&
         !type.tensor && !type.array && !type.task && !type.fallible && !type.device) {
       ValueType result;
@@ -3126,12 +3302,46 @@ private:
         frame, result, span,
         CollectionQuery{length ? CollectionQueryKind::Length : CollectionQueryKind::Shape, *input});
   }
+  std::optional<ValueId> bufferIndex(Frame &frame, SourceSpan span, ValueId buffer, ExprId index,
+                                     BufferAction action) {
+    auto position = expression(frame, index);
+    if (!position)
+      return {};
+    const auto &type = node(*position).type;
+    if (type.tensor || type.array || type.task || type.fallible || type.device ||
+        type.builtin != BuiltinValue::Numeric || !isInteger(type.element)) {
+      error("S061", "ByteBuffer indexing requires a completed CPU integer index", span);
+      return {};
+    }
+    if (auto known = intConstants_.find(*position);
+        known != intConstants_.end() && (known->second < 0 || known->second > INT64_MAX)) {
+      error("S062", "index is outside its valid zero-based dimension range", span);
+      return {};
+    }
+    ValueType result;
+    result.element = action == BufferAction::ReadByte ? NumericType::UInt8 : NumericType::Int64;
+    return add(frame, result, span, BufferOperation{action, {buffer, *position}, span});
+  }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ArraySetExpr &store,
                                const std::optional<ValueType> &) {
     auto input = expression(frame, store.input);
     if (!input)
       return {};
     const auto array = node(*input).type;
+    if (isByteBuffer(output_, array) && !array.task && !array.fallible && !array.device) {
+      auto index = bufferIndex(frame, store.target, *input, store.index, BufferAction::CheckIndex);
+      if (!index)
+        return {};
+      ValueType byte;
+      byte.element = NumericType::UInt8;
+      auto value = expression(frame, store.value, byte);
+      if (!value)
+        return {};
+      ValueType marker;
+      marker.builtin = BuiltinValue::Bool;
+      return add(frame, marker, span,
+                 BufferOperation{BufferAction::WriteByte, {*input, *index, *value}, span});
+    }
     if (!mutableArrayType(array)) {
       error("S078", "element assignment requires a completed CPU numeric or bool array",
             store.target);
@@ -3182,6 +3392,13 @@ private:
     if (!input)
       return {};
     const auto a = node(*input).type;
+    if (isByteBuffer(output_, a) && !a.task && !a.fallible && !a.device) {
+      if (read.indices.size() != 1) {
+        error("S063", "ByteBuffer indexing requires exactly one integer index", span);
+        return {};
+      }
+      return bufferIndex(frame, span, *input, read.indices[0], BufferAction::ReadByte);
+    }
     if (a.builtin == BuiltinValue::String && !a.tensor && !a.array && !a.task && !a.fallible &&
         !a.device) {
       if (read.indices.size() != 1) {
@@ -5850,6 +6067,8 @@ private:
       return {};
     }
     const auto id = found->second;
+    if (auto action = standardBuffer(id))
+      return bufferCall(frame, id, *action, span, arguments, spawned, bool(selection));
     if (auto action = standardFile(id))
       return fileCall(frame, id, *action, span, arguments, spawned, bool(selection));
     if (standardFormat(id)) {

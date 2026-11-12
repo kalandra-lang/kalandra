@@ -692,12 +692,14 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
     if (type.callable->ownedParameters.size() > type.callable->parameters.size())
       return false;
     for (std::size_t i = 0; i < type.callable->parameters.size(); ++i) {
-      if (type.callable->owns(i) && !isFileResource(module, type.callable->parameters[i]))
+      if (type.callable->owns(i) && !isOwnedResource(module, type.callable->parameters[i]))
         return false;
       const auto &parameter = type.callable->parameters[i];
       if (type.callable->mutates(i) &&
-          (!parameter.array || parameter.task || parameter.fallible || parameter.device ||
-           (parameter.builtin != BuiltinValue::Numeric && !isBooleanStorage(parameter))))
+          ((!parameter.array && !isByteBuffer(module, parameter)) || parameter.task ||
+           parameter.fallible || parameter.device ||
+           (parameter.builtin != BuiltinValue::Numeric && !isBooleanStorage(parameter) &&
+            !isByteBuffer(module, parameter))))
         return false;
     }
     visited += type.callable->parameters.size();
@@ -741,9 +743,10 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
         return "invalid or unsupported function-valued field type";
   for (const auto &symbol : module.symbols) {
     if (symbol.mutableAccess &&
-        (!symbol.parameter || !symbol.type.array || symbol.type.task || symbol.type.fallible ||
-         symbol.type.device ||
-         (symbol.type.builtin != BuiltinValue::Numeric && !isBooleanStorage(symbol.type))))
+        (!symbol.parameter || (!symbol.type.array && !isByteBuffer(module, symbol.type)) ||
+         symbol.type.task || symbol.type.fallible || symbol.type.device ||
+         (symbol.type.builtin != BuiltinValue::Numeric && !isBooleanStorage(symbol.type) &&
+          !isByteBuffer(module, symbol.type))))
       return "invalid mutating parameter access";
     if (!valid(valid, symbol.type, 0))
       return "invalid or unsupported function-value type";

@@ -770,6 +770,24 @@ int main() {
             "checked first slot survives a later missing argument");
     require(bool(recover(emptyPrefix + "  triple(reading.|,[2,3\n")),
             "checked first slot survives a later unclosed array");
+    const std::string buffers =
+        "from \"std/buffer\" import ByteBuffer, BufferError, byteBuffer, append, intoArray\n"
+        "from \"std/fs\" import open, OpenMode, FsError, readInto, writeAll\n"
+        "fn main()->unit ! (BufferError | FsError):\n  b=try byteBuffer()\n";
+    result = recover(buffers + "  try append(b,|");
+    require(result && result->label.find("mut") != std::string::npos &&
+                result->label.find("ByteBuffer") != std::string::npos &&
+                result->activeParameter == 1,
+            "buffer append signature preserves mutable access");
+    result = recover(buffers + "  values=intoArray(|b)\n  return ()\n");
+    require(result && result->label.find("own") != std::string::npos,
+            "consuming buffer signature describes ownership");
+    result = recover(buffers +
+                     "  file=try open(\"input.bin\",OpenMode.Read)\n  count=try readInto(file,b,|");
+    require(result && result->parameters.size() == 3 &&
+                result->parameters[1].find("ByteBuffer") != std::string::npos &&
+                result->parameters[2] == "maxBytes: u64",
+            "filesystem buffer overload offers maximum byte count");
     std::cout << "Native checked signature help passed\n";
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';

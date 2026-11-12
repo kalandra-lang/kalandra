@@ -20,7 +20,7 @@ inline llvm::StructType *fileArgumentsType(const TaskValueTypes &types, llvm::LL
   text.builtin = BuiltinValue::String;
   return llvm::StructType::get(ctx, {fileHandleType(types, ctx), types.scalar(text),
                                      fileBytesType(types), llvm::Type::getInt64Ty(ctx),
-                                     llvm::Type::getInt64Ty(ctx)});
+                                     llvm::Type::getInt64Ty(ctx), fileHandleType(types, ctx)});
 }
 inline llvm::StructType *fileResultType(const TaskValueTypes &types, llvm::LLVMContext &ctx) {
   ValueType text;
@@ -45,6 +45,13 @@ inline void emitFileArguments(llvm::IRBuilder<> &b, const TaskValueTypes &types,
     return;
   }
   copy(0, inputs.at(0));
+  if (op.action == FileAction::ReadIntoBuffer || op.action == FileAction::ReadAppend ||
+      op.action == FileAction::WriteBuffer || op.action == FileAction::WriteAllBuffer) {
+    copy(5, inputs.at(1));
+    if (inputs.size() > 2)
+      copy(3, inputs.at(2));
+    return;
+  }
   if (inputs.size() > 1) {
     const bool bytes = op.action == FileAction::Write || op.action == FileAction::WriteAll ||
                        op.action == FileAction::ReadInto;
@@ -121,6 +128,9 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
     b.CreateStore(loadTransport(4), value);
     break;
   case FileAction::ReadInto:
+  case FileAction::ReadIntoBuffer:
+  case FileAction::ReadAppend:
+  case FileAction::WriteBuffer:
   case FileAction::Write:
     b.CreateStore(loadTransport(5), value);
     break;

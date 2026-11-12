@@ -1,4 +1,5 @@
 #pragma once
+#include "kalandra/BufferOperations.h"
 #include "kalandra/FileOperations.h"
 #include "kalandra/FormatTemplate.h"
 #include "kalandra/NumericType.h"
@@ -212,6 +213,12 @@ struct FileOperation {
   std::vector<ValueId> arguments;
   std::optional<FunctionId> declaration = {};
 };
+struct BufferOperation {
+  BufferAction action;
+  std::vector<ValueId> arguments;
+  SourceSpan source = {};
+};
+
 struct TimeOperation {
   TimeAction action;
   std::vector<ValueId> arguments;
@@ -445,6 +452,8 @@ struct TypedVariant {
   std::vector<std::size_t> fields;
 };
 enum class StandardRecord {
+  ByteBuffer,
+  BufferError,
   ExitStatus,
   IoError,
   Line,
@@ -476,18 +485,19 @@ struct TypedRecord {
 struct TypedExpr {
   SourceSpan span;
   ValueType type; // Concrete scalar/tensor numeric identity; builtins retain explicit tags.
-  std::variant<
-      Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal, UInt64Literal,
-      StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral, FormatOperation,
-      ConsoleOperation, FileOperation, ParseOperation, PathOperation, EnvironmentLookup,
-      TimeOperation, ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary,
-      TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall, Matmul,
-      ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray,
-      ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck,
-      DeviceSelection, Transfer, TaskOperation, ParallelOperation, ConditionalOperation,
-      WhileOperation, LoopTransferOperation, IntegerRangeOperation, YieldOperation, CatchOperation,
-      MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue, RecordFieldRead,
-      ErrorNarrow, FunctionReference, FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort>
+  std::variant<Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal,
+               UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
+               FormatOperation, ConsoleOperation, FileOperation, BufferOperation, ParseOperation,
+               PathOperation, EnvironmentLookup, TimeOperation, ApplicationArguments, BoolLiteral,
+               ScalarCompare, SymbolRead, ScalarUnary, TensorUnary, ScalarBinary, TensorBinary,
+               TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum, TensorTransform,
+               ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat, ArraySlice,
+               ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection, Transfer,
+               TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
+               LoopTransferOperation, IntegerRangeOperation, YieldOperation, CatchOperation,
+               MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue,
+               RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke, ArrayBoundsCheck,
+               ArrayStore, ArraySort>
       operation;
 };
 struct ShapeEquality {
@@ -540,6 +550,10 @@ struct TypedModule {
   bool applicationEntry =
       false; // Explicit application wrapper; test/library entries stay separate.
 };
+inline bool isByteBuffer(const TypedModule &module, const ValueType &type) {
+  return type.record && *type.record < module.records.size() &&
+         module.records[*type.record].standard == StandardRecord::ByteBuffer;
+}
 inline bool isFileResource(const TypedModule &module, const ValueType &type) {
   if (!type.record || *type.record >= module.records.size())
     return false;
@@ -547,6 +561,10 @@ inline bool isFileResource(const TypedModule &module, const ValueType &type) {
   return standard == StandardRecord::File || standard == StandardRecord::BufferedReader ||
          standard == StandardRecord::BufferedWriter;
 }
+inline bool isOwnedResource(const TypedModule &module, const ValueType &type) {
+  return isFileResource(module, type) || isByteBuffer(module, type);
+}
+
 struct SemanticLimits {
   std::size_t maxDepth = 128;
   std::size_t maxDiagnostics = 32;

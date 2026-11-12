@@ -25,6 +25,8 @@ public:
   std::span<const std::byte> bytes() const noexcept;
   // Private diagnostic snapshot, not a synchronization/uniqueness predicate.
   std::uint64_t referenceCount() const noexcept;
+  std::optional<AllocationLease> retain() const noexcept;
+  std::uint64_t reservationBytes() const noexcept;
   std::optional<AllocationLease> dependency(std::size_t index) const noexcept;
   // Private typed projection of an immutable recursive payload. The retained
   // lease, rather than the originating invocation, owns the returned view.
@@ -80,7 +82,13 @@ public:
   // must be infallible after allocation; cleanup runs exactly once when the last
   // retained owner retires, including fault/cancellation settlement. Resource
   // backing is never recycled as numeric storage.
-  void *allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept;
+  void *allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept,
+                         bool dynamic = false) noexcept;
+  // Dynamic payload reservations follow every owning compiler scope, including
+  // scopes in other invocations borrowing the same resource. Call after infallible
+  // construction and before publishing a replacement payload respectively.
+  bool trackResource(void *address) noexcept;
+  bool resizeResource(void *address, std::uint64_t additionalBytes) noexcept;
   // Validate a private resource capability without dereferencing an unowned
   // address. The cleanup identity distinguishes resources from ordinary bytes.
   void *readResource(void *address, void (*cleanup)(void *) noexcept,
@@ -118,6 +126,8 @@ public:
   void bindEnvironmentBudget(void *state, EnvironmentReserve reserve,
                              EnvironmentRelease release) noexcept;
   std::uint64_t environmentBytes() const noexcept { return flags_ & Materialized ? storage_.value.environmentBytes_ : 0; }
+  // Bind once before owning a dynamic host resource. Numeric graphs may
+  // predate binding and are charged when imported with retainRecursiveGraph.
   // Conservative per-invocation reservations for all backing allocation and
   // retention in bound task contexts. Include backing and one owner; ordinary
   // retains each reserve independently, while graph visits reuse charged owners.
@@ -125,7 +135,7 @@ public:
   // including after explicit release. The default scope settles with Invocation.
   void bindRecursiveBudget(void *state, EnvironmentReserve reserve,
                            EnvironmentRelease release) noexcept;
-  std::uint64_t recursiveBytes() const noexcept { return flags_ & Materialized ? storage_.value.recursiveBytes_ : 0; }
+  std::uint64_t recursiveBytes() const noexcept;
   void *allocateEnvironment(std::uint64_t bytes, const void *key) noexcept;
   // Borrow capture bytes from an environment already owned by this invocation.
   // Works for ordinary and recursive environments; adds no owner and does not
@@ -143,6 +153,8 @@ public:
   bool retainRecursiveGraph(const AllocationLease &root, const void *key, std::uint64_t bytes,
                             std::uint64_t alignment) noexcept;
   bool retainFrom(const Invocation &source, void *buffer) noexcept;
+  // Private checked handoff from independently pinned runtime storage.
+  bool retainLease(const AllocationLease &) noexcept;
   bool holdArrayReference(void *buffer) noexcept;
   void release(void *buffer) noexcept;
   // Requires exclusive source-context access, like retainFrom. Reject unknown,
@@ -157,6 +169,10 @@ public:
   void fault(std::int64_t code, std::int64_t line = 0, std::int64_t column = 0) noexcept;
   void settle() noexcept {
     if (flags_ & Settled) return;
+    if (flags_ & DynamicResources) {
+      settleResources();
+      return;
+    }
     if (!(flags_ & Materialized)) {
       pollMode_ = 2;
       flags_ |= Settled;
@@ -204,8 +220,12 @@ private:
   // Only the token, control tag and atomic diagnostic exist at cold entry.
   const std::atomic<bool> *cancellation_ = nullptr;
   enum Flag : std::uint32_t {
-    Settled = 1, AllocationConfigured = 2, NativeInterrupts = 4,
-    Materialized = 8, ControlReady = 16
+    Settled = 1,
+    AllocationConfigured = 2,
+    NativeInterrupts = 4,
+    Materialized = 8,
+    ControlReady = 16,
+    DynamicResources = 32
   };
   std::uint32_t flags_ = 0;
   // 0 clear, 1 token, 2 observed/faulted/settled, 3 native protected.
@@ -269,6 +289,9 @@ private:
                                      std::span<const AllocationLease>, std::span<const void *const>,
                                      bool) noexcept;
   bool reserve() noexcept;
+  bool holdBacking(Backing *) noexcept;
+  bool watchResource(Backing *) noexcept;
+  Backing *&smallCache(OwnerStore &) noexcept;
   std::int64_t pollObserved() noexcept;
   void settleResources() noexcept;
   void attach(Owner *owner) noexcept;

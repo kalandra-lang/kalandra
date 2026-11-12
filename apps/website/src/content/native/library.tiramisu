@@ -15,6 +15,7 @@ Standard modules are explicit imports included with the compiler. They do not re
 
 list {
   link { url = "/docs/filesystem", "std/fs — owned files, byte and line I/O, buffering" },
+  link { url = "/docs/buffers", "std/buffer — owned growable byte storage" },
   link { url = "/docs/parsing", "std/parse — convert text to typed numbers and booleans" },
   link { url = "/docs/paths", "std/path — join paths and inspect their components" },
   link { url = "/docs/time", "std/time — measure elapsed time and suspend tasks" },

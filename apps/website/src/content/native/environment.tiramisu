@@ -1,4 +1,4 @@
-meta { title = "Environment variables", description = "Read inherited application configuration with std/env.", order = 9, group = "Library reference" }
+meta { title = "Environment variables", description = "Read inherited application configuration with std/env.", order = 10, group = "Library reference" }
 
 Use std/env to read environment variables supplied when the application starts. Read configuration in host code and pass the resulting values to other functions or tasks.
 

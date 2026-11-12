@@ -1,4 +1,4 @@
-meta { title = "Paths", description = "Join file paths and inspect filenames, parents, extensions and absolute roots with std/path.", order = 8, group = "Library reference" }
+meta { title = "Paths", description = "Join file paths and inspect filenames, parents, extensions and absolute roots with std/path.", order = 9, group = "Library reference" }
 
 Use std/path to compose and inspect paths before passing them to std/fs. Paths are ordinary immutable Strings. These functions operate on text and use the executable's target platform rules: POSIX rules on Linux and macOS, Windows rules on Windows. A cross-compiled Windows executable uses Windows rules even when built on Linux.
 

@@ -13,8 +13,8 @@
 #include <windows.h>
 #endif
 #include "../include/kalandra/NumericType.h"
-#include "Runtime.h"
 #include "NativeCancellation.h"
+#include "Runtime.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <mutex>
 #include <new>
 #include <unordered_map>
 #include <unordered_set>
@@ -133,6 +134,7 @@ struct Owner {
   bool recursiveCharged = false;
   bool arrayEscape = false; // Invocation-local ownership, never a shared backing flag.
 };
+struct ResourceAccounting;
 struct alignas(std::max_align_t) Backing {
   std::atomic<std::uint64_t> references{1};
   Owner initial{nullptr, nullptr, this, true};
@@ -142,15 +144,105 @@ struct alignas(std::max_align_t) Backing {
   const void *recursiveKey = nullptr;
   Backing **dependencies = nullptr;
   std::size_t dependencyCount = 0;
-  Backing *releaseNext = nullptr; // Used exclusively after the final reference retires.
+  // Live dynamic resources use this slot for accounting metadata. After the
+  // final reference retires it becomes the iterative release worklist link.
+  // The phases never overlap: every accounting observer owns a reference.
+  void *bookkeeping = nullptr;
   void (*cleanup)(void *) noexcept = nullptr;
+  ResourceAccounting *resource() const noexcept {
+    return static_cast<ResourceAccounting *>(bookkeeping);
+  }
 };
 struct alignas(std::max_align_t) ControlAllocation {
   ControlAllocation *next;
   void (*cleanup)(void *) noexcept;
   std::uint64_t charge;
 };
+struct ResourceWatch;
+struct ResourceAccounting {
+  std::uint64_t bytes = 0;
+  ResourceWatch *observers = nullptr;
+};
+struct ResourceWatch {
+  ResourceWatch *next = nullptr, *previous = nullptr, *storeNext = nullptr;
+  ResourceAccounting *resource;
+  Backing *backing;
+  std::uint64_t *scopeBytes, *contextBytes;
+  void *budget;
+  Invocation::EnvironmentReserve reserve;
+  Invocation::EnvironmentRelease release;
+  std::uint64_t charged = 0;
+};
 namespace {
+// Only contexts which have owned dynamic resources enter this lock. Numeric
+// programs keep their existing allocation path and Invocation/OwnerStore ABI.
+std::recursive_mutex resourceAccountingMutex;
+struct AccountingGuard {
+  bool held = false;
+  explicit AccountingGuard(bool needed) {
+    if (needed)
+      acquire();
+  }
+  AccountingGuard(const AccountingGuard &) = delete;
+  AccountingGuard &operator=(const AccountingGuard &) = delete;
+  void acquire() {
+    resourceAccountingMutex.lock();
+    held = true;
+  }
+  ~AccountingGuard() {
+    if (held)
+      resourceAccountingMutex.unlock();
+  }
+};
+struct ResourceStore {
+  Backing *small = nullptr;
+  ResourceWatch *notes = nullptr;
+  ResourceWatch **buckets = nullptr;
+  std::size_t count = 0, bucketCount = 4;
+  ResourceWatch *inlineBuckets[4]{};
+  ResourceStore() noexcept : buckets(inlineBuckets) {}
+};
+void releaseBacking(Backing *) noexcept;
+void cleanupResourceStore(void *address) noexcept {
+  std::lock_guard lock(resourceAccountingMutex);
+  auto &store = *static_cast<ResourceStore *>(address);
+  while (store.notes) {
+    auto *note = store.notes;
+    store.notes = note->storeNext;
+    if (note->previous)
+      note->previous->next = note->next;
+    else
+      note->resource->observers = note->next;
+    if (note->next)
+      note->next->previous = note->previous;
+    auto *backing = note->backing;
+    delete note;
+    releaseBacking(backing);
+  }
+  if (store.buckets != store.inlineBuckets)
+    std::free(store.buckets);
+  releaseBacking(store.small);
+  store.~ResourceStore();
+}
+ResourceStore *resourceStore(Backing *backing) noexcept {
+  return backing && backing->cleanup == cleanupResourceStore
+             ? static_cast<ResourceStore *>(static_cast<void *>(backing + 1))
+             : nullptr;
+}
+std::size_t resourceBucket(ResourceAccounting *resource, std::size_t count) noexcept {
+  auto key = reinterpret_cast<std::uintptr_t>(resource) / alignof(ResourceAccounting);
+  key ^= key >> 17;
+  key *= std::uintptr_t(0x9e3779b1);
+  return key & (count - 1);
+}
+std::size_t resourceSlot(ResourceWatch **buckets, std::size_t count,
+                         ResourceAccounting *resource) noexcept {
+  auto slot = resourceBucket(resource, count);
+  while (buckets[slot] && buckets[slot]->resource != resource)
+    slot = (slot + 1) & (count - 1);
+  return slot;
+}
+std::uint64_t retainedBytes(const Backing *backing) noexcept { return backing->storageBytes; }
 // Reservations are transferred only when the corresponding owner is published.
 struct BackingReservation {
   void *state;
@@ -187,17 +279,16 @@ bool retainBacking(Backing *backing) noexcept {
 void releaseBacking(Backing *backing) noexcept {
   if (!backing || backing->references.fetch_sub(1, std::memory_order_acq_rel) != 1)
     return;
-  // Only the thread observing the final reference may write releaseNext. Each
+  // Only the thread observing the final reference may write the release worklist link. Each
   // edge owns a reference, including duplicates, so a shared child is enqueued
   // exactly once. The intrusive worklist needs no allocation or native recursion.
-  auto *pending = backing;
-  while (pending) {
-    auto *current = pending;
-    pending = current->releaseNext;
+  Backing *pending = nullptr;
+  auto *current = backing;
+  for (;;) {
     for (std::size_t edge = 0; edge < current->dependencyCount; ++edge) {
       auto *child = current->dependencies[edge];
       if (child->references.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-        child->releaseNext = pending;
+        child->bookkeeping = pending;
         pending = child;
       }
     }
@@ -205,9 +296,158 @@ void releaseBacking(Backing *backing) noexcept {
       current->cleanup(current + 1);
     current->~Backing();
     std::free(current);
+    if (!pending)
+      break;
+    current = pending;
+    pending = static_cast<Backing *>(current->bookkeeping);
   }
 }
 } // namespace
+Backing *&Invocation::smallCache(OwnerStore &store) noexcept {
+  if (auto *sidecar = resourceStore(store.spareSmall_))
+    return sidecar->small;
+  return store.spareSmall_;
+}
+std::uint64_t Invocation::recursiveBytes() const noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
+  return flags_ & Materialized ? storage_.value.recursiveBytes_ : 0;
+}
+bool Invocation::watchResource(Backing *backing) noexcept {
+  auto &state = ledger();
+  // Remember dynamic ownership even in an unbound context. This makes the
+  // once-before-resource budget-binding rule constant-time for ordinary calls.
+  flags_ |= DynamicResources;
+  if (!state.recursiveReserve_)
+    return true;
+  std::lock_guard lock(resourceAccountingMutex);
+  auto &scope = owners();
+  auto *store = resourceStore(scope.spareSmall_);
+  if (store &&
+      store->buckets[resourceSlot(store->buckets, store->bucketCount, backing->resource())])
+    return true;
+  if (poll() || !reserve())
+    return false;
+  const bool grow = store && store->count + 1 > store->bucketCount / 2;
+  if (grow && store->bucketCount > SIZE_MAX / (2 * sizeof(ResourceWatch *))) {
+    fault(2);
+    return false;
+  }
+  // Index growth is geometric. Conservatively retain old index reservations
+  // until this ownership scope ends, like ordinary backing reservations.
+  const auto indexBytes = grow ? store->bucketCount * 2 * sizeof(ResourceWatch *) : 0;
+  const auto metadata =
+      sizeof(ResourceWatch) + indexBytes + (store ? 0 : sizeof(Backing) + sizeof(ResourceStore));
+  if (backing->resource()->bytes > UINT64_MAX - metadata) {
+    fault(2);
+    return false;
+  }
+  BackingReservation reservation{state.recursiveBudget_, state.recursiveRelease_};
+  if (!reservation.acquire(*this, backing->resource()->bytes + metadata, state.recursiveBytes_,
+                           state.recursiveReserve_))
+    return false;
+  auto *note = new (std::nothrow) ResourceWatch;
+  auto *sidecar =
+      store ? nullptr
+            : static_cast<Backing *>(std::malloc(sizeof(Backing) + sizeof(ResourceStore)));
+  auto **buckets = grow ? static_cast<ResourceWatch **>(
+                              std::calloc(store->bucketCount * 2, sizeof(ResourceWatch *)))
+                        : nullptr;
+  if (!note || (!store && !sidecar) || (grow && !buckets) || !retainBacking(backing)) {
+    delete note;
+    std::free(sidecar);
+    std::free(buckets);
+    fault(2);
+    return false;
+  }
+  if (!store) {
+    new (sidecar) Backing;
+    sidecar->cleanup = cleanupResourceStore;
+    store = new (sidecar + 1) ResourceStore;
+    store->small = scope.spareSmall_;
+    scope.spareSmall_ = sidecar;
+  }
+  if (grow) {
+    const auto count = store->bucketCount * 2;
+    for (auto *existing = store->notes; existing; existing = existing->storeNext)
+      buckets[resourceSlot(buckets, count, existing->resource)] = existing;
+    if (store->buckets != store->inlineBuckets)
+      std::free(store->buckets);
+    store->buckets = buckets;
+    store->bucketCount = count;
+  }
+  auto *resource = backing->resource();
+  *note = ResourceWatch{resource->observers,
+                        nullptr,
+                        store->notes,
+                        resource,
+                        backing,
+                        &scope.recursiveBytes_,
+                        &state.recursiveBytes_,
+                        state.recursiveBudget_,
+                        state.recursiveReserve_,
+                        state.recursiveRelease_,
+                        resource->bytes};
+  if (note->next)
+    note->next->previous = note;
+  resource->observers = note;
+  store->notes = note;
+  store->buckets[resourceSlot(store->buckets, store->bucketCount, resource)] = note;
+  ++store->count;
+  state.recursiveBytes_ += reservation.bytes;
+  scope.recursiveBytes_ += reservation.bytes;
+  reservation.bytes = 0;
+  return true;
+}
+bool Invocation::trackResource(void *address) noexcept {
+  auto *owner = findOwner(address);
+  if (!owner || !owner->backing->resource()) {
+    fault(3);
+    return false;
+  }
+  return watchResource(owner->backing);
+}
+bool Invocation::resizeResource(void *address, std::uint64_t bytes) noexcept {
+  auto *owner = findOwner(address);
+  if (!owner || !owner->backing->resource()) {
+    fault(3);
+    return false;
+  }
+  // Constructor/retain publication registered the actual owning stores.
+  // The current temporary work scope may only borrow that owner; charging it
+  // again would add metadata and reservations to every growth operation.
+  std::lock_guard lock(resourceAccountingMutex);
+  auto &resource = *owner->backing->resource();
+  auto *failed = resource.observers;
+  for (; failed; failed = failed->next) {
+    if (bytes <= failed->charged)
+      continue;
+    const auto delta = bytes - failed->charged;
+    if (delta > UINT64_MAX - *failed->contextBytes || delta > UINT64_MAX - *failed->scopeBytes ||
+        !failed->reserve(failed->budget, delta))
+      break;
+    *failed->scopeBytes += delta;
+    *failed->contextBytes += delta;
+  }
+  if (failed || poll()) {
+    for (auto *note = resource.observers; note != failed; note = note->next)
+      if (bytes > note->charged) {
+        const auto delta = bytes - note->charged;
+        *note->scopeBytes -= delta;
+        *note->contextBytes -= delta;
+        note->release(note->budget, delta);
+      }
+    if (failed)
+      fault(2);
+    return false;
+  }
+  for (auto *note = resource.observers; note; note = note->next) {
+    if (bytes <= note->charged)
+      continue;
+    note->charged = bytes;
+  }
+  resource.bytes = bytes;
+  return true;
+}
 AllocationLease::~AllocationLease() { releaseBacking(backing_); }
 AllocationLease::AllocationLease(AllocationLease &&other) noexcept
     : backing_(std::exchange(other.backing_, nullptr)) {}
@@ -342,7 +582,8 @@ void Invocation::remove(Owner *owner) noexcept {
   if (owner->next)
     owner->next->previous = owner->previous;
   auto *backing = owner->backing;
-  const bool recycle = !owners().spareSmall_ && owner->embedded && !backing->record && !backing->cleanup &&
+  auto &cache = smallCache(owners());
+  const bool recycle = !cache && owner->embedded && !backing->record && !backing->cleanup &&
                        backing->bytes <= 256 && !backing->dependencyCount &&
                        backing->references.load(std::memory_order_acquire) == 1;
   if (!owner->embedded) {
@@ -350,13 +591,14 @@ void Invocation::remove(Owner *owner) noexcept {
     std::free(owner);
   }
   if (recycle)
-    owners().spareSmall_ = backing;
+    cache = backing;
   else
     releaseBacking(backing);
   live_.store(live_.load(std::memory_order_relaxed) - 1, std::memory_order_relaxed);
   ++ledgerState.releases_;
 }
 void *Invocation::allocate(std::uint64_t bytes) noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
   auto &ledgerState = ledger();
   if (poll() || !usable() || !reserve())
     return nullptr;
@@ -369,10 +611,11 @@ void *Invocation::allocate(std::uint64_t bytes) noexcept {
   if (!reservation.acquire(*this, storageBytes, ledgerState.recursiveBytes_, ledgerState.recursiveReserve_))
     return nullptr;
   Backing *backing;
-  if (owners().spareSmall_ && owners().spareSmall_->storageBytes == storageBytes) {
+  auto &cache = smallCache(owners());
+  if (cache && cache->storageBytes == storageBytes) {
     // The cache owns the sole reference to this numeric backing. Its size and
     // immutable metadata still match; attach resets the detached owner links.
-    backing = std::exchange(owners().spareSmall_, nullptr);
+    backing = std::exchange(cache, nullptr);
   } else {
     auto *storage = std::malloc(storageBytes);
     if (!storage) {
@@ -390,14 +633,25 @@ void *Invocation::allocate(std::uint64_t bytes) noexcept {
   attach(&backing->initial);
   return backing + 1;
 }
-void *Invocation::allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept {
+void *Invocation::allocateResource(std::uint64_t bytes, void (*cleanup)(void *) noexcept,
+                                   bool dynamic) noexcept {
   if (!bytes || !cleanup) {
     fault(3);
     return nullptr;
   }
-  auto *data = allocate(bytes);
-  if (data)
-    (static_cast<Backing *>(data) - 1)->cleanup = cleanup;
+  constexpr auto alignment = alignof(ResourceAccounting);
+  if (dynamic && bytes > SIZE_MAX - sizeof(ResourceAccounting) - alignment) {
+    fault(2);
+    return nullptr;
+  }
+  const auto padded = dynamic ? (bytes + alignment - 1) & ~(alignment - 1) : bytes;
+  auto *data = allocate(padded + (dynamic ? sizeof(ResourceAccounting) : 0));
+  if (data) {
+    auto *backing = static_cast<Backing *>(data) - 1;
+    backing->cleanup = cleanup;
+    if (dynamic)
+      backing->bookkeeping = new (static_cast<std::byte *>(data) + padded) ResourceAccounting;
+  }
   return data;
 }
 void *Invocation::readResource(void *address, void (*cleanup)(void *) noexcept,
@@ -413,6 +667,7 @@ void *Invocation::readResource(void *address, void (*cleanup)(void *) noexcept,
   return address;
 }
 void *Invocation::allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
   auto &state = ledger();
   if (poll() || !usable() || !reserve())
     return nullptr;
@@ -458,6 +713,7 @@ void Invocation::clearControl() noexcept {
   ++state.releases_;
 }
 void Invocation::releaseControl(void *address) noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
   auto &state = ledger();
   auto *control = state.controls_;
   while (control && control + 1 != address)
@@ -501,6 +757,7 @@ const void *Invocation::makeRecursiveValueImpl(std::span<const std::byte> payloa
                                                std::span<const AllocationLease> leases,
                                                std::span<const void *const> pointers,
                                                bool rawPointers) noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
   auto &ledgerState = ledger();
   const auto dependencyCount = rawPointers ? pointers.size() : leases.size();
   if (poll() || !usable())
@@ -651,8 +908,10 @@ void Invocation::bindEnvironmentBudget(void *state, EnvironmentReserve reserve,
 }
 void Invocation::bindRecursiveBudget(void *state, EnvironmentReserve reserve,
                                      EnvironmentRelease release) noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
   auto &ledgerState = ledger();
-  if (ledgerState.recursiveBytes_ || ledgerState.recursiveReserve_ || !state || !reserve || !release) {
+  if ((flags_ & DynamicResources) || ledgerState.recursiveBytes_ || ledgerState.recursiveReserve_ ||
+      !state || !reserve || !release) {
     fault(3);
     return;
   }
@@ -757,10 +1016,18 @@ bool Invocation::holdArrayReference(void *buffer) noexcept {
   owners().head_->arrayEscape = true;
   return true;
 }
+std::optional<AllocationLease> AllocationLease::retain() const noexcept {
+  if (!backing_ || !retainBacking(backing_))
+    return {};
+  return AllocationLease(backing_);
+}
+std::uint64_t AllocationLease::reservationBytes() const noexcept {
+  if (!backing_)
+    return 0;
+  const auto bytes = retainedBytes(backing_);
+  return bytes > UINT64_MAX - sizeof(Owner) ? UINT64_MAX : bytes + sizeof(Owner);
+}
 bool Invocation::retainFrom(const Invocation &source, void *buffer) noexcept {
-  auto &ledgerState = ledger();
-  if (poll() || !usable() || !reserve())
-    return false;
   if (!source.usable()) {
     fault(3);
     return false;
@@ -770,11 +1037,29 @@ bool Invocation::retainFrom(const Invocation &source, void *buffer) noexcept {
     fault(3);
     return false;
   }
-  auto *backing = existing->backing;
+  return holdBacking(existing->backing);
+}
+bool Invocation::retainLease(const AllocationLease &lease) noexcept {
+  if (!lease.backing_) {
+    fault(3);
+    return false;
+  }
+  return holdBacking(lease.backing_);
+}
+bool Invocation::holdBacking(Backing *backing) noexcept {
+  if (backing->resource())
+    flags_ |= DynamicResources;
+  AccountingGuard accounting(flags_ & DynamicResources);
+  if (backing->resource() && !watchResource(backing))
+    return false;
+  auto &ledgerState = ledger();
+  if (poll() || !usable() || !reserve())
+    return false;
   // Every ordinary retain creates an owner. Conservatively reserve its backing
   // again, even if this invocation already has another owner for the same bytes.
   BackingReservation reservation{ledgerState.recursiveBudget_, ledgerState.recursiveRelease_};
-  if (!reservation.acquire(*this, backing->storageBytes, ledgerState.recursiveBytes_, ledgerState.recursiveReserve_))
+  if (!reservation.acquire(*this, retainedBytes(backing), ledgerState.recursiveBytes_,
+                           ledgerState.recursiveReserve_))
     return false;
   auto *storage = std::malloc(sizeof(Owner));
   if (!storage) {
@@ -797,6 +1082,7 @@ bool Invocation::retainFrom(const Invocation &source, void *buffer) noexcept {
 }
 bool Invocation::retainRecursiveGraph(const AllocationLease &root, const void *key,
                                       std::uint64_t bytes, std::uint64_t alignment) noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
   auto &ledgerState = ledger();
   if (poll() || !usable())
     return false;
@@ -843,6 +1129,15 @@ bool Invocation::retainRecursiveGraph(const AllocationLease &root, const void *k
         return false;
       auto *backing = pending.back();
       pending.pop_back();
+      if (backing->resource()) {
+        // Recursive graphs normally cannot contain host resources, but private
+        // handoff validation must preserve accounting for every backing kind.
+        flags_ |= DynamicResources;
+        if (!accounting.held)
+          accounting.acquire();
+        if (!watchResource(backing))
+          return false;
+      }
       if (!visited.insert(backing).second)
         continue;
       if (visited.size() > maxRecursiveDependencies ||
@@ -853,12 +1148,12 @@ bool Invocation::retainRecursiveGraph(const AllocationLease &root, const void *k
       edges += backing->dependencyCount;
       if (!charged.contains(backing)) {
         constexpr auto maximum = std::numeric_limits<std::uint64_t>::max();
-        if (backing->storageBytes > maximum - sizeof(Owner) ||
-            backing->storageBytes + sizeof(Owner) > maximum - charge) {
+        const auto cost = retainedBytes(backing);
+        if (cost > maximum - sizeof(Owner) || cost + sizeof(Owner) > maximum - charge) {
           fault(2);
           return false;
         }
-        charge += backing->storageBytes + sizeof(Owner);
+        charge += cost + sizeof(Owner);
         if (auto found = owned.find(backing); found != owned.end())
           existingCharges.push_back(found->second);
       }
@@ -933,13 +1228,13 @@ void Invocation::release(void *buffer) noexcept {
   remove(owner);
 }
 void Invocation::clearOwners(OwnerStore &store) noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
   auto &state = storage_.value;
   auto *previous = state.active_;
   state.active_ = &store;
   while (store.head_) remove(store.head_);
   if (store.spareSmall_) {
-    store.spareSmall_->~Backing();
-    std::free(std::exchange(store.spareSmall_, nullptr));
+    releaseBacking(std::exchange(store.spareSmall_, nullptr));
   }
   if (store.environmentBytes_ && state.environmentRelease_)
     state.environmentRelease_(state.environmentBudget_, store.environmentBytes_);
@@ -950,6 +1245,7 @@ void Invocation::clearOwners(OwnerStore &store) noexcept {
   state.active_ = previous;
 }
 void Invocation::settleResources() noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
   auto &state = storage_.value;
   if (flags_ & Settled) return;
   pollMode_ = 2;
@@ -1000,10 +1296,15 @@ bool Invocation::OwnershipScope::swap(OwnershipScope &other) noexcept {
     if (context_) context_->fault(3);
     return false;
   }
+  AccountingGuard accounting(context_->flags_ & DynamicResources);
   std::swap(store_.head_, other.store_.head_);
   std::swap(store_.spareSmall_, other.store_.spareSmall_);
   std::swap(store_.environmentBytes_, other.store_.environmentBytes_);
   std::swap(store_.recursiveBytes_, other.store_.recursiveBytes_);
+  for (auto *store : {&store_, &other.store_})
+    if (auto *sidecar = resourceStore(store->spareSmall_))
+      for (auto *note = sidecar->notes; note; note = note->storeNext)
+        note->scopeBytes = &store->recursiveBytes_;
   return true;
 }
 Invocation::OwnershipSelection::OwnershipSelection(OwnershipScope &scope) noexcept {

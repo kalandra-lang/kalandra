@@ -54,130 +54,38 @@ constexpr std::size_t fileSlots = 65536, noFileSlot = fileSlots;
 std::size_t reserveFileSlot();
 void releaseFileSlot(std::size_t) noexcept;
 void deferClose(NativeFile &, std::size_t &) noexcept;
-struct FileState;
-struct ResourceScope {
-  FileState *first = nullptr;
-  ResourceScope *parent = nullptr;
-  AllocationLease parentOwner;
-  bool active = true;
-  static void cleanup(void *p) noexcept { static_cast<ResourceScope *>(p)->~ResourceScope(); }
-};
-// Protect intrusive ownership metadata. Reads, writes and opens never hold it.
-std::mutex &resourceMutex() {
-  static auto *value = new std::mutex;
-  return *value;
-}
-struct FileState {
-  std::mutex mutex;
+struct FileState : OwnedState {
   NativeFile file = invalidFile;
   std::size_t closeSlot = noFileSlot;
-  ResourceScope *scope = nullptr;
-  AllocationLease scopeOwner;
-  FileState *previous = nullptr, *next = nullptr;
-  std::atomic<bool> retired{false};
   enum class Buffer { None, Read, Write } buffer = Buffer::None;
   std::uint64_t capacity = 0, begin = 0, end = 0;
-  explicit FileState(std::uint64_t capacity) noexcept : capacity(capacity) {}
+  explicit FileState(std::uint64_t capacity) noexcept
+      : OwnedState(OwnedKind::File, sizeof(FileState) + capacity, cleanup, retireFile),
+        capacity(capacity) {}
   unsigned char *data() noexcept { return reinterpret_cast<unsigned char *>(this + 1); }
-  void detach() noexcept {
-    if (!scope)
-      return;
-    if (previous)
-      previous->next = next;
-    else
-      scope->first = next;
-    if (next)
-      next->previous = previous;
-    scope = nullptr;
-    previous = next = nullptr;
-  }
-  ~FileState() {
-    {
-      std::lock_guard lock(resourceMutex());
-      detach();
-    }
-    deferClose(file, closeSlot);
-  }
+  ~FileState() { deferClose(file, closeSlot); }
   static void cleanup(void *p) noexcept { static_cast<FileState *>(p)->~FileState(); }
+  static void retireFile(void *p) noexcept {
+    auto &file = *static_cast<FileState *>(p);
+    deferClose(file.file, file.closeSlot);
+  }
 };
-struct ResourceControl {
-  Invocation::OwnershipScope storage;
-  ResourceScope *scope = nullptr;
-  explicit ResourceControl(Invocation &ctx) noexcept : storage(ctx) {}
-  ~ResourceControl() {
-    if (!scope)
-      return;
-    std::lock_guard lock(resourceMutex());
-    scope->active = false;
-    while (scope->first) {
-      auto *file = scope->first;
-      file->detach();
-      // This control still owns the scope until its storage retires. Drop the
-      // file's metadata lease now, rather than retaining an inactive ancestor
-      // chain until a request releases the final physical file backing.
-      file->scopeOwner = {};
-      file->retired.store(true, std::memory_order_release);
-      // An in-flight service owns its lease and closes after its OS operation.
-      // Source cleanup must never wait for that operation's native mutex.
-      std::unique_lock native(file->mutex, std::try_to_lock);
-      if (native)
-        deferClose(file->file, file->closeSlot);
-    }
-  }
-  static void cleanup(void *p) noexcept { static_cast<ResourceControl *>(p)->~ResourceControl(); }
-};
-ResourceControl *currentScope(Invocation &ctx) noexcept {
-  return static_cast<ResourceControl *>(ctx.latestControl(ResourceControl::cleanup));
-}
-void adopt(Invocation &ctx, FileState &file, ResourceScope *scope) noexcept {
-  auto owner = scope ? ctx.lease(scope) : std::optional<AllocationLease>{};
-  if (scope && !owner) {
-    ctx.fault(3);
-    return;
-  }
-  std::lock_guard lock(resourceMutex());
-  file.detach();
-  file.scopeOwner = owner ? std::move(*owner) : AllocationLease{};
-  if (!scope)
-    return;
-  file.scope = scope;
-  file.next = scope->first;
-  if (file.next)
-    file.next->previous = &file;
-  scope->first = &file;
-}
-FileDescriptor descriptor(FileState *file) noexcept {
-  FileDescriptor result;
-  if (file) {
-    auto &s = result.storage;
-    s.allocated = s.aligned = reinterpret_cast<std::uint8_t *>(file);
-    s.sizes[0] = static_cast<std::int64_t>(sizeof(FileState) + file->capacity);
-    s.strides[0] = 1;
-  }
-  return result;
-}
+FileDescriptor descriptor(FileState *file) noexcept { return ownedDescriptor(file); }
 FileState *createFile(Invocation &ctx, std::uint64_t capacity) noexcept {
   if (capacity > std::uint64_t(INT64_MAX) - sizeof(FileState)) {
     ctx.fault(2);
     return nullptr;
   }
-  auto *p = ctx.allocateResource(sizeof(FileState) + capacity, FileState::cleanup);
+  auto *p = ctx.allocateResource(sizeof(FileState) + capacity, OwnedState::cleanup);
   return p ? new (p) FileState(capacity) : nullptr;
 }
 FileState *inspectFile(Invocation &ctx, const FileDescriptor &value) noexcept {
-  const auto &s = value.storage;
-  if (!s.allocated || s.aligned != s.allocated || s.offset || s.strides[0] != 1 ||
-      s.sizes[0] < std::int64_t(sizeof(FileState))) {
+  auto *p = inspectOwned(ctx, value);
+  if (p && p->kind != OwnedKind::File) {
     ctx.fault(3);
     return nullptr;
   }
-  auto *p = static_cast<FileState *>(
-      ctx.readResource(s.allocated, FileState::cleanup, std::uint64_t(s.sizes[0])));
-  if (p && std::uint64_t(s.sizes[0]) != sizeof(FileState) + p->capacity) {
-    ctx.fault(3);
-    return nullptr;
-  }
-  return p;
+  return static_cast<FileState *>(p);
 }
 struct Job {
   std::atomic<bool> done{false}, abandoned{false};
@@ -187,8 +95,12 @@ struct Job {
   std::uint64_t value = 0, mode = 0, size = 0, count = 0;
   FileState *file = nullptr, *output = nullptr;
   AllocationLease fileOwner, outputOwner;
+  BufferIO buffer;
+  bool direct = false;
   explicit Job(FileAction action) noexcept : action(action) {}
-  unsigned char *data() noexcept { return reinterpret_cast<unsigned char *>(this + 1); }
+  unsigned char *data() noexcept {
+    return direct ? buffer.data : reinterpret_cast<unsigned char *>(this + 1);
+  }
   static void cleanup(void *p) noexcept { static_cast<Job *>(p)->~Job(); }
   void system(std::int32_t code) noexcept {
     kind = FileKind::System;
@@ -406,6 +318,8 @@ void execute(Job &job) noexcept {
     break;
   case FileAction::Read:
   case FileAction::ReadInto:
+  case FileAction::ReadIntoBuffer:
+  case FileAction::ReadAppend:
   case FileAction::ReadExact:
     if (file.buffer == FileState::Buffer::Write) {
       job.kind = FileKind::InvalidArgument;
@@ -470,6 +384,8 @@ void execute(Job &job) noexcept {
   }
   case FileAction::Write:
   case FileAction::WriteAll:
+  case FileAction::WriteBuffer:
+  case FileAction::WriteAllBuffer:
   case FileAction::WriteText:
   case FileAction::WriteLine:
     if (file.buffer == FileState::Buffer::Read) {
@@ -481,7 +397,7 @@ void execute(Job &job) noexcept {
     do {
       const auto n = write(job, file, job.data() + job.count, job.size - job.count);
       job.count += n;
-      if (!n || job.action == FileAction::Write)
+      if (!n || (job.action == FileAction::Write || job.action == FileAction::WriteBuffer))
         break;
     } while (job.count < job.size && job.kind == FileKind::Success && !job.abandoned);
     break;
@@ -599,6 +515,9 @@ struct Executor {
         std::lock_guard native(current.job->output->mutex);
         deferClose(current.job->output->file, current.job->output->closeSlot);
       }
+      // Native access has ended. Releasing the exact byte pin before done
+      // publication avoids unnecessary COW on an ordinary successful return.
+      current.job->buffer.payload = {};
       current.job->done.store(true, std::memory_order_release);
       {
         std::lock_guard lock(mutex);
@@ -716,8 +635,18 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
     if (!file)
       return nullptr;
   }
+  const bool bufferRead = action == FileAction::ReadIntoBuffer || action == FileAction::ReadAppend;
+  const bool bufferWrite =
+      action == FileAction::WriteBuffer || action == FileAction::WriteAllBuffer;
+  BufferIO buffer;
+  if ((bufferRead &&
+       !bufferReadView(ctx, args.buffer, args.value, action == FileAction::ReadAppend, buffer)) ||
+      (bufferWrite && !bufferWriteView(ctx, args.buffer, buffer)))
+    return nullptr;
   std::uint64_t size = 0;
-  if (action == FileAction::Open) {
+  if (bufferRead || bufferWrite)
+    size = buffer.size;
+  else if (action == FileAction::Open) {
     if (!validateString(ctx, args.path))
       return nullptr;
     if (args.mode > std::uint64_t(FileMode::ReadWrite) ||
@@ -743,7 +672,8 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
   }
   {
     Invocation::OwnershipSelection select(op->storage);
-    auto *storage = ctx.allocateResource(sizeof(Job) + size, Job::cleanup);
+    auto *storage =
+        ctx.allocateResource(sizeof(Job) + (bufferRead || bufferWrite ? 0 : size), Job::cleanup);
     if (!storage)
       return nullptr;
     auto *job = new (storage) Job(action);
@@ -753,6 +683,8 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
     job->value = args.value;
     job->mode = args.mode;
     job->size = size;
+    job->direct = bufferRead || bufferWrite;
+    job->buffer = std::move(buffer);
     if (file)
       job->fileOwner = std::move(*ctx.lease(file));
     if (action == FileAction::Open || action == FileAction::BufferedReader ||
@@ -827,6 +759,8 @@ bool step(Invocation &ctx, FileResult &out, FileAction action, const FileArgumen
     if (!healthy(ctx))
       return true;
     out.file = descriptor(job.output);
+  } else if (action == FileAction::ReadIntoBuffer || action == FileAction::ReadAppend) {
+    (void)bufferReadCommit(ctx, job.buffer, job.count);
   } else if (action == FileAction::ReadInto) {
     // The worker never received this destination. Publish bytes only into the
     // still-live exclusive caller array after the operation has completed.
@@ -868,7 +802,7 @@ extern "C" bool kalandra_file_step_v1(Invocation *ctx, FileResult *out, std::uin
   bool done = true;
   try {
     if (healthy(*ctx)) {
-      if (action > std::uint32_t(FileAction::WriteLine))
+      if (action > std::uint32_t(FileAction::WriteAllBuffer))
         ctx->fault(3);
       else
         done = step(*ctx, *out, static_cast<FileAction>(action), *args, state);
@@ -895,73 +829,6 @@ extern "C" void kalandra_file_v1(Invocation *ctx, FileResult *out, std::uint32_t
 extern "C" void kalandra_file_pause_v1(kalandra::runtime::Task *task, void *) noexcept {
   // Reuse the fixed, bounded five-millisecond scheduler notification mailbox.
   kalandra_console_pause_v1(task, nullptr);
-}
-
-extern "C" void *kalandra_file_scope_enter_v1(Invocation *ctx, const FileDescriptor *const *owned,
-                                              std::uint64_t count) noexcept {
-  if (!healthy(*ctx))
-    return nullptr;
-  auto *parent = currentScope(*ctx);
-  auto *memory = ctx->allocateControl(sizeof(ResourceControl), ResourceControl::cleanup);
-  if (!memory)
-    return nullptr;
-  auto *control = new (memory) ResourceControl(*ctx);
-  if (!control->storage.valid())
-    return nullptr;
-  {
-    Invocation::OwnershipSelection selected(control->storage);
-    auto *data = ctx->allocateResource(sizeof(ResourceScope), ResourceScope::cleanup);
-    if (!data)
-      return nullptr;
-    control->scope = new (data) ResourceScope;
-    if (parent) {
-      control->scope->parent = parent->scope;
-      auto lease = ctx->lease(parent->scope);
-      if (!lease) {
-        ctx->fault(3);
-        return nullptr;
-      }
-      control->scope->parentOwner = std::move(*lease);
-    }
-    for (std::uint64_t n = 0; n < count; ++n) {
-      if (!owned || !owned[n]) {
-        ctx->fault(3);
-        return nullptr;
-      }
-      auto *file = inspectFile(*ctx, *owned[n]);
-      if (!file)
-        return nullptr;
-      adopt(*ctx, *file, control->scope);
-    }
-  }
-  return healthy(*ctx) ? control : nullptr;
-}
-extern "C" void kalandra_file_scope_leave_v1(Invocation *ctx, void *scope,
-                                             const FileDescriptor *escaping) noexcept {
-  if (!scope)
-    return;
-  auto *control = static_cast<ResourceControl *>(scope);
-  if (escaping && healthy(*ctx)) {
-    if (auto *file = inspectFile(*ctx, *escaping))
-      adopt(*ctx, *file, control->scope->parent);
-  }
-  ctx->releaseControl(scope);
-}
-extern "C" bool kalandra_file_receive_v1(Invocation *ctx, const FileDescriptor *value) noexcept {
-  auto *file = inspectFile(*ctx, *value);
-  if (!file)
-    return false;
-  bool unowned;
-  {
-    std::lock_guard lock(resourceMutex());
-    unowned = file->scope == nullptr && !file->retired.load(std::memory_order_acquire);
-  }
-  // A returned worker value has left its producer's logical scope. Adopt it in
-  // its receiver; ordinary borrowed task parameters keep their existing owner.
-  if (unowned)
-    if (auto *scope = currentScope(*ctx))
-      adopt(*ctx, *file, scope->scope);
-  return healthy(*ctx);
 }
 
 kalandra::runtime::FileServiceStats kalandra::runtime::fileServiceStats() noexcept {

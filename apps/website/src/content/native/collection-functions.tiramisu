@@ -18,6 +18,9 @@ code { "length(value: String | [T]) -> i64" }
 
 Count Unicode scalar values in a String or elements in an array. Combining marks count separately; this is not a grapheme count. Empty values have length zero. Tensors use shape instead; length does not return a tensor element count. GPU helpers support length on local numeric and bool arrays; String queries remain CPU operations.
 
+
+length also accepts an owned ByteBuffer and returns its initialized byte count; see the std/buffer reference.
+
 h2 { "byteLength" }
 
 code { "byteLength(text: String) -> i64" }

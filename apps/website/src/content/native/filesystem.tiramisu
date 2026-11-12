@@ -127,7 +127,7 @@ code { "readInto(reader: BufferedReader, mut bytes: [u8]) -> u64 ! FsError" }
 
 Read into an existing array and return the transferred count. The array length is the maximum transfer size. The function never resizes it, and elements after the returned count remain unchanged. Zero means end of input when the destination is nonempty. This API temporarily requires exclusive access to the destination array as well as the handle.
 
-A buffer here is an ordinary initialized [u8] array, not a separate Buffer type. Reuse it to avoid allocating a new result array for each chunk. Only its first count elements contain bytes from the current read.
+This array overload uses an ordinary initialized [u8] array. The ByteBuffer overload below provides growable storage. Reuse it to avoid allocating a new result array for each chunk. Only its first count elements contain bytes from the current read.
 
 codeblock { language = kalandra, """from "std/fs" import open, OpenMode, FsError, writeText, readInto, close
 from "std/io" import println, IoError
@@ -148,6 +148,26 @@ fn main() -> unit ! (FsError | IoError):
 
 The output is 3:97:9: three bytes were read, the first is the UTF-8 byte for a, and the final array element was left unchanged. Cancellation or a fault during an operation can leave partial effects; reads and writes are not transactions.
 
+h2 { "readInto with ByteBuffer" }
+
+code { "readInto(file: File, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! FsError" }
+code { "readInto(reader: BufferedReader, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! FsError" }
+
+Read up to maxBytes into a ByteBuffer, replacing its initialized contents and reusing capacity where possible. The new length is the returned count. A successful zero-byte request clears the initialized length without consuming input. A nonzero request returning zero means end of input. Short reads are successful. Allocation/growth occurs before the external read; file effects are not transactional.
+
+For a ByteBuffer replacement read, the initialized length becomes zero before native input starts and becomes the actual count only after a successful read. If input has started and the request fails or is cancelled, the buffer remains empty; an unsuccessful call does not guarantee preservation of its earlier contents. A readAppend request preserves the earlier initialized prefix on failure or cancellation. Bytes from an incomplete request are never exposed as initialized data.
+
+h2 { "readAppend" }
+
+code { "readAppend(file: File, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! FsError" }
+code { "readAppend(reader: BufferedReader, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! FsError" }
+
+Read up to maxBytes and append the received bytes to the initialized prefix. The returned count measures only the newly read bytes. Grow capacity when needed. A zero-byte request, or end of input, preserves the previous contents and length. Borrowing remains exclusive while the source operation runs.
+
+list {
+  link { url = "/docs/buffers#files-and-buffer-reuse", "Runnable buffer/file copy example and ownership rules" }
+}
+
 h2 { "readLine" }
 
 code { "readLine(file: File, maxBytes: u64) -> Line ! FsError" }
@@ -161,15 +181,19 @@ h2 { "write" }
 
 code { "write(file: File, bytes: [u8]) -> u64 ! FsError" }
 code { "write(writer: BufferedWriter, bytes: [u8]) -> u64 ! FsError" }
+code { "write(file: File, bytes: ByteBuffer) -> u64 ! FsError" }
+code { "write(writer: BufferedWriter, bytes: ByteBuffer) -> u64 ! FsError" }
 
-Write some or all of the supplied bytes and return the count accepted. A buffered writer can accept bytes into its private storage without an OS write. Use writeAll to require the complete input to be accepted.
+Write some or all of the supplied bytes and return the count accepted. A ByteBuffer supplies only its initialized prefix; spare capacity is never written. A buffered writer can accept bytes into its private storage without an OS write. Use writeAll to require the complete input to be accepted.
 
 h2 { "writeAll" }
 
 code { "writeAll(file: File, bytes: [u8]) -> unit ! FsError" }
 code { "writeAll(writer: BufferedWriter, bytes: [u8]) -> unit ! FsError" }
+code { "writeAll(file: File, bytes: ByteBuffer) -> unit ! FsError" }
+code { "writeAll(writer: BufferedWriter, bytes: ByteBuffer) -> unit ! FsError" }
 
-Accept the entire byte array or report an error. An error or cancellation may leave a written prefix. A successful buffered write still needs flush or finish to send pending bytes to the operating system.
+Accept the entire byte array or initialized ByteBuffer prefix, or report an error. An error or cancellation may leave a written prefix. A successful buffered write still needs flush or finish to send pending bytes to the operating system.
 
 h2 { "writeText" }
 

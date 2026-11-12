@@ -18,9 +18,15 @@ enum class FileAction : std::uint32_t {
   Close,
   SeekTo,
   WriteText,
-  WriteLine
+  WriteLine,
+  ReadIntoBuffer,
+  ReadAppend,
+  WriteBuffer,
+  WriteAllBuffer
 };
 inline std::optional<FileAction> fileAction(std::string_view name) {
+  if (name == "readAppend")
+    return FileAction::ReadAppend;
   constexpr std::string_view names[] = {"open",      "bufferedReader", "bufferedWriter", "read",
                                         "readExact", "readInto",       "readLine",       "write",
                                         "writeAll",  "flush",          "finish",         "close",

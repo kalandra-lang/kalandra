@@ -1,3 +1,4 @@
+#include "BufferCapabilities.h"
 #include "EnvironmentCapabilities.h"
 #include "ErrorFamilies.h"
 #include "FileCapabilities.h"
@@ -716,6 +717,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       return invalid;
     if (auto invalid = parseCapabilityError(module, expression, target))
       return invalid;
+    if (auto invalid = bufferCapabilityError(module, expression, target))
+      return invalid;
     if (auto invalid = fileCapabilityError(module, expression, target))
       return invalid;
     if (const auto *console = std::get_if<ConsoleOperation>(&expression.operation)) {
@@ -1183,6 +1186,12 @@ std::string dumpTypedIR(const TypedModule &module) {
                   << operation.input;
             else if constexpr (std::is_same_v<T, ApplicationArguments>) {
               out << "application.arguments";
+            } else if constexpr (std::is_same_v<T, BufferOperation>) {
+              out << "buffer." << unsigned(operation.action);
+              for (auto arg : operation.arguments) {
+                out << " ";
+                value(arg);
+              }
             } else if constexpr (std::is_same_v<T, FileOperation>) {
               out << "filesystem." << unsigned(operation.action);
               for (auto arg : operation.arguments) {

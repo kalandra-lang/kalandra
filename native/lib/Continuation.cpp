@@ -28,6 +28,7 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           return values;
         } else if constexpr (std::is_same_v<T, FunctionCall> ||
                              std::is_same_v<T, FormatOperation> ||
+                             std::is_same_v<T, BufferOperation> ||
                              std::is_same_v<T, FileOperation> || std::is_same_v<T, TimeOperation>)
           return op.arguments;
         else if constexpr (std::is_same_v<T, RecordValue>) {
@@ -181,7 +182,7 @@ public:
       auto &plan = *plans[id];
       plan.valueScopes = options.valueScopes &&
                          std::ranges::any_of(input.functions[id].expressions, [&](ValueId value) {
-                           return isFileResource(input, input.expressions[value].type);
+                           return isOwnedResource(input, input.expressions[value].type);
                          });
       std::vector<Slot> parameters;
       for (auto parameter : input.functions[id].parameters)
@@ -223,7 +224,7 @@ public:
     for (auto &pointer : plans) {
       auto &plan = *pointer;
       if (std::ranges::any_of(plan.slots,
-                              [&](const auto &type) { return isFileResource(input, type); }))
+                              [&](const auto &type) { return isOwnedResource(input, type); }))
         continue;
       for (std::size_t call = 0; call < plan.code.size(); ++call) {
         auto &op = plan.code[call];
@@ -314,10 +315,10 @@ private:
   bool resourceFunction(FunctionId id) const {
     return std::ranges::any_of(input.functions[id].expressions,
                                [&](ValueId value) {
-                                 return isFileResource(input, input.expressions[value].type);
+                                 return isOwnedResource(input, input.expressions[value].type);
                                }) ||
            std::ranges::any_of(input.functions[id].parameters, [&](SymbolId value) {
-             return isFileResource(input, input.symbols[value].type);
+             return isOwnedResource(input, input.symbols[value].type);
            });
   }
   Slot function(Plan &plan, FunctionId id, const std::vector<Slot> &args,
@@ -370,7 +371,7 @@ private:
       plan.code[jump].jump = exit;
     if (resourceScope) {
       std::vector<Slot> values{*resourceScope};
-      if (isFileResource(input, fn.resultType))
+      if (isOwnedResource(input, fn.resultType))
         values.push_back(boundary.output);
       plan.code.push_back({Code::ResourceLeave, 0, std::move(values), 0, 0, 0, fn.result});
     }
@@ -446,6 +447,7 @@ private:
             for (auto &argument : op.arguments)
               argument = importValue(argument);
           } else if constexpr (std::is_same_v<T, FormatOperation> ||
+                               std::is_same_v<T, BufferOperation> ||
                                std::is_same_v<T, FileOperation> ||
                                std::is_same_v<T, TimeOperation>) {
             for (auto &argument : op.arguments)
@@ -650,6 +652,8 @@ private:
     if (auto *call = std::get_if<FunctionCall>(&op)) {
       call->function = called;
       call->arguments = reads;
+    } else if (auto *buffer = std::get_if<BufferOperation>(&op)) {
+      buffer->arguments = reads;
     } else if (auto *time = std::get_if<TimeOperation>(&op)) {
       time->arguments = reads;
     } else if (auto *lookup = std::get_if<EnvironmentLookup>(&op)) {
@@ -1438,6 +1442,11 @@ private:
       auto subject = expression(plan, field->subject, env, stack);
       plan.code.push_back(
           {Code::Field, output, {subject}, static_cast<std::size_t>(field->field), 0, 0, id});
+    } else if (const auto *buffer = std::get_if<BufferOperation>(&node.operation)) {
+      std::vector<Slot> arguments;
+      for (auto argument : buffer->arguments)
+        arguments.push_back(expression(plan, argument, env, stack));
+      plan.code.push_back({Code::Kernel, output, std::move(arguments), 0, 0, 0, id});
     } else if (const auto *time = std::get_if<TimeOperation>(&node.operation)) {
       std::vector<Slot> arguments;
       for (auto argument : time->arguments)
@@ -1595,7 +1604,7 @@ std::vector<bool> loopControlFunctions(const TypedModule &input) {
   for (FunctionId id = 0; id < input.functions.size(); ++id) {
     result[id] =
         result[id] || std::ranges::any_of(input.functions[id].parameters, [&](SymbolId symbol) {
-          return isFileResource(input, input.symbols[symbol].type);
+          return isOwnedResource(input, input.symbols[symbol].type);
         });
     for (auto value : input.functions[id].expressions) {
       const auto &operation = input.expressions.at(value).operation;
@@ -1675,7 +1684,7 @@ std::vector<bool> coordinatingFunctions(const TypedModule &input, bool consoleMa
   for (FunctionId id = 0; id < input.functions.size(); ++id) {
     result[id] =
         result[id] || std::ranges::any_of(input.functions[id].parameters, [&](SymbolId symbol) {
-          return isFileResource(input, input.symbols[symbol].type);
+          return isOwnedResource(input, input.symbols[symbol].type);
         });
     for (auto value : input.functions[id].expressions) {
       const auto &op = input.expressions.at(value).operation;
@@ -1687,7 +1696,7 @@ std::vector<bool> coordinatingFunctions(const TypedModule &input, bool consoleMa
       const auto *map = std::get_if<ArrayMap>(&op);
       if ((std::get_if<TimeOperation>(&op) &&
            std::get<TimeOperation>(op).action == TimeAction::Sleep) ||
-          isFileResource(input, input.expressions.at(value).type) ||
+          isOwnedResource(input, input.expressions.at(value).type) ||
           (consoleMaySuspend && (std::holds_alternative<ConsoleOperation>(op) ||
                                  std::holds_alternative<FileOperation>(op))) ||
           (map && map->parallel) || (task && task->prefix != TaskPrefix::Try) ||

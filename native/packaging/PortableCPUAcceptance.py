@@ -7,6 +7,7 @@ from ParseCases import SOURCE as PARSE_SOURCE, EXPECTED as PARSE_EXPECTED
 from PathCases import SOURCE as PATH_SOURCE, expected as path_expected
 from TimeCases import SOURCE as TIME_SOURCE, EXPECTED as TIME_EXPECTED
 from CallCases import SOURCE as CALL_SOURCE, EXPECTED as CALL_EXPECTED
+from BufferCases import SOURCE as BUFFER_SOURCE, EXPECTED as BUFFER_EXPECTED
 from EnvironmentCases import SOURCE as ENV_SOURCE, expected as env_expected, with_environment
 import argparse
 import json
@@ -166,6 +167,7 @@ fn main()->[i64]:
             (PATH_SOURCE, path_expected(windows), lambda env: env),
             (TIME_SOURCE, TIME_EXPECTED, lambda env: env),
             (CALL_SOURCE, CALL_EXPECTED, lambda env: env),
+            (BUFFER_SOURCE, BUFFER_EXPECTED, lambda env: env),
             (ENV_SOURCE, env_expected(windows), lambda env: with_environment(env, windows=windows)),
         ):
             source.write_text(app_source, encoding="utf-8")

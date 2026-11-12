@@ -193,6 +193,8 @@ jobs:
       - name: Compile resumable host calls through both Windows GPU backends
         run: |
           foreach ($backend in @('cuda', 'vulkan')) {
+            python native/tests/BufferSourceTests.py --compiler build/windows-gpu/native/kalandra.exe --target $backend --variant optimized --compile-only --output "build/windows-$backend-buffers"
+            if ($LASTEXITCODE -ne 0) { throw "$backend buffer host compilation failed" }
             python native/tests/ResumableCallSourceTests.py --compiler build/windows-gpu/native/kalandra.exe --target $backend --variant optimized --compile-only --output "build/windows-$backend-resumable-calls"
             if ($LASTEXITCODE -ne 0) { throw "$backend resumable host compilation failed" }
           }

@@ -8,7 +8,7 @@ import struct
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'native/packaging'))
@@ -128,6 +128,30 @@ class WindowsArm64Tests(unittest.TestCase):
                 with self.assertRaises(PermissionError): editor.remove_editor_workspace(path)
                 self.assertEqual(remove.call_count, 8)
             self.assertTrue(path.exists())
+
+    def test_editor_job_ignores_only_confirmed_exited_snapshot_entries(self):
+        scope = editor.EditorProcessScope.__new__(editor.EditorProcessScope)
+        scope.kernel = Mock()
+        scope.kernel.OpenProcess.side_effect = [301, 302]
+        scope.kernel.WaitForSingleObject.return_value = 0
+        scope.children = Mock(return_value=[91])
+        with tempfile.TemporaryDirectory() as folder, patch.dict('os.environ', {'SystemRoot': folder}):
+            scope.settle_helpers()
+        self.assertEqual(scope.kernel.CloseHandle.call_count, 2)
+        scope.kernel.TerminateProcess.assert_not_called()
+        scope.kernel.QueryFullProcessImageNameW.assert_not_called()
+
+    def test_editor_job_rejects_live_children_discovered_during_final_verification(self):
+        scope = editor.EditorProcessScope.__new__(editor.EditorProcessScope)
+        scope.kernel = Mock()
+        scope.kernel.OpenProcess.return_value = 301
+        scope.kernel.WaitForSingleObject.return_value = 258
+        scope.children = Mock(side_effect=[[], [91]])
+        with tempfile.TemporaryDirectory() as folder, patch.dict('os.environ', {'SystemRoot': folder}):
+            with self.assertRaisesRegex(RuntimeError, 'descendants survived'):
+                scope.settle_helpers()
+        scope.kernel.CloseHandle.assert_called_once_with(301)
+        scope.kernel.TerminateProcess.assert_not_called()
 
     @unittest.skipUnless(sys.platform == 'win32', 'real Windows job ownership')
     def test_editor_job_rejects_orphan_without_killing_it_or_unowned_process(self):

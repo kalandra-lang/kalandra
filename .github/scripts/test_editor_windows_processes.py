@@ -13,11 +13,18 @@ class Kernel:
         self.query_fails = query_fails
         self.exited=False;self.waits=[];self.terminated=[];self.closed=[]
     def OpenProcess(self, rights, inherit, pid):
-        assert rights==0x1000|0x100000|1 and not inherit and pid==7
-        return 99
+        assert not inherit
+        if rights == 0x1000|0x100000|1:
+            assert pid == 7
+            return 99
+        assert rights == 0x100000 and pid in (7,8)
+        return 101 if pid == 7 else 100
     def WaitForSingleObject(self, handle, timeout):
-        assert handle==99
+        assert handle in (99,100,101)
         self.waits.append(timeout)
+        if handle == 100:
+            assert timeout == 0
+            return 258  # A different, still-live final descendant.
         if timeout and self.settles:self.exited=True
         return 0 if self.exited else 258
     def QueryFullProcessImageNameW(self, handle, flags, image, length):
@@ -83,9 +90,20 @@ class ProcessScopeTests(unittest.TestCase):
     def test_surviving_job_descendant_still_fails(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);scope,kernel=self.scope(root)
-            scope.children=lambda:[7]
+            scope.children=lambda:[8] if kernel.exited else [7]
             with patch.dict(os.environ,SystemRoot=str(root)),patch.object(ctypes,'get_last_error',return_value=5,create=True),patch.object(ctypes,'WinError',side_effect=lambda value:OSError(value,'Windows process error'),create=True):
                 with self.assertRaisesRegex(RuntimeError,'descendants survived'):scope.settle_helpers()
-            self.assertEqual(kernel.closed,[99])
+            self.assertEqual(kernel.closed,[99,100])
+            self.assertEqual(kernel.terminated,[99])
+
+    def test_stale_exited_job_entry_is_not_a_surviving_descendant(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);scope,kernel=self.scope(root)
+            scope.children=lambda:[7]
+            with patch.dict(os.environ,SystemRoot=str(root)),patch.object(ctypes,'get_last_error',return_value=5,create=True),patch.object(ctypes,'WinError',side_effect=lambda value:OSError(value,'Windows process error'),create=True):
+                scope.settle_helpers()
+            self.assertTrue(kernel.exited)
+            self.assertEqual(kernel.closed,[99,101])
+            self.assertEqual(kernel.terminated,[99])
 
 if __name__=='__main__':unittest.main()

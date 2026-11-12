@@ -1,0 +1,141 @@
+meta { title = "Byte buffers", description = "Build and reuse owned byte storage with std/buffer and read or write it through std/fs.", order = 7, group = "Library reference" }
+
+Import ByteBuffer operations from std/buffer when you need reusable storage whose initialized length can change. Arrays remain useful for ordinary collection values. A ByteBuffer has one owner and separate length and capacity: reserving 4,096 bytes creates room for those bytes, but does not initialize 4,096 elements.
+
+h2 { "Build bytes and obtain an array" }
+
+codeblock { language = kalandra, """from "std/buffer" import byteBuffer, append, intoArray, BufferError
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! (BufferError | IoError):
+  data = try byteBuffer(4096)
+  try append(data, [72, 101])
+  try append(data, [108, 108, 111])
+  data[0] = 104
+
+  bytes = intoArray(data)
+  try println(format("{}:{}:{}", length(bytes), bytes[0], bytes[4]))
+  return ()
+""" }
+
+This displays 5:104:111. intoArray consumes data; using data afterward is a compiler error. The resulting [u8] array follows ordinary array access and aliasing rules.
+
+h2 { "ByteBuffer" }
+
+An opaque owned host resource containing initialized bytes followed by spare capacity. Indexing reads or writes a u8 in the initialized prefix. It never grows the buffer. Indexes must be integers; an index outside the initialized length produces a checked bounds fault, as with arrays. Reserved bytes are inaccessible until append or a successful read initializes them.
+
+Assigning a buffer moves ownership. Ordinary function parameters borrow read-only; a mut parameter grants mutation, and an own parameter consumes ownership. Borrowed buffers cannot be consumed or returned as owned results. A later argument cannot move or consume a buffer that an earlier argument still needs: append(data, intoArray(data)) is rejected. Source functions can return an owned ByteBuffer, including across suspension.
+
+Buffers are cleaned up when their owning scope exits, including on errors, faults and cancellation. No close call is needed. Like other opaque owned host resources, ByteBuffer cannot be constructed with record syntax, stored in arrays or record fields, or captured implicitly by a closure. Pass it as an explicit parameter instead.
+
+Concurrent task readers keep the buffer read-locked until they settle. Mutating a shared buffer is rejected, including passing it to a spawned mut parameter. An explicit ownership transfer to an own task parameter makes the buffer private to that task and invalidates the parent's binding. A task can also return an owned buffer. Move that result into one binding with await, then use the resulting buffer; claiming the same owned result into a second binding is rejected.
+
+h2 { "byteBuffer" }
+
+code { "byteBuffer(capacity: i64) -> ByteBuffer ! BufferError" }
+
+Create an empty buffer with at least the requested capacity. Omitting capacity selects zero; storage grows when bytes are appended or read. Negative capacity returns BufferError.InvalidSize. Capacity participates in applicable allocation and retention limits, even when the initialized length is smaller. Allocation exhaustion uses the language's allocation-fault channel.
+
+h2 { "length" }
+
+code { "length(buffer: ByteBuffer) -> i64" }
+
+Return the number of initialized bytes. length also works with ordinary arrays and Strings. Use this value as the exclusive end of a buffer-index range.
+
+h2 { "capacity" }
+
+code { "capacity(buffer: ByteBuffer) -> i64" }
+
+Return the current reserved byte capacity. Capacity is at least length and may exceed a requested minimum. The growth factor is an implementation detail.
+
+h2 { "reserve" }
+
+code { "reserve(mut buffer: ByteBuffer, minimum: i64) -> unit ! BufferError" }
+
+Ensure capacity is at least minimum without changing the initialized length or contents. A request within existing capacity does not grow storage. Negative minimum returns BufferError.InvalidSize. Growth uses spare capacity to avoid repeated whole-prefix copies during incremental appends.
+
+h2 { "append" }
+
+code { "append(mut buffer: ByteBuffer, bytes: [u8]) -> unit ! BufferError" }
+
+Copy bytes to the end, preserving their order. Grow capacity when necessary and increase length by the number appended. An empty array leaves the buffer unchanged. A length that cannot be represented returns BufferError.InvalidSize; allocation exhaustion remains an allocation fault.
+
+h2 { "truncate" }
+
+code { "truncate(mut buffer: ByteBuffer, count: i64) -> unit ! BufferError" }
+
+Shorten the initialized prefix to count bytes without reducing capacity. Count must be between zero and the current length, inclusive; otherwise return BufferError.OutOfRange. Truncation does not initialize or expose spare bytes.
+
+h2 { "clear" }
+
+code { "clear(mut buffer: ByteBuffer) -> unit" }
+
+Set length to zero while retaining capacity for reuse. Clearing is not a secure erase and does not promise to overwrite old bytes.
+
+h2 { "toArray" }
+
+code { "toArray(buffer: ByteBuffer) -> [u8]" }
+
+Copy the initialized prefix into an independent array. The buffer remains usable; changes to either value do not affect the other. This creates a compact result rather than keeping the buffer's spare capacity.
+
+h2 { "intoArray" }
+
+code { "intoArray(own buffer: ByteBuffer) -> [u8]" }
+
+Consume the buffer and return its initialized prefix as an array. Exclusive backing is transferred without copying payload bytes; its spare capacity remains allocated but inaccessible. If outstanding native I/O still pins the old bytes, an independent copy preserves the I/O snapshot. Ownership and resulting array contents are the same in either case.
+
+h2 { "Files and buffer reuse" }
+
+std/fs accepts ByteBuffer directly. readInto replaces its initialized contents; readAppend adds to them. Both accept a maximum byte count and return the count actually read, which can be smaller. write and writeAll use only the initialized prefix. These operations accept raw files and the corresponding buffered file wrappers. A replacement read clears the initialized length before native input starts and publishes the actual count on success. After an error or cancellation, previous contents are not guaranteed to remain; the buffer can be empty. An append read preserves its earlier prefix. Incomplete native input is not exposed through indexing or array conversion.
+
+codeblock { language = kalandra, """from "std/buffer" import byteBuffer, BufferError
+from "std/fs" import open, OpenMode, FsError, writeLine, readInto, writeAll, close, bufferedReader, bufferedWriter, finish
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! (BufferError | FsError | IoError):
+  seed = try open("buffer-input.bin", OpenMode.Create)
+  try writeLine(seed, "Hello")
+  try close(seed)
+
+  input = try bufferedReader(try open("buffer-input.bin", OpenMode.Read))
+  output = try bufferedWriter(try open("buffer-output.bin", OpenMode.Create))
+  chunk = try byteBuffer(65536)
+  total: u64 = 0
+
+  while true:
+    count = try readInto(input, chunk, 65536)
+    if count == 0:
+      break
+    try writeAll(output, chunk)
+    total = total + count
+
+  try close(input)
+  try finish(output)
+  try println(format("{}", total))
+  return ()
+""" }
+
+This copies six bytes and displays 6. Each iteration reuses chunk's capacity; readInto replaces its length, so clearing it first is unnecessary. BufferedReader and BufferedWriter own their private I/O buffers independently of chunk.
+
+Cancellation can leave an operating-system write in progress. Its exact bytes remain pinned. If the application reuses the buffer after that task settles, mutation detaches storage where necessary so the older write keeps its original snapshot. Neither cancellation nor an I/O error rolls back file effects.
+
+h2 { "BufferError" }
+
+list {
+  "BufferError.InvalidSize: a negative capacity/minimum or an appended length that cannot be represented.",
+  "BufferError.OutOfRange: a truncate count outside zero through the current length."
+}
+
+Invalid size and truncate-range requests preserve the previous contents. Indexing faults and allocation faults are separate from this expected-error channel.
+
+h2 { "CPU and GPU applications" }
+
+ByteBuffer operations run on the host, including around Metal, Vulkan and CUDA computations. Buffers cannot be sent to device functions. Convert to an array with toArray or intoArray when a GPU function needs supported read-only array input; the ordinary array transfer and access rules then apply.
+
+list {
+  link { url = "/docs/filesystem", "File operations and buffering" },
+  link { url = "/docs/arrays", "Array ownership, mutation and task readers" },
+  link { url = "/docs/parallelism", "Task settlement and cancellation" }
+}

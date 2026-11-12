@@ -1,4 +1,4 @@
-meta { title = "Time and sleep", description = "Measure monotonic elapsed time and suspend a task with std/time.", order = 10, group = "Library reference" }
+meta { title = "Time and sleep", description = "Measure monotonic elapsed time and suspend a task with std/time.", order = 11, group = "Library reference" }
 
 Use std/time to measure how long work takes or pause a CPU task. Import the functions you need; there are no implicit time units.
 
