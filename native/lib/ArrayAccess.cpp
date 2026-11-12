@@ -46,7 +46,8 @@ public:
           return std::holds_alternative<ArrayStore>(v.operation) ||
                  std::holds_alternative<ArraySort>(v.operation) ||
                  std::holds_alternative<FileOperation>(v.operation) ||
-                 std::holds_alternative<BufferOperation>(v.operation);
+                 std::holds_alternative<BufferOperation>(v.operation) ||
+                 std::holds_alternative<IteratorOperation>(v.operation);
         });
     const bool indirect = std::ranges::any_of(module.expressions, [&](const auto &value) {
       const auto *call = std::get_if<FunctionInvoke>(&value.operation);
@@ -121,6 +122,11 @@ private:
   std::vector<Diagnostic> diagnostics;
   std::size_t budget = 1000000, depth = 0;
   bool checking = false;
+  std::string resourceName(const ValueType &type) const {
+    return isIterator(module, type)     ? "Iterator"
+           : isByteBuffer(module, type) ? "ByteBuffer"
+                                        : "file handle";
+  }
   std::map<std::size_t, bool> writable;
   std::map<ValueId, std::set<ValueId>> loopAllocations;
   std::size_t parameterEnd() const { return module.expressions.size() + module.symbols.size(); }
@@ -341,7 +347,11 @@ private:
       return;
     if (spawned && !file) {
       diagnostics.push_back(
-          {"S077", "spawned calls receive read-only arrays; create private storage inside the task",
+          {"S077",
+           isIterator(module, module.expressions[id].type)
+               ? "a spawned call cannot mutate a borrowed Iterator; transfer it with an own "
+                 "parameter"
+               : "spawned calls receive read-only arrays; create private storage inside the task",
            module.expressions[id].span});
       return;
     }
@@ -350,8 +360,9 @@ private:
         })) {
       diagnostics.push_back(
           {"S077",
-           isByteBuffer(module, module.expressions[id].type)
-               ? "mutating ByteBuffer requires a local owner or an explicit mut parameter"
+           isOwnedResource(module, module.expressions[id].type)
+               ? "mutating " + resourceName(module.expressions[id].type) +
+                     " requires a local owner or an explicit mut parameter"
                : "mutating parameter requires writable array storage; parameters and captures are "
                  "read-only unless explicitly mut; use copy for independent storage",
            module.expressions[id].span});
@@ -396,9 +407,10 @@ private:
                               [&](auto symbol) { return env.moved.contains(symbol); })) {
         diagnostics.push_back(
             {"S081",
-             isByteBuffer(module, module.expressions[use.value].type)
-                 ? "ByteBuffer was moved or consumed while evaluating a later argument"
-                 : "file handle was moved or closed while evaluating a later argument",
+             resourceName(module.expressions[use.value].type) +
+                 (isFileResource(module, module.expressions[use.value].type)
+                      ? " was moved or closed while evaluating a later argument"
+                      : " was moved or consumed while evaluating a later argument"),
              module.expressions[use.value].span});
         if (diagnostics.size() >= 32)
           return;
@@ -439,11 +451,9 @@ private:
         if (isOwnedResource(module, module.symbols[symbol].type) && !module.symbols[symbol].owned &&
             checking)
           diagnostics.push_back({"S081",
-                                 isByteBuffer(module, module.expressions[id].type)
-                                     ? "can't move a borrowed ByteBuffer; declare an own parameter "
-                                       "to transfer ownership"
-                                     : "can't move a borrowed file handle; declare an own "
-                                       "parameter to transfer ownership",
+                                 "can't move a borrowed " +
+                                     resourceName(module.expressions[id].type) +
+                                     "; declare an own parameter to transfer ownership",
                                  module.expressions[id].span});
       }
     }
@@ -513,10 +523,9 @@ private:
             if (checking && env.moved.contains(op.symbol))
               diagnostics.push_back(
                   {"S081",
-                   (isByteBuffer(module, node.type) ? "ByteBuffer '" : "file handle '") +
-                       module.symbols[op.symbol].name +
-                       (isByteBuffer(module, node.type) ? "' was moved or consumed"
-                                                        : "' was moved or closed"),
+                   resourceName(node.type) + " '" + module.symbols[op.symbol].name +
+                       (isFileResource(module, node.type) ? "' was moved or closed"
+                                                          : "' was moved or consumed"),
                    node.span});
             if (auto found = env.symbols.find(op.symbol); found != env.symbols.end())
               return found->second;
@@ -553,6 +562,20 @@ private:
                          node.span});
             }
             return storage(node.type) ? returned(op.function, id, args) : Roots{};
+          } else if constexpr (std::is_same_v<T, IteratorOperation>) {
+            std::vector<Roots> args;
+            std::vector<ResourceUse> uses;
+            for (auto argument : op.arguments) {
+              args.push_back(input(argument));
+              rememberResource(argument, args.back(), env, uses);
+            }
+            validateResources(uses, env);
+            if (op.action != IteratorAction::FromRange && !args.empty()) {
+              write(op.arguments[0], args[0], env, spawned);
+              if (op.action == IteratorAction::Close)
+                consume(op.arguments[0], args[0], env);
+            }
+            return storage(node.type) ? fresh(id) : Roots{};
           } else if constexpr (std::is_same_v<T, BufferOperation>) {
             std::vector<Roots> args;
             std::vector<ResourceUse> uses;

@@ -6,6 +6,34 @@ bool standardRange(FunctionId id) const {
          syntax_.standardModules[function.moduleIndex] == StandardModule::Iteration &&
          name(function.name) == "range";
 }
+std::optional<IteratorAction> standardIterator(FunctionId id) const {
+  if (id >= syntax_.functions.size())
+    return {};
+  const auto &function = syntax_.functions[id];
+  if (function.moduleIndex >= syntax_.standardModules.size() ||
+      syntax_.standardModules[function.moduleIndex] != StandardModule::Iteration)
+    return {};
+  const auto label = syntax_.source->slice(function.name);
+  if (label == "iterator")
+    return IteratorAction::FromRange;
+  if (label == "next")
+    return IteratorAction::Next;
+  if (label == "close")
+    return IteratorAction::Close;
+  return {};
+}
+std::optional<ValueId> iteratorBody(Frame &frame, FunctionId id, IteratorAction action) {
+  const auto &fn = output_.functions[id];
+  std::vector<ValueId> arguments;
+  for (auto parameter : fn.parameters) {
+    auto value = add(frame, output_.symbols[parameter].type, fn.declaration, SymbolRead{parameter});
+    if (!value)
+      return {};
+    arguments.push_back(*value);
+  }
+  return add(frame, *fn.declaredResult, fn.declaration,
+             IteratorOperation{action, std::move(arguments), fn.declaration});
+}
 std::optional<ValueId> rangeSignature(Frame &frame, FunctionId id, SourceSpan span,
                                        const std::vector<ExprId> &arguments) {
   if (!analyzeFunction(id))

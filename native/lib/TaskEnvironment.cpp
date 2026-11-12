@@ -9,6 +9,9 @@
 #include <stdexcept>
 namespace kalandra {
 std::optional<std::string> addCheckedInvocationABI(llvm::Module &, bool);
+static std::map<std::size_t, llvm::Function *>
+emitRecordBoxes(const TypedModule &input, const TypedModule &ownership,
+                const std::map<std::size_t, std::size_t> &records, llvm::Module &destination);
 std::map<std::size_t, llvm::Function *>
 emitTaskEnvironmentBoxes(const TypedModule &input, std::span<const std::size_t> targets,
                          llvm::Module &destination) {
@@ -33,6 +36,24 @@ emitTaskEnvironmentBoxes(const TypedModule &input, std::span<const std::size_t> 
     records.emplace(id, ownership.records.size());
     ownership.records.push_back(std::move(environment));
   }
+  return emitRecordBoxes(input, ownership, records, destination);
+}
+std::map<std::size_t, llvm::Function *> emitTaskRecordBoxes(const TypedModule &input,
+                                                            std::span<const std::size_t> targets,
+                                                            llvm::Module &destination) {
+  if (targets.empty())
+    return {};
+  std::map<std::size_t, std::size_t> records;
+  for (auto id : targets) {
+    if (id >= input.records.size())
+      throw std::invalid_argument("invalid task record box identity");
+    records.emplace(id, id);
+  }
+  return emitRecordBoxes(input, input, records, destination);
+}
+static std::map<std::size_t, llvm::Function *>
+emitRecordBoxes(const TypedModule &input, const TypedModule &ownership,
+                const std::map<std::size_t, std::size_t> &records, llvm::Module &destination) {
   mlir::DialectRegistry registry;
   registry.insert<mlir::LLVM::LLVMDialect>();
   mlir::registerBuiltinDialectTranslation(registry);

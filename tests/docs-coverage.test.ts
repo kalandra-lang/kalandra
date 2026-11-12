@@ -132,13 +132,13 @@ test("standard-module callables have individual public reference entries", async
       new URL(`${page}.tiramisu`, content),
       "utf8",
     );
-    for (const fn of module[2]!.matchAll(/export fn (\w+)\(/g)) {
+    for (const fn of module[2]!.matchAll(/export fn (\w+)(\[[^\n]*?\])?\(/g)) {
       ++count;
       expect(reference).toContain(`h2 { "${fn[1]}" }`);
-      expect(reference).toContain(`code { "${fn[1]}(`);
+      expect(reference).toContain(`code { "${fn[1]}${fn[2] ?? ""}(`);
     }
   }
-  expect(count).toBe(56);
+  expect(count).toBe(59);
   const options = await readFile(new URL("options.tiramisu", content), "utf8");
   expect(options).toContain('h2 { "Option[T]" }');
   expect(options).toContain('from "std/option" import Option');

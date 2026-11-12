@@ -99,6 +99,44 @@ inline std::optional<Diagnostic> recordFieldError(const TypedModule &module) {
       return fail("non-union type carries error origins", record.declaration);
     if (record.fields.empty())
       return fail("record declarations require fields", record.declaration);
+    if (record.standard == StandardRecord::Iterator) {
+      if (record.error || record.uninhabited || !record.variants.empty() ||
+          record.fields.size() != 1 || record.fields[0].name != "__storage" ||
+          record.typeArguments.size() != 2)
+        return fail("invalid standard Iterator layout", record.declaration);
+      const auto &storage = record.fields[0].type;
+      if (!storage.array || !storage.tensor || storage.shape.size() != 1 ||
+          storage.builtin != BuiltinValue::Numeric || storage.element != NumericType::UInt8 ||
+          storage.task || storage.fallible || storage.errorRecord || storage.record ||
+          storage.device)
+        return fail("Iterator storage requires its private byte descriptor", record.declaration);
+      const auto &item = record.typeArguments[0], &error = record.typeArguments[1];
+      if (item.array || item.tensor || item.task || item.fallible || item.errorRecord ||
+          item.device ||
+          (item.builtin != BuiltinValue::Numeric && !isBooleanStorage(item) &&
+           item.builtin != BuiltinValue::String && item.builtin != BuiltinValue::Function &&
+           item.builtin != BuiltinValue::Record) ||
+          isOwnedResource(module, item))
+        return fail("Iterator items require completed storable values without owned resources",
+                    record.declaration);
+      if (error.array || error.tensor || error.task || error.fallible || error.errorRecord ||
+          error.device ||
+          (error.builtin != BuiltinValue::TaskError &&
+           (!error.record || *error.record >= module.records.size() ||
+            !module.records[*error.record].error)))
+        return fail("Iterator consumption errors require an error family or never",
+                    record.declaration);
+    }
+    if (record.standard == StandardRecord::Option) {
+      if (record.error || record.uninhabited || record.typeArguments.size() != 1 ||
+          record.fields.size() != 2 || record.fields[0].name != "$tag" ||
+          record.fields[1].name != "value" || record.variants.size() != 2 ||
+          record.variants[0].name != "None" || !record.variants[0].fields.empty() ||
+          record.variants[1].name != "Some" ||
+          record.variants[1].fields != std::vector<std::size_t>{1} ||
+          !sameFunctionValueType(record.fields[1].type, record.typeArguments[0]))
+        return fail("invalid standard Option layout", record.declaration);
+    }
     if (record.standard == StandardRecord::Range) {
       if (record.error || record.uninhabited || !record.variants.empty() || record.fields.size() != 3)
         return fail("invalid standard Range layout", record.declaration);

@@ -98,12 +98,30 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
   case StandardModule::Iteration:
-    return R"k(export type Range:
+    return R"k(from "std/option" import Option
+export type Range:
   start: i64
   stop: i64
   step: i64
 export fn range(start: i64, stop: i64, step: i64) -> Range:
   return __kalandra_range(start, stop, step)
+export type Iterator[T, E]:
+  __storage: [u8]
+export trait Iterable:
+  type Item
+  type Error
+  fn iterator(values: Self) -> Iterator[Self.Item, Self.Error]
+impl Iterable for Range:
+  type Item = i64
+  type Error = never
+  fn iterator(values: Self) -> Iterator[i64, never]:
+    return __kalandra_iterator_range(values)
+export fn iter[S: Iterable](values: S) -> Iterator[S.Item, S.Error]:
+  return Iterable.iterator(values)
+export fn next[T, E](mut cursor: Iterator[T, E]) -> Option[T] ! E:
+  return __kalandra_iterator_next(cursor)
+export fn close[T, E](own cursor: Iterator[T, E]) -> unit:
+  return __kalandra_iterator_close(cursor)
 )k";
   case StandardModule::Option:
     return R"k(export enum Option[T]:

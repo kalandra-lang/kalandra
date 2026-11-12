@@ -726,10 +726,11 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
         return false;
       const auto &parameter = type.callable->parameters[i];
       if (type.callable->mutates(i) &&
-          ((!parameter.array && !isByteBuffer(module, parameter)) || parameter.task ||
-           parameter.fallible || parameter.device ||
+          ((!parameter.array && !isByteBuffer(module, parameter) &&
+            !isIterator(module, parameter)) ||
+           parameter.task || parameter.fallible || parameter.device ||
            (parameter.builtin != BuiltinValue::Numeric && !isBooleanStorage(parameter) &&
-            !isByteBuffer(module, parameter))))
+            !isByteBuffer(module, parameter) && !isIterator(module, parameter))))
         return false;
     }
     visited += type.callable->parameters.size();
@@ -773,10 +774,12 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
         return "invalid or unsupported function-valued field type";
   for (const auto &symbol : module.symbols) {
     if (symbol.mutableAccess &&
-        (!symbol.parameter || (!symbol.type.array && !isByteBuffer(module, symbol.type)) ||
+        (!symbol.parameter ||
+         (!symbol.type.array && !isByteBuffer(module, symbol.type) &&
+          !isIterator(module, symbol.type)) ||
          symbol.type.task || symbol.type.fallible || symbol.type.device ||
          (symbol.type.builtin != BuiltinValue::Numeric && !isBooleanStorage(symbol.type) &&
-          !isByteBuffer(module, symbol.type))))
+          !isByteBuffer(module, symbol.type) && !isIterator(module, symbol.type))))
       return "invalid mutating parameter access";
     if (!valid(valid, symbol.type, 0))
       return "invalid or unsupported function-value type";

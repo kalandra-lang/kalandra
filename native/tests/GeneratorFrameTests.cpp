@@ -7,6 +7,7 @@
 #include <mutex>
 #include <string_view>
 #include <thread>
+#include <vector>
 using namespace kalandra::runtime;
 #define CHECK(condition)                                                                            \
   do {                                                                                             \
@@ -343,6 +344,55 @@ void invalid() {
   ctx.settle();
   CHECK(probe.destructions == 1);
 }
+void rangeSources() {
+  struct Case {
+    IntegerRangeValue input;
+    std::vector<std::int64_t> expected;
+  };
+  for (const auto &test : {Case{{0, 7, 2}, {0, 2, 4, 6}}, Case{{5, -1, -2}, {5, 3, 1}},
+                           Case{{0, 0, 1}, {}}, Case{{0, 10, -1}, {}}, Case{{10, 0, 1}, {}},
+                           Case{{INT64_MAX - 2, INT64_MAX, 3}, {INT64_MAX - 2}},
+                           Case{{INT64_MIN + 2, INT64_MIN, -3}, {INT64_MIN + 2}},
+                           Case{{INT64_MAX, INT64_MIN, INT64_MIN}, {INT64_MAX, -1}}}) {
+    Invocation ctx;
+    CHECK(kalandra_file_scope_enter_v1(&ctx, nullptr, 0));
+    GeneratorDescriptor cursor;
+    kalandra_iterator_range_v1(&ctx, &cursor, &test.input, &integer, 23, 5);
+    CHECK(!ctx.poll());
+    // The factory's stack-local entry and packet are already gone here.
+    for (auto expected : test.expected) {
+      std::int64_t value = 0;
+      CHECK(next(ctx, cursor, value) == GeneratorStep::Item && value == expected);
+    }
+    std::int64_t value = 7;
+    CHECK(next(ctx, cursor, value) == GeneratorStep::Exhausted && value == 7);
+    CHECK(next(ctx, cursor, value) == GeneratorStep::Exhausted);
+    ctx.settle();
+    CHECK(ctx.live() == 0);
+  }
+  Invocation ctx;
+  CHECK(kalandra_file_scope_enter_v1(&ctx, nullptr, 0));
+  const IntegerRangeValue input{10, INT64_MAX, 1};
+  auto first = generatorRange(ctx, input, integer, 1, 1);
+  auto second = generatorRange(ctx, input, integer, 1, 1);
+  auto allocations = ctx.allocations();
+  std::int64_t value;
+  CHECK(next(ctx, first, value) == GeneratorStep::Item && value == 10);
+  CHECK(next(ctx, first, value) == GeneratorStep::Item && value == 11);
+  CHECK(next(ctx, second, value) == GeneratorStep::Item && value == 10 && input.start == 10);
+  CHECK(ctx.allocations() == allocations);
+  CHECK(generatorClose(ctx, first) && generatorClose(ctx, second));
+  ctx.settle();
+  CHECK(ctx.live() == 0);
+  Invocation zero;
+  (void)generatorRange(zero, {0, 0, 0}, integer, 23, 5);
+  CHECK(zero.status() == 4 && zero.line() == 23 && zero.column() == 5 && zero.allocations() == 0);
+  Invocation cancelled;
+  std::atomic<bool> token{true};
+  cancelled.bindCancellation(&token);
+  (void)generatorRange(cancelled, {0, 0, 0}, integer, 23, 5);
+  CHECK(cancelled.status() == 0 && cancelled.poll() == -1);
+}
 } // namespace
 int main() {
   independent();
@@ -353,5 +403,6 @@ int main() {
   typedTextFailure();
   outlivesCreator();
   invalid();
+  rangeSources();
   std::puts("PASS: lazy owned frames, typed terminal results, capture lifetime and bounds");
 }

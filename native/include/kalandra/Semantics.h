@@ -2,6 +2,7 @@
 #include "kalandra/BufferOperations.h"
 #include "kalandra/FileOperations.h"
 #include "kalandra/FormatTemplate.h"
+#include "kalandra/IteratorOperations.h"
 #include "kalandra/NumericType.h"
 #include "kalandra/ParseABI.h"
 #include "kalandra/PathOperations.h"
@@ -219,6 +220,11 @@ struct BufferOperation {
   BufferAction action;
   std::vector<ValueId> arguments;
   SourceSpan source = {};
+};
+struct IteratorOperation {
+  IteratorAction action;
+  std::vector<ValueId> arguments;
+  SourceSpan source;
 };
 
 struct TimeOperation {
@@ -470,7 +476,9 @@ enum class StandardRecord {
   Instant,
   Duration,
   TimeError,
-  Range
+  Range,
+  Iterator,
+  Option
 };
 struct TypedRecord {
   std::string name;
@@ -485,23 +493,26 @@ struct TypedRecord {
       {};                                      // Original family/variant per case.
   std::optional<StandardRecord> standard = {}; // Loader-proven nominal standard type.
   bool uninhabited = false; // The compiler-owned empty type has no constructors/variants.
+  // Phantom arguments still determine identity and intrinsic signatures even
+  // when they do not contribute fields to an opaque runtime representation.
+  std::vector<ValueType> typeArguments = {};
 };
 struct TypedExpr {
   SourceSpan span;
   ValueType type; // Concrete scalar/tensor numeric identity; builtins retain explicit tags.
   std::variant<Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal,
                UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
-               FormatOperation, ConsoleOperation, FileOperation, BufferOperation, ParseOperation,
-               PathOperation, EnvironmentLookup, TimeOperation, ApplicationArguments, BoolLiteral,
-               ScalarCompare, SymbolRead, ScalarUnary, TensorUnary, ScalarBinary, TensorBinary,
-               TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum, TensorTransform,
-               ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat, ArraySlice,
-               ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection, Transfer,
-               TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
-               LoopTransferOperation, IntegerRangeOperation, YieldOperation, CatchOperation,
-               MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue,
-               RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke, ArrayBoundsCheck,
-               ArrayStore, ArraySort>
+               FormatOperation, ConsoleOperation, FileOperation, BufferOperation, IteratorOperation,
+               ParseOperation, PathOperation, EnvironmentLookup, TimeOperation,
+               ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary,
+               TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall,
+               Matmul, ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape,
+               TensorToArray, ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery,
+               ShapeCheck, DeviceSelection, Transfer, TaskOperation, ParallelOperation,
+               ConditionalOperation, WhileOperation, LoopTransferOperation, IntegerRangeOperation,
+               YieldOperation, CatchOperation, MatchOperation, ErrorFieldRead, FailOperation,
+               GuardOperation, RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference,
+               FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort>
       operation;
 };
 struct ShapeEquality {
@@ -579,7 +590,13 @@ inline bool isFileResource(const TypedModule &module, const ValueType &type) {
          standard == StandardRecord::BufferedWriter;
 }
 inline bool isOwnedResource(const TypedModule &module, const ValueType &type) {
-  return isFileResource(module, type) || isByteBuffer(module, type);
+  return isFileResource(module, type) || isByteBuffer(module, type) ||
+         (type.record && *type.record < module.records.size() &&
+          module.records[*type.record].standard == StandardRecord::Iterator);
+}
+inline bool isIterator(const TypedModule &module, const ValueType &type) {
+  return type.record && *type.record < module.records.size() &&
+         module.records[*type.record].standard == StandardRecord::Iterator;
 }
 
 struct SemanticLimits {

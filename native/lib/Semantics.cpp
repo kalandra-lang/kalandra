@@ -226,15 +226,19 @@ public:
         for (const auto &field : record.fields)
           if (isOwnedResource(output_, field.type))
             error("S081",
-                  isByteBuffer(output_, field.type)
+                  isIterator(output_, field.type)
+                      ? "owned Iterator requires standalone ownership, not aggregate fields"
+                  : isByteBuffer(output_, field.type)
                       ? "owned ByteBuffer requires standalone ownership, not aggregate fields"
                       : "owned file handles require standalone ownership, not aggregate fields",
                   field.declaration);
       for (const auto &value : output_.expressions)
         if (isOwnedResource(output_, value.type) && value.type.array)
           error("S081",
-                isByteBuffer(output_, value.type) ? "owned ByteBuffer cannot be stored in arrays"
-                                                  : "owned file handles cannot be stored in arrays",
+                isIterator(output_, value.type) ? "owned Iterator cannot be stored in arrays"
+                : isByteBuffer(output_, value.type)
+                    ? "owned ByteBuffer cannot be stored in arrays"
+                    : "owned file handles cannot be stored in arrays",
                 value.span);
     }
     if (!syntax_.editorOnly && diagnostics_.empty())
@@ -733,8 +737,9 @@ private:
     return result;
   }
   bool mutableParameterType(const ValueType &value) const {
-    return mutableArrayType(value) || (isByteBuffer(output_, value) && !value.task &&
-                                       !value.fallible && !value.device && !value.array);
+    return mutableArrayType(value) ||
+           ((isByteBuffer(output_, value) || isIterator(output_, value)) && !value.task &&
+            !value.fallible && !value.device && !value.array);
   }
   static bool mutableArrayType(const ValueType &value) {
     return value.array && !value.task && !value.fallible && !value.device &&
@@ -746,7 +751,9 @@ private:
     result = eraseNeverError(std::move(result));
     for (std::size_t i = 0; i < mutations.size(); ++i)
       if (mutations[i] && (i >= parameters.size() || !mutableParameterType(parameters[i]))) {
-        error("S076", "mut parameters require flat numeric/bool array storage or ByteBuffer", span);
+        error("S076",
+              "mut parameters require flat numeric/bool array storage, ByteBuffer or Iterator",
+              span);
         return {};
       }
     for (std::size_t i = 0; i < ownership.size(); ++i)
@@ -1367,7 +1374,8 @@ private:
           continue;
         }
         if (parameter.mutableAccess && !mutableParameterType(*parameterType)) {
-          error("S076", "mut parameters require flat numeric/bool array storage or ByteBuffer",
+          error("S076",
+                "mut parameters require flat numeric/bool array storage, ByteBuffer or Iterator",
                 parameter.name);
           signatures_[id] = false;
         }
@@ -2143,11 +2151,12 @@ private:
     for (auto parameter : output_.functions[id].parameters)
       parameters.insert(output_.symbols[parameter].name);
     output_.functions[id].compileTimeOnly = standardFormat(id);
-    auto result = standardFormat(id)   ? add(frame, *output_.functions[id].declaredResult,
-                                             syntax_.functions[id].span, StringLiteral{std::string{}})
-                  : standardRange(id)  ? rangeBody(frame, id)
-                  : standardBuffer(id) ? bufferBody(frame, id, *standardBuffer(id))
-                  : standardTime(id)   ? timeBody(frame, id, *standardTime(id))
+    auto result = standardFormat(id)     ? add(frame, *output_.functions[id].declaredResult,
+                                               syntax_.functions[id].span, StringLiteral{std::string{}})
+                  : standardIterator(id) ? iteratorBody(frame, id, *standardIterator(id))
+                  : standardRange(id)    ? rangeBody(frame, id)
+                  : standardBuffer(id)   ? bufferBody(frame, id, *standardBuffer(id))
+                  : standardTime(id)     ? timeBody(frame, id, *standardTime(id))
                   : standardEnvironmentLookup(id) ? environmentBody(frame, id)
                   : standardPath(id)              ? pathBody(frame, id, *standardPath(id))
                   : standardParse(id)             ? parseBody(frame, id, *standardParse(id))
@@ -2158,7 +2167,7 @@ private:
                                       syntax_.functions[id].span, parameters);
     if ((standardFormat(id) || standardConsole(id) || standardFile(id) || standardParse(id) ||
          standardPath(id) || standardEnvironmentLookup(id) || standardTime(id) ||
-         standardRange(id) || standardBuffer(id)) &&
+         standardIterator(id) || standardRange(id) || standardBuffer(id)) &&
         result)
       statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);
@@ -2845,7 +2854,8 @@ private:
         return {};
       }
       if (parameter.mutableAccess && !mutableParameterType(*resolved)) {
-        error("S076", "mut parameters require flat numeric/bool array storage or ByteBuffer",
+        error("S076",
+              "mut parameters require flat numeric/bool array storage, ByteBuffer or Iterator",
               parameter.name);
         return {};
       }

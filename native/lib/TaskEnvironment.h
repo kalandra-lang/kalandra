@@ -11,4 +11,8 @@ namespace kalandra {
 // capture payloads; the caller binds each published environment to its entry.
 std::map<std::size_t, llvm::Function *>
 emitTaskEnvironmentBoxes(const TypedModule &, std::span<const std::size_t>, llvm::Module &);
+// Box nominal item payloads with the same dependency graph and invocation ABI
+// used by ordinary record constructors.
+std::map<std::size_t, llvm::Function *>
+emitTaskRecordBoxes(const TypedModule &, std::span<const std::size_t>, llvm::Module &);
 } // namespace kalandra

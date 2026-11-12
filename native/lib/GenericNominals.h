@@ -130,6 +130,15 @@ std::optional<std::size_t> specializeRecord(std::size_t declaration, GenericBind
   }
   const auto id = output_.records.size();
   TypedRecord header{label, original.name, {}};
+  header.typeArguments = arguments;
+  const auto origin = syntax_.source->partIndex(original.name.begin);
+  if (origin < syntax_.standardModules.size()) {
+    const auto spelling = syntax_.source->slice(original.name);
+    if (syntax_.standardModules[origin] == StandardModule::Iteration && spelling == "Iterator")
+      header.standard = StandardRecord::Iterator;
+    if (syntax_.standardModules[origin] == StandardModule::Option && spelling == "Option")
+      header.standard = StandardRecord::Option;
+  }
   output_.records.push_back(std::move(header));
   recordDeclarations_.resize(id);
   recordStates_.resize(id, State::Complete);
@@ -183,6 +192,10 @@ std::optional<ValueType> genericNominalType(const TypeSyntax &syntax, std::size_
     return {};
   auto result = recordType(*record);
   if (syntax.array) {
+    if (isOwnedResource(output_, result)) {
+      error("S081", "owned resources cannot be stored in arrays", syntax.span);
+      return {};
+    }
     result.array = result.tensor = true;
     result.shape = {dynamic()};
   }
@@ -192,6 +205,14 @@ std::optional<ValueId> genericRecordValue(Frame &frame, SourceSpan span, const R
                                           const std::optional<ValueType> &expected,
                                           std::size_t declaration) {
   const auto original = syntax_.records[declaration];
+  const auto origin = syntax_.source->partIndex(original.name.begin);
+  if (origin < syntax_.standardModules.size() &&
+      syntax_.standardModules[origin] == StandardModule::Iteration &&
+      syntax_.source->slice(original.name) == "Iterator") {
+    error("S081", "Iterator is opaque; use std/iter factories instead of constructing its fields",
+          span);
+    return {};
+  }
   GenericBindings bindings;
   if (!syntax.typeArguments.empty()) {
     if (syntax.typeArguments.size() != original.generics.size()) {

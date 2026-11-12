@@ -1,3 +1,4 @@
+#include "../lib/IteratorCapabilities.h"
 #include "../lib/RecordLayout.h"
 #include "kalandra/Semantics.h"
 #include <algorithm>
@@ -121,6 +122,45 @@ int main(int argc, char **argv) {
     require(range != forgedRange.records.end(), "Range lost its standard nominal identity");
     range->fields[2].type.builtin = BuiltinValue::Bool;
     require(bool(recordFieldError(forgedRange)), "a forged Range field passed layout validation");
+    const std::string cursorPrelude = "from \"std/iter\" import Iterator,iter,next,close,range\n"
+                                      "from \"std/option\" import Option\n";
+    auto cursors = checkSource(
+        cursorPrelude +
+        "fn make()->Iterator[i64,never]:\n  return iter(range(3))\n"
+        "fn advance(mut cursor:Iterator[i64,never])->Option[i64]:\n  return next(cursor)\n"
+        "fn main()->unit:\n  cursor=make()\n  value=advance(cursor)\n  close(cursor)\n  return "
+        "()\n");
+    for (const auto &d : cursors.diagnostics)
+      std::cerr << renderDiagnostic(*cursors.source, d);
+    require(cursors.ok(), "owned cursor factory, mutation and transfer failed source checking");
+    for (const auto &expr : cursors.module->expressions)
+      require(!iteratorCapabilityError(*cursors.module, expr, NumericTarget::Cpu),
+              "checked iterator operation failed its executable-IR contract");
+    for (const auto &source :
+         {"fn bad(cursor:Iterator[i64,never])->Option[i64]:\n  return next(cursor)\n"
+          "fn main()->unit:\n  return ()\n",
+          "fn bad(cursor:Iterator[i64,never])->unit:\n  close(cursor)\n  return ()\n"
+          "fn main()->unit:\n  return ()\n",
+          "fn main()->unit:\n  cursor=iter(range(3))\n  close(cursor)\n"
+          "  value=next(cursor)\n  return ()\n",
+          "fn main()->unit:\n  cursor=iter(range(3))\n  values=[cursor]\n  return ()\n",
+          "fn main()->unit:\n  cursor=iter(range(3))\n"
+          "  value=Option.Some {value:cursor}\n  return ()\n",
+          "fn main()->unit:\n  cursor=iter(range(3))\n"
+          "  raw=cursor.__storage\n  return ()\n",
+          "fn main()->unit:\n  cursor=Iterator[i64,never] {__storage:[]}\n  return ()\n",
+          "fn main()->unit:\n  cursor=iter(range(3))\n"
+          "  changed=cursor with {__storage:[]}\n  return ()\n"}) {
+      auto invalid = checkSource(cursorPrelude + source);
+      require(!invalid.ok() && !invalid.module,
+              "cursor admitted unauthorized mutation, ownership reuse or opaque storage access");
+    }
+    auto forgedCursor = *cursors.module;
+    auto cursor = std::ranges::find_if(
+        forgedCursor.records, [](const auto &r) { return r.standard == StandardRecord::Iterator; });
+    require(cursor != forgedCursor.records.end(), "Iterator lost its canonical nominal identity");
+    cursor->typeArguments.pop_back();
+    require(bool(recordFieldError(forgedCursor)), "a forged cursor lost its error type metadata");
     std::cout
         << "PASS: canonical Option aliases, specialization, ownership and exhaustion contracts\n";
   } catch (const std::exception &error) {

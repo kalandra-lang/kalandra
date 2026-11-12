@@ -77,6 +77,7 @@ class Emitter {
   std::vector<bool> coordinating, loopControl;
   bool recursiveClosures = false;
   std::map<std::size_t, Function *> environmentBoxes;
+  std::map<std::size_t, Function *> iteratorItemBoxes;
   const TypedModule *hostCallables = nullptr;
   std::vector<FunctionId> hostTargets;
   std::map<FunctionId, FunctionId> hostNativeTargets;
@@ -1547,6 +1548,89 @@ private:
     if (auto error = nativeStackBudgetError(*fn, module.getDataLayout()))
       throw std::runtime_error(*error);
   }
+  void emitIteratorOperation(const IteratorOperation &operation, const ValueType &result,
+                             Value *input, Value *output, Value *ctx, Block *next, Block *abort) {
+    auto *fn = builder.GetInsertBlock()->getParent();
+    auto *wrapper = valueType(result);
+    builder.CreateStore(llvm::Constant::getNullValue(wrapper), output);
+    auto *out = builder.CreateStructGEP(wrapper, output, 1);
+    const auto ready = [&] {
+      auto *ok = Block::Create(context, "iterator.ready", fn);
+      builder.CreateCondBr(call("kalandra_invocation_ready_v1", boolean, {ctx}), ok, abort);
+      builder.SetInsertPoint(ok);
+    };
+    if (operation.action == IteratorAction::FromRange) {
+      const auto &item = planner.input.records[*result.record].typeArguments[0];
+      const auto [line, column] = planner.input.source->location(operation.source.begin);
+      call("kalandra_iterator_range_v1", voidType,
+           {ctx, out, input, payloadLayout(item), c64(line), c64(column)});
+      ready();
+      builder.CreateBr(next);
+      return;
+    }
+    if (operation.action == IteratorAction::Close) {
+      auto *closed = call("kalandra_generator_close_v1", boolean, {ctx, input});
+      builder.CreateCondBr(closed, next, abort);
+      return;
+    }
+    const auto &cursor =
+        planner.input.records[*planner.input.expressions[operation.arguments[0]].type.record];
+    const auto &item = cursor.typeArguments[0];
+    auto error = cursor.typeArguments[1];
+    const bool infallible = error.record && planner.input.records[*error.record].uninhabited;
+    if (error.record && planner.input.records[*error.record].taskErrorFamily) {
+      error.record.reset();
+      error.builtin = BuiltinValue::TaskError;
+    }
+    llvm::IRBuilder<> entry(&fn->getEntryBlock(), fn->getEntryBlock().begin());
+    auto *itemSlot = entry.CreateAlloca(scalarType(item), nullptr, "iterator.item");
+    Value *errorSlot = llvm::ConstantPointerNull::get(builder.getPtrTy());
+    Value *errorLayout = errorSlot;
+    if (!infallible) {
+      errorSlot = entry.CreateAlloca(scalarType(error), nullptr, "iterator.error");
+      errorLayout = payloadLayout(error);
+    }
+    auto *step = call("kalandra_generator_next_v1", i32,
+                      {ctx, input, payloadLayout(item), errorLayout, itemSlot, errorSlot});
+    ready();
+    auto *some = Block::Create(context, "iterator.some", fn);
+    auto *none = Block::Create(context, "iterator.none", fn);
+    auto *invalid = Block::Create(context, "iterator.invalid", fn);
+    auto *dispatch = builder.CreateSwitch(step, invalid, infallible ? 2 : 3);
+    dispatch->addCase(c32(0), some);
+    dispatch->addCase(c32(1), none);
+    if (!infallible) {
+      auto *failed = Block::Create(context, "iterator.error", fn);
+      dispatch->addCase(c32(2), failed);
+      builder.SetInsertPoint(failed);
+      auto *target = builder.CreateStructGEP(wrapper, output, result.errorRecord ? 2 : 0);
+      copy(target, errorSlot, scalarType(error));
+      builder.CreateBr(next);
+    }
+    builder.SetInsertPoint(some);
+    auto *option = taskTypes->records()[*result.record];
+    auto *member = builder.CreateStructGEP(option, out, 1);
+    if (taskTypes->fieldStorage(*result.record, 1) == RecordFieldStorage::ManagedReference) {
+      const auto id = *item.record;
+      if (!iteratorItemBoxes.contains(id)) {
+        const std::size_t targets[]{id};
+        auto boxes = emitTaskRecordBoxes(planner.input, targets, module);
+        iteratorItemBoxes.emplace(id, boxes.at(id));
+      }
+      auto *boxed = builder.CreateCall(iteratorItemBoxes.at(id), {ctx, itemSlot});
+      ready();
+      builder.CreateStore(boxed, member);
+    } else
+      copy(member, itemSlot, scalarType(item));
+    builder.CreateStore(c64(2), builder.CreateStructGEP(option, out, 0));
+    builder.CreateBr(next);
+    builder.SetInsertPoint(none);
+    builder.CreateStore(c64(1), builder.CreateStructGEP(option, out, 0));
+    builder.CreateBr(next);
+    builder.SetInsertPoint(invalid);
+    call("kalandra_fault_v1", voidType, {ctx, c64(3), c64(0), c64(0)});
+    builder.CreateBr(abort);
+  }
   llvm::GlobalVariable *rawArrayLayout(const ValueType &type) {
     const auto name = key(type);
     if (auto found = rawArrayLayouts.find(name); found != rawArrayLayouts.end())
@@ -2280,6 +2364,12 @@ private:
         break;
       }
       case Code::Kernel: {
+        if (const auto *iterator = std::get_if<IteratorOperation>(
+                &planner.input.expressions[instruction.source].operation)) {
+          emitIteratorOperation(*iterator, type, payload(instruction.args.at(0)),
+                                slot(instruction.output), ctx, next, abort);
+          break;
+        }
         if (const auto *buffer = std::get_if<BufferOperation>(
                 &planner.input.expressions[instruction.source].operation)) {
           auto *&scratch = bufferScratch[resume];

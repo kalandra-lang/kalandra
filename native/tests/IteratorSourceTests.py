@@ -145,6 +145,102 @@ numeric('range-host-capture', '''fn answer(values:Range)->i64:
 ''', 12, 'steps(1,10,3)')
 
 if args.target == 'cpu':
+    cursor_imports = '''from "std/iter" import Iterator, iter, next, close
+from "std/option" import Option
+fn item(value:Option[i64])->i64:
+  return match value:
+    Option.None:-1
+    Option.Some {value}:value
+'''
+    run('cursor-pure-entry', cursor_imports + '''fn invalid()->i64:
+  return 0
+fn main()->unit:
+  cursor=iter(steps(7,8))
+  if item(next(cursor)) != 7:
+    unreachable=1/invalid()
+  if item(next(cursor)) != -1:
+    unreachable=1/invalid()
+  close(cursor)
+  return ()
+''', '')
+    run('cursor-item-and-error-signatures', cursor_imports + '''error Problem:
+  Bad:
+    message:String
+type Node:
+  value:i64
+  child:Option[Node]
+fn recursive(mut cursor:Iterator[Node,never])->Option[Node]:
+  return next(cursor)
+fn text(mut cursor:Iterator[String,Problem])->Option[String] ! Problem:
+  return try next(cursor)
+fn task(mut cursor:Iterator[i64,TaskError])->Option[i64] ! TaskError:
+  return try next(cursor)
+fn main()->unit:
+  return ()
+''', '')
+    run('cursor-independent-sticky-exhaustion', cursor_imports + '''fn main()->unit ! IoError:
+  source=steps(2,6,2)
+  left=iter(source)
+  right=iter(source)
+  a=item(next(left))
+  b=item(next(left))
+  c=item(next(left))
+  d=item(next(left))
+  e=item(next(right))
+  try println(format("{}:{}:{}:{}:{}",a,b,c,d,e))
+  close(left)
+  close(right)
+  return ()
+''', '2:4:-1:-1:2\n')
+    run('cursor-return-transfer-and-partial-close', cursor_imports + '''fn make()->Iterator[i64,never]:
+  return iter(steps(10,20,3))
+fn take(own cursor:Iterator[i64,never])->i64:
+  value=item(next(cursor))
+  close(cursor)
+  return value
+fn main()->unit ! IoError:
+  cursor=make()
+  a=item(next(cursor))
+  b=take(cursor)
+  try println(format("{}:{}",a,b))
+  unused=iter(steps(9223372036854775807))
+  close(unused)
+  return ()
+''', '10:13\n')
+    run('cursor-iterable-static-dispatch', cursor_imports + '''from "std/iter" import Iterable
+type Countdown:
+  stop:i64
+impl Iterable for Countdown:
+  type Item=i64
+  type Error=never
+  fn iterator(values:Self)->Iterator[i64,never]:
+    return iter(steps(values.stop,0,-1))
+fn begin[S:Iterable](values:S)->Iterator[S.Item,S.Error]:
+  return iter(values)
+fn main()->unit ! IoError:
+  source=Countdown {stop:3}
+  cursor=begin(source)
+  a=item(next(cursor))
+  b=item(next(cursor))
+  try println(format("{}:{}",a,b))
+  close(cursor)
+  return ()
+''', '3:2\n')
+    run('cursor-empty-and-overflow', cursor_imports + '''fn main()->unit ! IoError:
+  empty=iter(steps(0))
+  high=iter(steps(9223372036854775805,9223372036854775807,3))
+  low=iter(steps(-9223372036854775806,-9223372036854775808,-3))
+  a=item(next(empty))
+  b=item(next(high))
+  c=item(next(high))
+  d=item(next(low))
+  e=item(next(low))
+  try println(format("{}:{}:{}:{}:{}",a,b,c,d,e))
+  close(empty)
+  close(high)
+  close(low)
+  return ()
+''', '-1:9223372036854775805:-1:-9223372036854775806:-1\n')
     run('range-argument-order', '''fn mark(value:i64)->i64 ! IoError:
   try println(format("{}",value))
   return value

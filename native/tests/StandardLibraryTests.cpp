@@ -40,8 +40,15 @@ int main(int argc, char **argv) {
       require(std::ranges::count(module.standardModules, std::optional(kind)) == 1,
               "standard module identity not canonical");
     }
-    require(module.imports[0].target == module.imports.back().target,
-            "repeat standard import did not reuse nominal identity");
+    std::size_t ioImports = 0;
+    for (const auto &import : module.imports)
+      if (import.target && module.standardModules[*import.target] == StandardModule::Io) {
+        require(import.target == module.imports[0].target,
+                "repeat standard import did not reuse nominal identity");
+        if (!module.standardModules[import.moduleIndex])
+          ++ioImports;
+      }
+    require(ioImports == 2, "expected both root and helper to import the canonical I/O module");
     for (const auto &function : module.functions) {
       require(function.moduleIndex < module.standardModules.size(), "function lost module origin");
       const auto origin = module.source->origin(function.name.begin).first;

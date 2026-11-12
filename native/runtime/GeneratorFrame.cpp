@@ -18,7 +18,7 @@ bool same(const ValueLayout &left, const ValueLayout &right) noexcept {
 }
 struct alignas(std::max_align_t) GeneratorState : OwnedState {
   Invocation storage;
-  const GeneratorEntry &entry;
+  const GeneratorEntry entry;
   Invocation *active = nullptr;
   std::atomic_flag advancing = ATOMIC_FLAG_INIT;
   std::uint64_t retained = 0;
@@ -122,6 +122,25 @@ struct Resume {
     return true;
   }
 };
+constexpr auto rangePacket = UINT64_C(0x4b414c52414e4745);
+bool constructRange(Invocation &ctx, void *out, const Packet &input) {
+  if (input.layout != rangePacket || input.bytes != sizeof(IntegerRangeValue) || !input.data) {
+    ctx.fault(3);
+    return false;
+  }
+  new (out) IntegerRangeValue(*static_cast<const IntegerRangeValue *>(input.data));
+  return true;
+}
+void destroyRange(void *) noexcept {}
+GeneratorStep resumeRange(Invocation &, void *frame, void *out) {
+  auto &range = *static_cast<IntegerRangeValue *>(frame);
+  if (range.step > 0 ? range.start >= range.stop : range.start <= range.stop)
+    return GeneratorStep::Exhausted;
+  *static_cast<std::int64_t *>(out) = range.start;
+  std::int64_t advanced;
+  range.start = __builtin_add_overflow(range.start, range.step, &advanced) ? range.stop : advanced;
+  return GeneratorStep::Item;
+}
 } // namespace
 GeneratorDescriptor generatorCreate(Invocation &ctx, const GeneratorEntry &entry,
                                       const Packet &packet) noexcept {
@@ -235,6 +254,30 @@ bool generatorClose(Invocation &ctx, const GeneratorDescriptor &descriptor) noex
   state->finish();
   return true;
 }
+GeneratorDescriptor generatorRange(Invocation &ctx, IntegerRangeValue range,
+                                   const ValueLayout &item, std::int64_t line,
+                                   std::int64_t column) noexcept {
+  if (!healthy(ctx))
+    return {};
+  if (!layout(item) || item.bytes != sizeof(std::int64_t) ||
+      item.alignment != alignof(std::int64_t)) {
+    ctx.fault(3);
+    return {};
+  }
+  if (!range.step) {
+    ctx.fault(4, line, column);
+    return {};
+  }
+  const GeneratorEntry entry{1,
+                             sizeof(IntegerRangeValue),
+                             alignof(IntegerRangeValue),
+                             constructRange,
+                             destroyRange,
+                             resumeRange,
+                             &item,
+                             nullptr};
+  return generatorCreate(ctx, entry, {rangePacket, &range, sizeof(range), &ctx});
+}
 } // namespace kalandra::runtime
 using namespace kalandra::runtime;
 extern "C" void kalandra_generator_create_v1(Invocation *ctx, GeneratorDescriptor *out,
@@ -264,4 +307,13 @@ extern "C" bool kalandra_generator_close_v1(Invocation *ctx,
     return false;
   }
   return generatorClose(*ctx, *cursor);
+}
+extern "C" void kalandra_iterator_range_v1(Invocation *ctx, GeneratorDescriptor *out,
+                                           const IntegerRangeValue *range, const ValueLayout *item,
+                                           std::int64_t line, std::int64_t column) noexcept {
+  if (!out || !range || !item) {
+    ctx->fault(3);
+    return;
+  }
+  *out = generatorRange(*ctx, *range, *item, line, column);
 }

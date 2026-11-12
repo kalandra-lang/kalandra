@@ -29,6 +29,7 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
         } else if constexpr (std::is_same_v<T, FunctionCall> ||
                              std::is_same_v<T, FormatOperation> ||
                              std::is_same_v<T, BufferOperation> ||
+                             std::is_same_v<T, IteratorOperation> ||
                              std::is_same_v<T, FileOperation> || std::is_same_v<T, TimeOperation>)
           return op.arguments;
         else if constexpr (std::is_same_v<T, RecordValue>) {
@@ -448,6 +449,7 @@ private:
               argument = importValue(argument);
           } else if constexpr (std::is_same_v<T, FormatOperation> ||
                                std::is_same_v<T, BufferOperation> ||
+                               std::is_same_v<T, IteratorOperation> ||
                                std::is_same_v<T, FileOperation> ||
                                std::is_same_v<T, TimeOperation>) {
             for (auto &argument : op.arguments)
@@ -656,6 +658,8 @@ private:
       call->arguments = reads;
     } else if (auto *buffer = std::get_if<BufferOperation>(&op)) {
       buffer->arguments = reads;
+    } else if (auto *iterator = std::get_if<IteratorOperation>(&op)) {
+      iterator->arguments = reads;
     } else if (auto *time = std::get_if<TimeOperation>(&op)) {
       time->arguments = reads;
     } else if (auto *lookup = std::get_if<EnvironmentLookup>(&op)) {
@@ -1456,6 +1460,11 @@ private:
       auto subject = expression(plan, field->subject, env, stack);
       plan.code.push_back(
           {Code::Field, output, {subject}, static_cast<std::size_t>(field->field), 0, 0, id});
+    } else if (const auto *iterator = std::get_if<IteratorOperation>(&node.operation)) {
+      std::vector<Slot> arguments;
+      for (auto argument : iterator->arguments)
+        arguments.push_back(expression(plan, argument, env, stack));
+      plan.code.push_back({Code::Kernel, output, std::move(arguments), 0, 0, 0, id});
     } else if (const auto *buffer = std::get_if<BufferOperation>(&node.operation)) {
       std::vector<Slot> arguments;
       for (auto argument : buffer->arguments)
