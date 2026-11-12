@@ -242,6 +242,14 @@ fn main()->unit:
   try println(format("{}",total))
   return ()
 ''', '8\n')
+    run('cursor-temporary-owners-in-loop', cursor_imports + '''fn main()->unit ! IoError:
+  total=0
+  for index in range(1000):
+    cursor=iter(steps(index,index+1))
+    total=total+item(next(cursor))
+  try println(format("{}",total))
+  return ()
+''', '499500\n')
     run('cursor-return-transfer-and-partial-close', cursor_imports + '''fn make()->Iterator[i64,never]:
   return iter(steps(10,20,3))
 fn take(own cursor:Iterator[i64,never])->i64:

@@ -42,7 +42,7 @@ h2 { "Iterator[T, E]" }
 
 An Iterator owns a position in a sequence. T is the type of each item; E is the expected error that advancing the cursor can produce. Iterator[i64, never] produces i64 values without expected errors. Exhaustion is represented by Option.None, separately from the error channel.
 
-Cursors have a single owner. Assigning one to another binding or passing it to an own parameter transfers ownership. A function that advances a borrowed cursor must declare a mut parameter. The cursor's storage is opaque: use the iteration functions rather than constructing or reading its fields.
+Cursors have a single owner. Assigning one to another binding or passing it to an own parameter transfers ownership. A function that advances a borrowed cursor must declare a mut parameter. Pass cursors through explicit function parameters rather than capturing them implicitly in an ordinary function. The cursor's storage is opaque: use the iteration functions rather than constructing or reading its fields.
 
 h2 { "iter" }
 

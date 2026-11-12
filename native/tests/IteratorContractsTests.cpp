@@ -161,6 +161,16 @@ int main(int argc, char **argv) {
     require(cursor != forgedCursor.records.end(), "Iterator lost its canonical nominal identity");
     cursor->typeArguments.pop_back();
     require(bool(recordFieldError(forgedCursor)), "a forged cursor lost its error type metadata");
+    auto capture = checkSource(cursorPrelude +
+                               "fn main()->unit:\n  cursor=iter(range(3))\n"
+                               "  callback=fn()->Option[i64]:return next(cursor)\n  return ()\n");
+    require(!capture.ok() && std::ranges::any_of(capture.diagnostics,
+                                                 [](const auto &diagnostic) {
+                                                   return diagnostic.code == "S081" &&
+                                                          diagnostic.message.find("Iterator") !=
+                                                              std::string::npos;
+                                                 }),
+            "an implicit cursor capture lost its ownership diagnostic");
     std::cout
         << "PASS: canonical Option aliases, specialization, ownership and exhaustion contracts\n";
   } catch (const std::exception &error) {

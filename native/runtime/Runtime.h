@@ -40,6 +40,7 @@ private:
   Backing *backing_ = nullptr;
   explicit AllocationLease(Backing *backing) noexcept : backing_(backing) {}
   friend class Invocation;
+  friend struct OwnedState;
 };
 // One execution unit. Access to a context is exclusive, even if its execution
 // later migrates between workers. Backing references can cross contexts.

@@ -13,7 +13,8 @@ struct OwnedState {
   std::mutex mutex;
   ResourceScope *scope = nullptr;
   AllocationLease scopeOwner;
-  // A linked scope keeps a resource pinned until its detached cleanup runs.
+  // Only detached retirement work owns this pin. Live scope links are weak:
+  // losing the last value/job owner must not retain an otherwise dead resource.
   AllocationLease scopePin;
   OwnedState *retirementNext = nullptr;
   OwnedState *previous = nullptr, *next = nullptr;
@@ -26,6 +27,8 @@ struct OwnedState {
              void (*retire)(void *) noexcept) noexcept
       : kind(kind), bytes(bytes), destroy(destroy), retire(retire) {}
   ~OwnedState();
+  // Caller holds resourceMutex(), so a linked state cannot finish detaching.
+  std::optional<AllocationLease> pinForRetirement() noexcept;
   void detach() noexcept;
   static void cleanup(void *p) noexcept {
     auto *s = static_cast<OwnedState *>(p);

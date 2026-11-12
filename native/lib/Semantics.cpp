@@ -2563,7 +2563,9 @@ private:
     if (isOwnedResource(output_, capture.type)) {
       error(
           "S081",
-          isByteBuffer(output_, capture.type)
+          isIterator(output_, capture.type)
+              ? "Iterator requires explicit function parameters, not implicit closure captures"
+          : isByteBuffer(output_, capture.type)
               ? "ByteBuffer requires explicit function parameters, not implicit closure captures"
               : "file handles require explicit function parameters, not implicit closure captures",
           span);

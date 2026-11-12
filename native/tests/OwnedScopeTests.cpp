@@ -1,8 +1,10 @@
 #include "../runtime/OwnedResources.h"
 #include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+#include <thread>
 using namespace kalandra::runtime;
 #define CHECK(condition)                                                                            \
   do {                                                                                             \
@@ -117,6 +119,64 @@ void retirementOrder() {
   ctx.settle();
   CHECK(counts.destroyed == 3);
 }
+void droppedOwners() {
+  Counts counts;
+  Invocation ctx;
+  auto *scope = static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&ctx, nullptr, 0));
+  CHECK(scope);
+  for (unsigned n = 0; n < 1024; ++n) {
+    auto *value = make(ctx, counts);
+    ctx.release(value);
+    CHECK(counts.destroyed == n + 1 && counts.retired == 0 && !scope->scope->first);
+  }
+  kalandra_file_scope_leave_v1(&ctx, scope, nullptr);
+  ctx.settle();
+  CHECK(ctx.live() == 0);
+}
+struct LastOwnerState : OwnedState {
+  Counts &counts;
+  std::atomic<bool> &entered, &finish;
+  LastOwnerState(Counts &counts, std::atomic<bool> &entered, std::atomic<bool> &finish)
+      : OwnedState(OwnedKind::ByteBuffer, sizeof(LastOwnerState), destroyState, retireState),
+        counts(counts), entered(entered), finish(finish) {}
+  ~LastOwnerState() {
+    entered.store(true, std::memory_order_release);
+    while (!finish.load(std::memory_order_acquire))
+      std::this_thread::yield();
+    ++counts.destroyed;
+  }
+  static void destroyState(void *p) noexcept {
+    static_cast<LastOwnerState *>(p)->~LastOwnerState();
+  }
+  static void retireState(void *p) noexcept { ++static_cast<LastOwnerState *>(p)->counts.retired; }
+};
+void concurrentLastOwner() {
+  Counts counts;
+  Invocation ctx;
+  std::atomic<bool> entered{false}, finish{false};
+  auto *scope = kalandra_file_scope_enter_v1(&ctx, nullptr, 0);
+  CHECK(scope);
+  auto *memory = ctx.allocateResource(sizeof(LastOwnerState), OwnedState::cleanup);
+  CHECK(memory);
+  auto *value = new (memory) LastOwnerState(counts, entered, finish);
+  adopt(ctx, *value, currentScope(ctx)->scope);
+  auto lease = ctx.lease(value);
+  CHECK(lease);
+  ctx.release(value);
+  // Model a foreign I/O job releasing the final independent backing pin while
+  // its former logical owner is also ending. No Invocation is shared by threads.
+  std::thread job([pin = std::move(*lease)]() mutable { pin = {}; });
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!entered.load(std::memory_order_acquire) && std::chrono::steady_clock::now() < deadline)
+    std::this_thread::yield();
+  CHECK(entered.load(std::memory_order_acquire));
+  kalandra_file_scope_leave_v1(&ctx, scope, nullptr);
+  CHECK(counts.retired == 0); // A refcount-zero destructor cannot be resurrected.
+  finish.store(true, std::memory_order_release);
+  job.join();
+  ctx.settle();
+  CHECK(counts.destroyed == 1 && counts.retired == 0 && ctx.live() == 0);
+}
 void rejectedAdoption(bool closedResource) {
   Counts counts;
   Invocation ctx;
@@ -143,6 +203,8 @@ int main() {
     nested(12000, stop);
   handoff();
   retirementOrder();
+  droppedOwners();
+  concurrentLastOwner();
   rejectedAdoption(false);
   rejectedAdoption(true);
   std::puts("PASS: iterative nested owned-scope retirement, stops and handoff");

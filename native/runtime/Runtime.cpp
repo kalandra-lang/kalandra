@@ -14,6 +14,7 @@
 #endif
 #include "../include/kalandra/NumericType.h"
 #include "NativeCancellation.h"
+#include "OwnedResources.h"
 #include "Runtime.h"
 #include <algorithm>
 #include <array>
@@ -493,6 +494,19 @@ std::optional<AllocationLease> Invocation::lease(const void *allocated) const no
   if (!retainBacking(backing))
     return {};
   return AllocationLease(backing);
+}
+std::optional<AllocationLease> OwnedState::pinForRetirement() noexcept {
+  // The registry lock keeps the linked base object readable, including when
+  // its last ordinary owner has entered destruction and is waiting to detach.
+  // A zero reference count must never be resurrected into a second destructor.
+  auto *backing = reinterpret_cast<Backing *>(this) - 1;
+  auto references = backing->references.load(std::memory_order_relaxed);
+  while (references && references != UINT64_MAX) {
+    if (backing->references.compare_exchange_weak(
+            references, references + 1, std::memory_order_acquire, std::memory_order_relaxed))
+      return AllocationLease(backing);
+  }
+  return {};
 }
 std::optional<std::span<const std::byte>>
 AllocationLease::environmentBytes(const void *code, std::uint64_t size,

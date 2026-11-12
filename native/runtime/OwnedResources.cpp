@@ -68,9 +68,15 @@ ResourceControl::~ResourceControl() {
     scope->active = false;
     while (scope->first) {
       auto *value = scope->first;
+      auto pin = value->pinForRetirement();
       value->detach();
       value->retired.store(true, std::memory_order_release);
-      retirements.append(*value);
+      if (pin) {
+        value->scopePin = std::move(*pin);
+        retirements.append(*value);
+      }
+      // Without a pin, the last owner is already destroying the object. Its
+      // destructor finishes cleanup after the registry lock is released.
     }
   }
   retirements.drain();
@@ -85,7 +91,7 @@ void adopt(Invocation &ctx, OwnedState &file, ResourceScope *scope) noexcept {
     ctx.fault(3);
     return;
   }
-  AllocationLease previousOwner, previousPin;
+  AllocationLease previousOwner;
   {
     std::lock_guard lock(resourceMutex());
     if (file.retired.load(std::memory_order_acquire) || (scope && !scope->active)) {
@@ -94,9 +100,7 @@ void adopt(Invocation &ctx, OwnedState &file, ResourceScope *scope) noexcept {
     }
     file.detach();
     previousOwner = std::move(file.scopeOwner);
-    previousPin = std::move(file.scopePin);
     file.scopeOwner = owner ? std::move(*owner) : AllocationLease{};
-    file.scopePin = pin ? std::move(*pin) : AllocationLease{};
     if (scope) {
       file.scope = scope;
       file.next = scope->first;
