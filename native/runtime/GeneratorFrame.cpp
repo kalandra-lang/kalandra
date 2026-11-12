@@ -96,9 +96,13 @@ struct Active {
 };
 struct Advance {
   GeneratorState &state;
+  // An owner scope may disappear during publication. The execution borrower
+  // pins physical state until after releasing the advancing/retirement handoff.
+  AllocationLease pin;
   bool acquired;
-  explicit Advance(GeneratorState &s) noexcept
-      : state(s), acquired(!s.advancing.test_and_set(std::memory_order_acquire)) {}
+  Advance(GeneratorState &s, AllocationLease lease) noexcept
+      : state(s), pin(std::move(lease)),
+        acquired(!s.advancing.test_and_set(std::memory_order_acquire)) {}
   ~Advance() {
     if (!acquired)
       return;
@@ -271,7 +275,12 @@ GeneratorStep generatorNext(Invocation &ctx, const GeneratorDescriptor &descript
     ctx.fault(3);
     return GeneratorStep::Stopped;
   }
-  Advance access(*state);
+  auto pin = ctx.lease(state);
+  if (!pin) {
+    ctx.fault(3);
+    return GeneratorStep::Stopped;
+  }
+  Advance access(*state, std::move(*pin));
   if (!access.acquired) {
     ctx.fault(3);
     return GeneratorStep::Stopped;
@@ -319,7 +328,12 @@ bool generatorClose(Invocation &ctx, const GeneratorDescriptor &descriptor) noex
   auto *state = inspect(ctx, descriptor);
   if (!state)
     return false;
-  Advance access(*state);
+  auto pin = ctx.lease(state);
+  if (!pin) {
+    ctx.fault(3);
+    return false;
+  }
+  Advance access(*state, std::move(*pin));
   if (!access.acquired) {
     ctx.fault(3);
     return false;

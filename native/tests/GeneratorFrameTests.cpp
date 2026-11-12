@@ -531,6 +531,7 @@ struct RetiringItem {
   Probe *probe;
   void *scope;
   std::atomic<bool> *cancellation = nullptr;
+  Invocation::OwnershipScope *releaseOwner = nullptr;
 };
 bool retiringConstruct(Invocation &, void *out, const Packet &packet) {
   const auto value = *static_cast<const RetiringItem *>(packet.data);
@@ -554,6 +555,8 @@ bool retiringCopy(Invocation &ctx, void *out, const Invocation &, const void *in
     value.cancellation->store(true, std::memory_order_release);
   else
     kalandra_file_scope_leave_v1(&ctx, value.scope, nullptr);
+  if (value.releaseOwner)
+    value.releaseOwner->reset();
   return true;
 }
 void retirementDuringPublication() {
@@ -567,19 +570,26 @@ void retirementDuringPublication() {
                                     retiringResume,
                                     &item,
                                     nullptr};
-  for (bool cancellation : {false, true}) {
+  for (unsigned mode : {0u, 1u, 2u}) {
     Invocation ctx;
+    Invocation::OwnershipScope backing(ctx);
     std::atomic<bool> token{false};
     ctx.bindCancellation(&token);
     Probe probe;
-    RetiringItem input{&probe, kalandra_file_scope_enter_v1(&ctx, nullptr, 0),
-                       cancellation ? &token : nullptr},
+    RetiringItem input{&probe, nullptr, mode == 1 ? &token : nullptr,
+                       mode == 2 ? &backing : nullptr},
         output{};
-    CHECK(input.scope);
-    auto cursor = generatorCreate(ctx, entry, {0, &input, sizeof(input), &ctx});
+    GeneratorDescriptor cursor;
+    {
+      Invocation::OwnershipSelection selected(backing);
+      input.scope = kalandra_file_scope_enter_v1(&ctx, nullptr, 0);
+      CHECK(input.scope);
+      cursor = generatorCreate(ctx, entry, {0, &input, sizeof(input), &ctx});
+    }
     CHECK(generatorNext(ctx, cursor, item, nullptr, &output, nullptr) == GeneratorStep::Stopped);
     CHECK(probe.constructions == 1 && probe.destructions == 1);
-    CHECK(cancellation ? ctx.status() == 0 && ctx.poll() == -1 : ctx.status() == 3);
+    CHECK(mode == 1 ? ctx.status() == 0 && ctx.poll() == -1 : ctx.status() == 3);
+    backing.reset();
     ctx.settle();
     CHECK(ctx.live() == 0);
   }
