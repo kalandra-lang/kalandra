@@ -144,9 +144,14 @@ struct alignas(std::max_align_t) Backing {
   const void *recursiveKey = nullptr;
   Backing **dependencies = nullptr;
   std::size_t dependencyCount = 0;
-  Backing *releaseNext = nullptr; // Used exclusively after the final reference retires.
+  // Live dynamic resources use this slot for accounting metadata. After the
+  // final reference retires it becomes the iterative release worklist link.
+  // The phases never overlap: every accounting observer owns a reference.
+  void *bookkeeping = nullptr;
   void (*cleanup)(void *) noexcept = nullptr;
-  ResourceAccounting *resource = nullptr;
+  ResourceAccounting *resource() const noexcept {
+    return static_cast<ResourceAccounting *>(bookkeeping);
+  }
 };
 struct alignas(std::max_align_t) ControlAllocation {
   ControlAllocation *next;
@@ -173,10 +178,20 @@ namespace {
 // programs keep their existing allocation path and Invocation/OwnerStore ABI.
 std::recursive_mutex resourceAccountingMutex;
 struct AccountingGuard {
-  std::unique_lock<std::recursive_mutex> lock;
-  explicit AccountingGuard(bool needed) : lock(resourceAccountingMutex, std::defer_lock) {
+  bool held = false;
+  explicit AccountingGuard(bool needed) {
     if (needed)
-      lock.lock();
+      acquire();
+  }
+  AccountingGuard(const AccountingGuard &) = delete;
+  AccountingGuard &operator=(const AccountingGuard &) = delete;
+  void acquire() {
+    resourceAccountingMutex.lock();
+    held = true;
+  }
+  ~AccountingGuard() {
+    if (held)
+      resourceAccountingMutex.unlock();
   }
 };
 struct ResourceStore {
@@ -264,17 +279,16 @@ bool retainBacking(Backing *backing) noexcept {
 void releaseBacking(Backing *backing) noexcept {
   if (!backing || backing->references.fetch_sub(1, std::memory_order_acq_rel) != 1)
     return;
-  // Only the thread observing the final reference may write releaseNext. Each
+  // Only the thread observing the final reference may write the release worklist link. Each
   // edge owns a reference, including duplicates, so a shared child is enqueued
   // exactly once. The intrusive worklist needs no allocation or native recursion.
-  auto *pending = backing;
-  while (pending) {
-    auto *current = pending;
-    pending = current->releaseNext;
+  Backing *pending = nullptr;
+  auto *current = backing;
+  for (;;) {
     for (std::size_t edge = 0; edge < current->dependencyCount; ++edge) {
       auto *child = current->dependencies[edge];
       if (child->references.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-        child->releaseNext = pending;
+        child->bookkeeping = pending;
         pending = child;
       }
     }
@@ -282,6 +296,10 @@ void releaseBacking(Backing *backing) noexcept {
       current->cleanup(current + 1);
     current->~Backing();
     std::free(current);
+    if (!pending)
+      break;
+    current = pending;
+    pending = static_cast<Backing *>(current->bookkeeping);
   }
 }
 } // namespace
@@ -304,7 +322,8 @@ bool Invocation::watchResource(Backing *backing) noexcept {
   std::lock_guard lock(resourceAccountingMutex);
   auto &scope = owners();
   auto *store = resourceStore(scope.spareSmall_);
-  if (store && store->buckets[resourceSlot(store->buckets, store->bucketCount, backing->resource)])
+  if (store &&
+      store->buckets[resourceSlot(store->buckets, store->bucketCount, backing->resource())])
     return true;
   if (poll() || !reserve())
     return false;
@@ -318,12 +337,12 @@ bool Invocation::watchResource(Backing *backing) noexcept {
   const auto indexBytes = grow ? store->bucketCount * 2 * sizeof(ResourceWatch *) : 0;
   const auto metadata =
       sizeof(ResourceWatch) + indexBytes + (store ? 0 : sizeof(Backing) + sizeof(ResourceStore));
-  if (backing->resource->bytes > UINT64_MAX - metadata) {
+  if (backing->resource()->bytes > UINT64_MAX - metadata) {
     fault(2);
     return false;
   }
   BackingReservation reservation{state.recursiveBudget_, state.recursiveRelease_};
-  if (!reservation.acquire(*this, backing->resource->bytes + metadata, state.recursiveBytes_,
+  if (!reservation.acquire(*this, backing->resource()->bytes + metadata, state.recursiveBytes_,
                            state.recursiveReserve_))
     return false;
   auto *note = new (std::nothrow) ResourceWatch;
@@ -356,7 +375,7 @@ bool Invocation::watchResource(Backing *backing) noexcept {
     store->buckets = buckets;
     store->bucketCount = count;
   }
-  auto *resource = backing->resource;
+  auto *resource = backing->resource();
   *note = ResourceWatch{resource->observers,
                         nullptr,
                         store->notes,
@@ -381,7 +400,7 @@ bool Invocation::watchResource(Backing *backing) noexcept {
 }
 bool Invocation::trackResource(void *address) noexcept {
   auto *owner = findOwner(address);
-  if (!owner || !owner->backing->resource) {
+  if (!owner || !owner->backing->resource()) {
     fault(3);
     return false;
   }
@@ -389,7 +408,7 @@ bool Invocation::trackResource(void *address) noexcept {
 }
 bool Invocation::resizeResource(void *address, std::uint64_t bytes) noexcept {
   auto *owner = findOwner(address);
-  if (!owner || !owner->backing->resource) {
+  if (!owner || !owner->backing->resource()) {
     fault(3);
     return false;
   }
@@ -397,7 +416,7 @@ bool Invocation::resizeResource(void *address, std::uint64_t bytes) noexcept {
   // The current temporary work scope may only borrow that owner; charging it
   // again would add metadata and reservations to every growth operation.
   std::lock_guard lock(resourceAccountingMutex);
-  auto &resource = *owner->backing->resource;
+  auto &resource = *owner->backing->resource();
   auto *failed = resource.observers;
   for (; failed; failed = failed->next) {
     if (bytes <= failed->charged)
@@ -631,7 +650,7 @@ void *Invocation::allocateResource(std::uint64_t bytes, void (*cleanup)(void *) 
     auto *backing = static_cast<Backing *>(data) - 1;
     backing->cleanup = cleanup;
     if (dynamic)
-      backing->resource = new (static_cast<std::byte *>(data) + padded) ResourceAccounting;
+      backing->bookkeeping = new (static_cast<std::byte *>(data) + padded) ResourceAccounting;
   }
   return data;
 }
@@ -678,7 +697,6 @@ void *Invocation::allocateControl(std::uint64_t bytes, void (*cleanup)(void *) n
   return control + 1;
 }
 void Invocation::clearControl() noexcept {
-  AccountingGuard accounting(flags_ & DynamicResources);
   auto &state = storage_.value;
   auto *control = state.controls_;
   state.controls_ = control->next;
@@ -1029,10 +1047,10 @@ bool Invocation::retainLease(const AllocationLease &lease) noexcept {
   return holdBacking(lease.backing_);
 }
 bool Invocation::holdBacking(Backing *backing) noexcept {
-  if (backing->resource)
+  if (backing->resource())
     flags_ |= DynamicResources;
   AccountingGuard accounting(flags_ & DynamicResources);
-  if (backing->resource && !watchResource(backing))
+  if (backing->resource() && !watchResource(backing))
     return false;
   auto &ledgerState = ledger();
   if (poll() || !usable() || !reserve())
@@ -1111,12 +1129,12 @@ bool Invocation::retainRecursiveGraph(const AllocationLease &root, const void *k
         return false;
       auto *backing = pending.back();
       pending.pop_back();
-      if (backing->resource) {
+      if (backing->resource()) {
         // Recursive graphs normally cannot contain host resources, but private
         // handoff validation must preserve accounting for every backing kind.
         flags_ |= DynamicResources;
-        if (!accounting.lock.owns_lock())
-          accounting.lock.lock();
+        if (!accounting.held)
+          accounting.acquire();
         if (!watchResource(backing))
           return false;
       }
@@ -1227,6 +1245,7 @@ void Invocation::clearOwners(OwnerStore &store) noexcept {
   state.active_ = previous;
 }
 void Invocation::settleResources() noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
   auto &state = storage_.value;
   if (flags_ & Settled) return;
   pollMode_ = 2;
