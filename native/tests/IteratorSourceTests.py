@@ -179,6 +179,132 @@ fn main()->unit ! (IoError | TaskError):
   return ()
 ''', '0:1:42\n')
 
+# These cursors execute on the host, including across a real GPU await. Device
+# local cursor lowering is qualified separately from these host bridge cases.
+array_imports = '''from "std/iter" import Iterator, iter, next, close
+from "std/option" import Option
+fn first[T](mut cursor:Iterator[T,never],fallback:T)->T:
+  return match next(cursor):
+    Option.None:fallback
+    Option.Some {value}:value
+fn marker(value:i64)->i64:
+  return value+1
+'''
+gpu_pause = '''  checked=try parallel:
+    gpu=devices.gpu()
+    try await spawn marker(41) on gpu
+''' if args.target != 'cpu' else '  checked=marker(41)\n'
+run('cursor-array-replay-and-close', array_imports + '''fn main()->unit ! (IoError | TaskError):
+  values=[3,1,2]
+  left=iter(values)
+  right=iter(values)
+  a=first(left,-1)
+''' + gpu_pause + '''  b=first(left,-1)
+  close(left)
+  c=first(right,-1)
+  close(right)
+  values[0]=9
+  try println(format("{}:{}:{}:{}:{}",a,b,c,values[0],checked))
+  return ()
+''', '3:1:3:9:42\n')
+# The shared GPU supervisor does not yet transport record/function arrays
+# in host continuation slots. Keep their CPU coverage; do not silently claim
+# that a host cursor bridge supplies that separate transport capability.
+if args.target == 'cpu':
+    run('cursor-array-managed-payloads', array_imports + '''type Box:
+  values:[i64]
+fn words()->Iterator[String,never]:
+  return iter(["first","second"])
+fn main()->unit ! (IoError | TaskError):
+  a=[7,8]
+  boxes=iter([Box {values:a}])
+  value=first(boxes,Box {values:[]})
+  close(boxes)
+  value.values[0]=9
+  cursor=words()
+  word=first(cursor,"empty")
+''' + gpu_pause + '''  other=first(cursor,"empty")
+  close(cursor)
+  try println(format("{}:{}:{}:{}",word,other,a[0],checked))
+  return ()
+''', 'first:second:9:42\n')
+    run('cursor-array-callable-items', array_imports + '''fn main()->unit ! (IoError | TaskError):
+  a=[7,8]
+  callback=fn()->i64:return a[0]
+  cursor=iter([callback])
+  got=first(cursor,fn()->i64:return -1)
+''' + gpu_pause + '''  close(cursor)
+  a[0]=9
+  try println(format("{}:{}",got(),checked))
+  return ()
+''', '9:42\n')
+run('cursor-array-string-items', array_imports + '''fn words()->Iterator[String,never]:
+  return iter(["first","second"])
+fn main()->unit ! (IoError | TaskError):
+  cursor=words()
+  word=first(cursor,"empty")
+''' + gpu_pause + '''  other=first(cursor,"empty")
+  close(cursor)
+  try println(format("{}:{}:{}",word,other,checked))
+  return ()
+''', 'first:second:42\n')
+run('cursor-array-task-transfer', array_imports + '''fn drain(own cursor:Iterator[i64,never])->i64:
+  total=0
+  while true:
+    match next(cursor):
+      Option.None:break
+      Option.Some {value}:
+        total=total+value
+        ()
+  close(cursor)
+  return total
+fn main()->unit ! (IoError | TaskError):
+  values=[3,1,2]
+  cursor=iter(values)
+  total=try parallel:
+    pending=spawn drain(cursor)
+    try await pending
+  values[0]=9
+''' + gpu_pause + '''  try println(format("{}:{}:{}",total,values[0],checked))
+  return ()
+''', '6:9:42\n')
+run('cursor-array-loop-lifetimes', array_imports + '''fn main()->unit ! (IoError | TaskError):
+  values=[0]
+  total=0
+  i=0
+  while i<1000:
+    fresh=iter([i])
+    total=total+first(fresh,-1)
+    close(fresh)
+    reader=iter(values)
+    total=total+first(reader,-1)
+    close(reader)
+    values[0]=values[0]+1
+    i=i+1
+''' + gpu_pause + '''  try println(format("{}:{}:{}",total,values[0],checked))
+  return ()
+''', '999000:1000:42\n')
+
+numeric_types=('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64')
+number_steps=''
+for index, kind in enumerate(numeric_types):
+    number_steps += f'''  c{index}=iter([{kind}(3),{kind}(5)])
+  total=total+i64(first(c{index},{kind}(0)))+i64(first(c{index},{kind}(0)))
+  close(c{index})
+'''
+run('cursor-array-numeric-types', array_imports + '''fn main()->unit ! (IoError | TaskError):
+  total=0
+''' + number_steps + gpu_pause + '''  bools=iter([true,false])
+  a=first(bools,false)
+  b=first(bools,true)
+  close(bools)
+  units=iter([(),()])
+  x=first(units,())
+  close(units)
+  try println(format("{}:{}:{}:{}",total,a,b,checked))
+  return ()
+''', '80:true:false:42\n')
+
 if args.target == 'cpu':
     cursor_imports = '''from "std/iter" import Iterator, iter, next, close
 from "std/option" import Option

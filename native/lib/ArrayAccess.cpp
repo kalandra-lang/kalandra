@@ -14,7 +14,15 @@ namespace {
 // let loop aging preserve both identities without arithmetic namespace overlap.
 class StorageRoot {
 public:
-  enum class Kind : std::uint64_t { Local, Parameter, OldLocal, Data, OldData, Unknown = 127 };
+  enum class Kind : std::uint64_t {
+    Local,
+    Parameter,
+    OldLocal,
+    Data,
+    OldData,
+    CursorDataParameter,
+    Unknown = 127
+  };
   static constexpr StorageRoot make(Kind kind, std::size_t identity) {
     return StorageRoot((std::uint64_t(kind) << 56) | identity);
   }
@@ -40,15 +48,20 @@ using Roots = std::set<StorageRoot>;
 constexpr auto unknown = StorageRoot::make(StorageRoot::Kind::Unknown, 0);
 struct Exhausted {};
 struct Summary {
-  std::set<std::size_t> parameters;
-  bool fresh = false, uncertain = false;
+  std::set<std::size_t> parameters, borrowedParameters, cursorDataParameters,
+      borrowedCursorDataParameters;
+  bool fresh = false, uncertain = false, borrowedFresh = false, borrowedUnknown = false;
   bool operator==(const Summary &) const = default;
+};
+struct ReadLoan {
+  Roots roots, controls; // Nonempty controls identify a cursor's retained-data loan.
+  bool operator==(const ReadLoan &) const = default;
 };
 struct LoopFlow;
 struct Environment {
   std::unordered_map<ValueId, Roots> values, inputs;
   std::unordered_map<SymbolId, Roots> symbols;
-  std::map<StorageRoot, Roots> readers;
+  std::map<StorageRoot, ReadLoan> readers;
   bool stopped = false;
   std::set<SymbolId> moved;
   std::map<std::size_t, LoopFlow *> loops;
@@ -110,18 +123,22 @@ public:
         auto result = analyze(fn, false);
         Summary next;
         for (auto root : result) {
-          if (root == unknown)
-            next.uncertain = true;
+          if (root.data() == unknown)
+            (root.borrowed() ? next.borrowedUnknown : next.uncertain) = true;
           else if (freshRoot(root))
-            next.fresh = true;
+            (root.borrowed() ? next.borrowedFresh : next.fresh) = true;
           else {
             const auto symbol = root.identity();
             const auto &parameters = module.functions[fn].parameters;
             const auto found = std::ranges::find(parameters, symbol);
             if (found == parameters.end())
-              next.uncertain = true;
+              (root.borrowed() ? next.borrowedUnknown : next.uncertain) = true;
+            else if (root.kind() == StorageRoot::Kind::CursorDataParameter)
+              (root.borrowed() ? next.borrowedCursorDataParameters : next.cursorDataParameters)
+                  .insert(found - parameters.begin());
             else
-              next.parameters.insert(found - parameters.begin());
+              (root.borrowed() ? next.borrowedParameters : next.parameters)
+                  .insert(found - parameters.begin());
           }
         }
         if (next != summaries[fn]) {
@@ -289,7 +306,7 @@ private:
         if ((root.kind() == StorageRoot::Kind::Local || root.kind() == StorageRoot::Kind::Data) &&
             sites.contains(root.identity())) {
           const auto old = root.aged();
-          writable[old] = writable.at(root);
+          writable[old.data()] = writable.at(root.data());
           root = old;
         }
         next.insert(root);
@@ -298,8 +315,10 @@ private:
     };
     for (auto &[symbol, roots] : env.symbols)
       age(roots);
-    for (auto &[reader, roots] : env.readers)
-      age(roots);
+    for (auto &[reader, loan] : env.readers) {
+      age(loan.roots);
+      age(loan.controls);
+    }
   }
   void spend(std::size_t count = 1) {
     if (count > budget)
@@ -309,6 +328,39 @@ private:
   void unite(Roots &to, const Roots &from) {
     spend(from.size());
     to.insert(from.begin(), from.end());
+  }
+  void unite(ReadLoan &to, const ReadLoan &from) {
+    unite(to.roots, from.roots);
+    unite(to.controls, from.controls);
+  }
+  Roots cursorControl(const Roots &roots) {
+    Roots result;
+    for (auto root : roots)
+      if (!root.borrowed())
+        result.insert(root);
+    return result;
+  }
+  Roots cursorData(const Roots &roots) {
+    Roots result;
+    for (auto root : roots)
+      if (root.borrowed())
+        result.insert(root.data());
+    return result;
+  }
+  void releaseCursor(const Roots &roots, Environment &env) {
+    const auto controls = cursorControl(roots);
+    std::erase_if(env.readers, [&](const auto &entry) {
+      // Control cells have exact identities: retained data aliasing is not a
+      // reason to release another cursor's independent loan.
+      return std::ranges::any_of(entry.second.controls,
+                                 [&](auto root) { return controls.contains(root); });
+    });
+  }
+  void rememberCursor(ValueId id, const Roots &roots, Environment &env) {
+    auto data = cursorData(roots);
+    if (!data.empty())
+      env.readers[StorageRoot::make(StorageRoot::Kind::Local, id)] =
+          ReadLoan{std::move(data), cursorControl(roots)};
   }
   Environment fork(const Environment &from) {
     spend(from.values.size() + from.symbols.size() + from.readers.size());
@@ -353,27 +405,37 @@ private:
   bool overlap(const Roots &a, const Roots &b) {
     if (a.empty() || b.empty())
       return false;
-    if (a.contains(unknown) || b.contains(unknown))
+    if (a.contains(unknown) || b.contains(unknown) || a.contains(unknown.borrow()) ||
+        b.contains(unknown.borrow()))
       return true;
-    for (auto root : a) {
-      if (b.contains(root))
+    for (auto tagged : a) {
+      const auto root = tagged.data();
+      if (b.contains(root) || b.contains(root.borrow()))
         return true;
       // Different incoming parameters can refer to the same backing. Only
       // local fresh storage is automatically disjoint from caller-owned data.
-      if (parameterRoot(root))
-        for (auto other : b)
-          if (parameterRoot(other)) {
-            const auto a = root.identity(), b = other.identity();
-            if (isOwnedResource(module, module.symbols[a].type) &&
-                isOwnedResource(module, module.symbols[b].type))
+      if (parameterRoot(root) || root.kind() == StorageRoot::Kind::CursorDataParameter)
+        for (auto taggedOther : b) {
+          const auto other = taggedOther.data();
+          if (parameterRoot(other) || other.kind() == StorageRoot::Kind::CursorDataParameter) {
+            // Opaque control allocations cannot be contained in an array or
+            // captured as its element storage. Hidden cursor data can alias
+            // ordinary array parameters, even when their names differ.
+            if ((parameterRoot(root) &&
+                 isOwnedResource(module, module.symbols[root.identity()].type)) ||
+                (parameterRoot(other) &&
+                 isOwnedResource(module, module.symbols[other.identity()].type)))
               continue;
             return true;
           }
+        }
     }
     return false;
   }
   void write(ValueId id, const Roots &roots, const Environment &env, bool spawned) {
     const bool file = isFileResource(module, module.expressions[id].type);
+    const bool cursor = isIterator(module, module.expressions[id].type);
+    const auto writableRoots = cursor ? cursorControl(roots) : roots;
     if (!checking || diagnostics.size() >= 32)
       return;
     if (spawned && !file) {
@@ -386,7 +448,7 @@ private:
            module.expressions[id].span});
       return;
     }
-    if (roots.empty() || std::ranges::any_of(roots, [&](auto root) {
+    if (writableRoots.empty() || std::ranges::any_of(writableRoots, [&](auto root) {
           return root == unknown || !writable.contains(root) || !writable.at(root);
         })) {
       diagnostics.push_back(
@@ -399,17 +461,20 @@ private:
            module.expressions[id].span});
       return;
     }
-    for (const auto &[reader, protectedRoots] : env.readers)
-      if (overlap(roots, protectedRoots)) {
+    for (const auto &[reader, loan] : env.readers)
+      if (!(cursor && !loan.controls.empty()) && overlap(writableRoots, loan.roots)) {
         const auto [line, column] = module.source->location(readerSpan(reader).begin);
-        diagnostics.push_back({"S077",
-                               (file ? "can't access file handle while task at "
-                                : isByteBuffer(module, module.expressions[id].type)
-                                    ? "can't mutate ByteBuffer while task at "
-                                    : "can't mutate array while task at ") +
-                                   std::to_string(line) + ":" + std::to_string(column) +
-                                   " may still read it; await every reader or use copy",
-                               module.expressions[id].span});
+        diagnostics.push_back(
+            {"S077",
+             (!loan.controls.empty() ? "can't mutate array while iterator at "
+              : file                 ? "can't access file handle while task at "
+              : isByteBuffer(module, module.expressions[id].type)
+                  ? "can't mutate ByteBuffer while task at "
+                  : "can't mutate array while task at ") +
+                 std::to_string(line) + ":" + std::to_string(column) +
+                 (loan.controls.empty() ? " may still read it; await every reader or use copy"
+                                        : " retains a read loan; close every cursor or use copy"),
+             module.expressions[id].span});
         return;
       }
   }
@@ -426,7 +491,8 @@ private:
     // Only bindings still lending this value after its evaluation are live loans.
     for (const auto &[symbol, stored] : env.symbols)
       if (!env.moved.contains(symbol) && isOwnedResource(module, module.symbols[symbol].type) &&
-          overlap(roots, stored))
+          overlap(isIterator(module, module.expressions[value].type) ? cursorControl(roots) : roots,
+                  isIterator(module, module.symbols[symbol].type) ? cursorControl(stored) : stored))
         use.lenders.push_back(symbol);
     uses.push_back(std::move(use));
   }
@@ -456,11 +522,26 @@ private:
       result = fresh(call);
     if (summary.uncertain)
       result.insert(unknown);
-    for (auto parameter : summary.parameters)
-      if (parameter < args.size())
-        unite(result, args[parameter]);
-      else
-        result.insert(unknown);
+    const auto append = [&](const auto &parameters, bool borrowed, bool dataOnly) {
+      for (auto parameter : parameters) {
+        const auto actual = parameter < args.size()
+                                ? (dataOnly ? cursorData(args[parameter]) : args[parameter])
+                                : Roots{unknown};
+        for (auto root : actual)
+          result.insert(borrowed ? root.borrow() : root);
+      }
+    };
+    append(summary.parameters, false, false);
+    append(summary.borrowedParameters, true, false);
+    append(summary.cursorDataParameters, false, true);
+    append(summary.borrowedCursorDataParameters, true, true);
+    if (summary.borrowedFresh) {
+      auto root = StorageRoot::make(StorageRoot::Kind::Data, call);
+      writable[root] = true;
+      result.insert(root.borrow());
+    }
+    if (summary.borrowedUnknown)
+      result.insert(unknown.borrow());
     return result;
   }
   void joinSymbols(Environment &to, const Environment &from) {
@@ -476,7 +557,9 @@ private:
       return;
     if (!isOwnedResource(module, module.expressions[id].type))
       return;
-    for (auto root : roots) {
+    const auto controls =
+        isIterator(module, module.expressions[id].type) ? cursorControl(roots) : roots;
+    for (auto root : controls) {
       if (parameterRoot(root)) {
         const auto symbol = root.identity();
         if (isOwnedResource(module, module.symbols[symbol].type) && !module.symbols[symbol].owned &&
@@ -490,7 +573,9 @@ private:
     }
     write(id, roots, env, false);
     for (const auto &[symbol, value] : env.symbols)
-      if (isOwnedResource(module, module.symbols[symbol].type) && overlap(roots, value))
+      if (isOwnedResource(module, module.symbols[symbol].type) &&
+          overlap(controls,
+                  isIterator(module, module.symbols[symbol].type) ? cursorControl(value) : value))
         env.moved.insert(symbol);
   }
   Roots body(const std::vector<TypedStatement> &statements, ValueId result, Environment &env) {
@@ -526,6 +611,12 @@ private:
         env.symbols[symbol] = {root};
         writable[root] = module.symbols[symbol].mutableAccess || module.symbols[symbol].owned ||
                          isFileResource(module, module.symbols[symbol].type);
+        if (isIterator(module, module.symbols[symbol].type)) {
+          const auto data = StorageRoot::make(StorageRoot::Kind::CursorDataParameter, symbol);
+          writable[data] = false;
+          env.symbols[symbol].insert(data.borrow());
+          env.readers[root] = ReadLoan{{data}, {root}};
+        }
       }
     return body(function.body, function.result, env);
   }
@@ -578,7 +669,10 @@ private:
                 consume(op.arguments[i], args[i], env);
               if (checking && isOwnedResource(module, parameter.type))
                 for (std::size_t j = 0; j < i; ++j)
-                  if (overlap(args[i], args[j]) &&
+                  if (overlap(isIterator(module, parameter.type) ? cursorControl(args[i]) : args[i],
+                              isIterator(module, module.symbols[function.parameters.at(j)].type)
+                                  ? cursorControl(args[j])
+                                  : args[j]) &&
                       (parameter.mutableAccess || parameter.owned ||
                        isFileResource(module, parameter.type) ||
                        module.symbols[function.parameters.at(j)].mutableAccess ||
@@ -592,6 +686,10 @@ private:
                              : "a call cannot access the same file through multiple parameters",
                          node.span});
             }
+            for (std::size_t i = 0; i < args.size(); ++i)
+              if (module.symbols[function.parameters.at(i)].owned &&
+                  isIterator(module, module.symbols[function.parameters.at(i)].type))
+                releaseCursor(args[i], env);
             return storage(node.type) ? returned(op.function, id, args) : Roots{};
           } else if constexpr (std::is_same_v<T, IteratorOperation>) {
             std::vector<Roots> args;
@@ -601,11 +699,21 @@ private:
               rememberResource(argument, args.back(), env, uses);
             }
             validateResources(uses, env);
+            if (op.action == IteratorAction::FromArray) {
+              auto result = fresh(id);
+              for (auto root : args.at(0))
+                result.insert(root.borrow());
+              return result;
+            }
             if (op.action != IteratorAction::FromRange && !args.empty()) {
               write(op.arguments[0], args[0], env, spawned);
-              if (op.action == IteratorAction::Close)
+              if (op.action == IteratorAction::Close) {
                 consume(op.arguments[0], args[0], env);
+                releaseCursor(args[0], env);
+              }
             }
+            if (op.action == IteratorAction::Next && storage(node.type))
+              return cursorData(args.at(0));
             return storage(node.type) ? fresh(id) : Roots{};
           } else if constexpr (std::is_same_v<T, BufferOperation>) {
             std::vector<Roots> args;
@@ -680,7 +788,12 @@ private:
               if (checking && type.callable &&
                   isOwnedResource(module, type.callable->parameters.at(i)))
                 for (std::size_t j = 0; j < args.size(); ++j)
-                  if (overlap(roots, args[j]) &&
+                  if (overlap(isIterator(module, type.callable->parameters.at(i))
+                                  ? cursorControl(roots)
+                                  : roots,
+                              isIterator(module, type.callable->parameters.at(j))
+                                  ? cursorControl(args[j])
+                                  : args[j]) &&
                       (type.callable->mutates(i) || type.callable->owns(i) ||
                        isFileResource(module, type.callable->parameters.at(i)) ||
                        type.callable->mutates(j) || type.callable->owns(j) ||
@@ -695,10 +808,15 @@ private:
               args.push_back(std::move(roots));
             }
             validateResources(uses, env);
+            if (type.callable)
+              for (std::size_t i = 0; i < args.size(); ++i)
+                if (type.callable->owns(i) && isIterator(module, type.callable->parameters.at(i)))
+                  releaseCursor(args[i], env);
             if (!storage(node.type))
               return {};
             if (!flow || flow->unknown[id] || flow->targets[id].empty())
-              return {unknown};
+              return isIterator(module, node.type) ? Roots{unknown, unknown.borrow()}
+                                                   : Roots{unknown};
             Roots result;
             for (auto target : flow->targets[id]) {
               auto actuals = args;
@@ -711,13 +829,15 @@ private:
           } else if constexpr (std::is_same_v<T, TaskOperation>) {
             auto value = evaluate(op.operand, env, op.prefix == TaskPrefix::Spawn);
             if (op.prefix == TaskPrefix::Spawn)
-              env.readers[StorageRoot::make(StorageRoot::Kind::Local, id)] = env.inputs[op.operand];
+              env.readers[StorageRoot::make(StorageRoot::Kind::Local, id)] =
+                  ReadLoan{env.inputs[op.operand], {}};
             else if (op.prefix == TaskPrefix::Await) {
               // Task identity survives a local alias. Cancellation alone never
               // reaches this settlement edge and therefore never removes a reader.
               const auto identity = module.expressions[op.operand].type.identity;
               std::erase_if(env.readers, [&](const auto &reader) {
-                return reader.first.kind() == StorageRoot::Kind::Local &&
+                return reader.second.controls.empty() &&
+                       reader.first.kind() == StorageRoot::Kind::Local &&
                        module.expressions[reader.first.identity()].type.identity == identity;
               });
             }
@@ -725,8 +845,9 @@ private:
           } else if constexpr (std::is_same_v<T, ParallelOperation>) {
             const auto incoming = env.readers;
             auto value = body(op.body, op.result, env);
-            std::erase_if(env.readers,
-                          [&](const auto &reader) { return !incoming.contains(reader.first); });
+            std::erase_if(env.readers, [&](const auto &reader) {
+              return reader.second.controls.empty() && !incoming.contains(reader.first);
+            });
             return value;
           } else if constexpr (std::is_same_v<T, ConditionalOperation>) {
             input(op.condition);
@@ -868,7 +989,7 @@ private:
           } else if constexpr (std::is_same_v<T, MatchOperation>) {
             input(op.subject);
             Roots value;
-            std::map<StorageRoot, Roots> readers;
+            std::map<StorageRoot, ReadLoan> readers;
             auto incoming = fork(env);
             for (auto &[symbol, roots] : env.symbols)
               roots.clear();
@@ -952,6 +1073,8 @@ private:
           }
         },
         node.operation);
+    if (isIterator(module, node.type) && !node.type.task)
+      rememberCursor(id, result, env);
     env.inputs[id] = std::move(inputs);
     env.values[id] = result;
     return result;

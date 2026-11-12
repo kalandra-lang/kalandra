@@ -155,6 +155,88 @@ int main(int argc, char **argv) {
       require(!invalid.ok() && !invalid.module,
               "cursor admitted unauthorized mutation, ownership reuse or opaque storage access");
     }
+    const auto loanCheck = [&](const std::string &program, bool valid) {
+      auto result = checkSource(cursorPrelude +
+                                "fn borrow(values:[i64])->Iterator[i64,never]:\n"
+                                "  return iter(values)\n" +
+                                program);
+      if (valid != result.ok()) {
+        for (const auto &diagnostic : result.diagnostics)
+          std::cerr << renderDiagnostic(*result.source, diagnostic);
+        throw std::runtime_error("array cursor loan proof mismatch:\n" + program);
+      }
+      if (valid)
+        for (const auto &expr : result.module->expressions)
+          require(!iteratorCapabilityError(*result.module, expr, NumericTarget::Cpu),
+                  "array cursor passed checking with an invalid runtime schema");
+      else
+        require(
+            std::ranges::any_of(result.diagnostics,
+                                [](const auto &diagnostic) { return diagnostic.code == "S077"; }),
+            "array cursor failed without a read-loan diagnostic");
+    };
+    for (const auto *program : {
+             "fn main()->unit:\n  a=[3,1]\n  c=borrow(a)\n  value=next(c)\n  close(c)\n  a[0]=9\n  "
+             "return ()\n",
+             "fn main()->unit:\n  i=0\n  while i<4:\n    c=iter([i])\n    value=next(c)\n    "
+             "close(c)\n    i=i+1\n  return ()\n",
+             "fn main()->unit:\n  a=[3,1]\n  i=0\n  while i<4:\n    c=borrow(a)\n    "
+             "value=next(c)\n    close(c)\n    a[0]=i\n    i=i+1\n  return ()\n",
+             "fn main()->unit:\n  a=[3,1]\n  c=borrow(a)\n  d=borrow(a)\n  x=next(c)\n  close(c)\n "
+             " y=next(d)\n  close(d)\n  a[0]=9\n  return ()\n",
+             "fn main()->unit:\n  a=[3,1]\n  c=borrow(a)\n  d=c\n  close(d)\n  a[0]=9\n  return "
+             "()\n",
+             "fn done(own c:Iterator[i64,never])->unit:\n  close(c)\n  return ()\n"
+             "fn main()->unit:\n  a=[3,1]\n  c=borrow(a)\n  done(c)\n  a[0]=9\n  return ()\n",
+             "fn main()->unit:\n  a=[3,1]\n  c=borrow(a)\n  a=copy(a)\n  a[0]=9\n  close(c)\n  "
+             "return ()\n",
+             "fn wrap[T](values:T)->T:\n  return values\n"
+             "fn make(values:[i64])->Iterator[i64,never]:\n  return borrow(values)\n"
+             "fn main()->unit:\n  a=[3,1]\n  c=make(a)\n  close(c)\n  a[0]=9\n  return ()\n",
+             "fn move(own c:Iterator[i64,never])->Iterator[i64,never]:\n  return c\n"
+             "fn main()->unit:\n  a=[3,1]\n  c=move(borrow(a))\n  close(c)\n  a[0]=9\n  return "
+             "()\n",
+         })
+      loanCheck(program, true);
+    for (const auto *program : {
+             "fn main()->unit:\n  a=[3,1]\n  c=borrow(a)\n  a[0]=9\n  close(c)\n  return ()\n",
+             "fn main()->unit:\n  a=[3,1]\n  b=a\n  c=borrow(a)\n  sort(b)\n  close(c)\n  return "
+             "()\n",
+             "fn main()->unit:\n  a=[3,1]\n  c=borrow(a)\n  d=borrow(a)\n  close(c)\n  a[0]=9\n  "
+             "close(d)\n  return ()\n",
+             "fn make(values:[i64])->Iterator[i64,never]:\n  return borrow(values)\n"
+             "fn main()->unit:\n  a=[3,1]\n  c=make(a)\n  a[0]=9\n  close(c)\n  return ()\n",
+             "fn move(own c:Iterator[i64,never])->Iterator[i64,never]:\n  return c\n"
+             "fn main()->unit:\n  a=[3,1]\n  c=move(borrow(a))\n  a[0]=9\n  close(c)\n  return "
+             "()\n",
+             "fn bad(mut values:[i64],mut c:Iterator[i64,never])->unit:\n"
+             "  values[0]=9\n  value=next(c)\n  return ()\n"
+             "fn main()->unit:\n  a=[3,1]\n  c=borrow(a)\n  bad(a,c)\n  close(c)\n  return ()\n",
+         })
+      loanCheck(program, false);
+    for (const auto *program : {
+             "fn bad(mut values:[i64],mut c:Iterator[i64,never])->unit:\n"
+             "  values[0]=9\n  value=next(c)\n  return ()\n"
+             "fn main()->unit:\n  return ()\n",
+             "fn edit(mut values:[i64])->i64:\n  values[0]=9\n  return 1\n"
+             "fn receive(own cursor:Iterator[i64,never],count:i64)->unit:\n  close(cursor)\n  "
+             "return ()\n"
+             "fn main()->unit:\n  a=[1]\n  receive(iter(a),edit(a))\n  return ()\n",
+             "fn drain(own c:Iterator[i64,never])->i64:\n  value=next(c)\n  close(c)\n  return 1\n"
+             "fn main()->i64 ! TaskError:\n  a=[1]\n  c=iter(a)\n  return try parallel:\n"
+             "    pending=spawn drain(c)\n    a[0]=9\n    try await pending\n",
+             "fn main()->unit:\n  a=[1]\n  c=iter(a)\n  if true:\n    close(c)\n  a[0]=9\n  return "
+             "()\n",
+             "fn main()->unit:\n  a=[1]\n  c=iter(a)\n  d=iter(a)\n  close(c)\n  a[0]=9\n  "
+             "close(d)\n  return ()\n",
+         }) {
+      const auto invalid = checkSource(cursorPrelude + program);
+      require(!invalid.ok() && std::ranges::any_of(invalid.diagnostics,
+                                                   [](const auto &diagnostic) {
+                                                     return diagnostic.code == "S077";
+                                                   }),
+              "array cursor lost a call, task or branch read loan");
+    }
     auto forgedCursor = *cursors.module;
     auto cursor = std::ranges::find_if(
         forgedCursor.records, [](const auto &r) { return r.standard == StandardRecord::Iterator; });

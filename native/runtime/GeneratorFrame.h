@@ -50,6 +50,10 @@ std::uint32_t kalandra_generator_next_v1(kalandra::runtime::Invocation *,
                                          void *) noexcept;
 bool kalandra_generator_close_v1(kalandra::runtime::Invocation *,
                                   const kalandra::runtime::GeneratorDescriptor *) noexcept;
+void kalandra_iterator_array_v1(kalandra::runtime::Invocation *,
+                                kalandra::runtime::GeneratorDescriptor *,
+                                const kalandra::runtime::ValueLayout *,
+                                const kalandra::runtime::ValueLayout *, const void *) noexcept;
 void kalandra_iterator_range_v1(kalandra::runtime::Invocation *,
                                 kalandra::runtime::GeneratorDescriptor *,
                                 const kalandra::runtime::IntegerRangeValue *,

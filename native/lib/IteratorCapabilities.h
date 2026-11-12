@@ -13,7 +13,7 @@ iteratorCapabilityError(const TypedModule &module, const TypedExpr &expr, Numeri
     return std::optional<std::string>(
         "iterator operation requires its canonical cursor, item and error types");
   };
-  if (unsigned(operation->action) > unsigned(IteratorAction::Close) ||
+  if (unsigned(operation->action) > unsigned(IteratorAction::FromArray) ||
       operation->arguments.size() != 1 || operation->arguments[0] >= module.expressions.size())
     return bad();
   const auto scalar = [](const ValueType &type) {
@@ -27,6 +27,20 @@ iteratorCapabilityError(const TypedModule &module, const TypedExpr &expr, Numeri
                : nullptr;
   };
   const auto &input = module.expressions[operation->arguments[0]].type;
+  if (operation->action == IteratorAction::FromArray) {
+    const auto *result = cursor(expr.type);
+    if (!result || !input.array || !input.tensor || input.shape.size() != 1 || input.device ||
+        input.task || input.fallible || input.errorRecord)
+      return bad();
+    auto item = input;
+    item.array = item.tensor = false;
+    item.shape.clear();
+    const auto &error = result->typeArguments[1];
+    if (!sameFunctionValueType(result->typeArguments[0], item) || !error.record ||
+        *error.record >= module.records.size() || !module.records[*error.record].uninhabited)
+      return bad();
+    return {};
+  }
   if (operation->action == IteratorAction::FromRange) {
     const auto *result = cursor(expr.type);
     if (!result || !scalar(input) || !input.record || *input.record >= module.records.size() ||

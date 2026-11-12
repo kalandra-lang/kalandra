@@ -116,6 +116,11 @@ impl Iterable for Range:
   type Error = never
   fn iterator(values: Self) -> Iterator[i64, never]:
     return __kalandra_iterator_range(values)
+impl[T] Iterable for [T]:
+  type Item = T
+  type Error = never
+  fn iterator(values: Self) -> Iterator[T, never]:
+    return __kalandra_iterator_array(values)
 export fn iter[S: Iterable](values: S) -> Iterator[S.Item, S.Error]:
   return Iterable.iterator(values)
 export fn next[T, E](mut cursor: Iterator[T, E]) -> Option[T] ! E:

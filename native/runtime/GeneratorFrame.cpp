@@ -424,3 +424,13 @@ extern "C" void kalandra_iterator_range_v1(Invocation *ctx, GeneratorDescriptor 
   }
   *out = generatorRange(*ctx, *range, *item, line, column);
 }
+
+extern "C" void kalandra_iterator_array_v1(Invocation *ctx, GeneratorDescriptor *out,
+                                           const ValueLayout *source, const ValueLayout *item,
+                                           const void *input) noexcept {
+  if (!out || !source || !item || !input) {
+    ctx->fault(3);
+    return;
+  }
+  *out = generatorArray(*ctx, *source, *item, input);
+}

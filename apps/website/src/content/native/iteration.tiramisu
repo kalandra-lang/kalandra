@@ -1,4 +1,4 @@
-meta { title = "Iteration", description = "Reusable integer ranges and owned iteration cursors.", order = 11, group = "Library reference" }
+meta { title = "Iteration", description = "Reusable ranges, array sources and owned iteration cursors.", order = 11, group = "Library reference" }
 
 Import range from std/iter when you want to store an integer sequence, pass it to a function or traverse it more than once. A Range stores its start, exclusive stop and step. It does not allocate an array or store a current iteration position.
 
@@ -48,13 +48,36 @@ h2 { "iter" }
 
 code { "iter[S: Iterable](values: S) -> Iterator[S.Item, S.Error]" }
 
-Create a cursor at the beginning of a range. Each call creates an independent position. Creating a cursor does not traverse the sequence or allocate an array proportional to its length. Use a for loop over the Range itself when you do not need to retain an advancing cursor.
+Create a cursor at the beginning of a range or array. Each call creates an independent position. Creating a range cursor does not traverse the sequence or allocate an array proportional to its length. Use a for loop over the Range itself when you do not need to retain an advancing cursor.
+
+h3 { "Array sources" }
+
+An array cursor retains its source backing without copying the elements. While the cursor holds that read loan, you cannot mutate the source through another binding, a function parameter or a task. This includes mutable arrays reachable through record elements. Close the cursor before changing that storage, or use copy to create an independent array. Reassigning a binding to a different array does not change the cursor's source.
+
+codeblock { language = kalandra, """from "std/iter" import iter, next, close
+from "std/option" import Option
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  values = [2, 4, 6]
+  cursor = iter(values)
+  first = match next(cursor):
+    Option.None: 0
+    Option.Some {value}: value
+  close(cursor)
+  values[0] = 9
+  try println(format("{}:{}", first, values[0]))
+  return ()
+""" }
+
+This displays 2:9. The cursor also supports strings, booleans, numerical values and records. Items that refer to backing storage keep that storage alive after the cursor closes. Passing a cursor to an own parameter transfers its position and read loan; a spawned consumer retains the loan until its task has settled.
 
 h2 { "Iterable" }
 
 code { "Iterable.iterator(values: Self) -> Iterator[Self.Item, Self.Error]" }
 
-Iterable describes a reusable source. Its associated Item type specifies each item, and Error specifies failures while advancing the returned cursor. Its iterator function creates an owned Iterator[Self.Item, Self.Error]. Range implements this trait with Item equal to i64 and Error equal to never. A generic function can accept S: Iterable and call iter(values) without knowing the source's concrete representation. Trait dispatch is resolved during compilation.
+Iterable describes a reusable source. Its associated Item type specifies each item, and Error specifies failures while advancing the returned cursor. Its iterator function creates an owned Iterator[Self.Item, Self.Error]. Range implements this trait with Item equal to i64 and Error equal to never. An array [T] implements it with Item equal to T and Error equal to never. A generic function can accept S: Iterable and call iter(values) without knowing the source's concrete representation. Trait dispatch is resolved during compilation.
 
 h2 { "next" }
 

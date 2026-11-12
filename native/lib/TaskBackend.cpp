@@ -1587,6 +1587,15 @@ private:
       builder.CreateCondBr(call("kalandra_invocation_ready_v1", boolean, {ctx}), ok, abort);
       builder.SetInsertPoint(ok);
     };
+    if (operation.action == IteratorAction::FromArray) {
+      const auto &source = planner.input.expressions[operation.arguments[0]].type;
+      const auto &item = planner.input.records[*result.record].typeArguments[0];
+      call("kalandra_iterator_array_v1", voidType,
+           {ctx, out, payloadLayout(source), payloadLayout(item), input});
+      ready();
+      builder.CreateBr(next);
+      return;
+    }
     if (operation.action == IteratorAction::FromRange) {
       const auto &item = planner.input.records[*result.record].typeArguments[0];
       const auto [line, column] = planner.input.source->location(operation.source.begin);

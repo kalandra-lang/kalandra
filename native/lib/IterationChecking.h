@@ -14,8 +14,12 @@ std::optional<IteratorAction> standardIterator(FunctionId id) const {
       syntax_.standardModules[function.moduleIndex] != StandardModule::Iteration)
     return {};
   const auto label = syntax_.source->slice(function.name);
-  if (label == "iterator")
+  if (label == "iterator") {
+    if (id < output_.functions.size() && !output_.functions[id].parameters.empty() &&
+        output_.symbols[output_.functions[id].parameters[0]].type.array)
+      return IteratorAction::FromArray;
     return IteratorAction::FromRange;
+  }
   if (label == "next")
     return IteratorAction::Next;
   if (label == "close")
