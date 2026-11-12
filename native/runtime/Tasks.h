@@ -52,6 +52,20 @@ struct TaskEntry {
   void (*resume)(Task &);
   const ValueLayout *result;
 };
+// Private bridge for independently owned continuation storage. The descriptor,
+// context and frame remain valid under `pin` until leave returns. enter acquires
+// exclusive advancement and binds transient cancellation; failed enter must
+// release any partial acquisition itself. leave releases a successful entry only
+// after result publication or call unwinding. Neither callback may drive a core.
+// Open child groups must still settle before completing this call; persistent
+// generator-owned groups require the separate ownership bridge.
+struct BorrowedTaskEntry {
+  const TaskEntry *entry;
+  Invocation *execution;
+  void *frame, *state;
+  bool (*enter)(void *state, Invocation &caller) noexcept;
+  void (*leave)(void *state) noexcept;
+};
 struct TaskLimits {
   std::uint32_t workers = 1;
   std::uint32_t records = 128, groups = 32, ready = 32, inFlight = 64, depth = 16;
@@ -174,6 +188,10 @@ public:
   // into the caller's active ownership scope. No native recursion is involved.
   bool call(const TaskEntry &, Packet, void *output, GroupHandle lexical = {},
             bool tail = false) noexcept;
+  // As with call, retry after suspension. Does not construct, destroy or settle
+  // the borrowed execution storage, and never replaces it via a tail call.
+  bool callBorrowed(const BorrowedTaskEntry &, AllocationLease pin, void *output,
+                    GroupHandle lexical = {}) noexcept;
   bool await(TaskHandle) noexcept;
   bool join(GroupHandle) noexcept;
   bool releaseGroup(GroupHandle) noexcept;

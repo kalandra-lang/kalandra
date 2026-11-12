@@ -39,9 +39,21 @@ struct CallFrame {
   void *frame = nullptr, *value = nullptr;
   std::size_t bytes = 0;
   GroupHandle lexical;
-  bool initialized = false, valueInitialized = false;
+  bool initialized = false, valueInitialized = false, borrowed = false;
   Invocation execution, outcome;
 };
+struct BorrowedCall {
+  const BorrowedTaskEntry *entry;
+  AllocationLease pin;
+};
+constexpr std::size_t callAlignment = alignof(std::max_align_t);
+constexpr std::size_t callPadded(std::size_t n) {
+  return (n + callAlignment - 1) & ~(callAlignment - 1);
+}
+BorrowedCall &borrowedCall(CallFrame &node) {
+  return *reinterpret_cast<BorrowedCall *>(reinterpret_cast<char *>(&node) +
+                                           callPadded(sizeof(CallFrame)));
+}
 struct Record {
   std::uint64_t generation = 1;
   State state = State::Free;
@@ -371,7 +383,10 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     core.stats.recursiveBytes -= static_cast<std::size_t>(bytes);
   }
   static Invocation &execution(Record &record) {
-    return record.call ? record.call->execution : record.execution;
+    if (!record.call)
+      return record.execution;
+    return record.call->borrowed ? *borrowedCall(*record.call).entry->execution
+                                 : record.call->execution;
   }
   static bool reserveCallBytes(void *state, std::uint64_t bytes) noexcept {
     auto &core = *static_cast<Impl *>(state);
@@ -398,9 +413,16 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     if (node->valueInitialized)
       node->entry->result->destroy(node->value);
     node->outcome.settle();
-    if (node->initialized)
-      node->entry->destroy(node->frame);
-    node->execution.settle();
+    if (node->borrowed) {
+      auto &borrow = borrowedCall(*node);
+      if (node->initialized)
+        borrow.entry->leave(borrow.entry->state);
+      borrow.~BorrowedCall();
+    } else {
+      if (node->initialized)
+        node->entry->destroy(node->frame);
+      node->execution.settle();
+    }
     node->~CallFrame();
     std::free(node);
     acquire(lock);
@@ -1252,7 +1274,7 @@ bool Task::call(const TaskEntry &entry, Packet packet, void *output, GroupHandle
   }
   if (record.returned) {
     auto *node = record.returned;
-    if (node->returnEntry != &entry || !node->valueInitialized) {
+    if (node->borrowed || node->returnEntry != &entry || !node->valueInitialized) {
       context().fault(3);
       return false;
     }
@@ -1333,7 +1355,8 @@ bool Task::call(const TaskEntry &entry, Packet packet, void *output, GroupHandle
     core_.destroyCall(node, guard.lock);
     return false;
   }
-  record.callTail = tail && record.call && record.call->entry->result == entry.result;
+  record.callTail =
+      tail && record.call && !record.call->borrowed && record.call->entry->result == entry.result;
   if (record.callTail)
     for (auto i = core_.liveGroups.next(0); i < core_.liveGroups.size();
          i = core_.liveGroups.next(i + 1))
@@ -1341,6 +1364,102 @@ bool Task::call(const TaskEntry &entry, Packet packet, void *output, GroupHandle
         record.callTail = false;
   record.returned = node;
   record.callPushed = true;
+  record.state = State::Runnable;
+  return false;
+}
+bool Task::callBorrowed(const BorrowedTaskEntry &borrowed, AllocationLease pin, void *output,
+                        GroupHandle lexical) noexcept {
+  TaskCore::Impl::Guard guard(core_);
+  auto &record = core_.tasks[slot_];
+  const auto *entry = borrowed.entry;
+  if (record.state != State::Running || record.callPushed || record.callCompleted || !entry ||
+      !entry->result || !validAlignment(entry->result->alignment) ||
+      !aligned(output, entry->result->alignment)) {
+    context().fault(3);
+    return false;
+  }
+  if (record.returned) {
+    auto *node = record.returned;
+    if (!node->borrowed || borrowedCall(*node).entry != &borrowed || !node->valueInitialized) {
+      context().fault(3);
+      return false;
+    }
+    guard.lock.unlock();
+    const auto copied = entry->result->copy(context(), output, node->outcome, node->value);
+    core_.acquire(guard.lock);
+    record.returned = nullptr;
+    core_.destroyCall(node, guard.lock);
+    if (!copied && !context().poll())
+      context().fault(3);
+    return copied;
+  }
+  if (record.cancel.load())
+    return false;
+  if (!pin || entry->revision != 1 || !entry->resume || !borrowed.execution ||
+      borrowed.execution == &context() || !borrowed.enter || !borrowed.leave ||
+      !validAlignment(entry->frameAlignment) || !aligned(borrowed.frame, entry->frameAlignment) ||
+      !entry->result->copy || !entry->result->destroy || !entry->result->identity ||
+      !entry->result->bytes || (lexical && !core_.owned(lexical, core_.handle(slot_)))) {
+    context().fault(3);
+    return false;
+  }
+  constexpr auto header = callPadded(sizeof(CallFrame));
+  constexpr auto leaseBytes = callPadded(sizeof(BorrowedCall));
+  if (header > core_.limits.callBytes || leaseBytes > core_.limits.callBytes - header ||
+      entry->result->bytes > core_.limits.callBytes - header - leaseBytes) {
+    context().fault(2);
+    return false;
+  }
+  const auto bytes = header + leaseBytes + entry->result->bytes;
+  if (++core_.attempts == core_.failAt || !core_.chargeCallBytes(bytes)) {
+    context().fault(2);
+    return false;
+  }
+  auto *memory = std::malloc(bytes);
+  if (!memory) {
+    core_.stats.callBytes -= bytes;
+    context().fault(2);
+    return false;
+  }
+  auto *node = new (memory) CallFrame;
+  node->parent = record.call;
+  node->entry = node->returnEntry = entry;
+  node->bytes = bytes;
+  node->lexical = lexical ? lexical : record.call ? record.call->lexical : GroupHandle{};
+  node->frame = borrowed.frame;
+  node->value = static_cast<char *>(memory) + header + leaseBytes;
+  node->borrowed = true;
+  new (&borrowedCall(*node)) BorrowedCall{&borrowed, std::move(pin)};
+  node->outcome.bindCancellation(&record.cancel);
+  node->outcome.bindRecursiveBudget(&core_, TaskCore::Impl::reserveCallBytes,
+                                    TaskCore::Impl::releaseCallBytes);
+  node->outcome.bindEnvironmentBudget(&core_, TaskCore::Impl::reserveCallBytes,
+                                      TaskCore::Impl::releaseCallBytes);
+  ++core_.stats.callFrames;
+  core_.stats.peakCallFrames = std::max(core_.stats.peakCallFrames, core_.stats.callFrames);
+  guard.lock.unlock();
+  node->initialized = borrowed.enter(borrowed.state, context());
+  core_.acquire(guard.lock);
+  if (!node->initialized) {
+    // Failed acquisition may mean another task owns this execution context.
+    // Do not inspect it before acquiring exclusive access.
+    if (!record.cancel.load() && !context().poll())
+      context().fault(3);
+    core_.destroyCall(node, guard.lock);
+    return false;
+  }
+  if (borrowed.execution->poll() || context().poll()) {
+    if (borrowed.execution->status())
+      context().fault(borrowed.execution->status(), borrowed.execution->line(),
+                      borrowed.execution->column());
+    else if (!record.cancel.load() && !context().poll())
+      context().fault(3);
+    core_.destroyCall(node, guard.lock);
+    return false;
+  }
+  record.returned = node;
+  record.callPushed = true;
+  record.callTail = false;
   record.state = State::Runnable;
   return false;
 }

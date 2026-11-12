@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <new>
 #include <thread>
+#include <vector>
 #ifndef _WIN32
 #include <pthread.h>
 #endif
@@ -650,7 +651,251 @@ static void callStacks() {
     CHECK(core->stats().retainedBytes == 0);
   }
 }
+// Independently owned frames resume on the caller's heap call stack. A borrowed
+// root cannot be tail-replaced, and neither return nor cancellation settles it.
+struct BorrowProbe {
+  std::atomic<unsigned> entered{0}, left{0}, destroyed{0};
+  unsigned ordinaryDestroyed = 0;
+};
+struct BorrowState {
+  Invocation execution;
+  BorrowProbe *probe;
+  BorrowedTaskEntry descriptor{};
+  BorrowState *nested = nullptr;
+  unsigned value = 0;
+  float child = 0;
+  std::atomic<bool> active{false};
+  bool waiting = false, fault = false, dropCaller = false;
+};
+static bool enterBorrow(void *p, Invocation &caller) noexcept {
+  auto &state = *static_cast<BorrowState *>(p);
+  if (state.active.exchange(true, std::memory_order_acquire))
+    return false;
+  ++state.probe->entered;
+  state.execution.bindCancellation(InvocationABI::cancellationToken(caller));
+  if (state.dropCaller)
+    caller.release(p);
+  return true;
+}
+static void leaveBorrow(void *p) noexcept {
+  auto &state = *static_cast<BorrowState *>(p);
+  CHECK(state.active);
+  state.execution.bindCancellation(nullptr);
+  state.execution.allowNativeInterrupts(false);
+  state.active.store(false, std::memory_order_release);
+  ++state.probe->left;
+}
+static void destroyBorrow(void *p) noexcept {
+  auto &state = *static_cast<BorrowState *>(p);
+  CHECK(!state.active);
+  ++state.probe->destroyed;
+  state.~BorrowState();
+}
+static void resumeBorrow(Task &task) {
+  auto &state = *static_cast<BorrowState *>(task.frame());
+  CHECK(&task.context() == &state.execution && state.active);
+  if (state.waiting) {
+    task.yield();
+    return;
+  }
+  if (state.nested) {
+    auto pin = state.execution.lease(state.nested);
+    CHECK(pin);
+    if (!task.callBorrowed(state.nested->descriptor, std::move(*pin), &state.child))
+      return;
+    const float result = state.child + 1;
+    task.complete(&result);
+    return;
+  }
+  // Asking for tail lowering must preserve the borrowed root and its private
+  // context even though this child's result has the same layout.
+  CallInput input{8, &state.probe->ordinaryDestroyed, state.fault, true};
+  if (!task.call(recursiveEntry(), {40, &input, sizeof(input), &state.execution}, &state.child, {},
+                 true))
+    return;
+  const float result = float(++state.value) + state.child;
+  task.complete(&result);
+}
+static const TaskEntry borrowedBody{
+    1, 0, 0, 1, sizeof(BorrowState), alignof(BorrowState), nullptr, nullptr, resumeBorrow, &scalar};
+struct BorrowCaller {
+  BorrowState *state;
+  unsigned count, done = 0;
+  float item = 0, sum = 0;
+};
+static bool constructBorrowCaller(Invocation &ctx, void *p, const Packet &packet) {
+  auto input = *static_cast<const BorrowCaller *>(packet.data);
+  if (!packet.source || !ctx.retainFrom(*packet.source, input.state))
+    return false;
+  new (p) BorrowCaller(input);
+  return true;
+}
+static void resumeBorrowCaller(Task &task) {
+  auto &f = *static_cast<BorrowCaller *>(task.frame());
+  while (f.done < f.count) {
+    auto pin = task.context().lease(f.state);
+    if (!task.callBorrowed(f.state->descriptor, pin ? std::move(*pin) : AllocationLease{}, &f.item))
+      return;
+    ++f.done;
+    f.sum += f.item;
+  }
+  task.complete(&f.sum);
+}
+static const TaskEntry borrowCaller{1,
+                                    70,
+                                    sizeof(BorrowCaller),
+                                    alignof(BorrowCaller),
+                                    sizeof(BorrowCaller),
+                                    alignof(BorrowCaller),
+                                    constructBorrowCaller,
+                                    nothing,
+                                    resumeBorrowCaller,
+                                    &scalar};
+static bool rejectBorrowCopy(Invocation &, void *, const Invocation &, const void *) noexcept {
+  return false;
+}
+static const ValueLayout rejectedBorrowValue{81, sizeof(float), alignof(float), rejectBorrowCopy,
+                                             nothing};
+static void borrowedCalls() {
+  for (unsigned workers : {1u, 4u})
+    for (unsigned mode = 0; mode < 8; ++mode) {
+      BorrowProbe probe;
+      Invocation owner;
+      auto *memory = owner.allocateResource(sizeof(BorrowState), destroyBorrow);
+      CHECK(memory);
+      auto *state = new (memory) BorrowState;
+      state->probe = &probe;
+      state->descriptor = {&borrowedBody, &state->execution, state,
+                           state,         enterBorrow,       leaveBorrow};
+      TaskEntry invalid = borrowedBody;
+      if (mode == 5)
+        invalid.frameAlignment = 0;
+      if (mode == 7)
+        invalid.result = &rejectedBorrowValue;
+      if (mode == 5 || mode == 7)
+        state->descriptor.entry = &invalid;
+      state->waiting = mode == 1;
+      state->fault = mode == 2;
+      state->dropCaller = mode == 3;
+      TaskLimits limits;
+      limits.workers = workers;
+      limits.records = limits.groups = limits.inFlight = limits.ready = 1;
+      limits.depth = 0;
+      if (mode == 6)
+        limits.callBytes = 1;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto group = core->openRoot();
+      BorrowCaller input{state, mode == 0 ? 3u : 1u};
+      auto task = core->submit(group, borrowCaller, {70, &input, sizeof(input), &owner});
+      CHECK(task);
+      if (mode == 0 || mode == 3)
+        owner.settle();
+      if (mode == 4)
+        core->failAllocationAt(1);
+      if (mode == 1) {
+        CHECK(core->step() && core->step());
+        CHECK(probe.entered == 1 && probe.left == 0);
+        CHECK(core->cancel(group));
+      }
+      CHECK(core->drainToCompletion() && core->settled(task));
+      CHECK(core->stats().callFrames == 0 && core->stats().callBytes == 0);
+      if (mode == 0 || mode == 3) {
+        Invocation receiver;
+        float result = 0;
+        CHECK(core->observe(task, scalar, receiver, &result));
+        CHECK(result == (mode == 0 ? 6 : 1));
+        CHECK(probe.entered == input.count && probe.left == input.count);
+        CHECK(probe.ordinaryDestroyed == 9 * input.count);
+        CHECK(mode != 3 || probe.destroyed == 1); // advancing pin was the final owner
+      } else {
+        auto failure = core->failure(task);
+        CHECK(failure.kind == (mode == 1 ? TaskFailure::Cancelled : TaskFailure::Fault));
+        if (mode != 1)
+          CHECK(failure.code == (mode == 2 ? 1 : mode == 4 || mode == 6 ? 2 : 3));
+        CHECK(probe.entered == (mode == 4 || mode == 5 || mode == 6 ? 0 : 1) &&
+              probe.left == probe.entered);
+        CHECK(probe.destroyed == 0 && !state->active);
+        CHECK(InvocationABI::cancellationToken(state->execution) == nullptr);
+        CHECK(mode == 2 || mode == 7 || state->execution.usable());
+        if (mode == 7)
+          CHECK(state->execution.status() == 3);
+      }
+      CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+      owner.settle();
+      CHECK(probe.destroyed == 1 && !core->stats().retainedBytes && !core->stats().callBytes);
+    }
+}
+
+static void deepBorrowedCalls() {
+  constexpr unsigned depth = 10000;
+  Invocation owner;
+  BorrowProbe probe;
+  std::vector<BorrowState *> states;
+  for (unsigned i = 0; i <= depth; ++i) {
+    auto *memory = owner.allocateResource(sizeof(BorrowState), destroyBorrow);
+    CHECK(memory);
+    auto *state = new (memory) BorrowState;
+    state->probe = &probe;
+    state->descriptor = {&borrowedBody, &state->execution, state, state, enterBorrow, leaveBorrow};
+    if (!states.empty()) {
+      state->nested = states.back();
+      CHECK(state->execution.retainFrom(owner, state->nested));
+    }
+    states.push_back(state);
+  }
+  TaskLimits limits;
+  limits.records = limits.groups = limits.ready = limits.inFlight = 1;
+  limits.depth = 0;
+  auto core = TaskCore::create(limits);
+  CHECK(core);
+  auto group = core->openRoot();
+  BorrowCaller input{states.back(), 1};
+  auto task = core->submit(group, borrowCaller, {70, &input, sizeof(input), &owner});
+  CHECK(task && core->drainToCompletion() && core->settled(task));
+  Invocation result;
+  float value = 0;
+  CHECK(core->observe(task, scalar, result, &value) && value == depth + 1);
+  CHECK(probe.entered == depth + 1 && probe.left == depth + 1 && probe.destroyed == 0);
+  CHECK(core->stats().peakCallFrames == depth + 3 && core->stats().callFrames == 0);
+  CHECK(core->stats().callBytes == 0 && core->stats().records == 1 && core->stats().groups == 1);
+  CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+  // Keep anchor storage alive while explicitly settling the independent ledgers.
+  for (auto *state : states)
+    state->execution.settle();
+  owner.settle();
+  CHECK(probe.destroyed == depth + 1);
+}
+static void overlappingBorrowedCalls() {
+  Invocation owner;
+  BorrowProbe probe;
+  auto *state = new (owner.allocateResource(sizeof(BorrowState), destroyBorrow)) BorrowState;
+  state->probe = &probe;
+  state->descriptor = {&borrowedBody, &state->execution, state, state, enterBorrow, leaveBorrow};
+  state->waiting = true;
+  auto core = TaskCore::create();
+  CHECK(core);
+  auto first = core->openRoot(), second = core->openRoot();
+  BorrowCaller input{state, 1};
+  auto a = core->submit(first, borrowCaller, {70, &input, sizeof(input), &owner});
+  CHECK(a && core->step() && core->step() && probe.entered == 1);
+  auto b = core->submit(second, borrowCaller, {70, &input, sizeof(input), &owner});
+  CHECK(b);
+  for (unsigned i = 0; i < 1000 && !core->settled(b); ++i)
+    core->step();
+  CHECK(core->settled(b) && core->failure(b).kind == TaskFailure::Fault &&
+        core->failure(b).code == 3);
+  CHECK(probe.entered == 1 && probe.left == 0 && !state->execution.poll());
+  CHECK(core->cancel(first) && core->drainToCompletion());
+  CHECK(core->failure(a).kind == TaskFailure::Cancelled && probe.left == 1);
+  CHECK(core->close(first) && core->close(second) && core->drainToCompletion());
+  CHECK(core->release(first) && core->release(second));
+  owner.settle();
+  CHECK(probe.destroyed == 1 && !core->stats().retainedBytes && !core->stats().callBytes);
+}
 int main() {
+  borrowedCalls();
+  overlappingBorrowedCalls();
 #ifndef _WIN32
   pthread_attr_t attributes;
   CHECK(pthread_attr_init(&attributes) == 0);
@@ -660,6 +905,7 @@ int main() {
             &smallStack, &attributes,
             +[](void *) -> void * {
               callStacks();
+              deepBorrowedCalls();
               return nullptr;
             },
             nullptr) == 0);
@@ -667,6 +913,7 @@ int main() {
   CHECK(pthread_join(smallStack, nullptr) == 0);
 #else
   callStacks();
+  deepBorrowedCalls();
 #endif
   cancelledConstruction();
   allocatedBufferBudgets();
