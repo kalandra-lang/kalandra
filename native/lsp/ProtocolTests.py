@@ -1262,12 +1262,12 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.barrier()
     cursor = union_text.splitlines()[1].index("):")
     result = client.completion(signature_document, 1, cursor)["result"]
-    assert [item["label"] for item in result["items"]] == ["Failure","Parse","TaskError"], result
+    assert [item["label"] for item in result["items"]] == ["Failure","Parse","TaskError","never"], result
     alias_text = channel_imports + 'type Composite = \nfn main():\n  return 0\n'
     client.change(signature_document, alias_text, 4)
     client.barrier()
     result = client.completion(signature_document, 1, len(alias_text.splitlines()[1]))["result"]
-    assert [item["label"] for item in result["items"]] == ["Failure","Parse","TaskError"], result
+    assert [item["label"] for item in result["items"]] == ["Failure","Parse","TaskError","never"], result
     assert not signature_document.exists() and channel_library.read_text() == channel_library_text
     client.finish()
 

@@ -63,6 +63,12 @@ if(BUILD_TESTING)
     set_tests_properties(native-generator-frames-${variant} PROPERTIES TIMEOUT 120
       LABELS "feature-control;feature-io")
     add_dependencies(native-iterator-qualification kalandra-generator-frame-tests-${variant})
+    if(TARGET native-io-qualification)
+      # Both suites carry feature-io: the existing I/O workflow must build the
+      # executables before selecting that label, including on fresh CI hosts.
+      add_dependencies(native-io-qualification kalandra-owned-scope-tests-${variant}
+        kalandra-generator-frame-tests-${variant})
+    endif()
     add_test(NAME native-iterators-source-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}"
