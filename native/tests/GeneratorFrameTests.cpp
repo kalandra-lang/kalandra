@@ -527,6 +527,63 @@ void booleanArraySource() {
   ctx.settle();
   CHECK(ctx.live() == 0);
 }
+struct RetiringItem {
+  Probe *probe;
+  void *scope;
+  std::atomic<bool> *cancellation = nullptr;
+};
+bool retiringConstruct(Invocation &, void *out, const Packet &packet) {
+  const auto value = *static_cast<const RetiringItem *>(packet.data);
+  new (out) RetiringItem(value);
+  ++value.probe->constructions;
+  return true;
+}
+void retiringDestroy(void *frame) noexcept {
+  ++static_cast<RetiringItem *>(frame)->probe->destructions;
+}
+GeneratorStep retiringResume(Invocation &, void *frame, void *out) {
+  *static_cast<RetiringItem *>(out) = *static_cast<RetiringItem *>(frame);
+  return GeneratorStep::Item;
+}
+bool retiringCopy(Invocation &ctx, void *out, const Invocation &, const void *in) noexcept {
+  const auto value = *static_cast<const RetiringItem *>(in);
+  *static_cast<RetiringItem *>(out) = value;
+  // Deterministically retire the owner after resume's publication precheck,
+  // while the cursor is still exclusively advancing. Cleanup cannot run there.
+  if (value.cancellation)
+    value.cancellation->store(true, std::memory_order_release);
+  else
+    kalandra_file_scope_leave_v1(&ctx, value.scope, nullptr);
+  return true;
+}
+void retirementDuringPublication() {
+  static const ValueLayout item{0x47454e04, sizeof(RetiringItem), alignof(RetiringItem),
+                                retiringCopy, nothing};
+  static const GeneratorEntry entry{1,
+                                    sizeof(RetiringItem),
+                                    alignof(RetiringItem),
+                                    retiringConstruct,
+                                    retiringDestroy,
+                                    retiringResume,
+                                    &item,
+                                    nullptr};
+  for (bool cancellation : {false, true}) {
+    Invocation ctx;
+    std::atomic<bool> token{false};
+    ctx.bindCancellation(&token);
+    Probe probe;
+    RetiringItem input{&probe, kalandra_file_scope_enter_v1(&ctx, nullptr, 0),
+                       cancellation ? &token : nullptr},
+        output{};
+    CHECK(input.scope);
+    auto cursor = generatorCreate(ctx, entry, {0, &input, sizeof(input), &ctx});
+    CHECK(generatorNext(ctx, cursor, item, nullptr, &output, nullptr) == GeneratorStep::Stopped);
+    CHECK(probe.constructions == 1 && probe.destructions == 1);
+    CHECK(cancellation ? ctx.status() == 0 && ctx.poll() == -1 : ctx.status() == 3);
+    ctx.settle();
+    CHECK(ctx.live() == 0);
+  }
+}
 } // namespace
 int main() {
   independent();
@@ -551,5 +608,6 @@ int main() {
   arrayBackingLifetime();
   booleanArraySource();
   arraySourceFailures();
+  retirementDuringPublication();
   std::puts("PASS: lazy owned frames, typed terminal results, capture lifetime and bounds");
 }

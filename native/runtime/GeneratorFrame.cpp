@@ -100,8 +100,17 @@ struct Advance {
   explicit Advance(GeneratorState &s) noexcept
       : state(s), acquired(!s.advancing.test_and_set(std::memory_order_acquire)) {}
   ~Advance() {
-    if (acquired)
+    if (!acquired)
+      return;
+    state.advancing.clear(std::memory_order_release);
+    // Retirement may have observed the busy flag after resume's last check.
+    // Releasing before testing closes that handoff race: either retirement
+    // acquires the idle frame, or the final active borrower performs cleanup.
+    if (state.retired.load(std::memory_order_acquire) &&
+        !state.advancing.test_and_set(std::memory_order_acquire)) {
+      state.finish();
       state.advancing.clear(std::memory_order_release);
+    }
   }
 };
 struct Construction {
@@ -284,7 +293,8 @@ GeneratorStep generatorNext(Invocation &ctx, const GeneratorDescriptor &descript
                               state->storage, state->result());
     produced->destroy(state->result());
   }
-  if (!publish || (produced && !copied)) {
+  if (!publish || (produced && !copied) || !healthy(ctx) || !healthy(state->storage) ||
+      state->retired.load(std::memory_order_acquire)) {
     stopped(ctx, *state);
     if (!ctx.poll())
       ctx.fault(3);
