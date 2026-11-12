@@ -372,9 +372,9 @@ invokeGeneric(Frame &frame, SourceSpan span, SourceSpan callee, FunctionId decla
     term.actual = node(*result).type;
     if (node(*result).type.fallible && !term.failure)
       term.failure = concreteGenericTerm(node(*result).type).failure;
-    if (term.failure && function.errorTypes.size() == 1)
+    if (term.failure)
       term.failure = std::make_shared<const GenericTerm>(
-          genericErrorTerm(function.errorTypes[0], term.failure->actual, terms));
+          genericErrorChannelsTerm(function.errorTypes, term.failure->actual, terms));
     genericValueTerms_[*result] = finishGenericTerm(std::move(term));
   }
   return result;
@@ -427,10 +427,9 @@ std::optional<ValueId> specializedFunctionValue(Frame &frame, SourceSpan span,
     if (original.result)
       term.arguments.back() =
           instantiateGenericTerm(*original.result, signature->callable->result, terms);
-    if (term.error && original.errorTypes.size() == 1)
-      if (auto channel = terms.find(qualifiedErrorName(original.errorTypes[0]));
-          channel != terms.end())
-        term.error = std::make_shared<const GenericTerm>(channel->second);
+    if (term.error)
+      term.error = std::make_shared<const GenericTerm>(
+          genericErrorChannelsTerm(original.errorTypes, term.error->actual, terms));
     genericValueTerms_[*result] = std::move(term);
   }
   return result;

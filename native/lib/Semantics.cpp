@@ -2447,8 +2447,11 @@ private:
     return add(frame, output, span,
                Float32Literal{static_cast<std::uint32_t>(value.bitcastToAPInt().getZExtValue())});
   }
-  bool propagateError(Frame &frame, std::optional<std::size_t> family, SourceSpan span) {
+  bool propagateError(Frame &frame, std::optional<std::size_t> family, SourceSpan span,
+                      std::optional<ValueId> origin = {}, bool directError = false) {
     if (frame.handlerFallible && frame.groups.size() == frame.handlerDepth) {
+      if (origin)
+        recordGenericErrorPropagation(frame, frame.handlerErrorRecord.get(), *origin, directError);
       if (*frame.handlerFallible && *frame.handlerErrorRecord != family) {
         auto combined =
             combineErrors({concreteError(*frame.handlerErrorRecord), concreteError(family)}, span);
@@ -2461,6 +2464,8 @@ private:
       return true;
     }
     if (!frame.groups.empty()) {
+      if (origin)
+        recordGenericErrorPropagation(frame, frame.groupErrors.back().get(), *origin, directError);
       ValueType errorType;
       errorType.fallible = true;
       errorType.errorRecord = family;
@@ -2943,7 +2948,19 @@ private:
         return {};
       captures.push_back(*value);
     }
-    return add(frame, *signature, span, FunctionReference{id, std::move(captures)});
+    auto reference = add(frame, *signature, span, FunctionReference{id, std::move(captures)});
+    if (reference && genericContext(frame)) {
+      auto term = genericTerm(*reference);
+      if (term.error) {
+        if (!lambda.errorTypes.empty())
+          term.error = std::make_shared<const GenericTerm>(genericErrorChannelsTerm(
+              lambda.errorTypes, term.error->actual, genericTermEnvironment(genericRoot(frame))));
+        else if (expectedGenericSignature && expectedGenericSignature->error)
+          term.error = expectedGenericSignature->error;
+      }
+      genericValueTerms_[*reference] = finishGenericTerm(std::move(term));
+    }
+    return reference;
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const NameExpr &read,
                                const std::optional<ValueType> &) {
@@ -3913,7 +3930,7 @@ private:
       error("S036", "try requires an expected-error result", span);
       return {};
     }
-    if (!propagateError(frame, result.errorRecord, span))
+    if (!propagateError(frame, result.errorRecord, span, *value))
       return {};
     frame.tasks->handled.insert(result.identity);
     result.fallible = false;
@@ -3929,6 +3946,12 @@ private:
     auto errors = std::make_shared<ValueType>();
     errors->fallible = true; // Every group can fail during execution.
     nested.groupErrors.push_back(errors);
+    GenericErrorScope genericErrors(*this, errors.get());
+    if (genericContext(frame)) {
+      ValueType taskError;
+      taskError.builtin = BuiltinValue::TaskError;
+      genericErrorScopes_[errors.get()] = concreteGenericTerm(taskError);
+    }
     std::vector<TypedStatement> statements;
     std::unordered_set<std::string> bindings;
     std::optional<ValueId> result;
@@ -3997,7 +4020,11 @@ private:
     resultType.errorRecord = errors->errorRecord;
     resultType.identity = 0;
     frame.stopped = nested.stopped;
-    return add(frame, resultType, span, ParallelOperation{std::move(statements), *result, group});
+    auto completed =
+        add(frame, resultType, span, ParallelOperation{std::move(statements), *result, group});
+    if (completed)
+      finishGenericErrorScope(frame, *completed, errors.get());
+    return completed;
   }
   // Branch-local obligations must be discharged on the path which creates
   // them. Conditional observation cannot discharge an incoming obligation.
@@ -4698,6 +4725,7 @@ private:
     nested.tasks = std::make_shared<TaskChecks>(before);
     nested.handlerFallible = std::make_shared<bool>(false);
     nested.handlerErrorRecord = std::make_shared<std::optional<std::size_t>>();
+    GenericErrorScope genericErrors(*this, nested.handlerErrorRecord.get());
     nested.handlerDepth = nested.groups.size();
     nested.conditional = true;
     nested.loop.reset();
@@ -4785,7 +4813,11 @@ private:
         return {};
     }
     resultType.identity = 0;
-    return add(frame, resultType, span, CatchOperation{*operand, symbol, std::move(body), *result});
+    auto completed =
+        add(frame, resultType, span, CatchOperation{*operand, symbol, std::move(body), *result});
+    if (completed)
+      finishGenericErrorScope(frame, *completed, nested.handlerErrorRecord.get(), *result);
+    return completed;
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const FailExpr &failure,
                                const std::optional<ValueType> &expected) {
@@ -4809,7 +4841,7 @@ private:
       return {};
     }
     const auto family = application ? errorValue.record : std::optional<std::size_t>{};
-    if (!propagateError(frame, family, span))
+    if (!propagateError(frame, family, span, *value, true))
       return {};
     auto result = *expected;
     result.fallible = true;
@@ -5073,6 +5105,20 @@ private:
       // Only its lexical binding is replaced in this branch; snapshots and
       // bindings in other branches retain their original types.
       const auto *read = std::get_if<SymbolRead>(&node(*subject).operation);
+      const bool concretePattern =
+          arm.family && !(genericBindings_ && genericBindings_->contains(name(*arm.family))) &&
+          !genericRecords_.contains(functionKey(frame, name(*arm.family)));
+      if (read && enumeration && !genericRecordInstances_.contains(*subjectType.record) &&
+          output_.records[*subjectType.record].errorMembers.empty() && concretePattern &&
+          genericContext(frame) && dependentGenericTerm(genericTerm(*subject))) {
+        const auto original = output_.symbols[read->symbol];
+        const auto symbol = output_.symbols.size();
+        output_.symbols.push_back({original.name, subjectType, original.declaration, frame.function,
+                                   false, original.definition});
+        branch.locals[original.name] = symbol;
+        genericSymbolTerms_[symbol] = concreteGenericTerm(subjectType);
+        statements.push_back({arm.span, symbol, *subject});
+      }
       if (read && enumeration && !output_.records[*subjectType.record].errorMembers.empty()) {
         const auto originalSymbol = read->symbol;
         std::vector<std::size_t> remaining;
@@ -5096,6 +5142,13 @@ private:
           output_.symbols.push_back({binding, narrowedType, declaration, frame.function, false,
                                      output_.symbols[originalSymbol].definition});
           branch.locals[binding] = symbol;
+          if (genericContext(frame)) {
+            auto term = concreteGenericTerm(narrowedType);
+            if (!concretePattern)
+              for (const auto &variable : genericTerm(*subject).variables)
+                term.variables.insert(variable + ".$narrowed");
+            genericSymbolTerms_[symbol] = finishGenericTerm(std::move(term));
+          }
           statements.push_back({arm.span, symbol, *narrowed});
         }
       }
@@ -5179,6 +5232,9 @@ private:
                  : add(branch, fieldType, fieldSpan, ErrorFieldRead{*subject, fieldId, taskSlot});
         if (!value)
           return {};
+        if (genericContext(frame) && concretePattern && enumeration &&
+            !genericRecordInstances_.contains(*subjectType.record))
+          genericValueTerms_[*value] = concreteGenericTerm(fieldType);
         const auto symbol = output_.symbols.size();
         output_.symbols.push_back({binding, fieldType, pattern.binding, frame.function, false});
         branch.locals[binding] = symbol;

@@ -1322,6 +1322,10 @@ class Compiler {
     declarations += "Invocation*);\n";
   }
   void lowerCpuModules(std::map<std::string, std::string> &outputs, SourceSpan span) {
+    declarations +=
+        "extern \"C\" const void *kalandra_gpu_environment_read(Invocation *context,"
+        "const void *environment,std::uint64_t bytes,std::uint64_t alignment,const void *key){"
+        "return context->readEnvironment(environment,bytes,alignment,key); }\n";
     llvm::LLVMContext context;
     std::unique_ptr<llvm::Module> linked;
     std::set<std::string> sharedNominalKeys;
@@ -1477,7 +1481,9 @@ class Compiler {
                                ? emitTaskKernelPayloadValueLayouts(
                                      schema, *continuationCpu, *linked, types, &placement,
                                      std::vector<FunctionId>(hostResumableTargets.begin(),
-                                                             hostResumableTargets.end()))
+                                                             hostResumableTargets.end()),
+                                     std::vector<std::pair<FunctionId, FunctionId>>(
+                                         continuationImports.begin(), continuationImports.end()))
                                : emitTaskPayloadValueLayouts(schema, *linked, types);
       for (std::size_t n = 0; n < types.size(); ++n) {
         auto *layout = layouts.at(n);
@@ -4200,8 +4206,8 @@ class Compiler {
       }
       case Code::CallableTarget: {
         hostResumableTargets.insert(op.target);
-        steps.push_back(ref(get(op.output)) + "=" + ref(args.at(0)) + ".code==&" +
-                        helperName(op.target) + "::entry;\n");
+        steps.push_back(ref(get(op.output)) + "=kalandra_gpu_resumable_matches_" +
+                        std::to_string(op.target) + "(&" + ref(args.at(0)) + ");\n");
         break;
       }
       case Code::CallableCaptures: {
@@ -4798,7 +4804,9 @@ class Compiler {
       declarations += "extern \"C\" const void *kalandra_gpu_resumable_code_" + std::to_string(id) +
                       "();\n"
                       "extern \"C\" bool kalandra_gpu_resumable_captures_" +
-                      std::to_string(id) + "(Invocation*,const void*,void*);\n";
+                      std::to_string(id) + "(Invocation*,const void*,void*);\n" +
+                      "extern \"C\" bool kalandra_gpu_resumable_matches_" + std::to_string(id) +
+                      "(const void*);\n";
       if (fn.captureCount)
         declarations += "extern \"C\" const void *kalandra_gpu_resumable_environment_" +
                         std::to_string(id) + "(Invocation*,const void*);\n";

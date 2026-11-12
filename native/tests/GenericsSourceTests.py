@@ -116,7 +116,7 @@ closures = '''trait Add:
 impl Add for i64:
   fn add(a: Self, b: Self) -> Self:
     return a + b
-fn makeAdder[T: Add](offset: T) -> fn(T) -> T:
+fn makeAdder[T: Add](offset: T):
   return fn(value: T): return Add.add(value, offset)
 fn apply[T](value: T, callback: fn(T) -> T) -> T:
   return callback(value)
@@ -131,6 +131,36 @@ else:
 '''
 run('device-closure', prelude + closures + main + closure_body +
     '  try println(format("{}", value))\n  return ()\n', '42\n', device=True)
+
+fallible_closures = '''error Invalid:
+  Negative
+fn checked(value: i64) -> i64 ! Invalid:
+  if value < 0:
+    fail Invalid.Negative
+  return value
+fn retainCallback[T, U, E](callback: fn(T) -> U ! E):
+  return fn(value: T) -> U ! E: return try callback(value)
+fn apply[T, U, E](value: T, callback: fn(T) -> U ! E) -> U ! E:
+  return try callback(value)
+'''
+if args.target == 'cpu':
+    fallible_body = '''  callback = retainCallback[i64, i64, Invalid](checked)
+  value = apply(-1, callback) catch fn(error): return 7
+'''
+else:
+    fallible_body = '''  callback = retainCallback[i64, i64, Invalid](checked)
+  result = parallel:
+    gpu = devices.gpu()
+    try await spawn apply[i64, i64, Invalid](-1, callback) on gpu
+  pending = result catch fn(error):
+    return match error:
+      Invalid.Negative: 7
+      _: fail error
+  value = try pending
+'''
+run('device-fallible-closure', prelude + fallible_closures +
+    main.replace('IoError | TaskError', 'IoError | TaskError | Invalid') + fallible_body +
+    '  try println(format("{}", value))\n  return ()\n', '7\n', device=True)
 
 owned = '''from "std/buffer" import ByteBuffer, BufferError, byteBuffer, append, intoArray
 from "std/time" import sleep, nanoseconds, TimeError

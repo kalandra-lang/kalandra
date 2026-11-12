@@ -69,13 +69,17 @@ fn checked(value: i64) -> i64 ! Invalid:
 fn apply[T, U, E](value: T, callback: fn(T) -> U ! E) -> U ! E:
   return try callback(value)
 
+fn retainCallback[T, U, E](callback: fn(T) -> U ! E):
+  return fn(value: T) -> U ! E: return try callback(value)
+
 fn main() -> unit ! (IoError | BufferError):
   pair = Pair {first: 42, second: "retained"}
   some = Option.Some {value: 9}
   none: Option[i64] = Option.None
   callback = identity[i64]
   increment = makeAdder[i64](22)
-  expected = apply(-1, checked) catch fn(error): return 7
+  retained = retainCallback[i64, i64, Invalid](checked)
+  expected = apply(-1, retained) catch fn(error): return 7
   buffer = try byteBuffer()
   try append(buffer, [40, 2])
   moved = forward(buffer)

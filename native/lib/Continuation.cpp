@@ -135,7 +135,7 @@ public:
         resumable(resumableFunctions(input)), coordinating(coordinatingFunctions(input)),
         loopControl(loopControlFunctions(input)),
         hostCallables(options.preserveCalls ? hostCallableFunctions(input)
-                                           : std::vector<bool>(input.functions.size())),
+                                            : std::vector<bool>(input.functions.size())),
         invocationFlow(functionInvocationFlow(input)) {
     nonCompleting = nonCompletingValues(input);
     if (options.deviceCallFrames && (!options.entry || !options.deviceValues ||
@@ -571,6 +571,8 @@ private:
     importedFunctions[id] = copied;
     kernels.functions.emplace_back(); // Reserve before traversing recursive helper references.
     auto fn = input.functions.at(id);
+    if (fn.parameterOrigin)
+      fn.parameterOrigin = importFunction(*fn.parameterOrigin);
     fn.name = "__map_callback_" + std::to_string(id);
     for (auto &parameter : fn.parameters)
       parameter = importSymbol(parameter);
@@ -905,6 +907,13 @@ private:
         synchronous = true;
         continue;
       }
+      // An inlined dispatch still compares a callable identity and reads its
+      // captures. A native factory can create the closure outside this plan,
+      // so no FunctionReference instruction necessarily schedules that target.
+      if (options.preserveCalls && !scheduled.at(target)) {
+        scheduled[target] = true;
+        pending.push_back(target);
+      }
       const auto &fn = input.functions[target];
       ValueType boolean;
       boolean.builtin = BuiltinValue::Bool;
@@ -1132,7 +1141,12 @@ private:
                call && options.deviceCallFrames) {
       deviceIndirectCall(plan, id, output, *call, env, stack);
     } else if (const auto *reference = std::get_if<kalandra::FunctionReference>(&node.operation);
-               reference && resumable.at(reference->function)) {
+               reference && resumable.at(reference->function) &&
+               !(options.preserveCalls && options.deviceValues &&
+                 !coordinating.at(reference->function))) {
+      // Expected-error-only functions remain synchronous. In a mixed host
+      // projection their native carrier can also cross the device closure ABI;
+      // only actual coordination requires a managed task-entry carrier.
       if (options.preserveCalls && !scheduled.at(reference->function)) {
         scheduled[reference->function] = true;
         pending.push_back(reference->function);

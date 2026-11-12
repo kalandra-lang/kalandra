@@ -526,6 +526,9 @@ struct TypedFunction {
   bool anonymous = false;
   bool compileTimeOnly = false; // No runtime callable/C interface for compiler syntax helpers.
   std::shared_ptr<const SourceCallableSignature> sourceSignature = {};
+  // Checked compiler adapter: parameter target flow comes from this original
+  // entry. Symbols and runtime arguments remain distinct; signatures must match.
+  std::optional<FunctionId> parameterOrigin = {};
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.

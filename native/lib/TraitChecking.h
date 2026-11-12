@@ -621,9 +621,9 @@ invokeTrait(Frame &frame, SourceSpan span, SourceSpan traitName, SourceSpan meth
                           : concreteGenericTerm(node(*result).type);
     if (node(*result).type.fallible) {
       auto failure = concreteGenericTerm(node(*result).type).failure;
-      if (failure && requirement->errorTypes.size() == 1)
+      if (failure)
         resultTerm.failure = std::make_shared<const GenericTerm>(
-            genericErrorTerm(requirement->errorTypes[0], failure->actual, terms));
+            genericErrorChannelsTerm(requirement->errorTypes, failure->actual, terms));
     }
     genericValueTerms_[*result] = finishGenericTerm(std::move(resultTerm));
   }

@@ -1,3 +1,4 @@
+#include "../gpu-source/DeviceErrorEntry.h"
 #include "kalandra/Semantics.h"
 #include <algorithm>
 #include <filesystem>
@@ -194,6 +195,152 @@ int main(int argc, char **argv) {
       else
         bad("nominal callback field cannot invent a contextual bound", source, "S083");
     }
+    for (const bool bounded : {false, true}) {
+      const auto source =
+          std::string("error Invalid:\n  Bad\ntrait Describe:\n  fn code(error:Self)->i64\n"
+                      "impl Describe for Invalid:\n  fn code(error:Self)->i64:\n    return 7\n"
+                      "fn fails()->i64 ! Invalid:\n  fail Invalid.Bad\n"
+                      "fn produce[E](callback:fn()->i64 ! E):\n  return callback\n") +
+          "fn handle[E" + (bounded ? ":Describe" : "") +
+          "](callback:fn()->i64 ! E)->i64:\n"
+          "  forwarded=produce[E](callback)\n"
+          "  return forwarded() catch fn(error):return Describe.code(error)\n"
+          "fn main()->i64:\n  return handle(fails)\n";
+      if (bounded)
+        good("inferred callback result preserves generic error bounds", source);
+      else
+        bad("inferred callback result cannot erase a generic error bound", source, "S083");
+    }
+    bad("constructed error union cannot invent a bound",
+        "error Invalid:\n  Bad\nerror Fixed:\n  Other\ntype Both=Invalid | Fixed\n"
+        "trait Describe:\n  fn code(error:Self)->i64\nimpl Describe for Both:\n"
+        "  fn code(error:Self)->i64:\n    return 7\n"
+        "fn fails()->i64 ! Invalid:\n  fail Invalid.Bad\n"
+        "fn widen[E](callback:fn()->i64 ! E)->i64 ! (E | Fixed):\n  return try callback()\n"
+        "fn handle[E](callback:fn()->i64 ! E)->i64:\n"
+        "  return widen[E](callback) catch fn(error):return Describe.code(error)\n"
+        "fn main()->i64:\n  return handle(fails)\n",
+        "S083");
+    bad("catch preserves its generic success path",
+        measure + "error Invalid:\n  Bad\n"
+                  "fn source()->Point ! Invalid:\n  return Point {x:42}\n"
+                  "fn use[T](callback:fn()->T ! Invalid)->i64:\n"
+                  "  value=callback() catch fn(error):return Point {x:7}\n"
+                  "  return Measure.size(value)\nfn main()->i64:\n  return use(source)\n",
+        "S083");
+    const std::string errorTraits =
+        "error Invalid:\n  Bad\ntype Both=Invalid | TaskError\n"
+        "trait Describe:\n  fn code(error:Self)->i64\n"
+        "impl Describe for Invalid:\n  fn code(error:Self)->i64:\n    return 7\n"
+        "impl Describe for TaskError:\n  fn code(error:Self)->i64:\n    return 8\n"
+        "impl Describe for Both:\n  fn code(error:Self)->i64:\n    return 9\n"
+        "fn fails()->i64 ! Invalid:\n  fail Invalid.Bad\n";
+    bad("a task group union does not inherit a member's bound",
+        errorTraits + "fn handle[E:Describe](callback:fn()->i64 ! E)->i64:\n"
+                      "  outcome=parallel:\n    try callback()\n    42\n"
+                      "  return outcome catch fn(error):return Describe.code(error)\n"
+                      "fn main()->i64:\n  return handle(fails)\n",
+        "S083");
+    good("handled generic errors do not taint a task group's error type",
+         errorTraits +
+             "fn handle[E](callback:fn()->i64 ! E)->i64:\n"
+             "  outcome=parallel:\n    ignored=callback() catch fn(error):return 0\n    42\n"
+             "  return outcome catch fn(error):return Describe.code(error)\n"
+             "fn main()->i64:\n  return handle(fails)\n");
+    bad("an opaque callable type does not expose an error trait contract",
+        "error Invalid:\n  Bad\ntrait Describe:\n  fn code(error:Self)->i64\n"
+        "impl Describe for Invalid:\n  fn code(error:Self)->i64:\n    return 7\n"
+        "fn fails()->i64 ! Invalid:\n  fail Invalid.Bad\n"
+        "fn handle[G](callback:G)->i64:\n"
+        "  return callback() catch fn(error):return Describe.code(error)\n"
+        "fn main()->i64:\n  return handle(fails)\n",
+        "S083");
+    const std::string narrowing =
+        "error Invalid:\n  Bad\nerror Fixed:\n  Other\ntype Both=Invalid | Fixed\n"
+        "trait Describe:\n  fn code(error:Self)->i64\n"
+        "impl Describe for Invalid:\n  fn code(error:Self)->i64:\n    return 7\n"
+        "impl Describe for Fixed:\n  fn code(error:Self)->i64:\n    return 8\n"
+        "fn fails()->i64 ! Both:\n  fail Fixed.Other\n";
+    good("named error branches expose concrete contracts",
+         narrowing + "fn handle[E](callback:fn()->i64 ! E)->i64:\n"
+                     "  return callback() catch fn(error):\n"
+                     "    return match error:\n"
+                     "      Invalid.Bad:Describe.code(error)\n"
+                     "      Fixed.Other:Describe.code(error)\n"
+                     "fn main()->i64:\n  return handle(fails)\n");
+    bad("wildcard error narrowing cannot erase the abstract channel",
+        narrowing + "fn handle[E](callback:fn()->i64 ! E)->i64:\n"
+                    "  return callback() catch fn(error):\n"
+                    "    return match error:\n"
+                    "      Invalid.Bad:Describe.code(error)\n"
+                    "      _:Describe.code(error)\n"
+                    "fn main()->i64:\n  return handle(fails)\n",
+        "S083");
+    bad("an opaque array cannot expose an element's concrete trait",
+        measure + "fn need[U:Measure](values:[U])->i64:\n"
+                  "  return Measure.size(values[0])\n"
+                  "fn use[G](values:G)->i64:\n  return need(values)\n"
+                  "fn main()->i64:\n  return use([Point {x:42}])\n",
+        "S083");
+    bad("an opaque nominal cannot expose an argument's concrete trait",
+        measure + "type Box[T]:\n  value:T\n"
+                  "fn need[U:Measure](box:Box[U])->i64:\n  return Measure.size(box.value)\n"
+                  "fn use[G](box:G)->i64:\n  return need(box)\n"
+                  "fn main()->i64:\n  return use(Box {value:Point {x:42}})\n",
+        "S083");
+    for (const bool bounded : {false, true}) {
+      const auto source =
+          measure + "fn factory[T](value:T):\n  return fn():return value\n" +
+          std::string("fn use[U") + (bounded ? ":Measure" : "") +
+          "](value:U)->i64:\n  callback=factory(value)\n  return Measure.size(callback())\n"
+          "fn main()->i64:\n  return use(Point {x:42})\n";
+      if (bounded)
+        good("inferred captured closure preserves its result contract", source);
+      else
+        bad("inferred captured closure cannot erase its result contract", source, "S083");
+    }
+    for (const bool bounded : {false, true}) {
+      const auto source =
+          std::string("error Invalid:\n  Bad\ntrait Describe:\n  fn code(error:Self)->i64\n"
+                      "impl Describe for Invalid:\n  fn code(error:Self)->i64:\n    return 7\n"
+                      "fn fails()->i64 ! Invalid:\n  fail Invalid.Bad\n"
+                      "fn factory[E](callback:fn()->i64 ! E):\n"
+                      "  return fn()->i64 ! E:return try callback()\n") +
+          "fn handle[E" + (bounded ? ":Describe" : "") +
+          "](callback:fn()->i64 ! E)->i64:\n"
+          "  forwarded=factory(callback)\n"
+          "  return forwarded() catch fn(error):return Describe.code(error)\n"
+          "fn main()->i64:\n  return handle(fails)\n";
+      if (bounded)
+        good("inferred fallible closure retains its generic error contract", source);
+      else
+        bad("inferred fallible closure cannot erase its generic error contract", source, "S083");
+    }
+    auto adapter =
+        analyze("error Invalid:\n  Bad\nfn checked(value:i64)->i64 ! Invalid:\n  return value\n"
+                "fn apply(value:i64,callback:fn(i64)->i64 ! Invalid)->i64 ! Invalid:\n"
+                "  return try callback(value)\nfn main()->i64 ! Invalid:\n  return try "
+                "apply(42,checked)\n");
+    require(adapter.ok(), "adapter callable-flow fixture");
+    auto beforeAdapter = functionInvocationFlow(*adapter.module);
+    require(bool(beforeAdapter), "original callable-flow proof");
+    const auto beforeValues = adapter.module->expressions.size();
+    std::size_t adapterBudget = 300000;
+    auto entry = appendDeviceErrorEntry(*adapter.module, 1, adapterBudget);
+    require(bool(entry), "error adapter creation");
+    auto afterAdapter = functionInvocationFlow(*adapter.module);
+    require(bool(afterAdapter), "adapter callable-flow proof");
+    bool invocationChecked = false;
+    for (ValueId value = 0; value < beforeValues; ++value)
+      if (std::holds_alternative<FunctionInvoke>(adapter.module->expressions[value].operation)) {
+        invocationChecked = true;
+        require(!beforeAdapter->unknown[value] && !afterAdapter->unknown[value] &&
+                    beforeAdapter->targets[value] == afterAdapter->targets[value],
+                "generated error adapter polluted an existing closed target set");
+      }
+    require(invocationChecked, "adapter proof regression did not invoke a callback");
+    adapter.module->functions[*entry].parameterOrigin = adapter.module->functions.size();
+    require(!functionInvocationFlow(*adapter.module), "invalid adapter identity was trusted");
     bad("missing implementation",
         measure + "fn use[T:Measure](x:T)->i64:\n  return Measure.size(x)\n"
                   "fn main()->i64:\n  return use(42)\n",

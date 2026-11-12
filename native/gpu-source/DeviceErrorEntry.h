@@ -36,7 +36,8 @@ appendDeviceErrorEntry(TypedModule &module, FunctionId function, std::size_t &bu
   outcome.record = module.records.size();
   const auto name = "$gpu.outcome." + std::to_string(function);
   const auto span = original.declaration;
-  module.records.push_back({name, span,
+  module.records.push_back({name,
+                            span,
                             {{"$tag", tag, span}, {"value", success, span}, {"error", error, span}},
                             {{"Success", span, {1}}, {"Failure", span, {2}}}});
   auto fallibleOutcome = outcome;
@@ -52,6 +53,7 @@ appendDeviceErrorEntry(TypedModule &module, FunctionId function, std::size_t &bu
     wrapper.resultType = type;
     wrapper.declaredResult = type;
     wrapper.preconditions = original.preconditions;
+    wrapper.parameterOrigin = function;
     for (auto parameter : original.parameters) {
       auto symbol = module.symbols.at(parameter);
       symbol.owner = owner;

@@ -139,7 +139,7 @@ fn main() -> unit ! IoError:
   return ()
 """ }
 
-This displays 7. E is a declared error family, not an arbitrary numeric or data type. A single error parameter can be inferred from a fallible callback, including its declared union. If several unknown parameters occur in a union, supply explicit type arguments. An infallible callback does not invent an empty error type to satisfy a fallible signature. Handle expected errors with the ordinary try, fail and catch rules.
+This displays 7. E is a declared error family, not an arbitrary numeric or data type. A single error parameter can be inferred from a fallible callback, including its declared union. If several unknown parameters occur in a union, supply explicit type arguments. An infallible callback does not invent an empty error type to satisfy a fallible signature. Handle expected errors with the ordinary try, fail and catch rules. A bound on E describes E itself; it does not give E | Other or E | TaskError the same capability. Constrain the complete error type when an algorithm needs that contract. Matching a named concrete error alternative exposes that alternative’s concrete type.
 
 h2 { "Access, ownership and tasks" }
 

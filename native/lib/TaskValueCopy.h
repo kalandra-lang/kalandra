@@ -30,5 +30,6 @@ std::vector<llvm::GlobalVariable *> emitTaskPayloadValueLayouts(const TypedModul
 // Payload counterpart with linked continuation callable identities.
 std::vector<llvm::GlobalVariable *> emitTaskKernelPayloadValueLayouts(
     const TypedModule &, const TypedModule &kernels, llvm::Module &, std::span<const ValueType>,
-    const TypedModule *hostCallables = nullptr, std::span<const FunctionId> hostTargets = {});
+    const TypedModule *hostCallables = nullptr, std::span<const FunctionId> hostTargets = {},
+    std::span<const std::pair<FunctionId, FunctionId>> hostNativeTargets = {});
 } // namespace kalandra

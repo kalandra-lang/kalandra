@@ -57,6 +57,16 @@ struct GenericExpectedScope {
   }
   ~GenericExpectedScope() { checker.genericExpectedTerm_ = std::move(previous); }
 };
+// Error provenance follows the checker's existing propagation boundaries.
+// Scope keys live for the duration of their catch/group check and are erased
+// before the owning shared state can be reused.
+std::unordered_map<const void *, GenericTerm> genericErrorScopes_;
+struct GenericErrorScope {
+  Checker &checker;
+  const void *key;
+  GenericErrorScope(Checker &checker, const void *key) : checker(checker), key(key) {}
+  ~GenericErrorScope() { checker.genericErrorScopes_.erase(key); }
+};
 std::unordered_map<FunctionId, FunctionId> genericHelperOwners_;
 std::unordered_map<ValueId, GenericTerm> genericValueTerms_;
 std::unordered_map<SymbolId, GenericTerm> genericSymbolTerms_;
@@ -78,6 +88,12 @@ GenericTerm finishGenericTerm(GenericTerm term) {
     term.nodes += term.error->nodes;
   if (term.failure)
     term.nodes += term.failure->nodes;
+  if (term.nodes > limits_.maxValues) {
+    genericTermWork(limits_.maxValues + 1);
+    term.variables.insert("$budget");
+    term.nodes = limits_.maxValues;
+    return term;
+  }
   for (const auto &argument : term.arguments) {
     if (argument.nodes > limits_.maxValues || term.nodes > limits_.maxValues - argument.nodes) {
       genericTermWork(limits_.maxValues + 1);
@@ -177,13 +193,35 @@ GenericTerm mergeGenericTerms(GenericTerm a, const GenericTerm &b) {
       a.variables.insert(argument.variables.begin(), argument.variables.end());
   return finishGenericTerm(std::move(a));
 }
+GenericTerm abstractGenericTerm(GenericTerm term, const std::string &variable,
+                                std::size_t depth = 0) {
+  if (depth >= limits_.maxDepth) {
+    error("S082", "generic type provenance exceeds the configured depth", {});
+    term.variables.insert("$budget");
+    return term;
+  }
+  term.variables = {variable};
+  for (std::size_t i = 0; i < term.arguments.size(); ++i) {
+    const auto suffix = term.actual.array || term.actual.tensor                  ? ".$element"
+                        : term.actual.callable && i + 1 == term.arguments.size() ? ".$result"
+                        : term.actual.callable ? ".$parameter" + std::to_string(i)
+                                               : ".$argument" + std::to_string(i);
+    term.arguments[i] =
+        abstractGenericTerm(std::move(term.arguments[i]), variable + suffix, depth + 1);
+  }
+  if (term.error)
+    term.error = std::make_shared<const GenericTerm>(
+        abstractGenericTerm(*term.error, variable + ".$error", depth + 1));
+  if (term.failure)
+    term.failure = std::make_shared<const GenericTerm>(
+        abstractGenericTerm(*term.failure, variable + ".$failure", depth + 1));
+  return finishGenericTerm(std::move(term));
+}
 GenericTermBindings genericOwnerEnvironment(const GenericProofOwner &owner,
                                             const GenericBindings &bindings) {
   GenericTermBindings environment;
   for (const auto &[label, actual] : bindings) {
-    auto term = concreteGenericTerm(actual);
-    term.variables.insert(label);
-    environment.emplace(label, std::move(term));
+    environment.emplace(label, abstractGenericTerm(concreteGenericTerm(actual), label));
   }
   if (owner.implementation) {
     const auto &declaration = syntax_.implementations[*owner.implementation];
@@ -210,8 +248,11 @@ GenericTermBindings genericTermEnvironment(FunctionId function) {
 GenericTerm instantiateGenericTerm(const TypeSyntax &pattern, const ValueType &actual,
                                    const GenericTermBindings &environment, std::size_t depth = 0) {
   auto term = concreteGenericTerm(actual);
-  if (depth >= limits_.maxDepth)
+  if (depth >= limits_.maxDepth) {
+    error("S082", "generic type provenance exceeds the configured depth", pattern.span);
+    term.variables.insert("$budget");
     return finishGenericTerm(std::move(term));
+  }
   if (pattern.array && actual.array) {
     auto element = pattern;
     element.array = false;
@@ -251,11 +292,9 @@ GenericTerm instantiateGenericTerm(const TypeSyntax &pattern, const ValueType &a
                                                  term.arguments[i].actual, environment, depth + 1);
     term.arguments.back() = instantiateGenericTerm(
         pattern.function->result, term.arguments.back().actual, environment, depth + 1);
-    if (term.error && pattern.function->errorTypes.size() == 1) {
-      const auto label = qualifiedErrorName(pattern.function->errorTypes[0]);
-      if (auto projected = environment.find(label); projected != environment.end())
-        term.error = std::make_shared<const GenericTerm>(projected->second);
-    }
+    if (term.error)
+      term.error = std::make_shared<const GenericTerm>(
+          genericErrorChannelsTerm(pattern.function->errorTypes, term.error->actual, environment));
   }
   return finishGenericTerm(std::move(term));
 }
@@ -266,8 +305,10 @@ GenericTerm sourceGenericTerm(const Frame &frame, const TypeSyntax &pattern,
 void inferGenericTermBindings(const TypeSyntax &pattern, const GenericTerm &actual,
                               const std::vector<GenericParameter> &parameters,
                               GenericTermBindings &bindings, std::size_t depth = 0) {
-  if (depth >= limits_.maxDepth)
+  if (depth >= limits_.maxDepth) {
+    error("S082", "generic type provenance exceeds the configured depth", pattern.span);
     return;
+  }
   if (pattern.array) {
     if (!actual.arguments.empty()) {
       auto element = pattern;
@@ -401,9 +442,11 @@ void recordGenericValue(const Frame &frame, ValueId id) {
         } else if constexpr (std::is_same_v<Op, MatchOperation>) {
           for (const auto &branch : operation.cases)
             term = mergeGenericTerms(std::move(term), genericTerm(branch.result));
-        } else if constexpr (std::is_same_v<Op, ParallelOperation> ||
-                             std::is_same_v<Op, CatchOperation>) {
+        } else if constexpr (std::is_same_v<Op, ParallelOperation>) {
           term = genericTerm(operation.result);
+        } else if constexpr (std::is_same_v<Op, CatchOperation>) {
+          term = mergeGenericTerms(genericTerm(operation.operand), genericTerm(operation.result));
+          term.failure.reset(); // Operand failures were handled by this catch.
         } else if constexpr (std::is_same_v<Op, LoopTransferOperation>) {
           if (operation.value)
             term = genericTerm(*operation.value);
@@ -418,8 +461,9 @@ void recordGenericValue(const Frame &frame, ValueId id) {
               term = mergeGenericTerms(std::move(term), genericTerm(exit));
         } else if constexpr (std::is_same_v<Op, FunctionReference>) {
           const auto &function = output_.functions[operation.function];
-          if (term.arguments.size() == function.parameters.size() + 1) {
-            for (std::size_t i = 0; i < function.parameters.size(); ++i)
+          const auto explicitParameters = function.parameters.size() - function.captureCount;
+          if (term.arguments.size() == explicitParameters + 1) {
+            for (std::size_t i = 0; i < explicitParameters; ++i)
               if (const auto parameter = genericSymbolTerms_.find(function.parameters[i]);
                   parameter != genericSymbolTerms_.end())
                 term.arguments[i] = parameter->second;
@@ -427,19 +471,36 @@ void recordGenericValue(const Frame &frame, ValueId id) {
           }
         } else if constexpr (std::is_same_v<Op, FunctionInvoke>) {
           const auto function = genericTerm(operation.callee);
-          if (!function.arguments.empty()) {
+          if (!function.variables.empty()) {
+            for (const auto &variable : function.variables)
+              term.variables.insert(variable + ".$result");
+            if (term.failure) {
+              auto error = *term.failure;
+              for (const auto &variable : function.variables)
+                error.variables.insert(variable + ".$error");
+              term.failure =
+                  std::make_shared<const GenericTerm>(finishGenericTerm(std::move(error)));
+            }
+          } else if (!function.arguments.empty()) {
             term = function.arguments.back();
             if (expression.type.fallible)
               term.failure = function.error;
-          } else
-            for (const auto &variable : function.variables)
-              term.variables.insert(variable + ".$result");
+          }
         } else if constexpr (std::is_same_v<Op, ArrayMap>) {
           if (!term.arguments.empty())
             term.arguments[0] = genericTerm(output_.functions[operation.function].result);
         }
       },
       expression.operation);
+  if (const auto *task = std::get_if<TaskOperation>(&expression.operation);
+      task && task->prefix == TaskPrefix::Await && term.failure) {
+    ValueType taskError;
+    taskError.builtin = BuiltinValue::TaskError;
+    auto failure = genericErrorUnionTerm(*term.failure, concreteGenericTerm(taskError));
+    if (auto actual = concreteGenericTerm(expression.type).failure)
+      failure.actual = actual->actual;
+    term.failure = std::make_shared<const GenericTerm>(finishGenericTerm(std::move(failure)));
+  }
   term.actual = expression.type;
   if (!expression.type.fallible && !expression.type.task)
     term.failure.reset();
@@ -494,10 +555,19 @@ bool requireGenericTraitProof(const GenericProofOwner &owner, std::size_t trait,
   }
   for (const auto &variable : term.variables)
     if (!declaredGenericTraits(owner, variable).contains(trait)) {
-      error("S083",
-            "generic type '" + variable + "' requires a declared '" +
-                name(syntax_.traits[trait].name) + "' trait bound",
-            site);
+      const auto required = name(syntax_.traits[trait].name);
+      std::string message;
+      if (variable.find(".$errorUnion") != std::string::npos)
+        message = "a bound on an error member does not establish '" + required +
+                  "' for the combined error channel; constrain the complete error type";
+      else if (variable.find(".$") != std::string::npos)
+        message = "cannot establish '" + required + "' for a type derived from generic '" +
+                  variable.substr(0, variable.find(".$")) +
+                  "'; name and constrain that type in the generic signature";
+      else
+        message =
+            "generic type '" + variable + "' requires a declared '" + required + "' trait bound";
+      error("S083", std::move(message), site);
       return false;
     }
   if (!term.variables.empty())
@@ -542,8 +612,11 @@ bool checkGenericTermBounds(const Frame &frame, const std::vector<GenericParamet
 GenericTerm substituteGenericTerm(const GenericTerm &source, const GenericTermBindings &bindings,
                                   std::size_t depth = 0) {
   auto term = concreteGenericTerm(source.actual);
-  if (depth >= limits_.maxDepth)
+  if (depth >= limits_.maxDepth) {
+    error("S082", "generic type provenance exceeds the configured depth", {});
+    term.variables.insert("$budget");
     return term;
+  }
   for (const auto &variable : source.variables) {
     const auto found = bindings.find(variable);
     if (found != bindings.end())
@@ -559,6 +632,12 @@ GenericTerm substituteGenericTerm(const GenericTerm &source, const GenericTermBi
   if (source.arguments.size() == term.arguments.size())
     for (std::size_t i = 0; i < term.arguments.size(); ++i)
       term.arguments[i] = substituteGenericTerm(source.arguments[i], bindings, depth + 1);
+  if (source.error)
+    term.error = std::make_shared<const GenericTerm>(
+        substituteGenericTerm(*source.error, bindings, depth + 1));
+  if (source.failure)
+    term.failure = std::make_shared<const GenericTerm>(
+        substituteGenericTerm(*source.failure, bindings, depth + 1));
   return finishGenericTerm(std::move(term));
 }
 
@@ -574,6 +653,66 @@ GenericTerm genericErrorTerm(SourceSpan channel, const ValueType &actual,
       for (const auto &variable : root->second.variables)
         result.variables.insert(variable + label.substr(dot));
   return result;
+}
+
+// A bound on E does not imply a bound on the constructed union E | Other.
+// Preserve this distinction even when a concrete specialization collapses both
+// alternatives to the same error family.
+GenericTerm genericErrorUnionTerm(GenericTerm left, const GenericTerm &right) {
+  if (left.variables == right.variables &&
+      genericTypeKey(left.actual) == genericTypeKey(right.actual))
+    return mergeGenericTerms(std::move(left), right);
+  auto result = mergeGenericTerms(std::move(left), right);
+  std::set<std::string> variables;
+  for (const auto &variable : result.variables)
+    variables.insert(variable.ends_with(".$errorUnion") ? variable : variable + ".$errorUnion");
+  result.variables = std::move(variables);
+  return finishGenericTerm(std::move(result));
+}
+GenericTerm genericErrorChannelsTerm(const std::vector<SourceSpan> &channels,
+                                     const ValueType &actual, const GenericTermBindings &bindings) {
+  if (channels.empty())
+    return concreteGenericTerm(actual);
+  auto term = genericErrorTerm(channels[0], actual, bindings);
+  for (std::size_t i = 1; i < channels.size(); ++i)
+    term = genericErrorUnionTerm(std::move(term), genericErrorTerm(channels[i], actual, bindings));
+  term.actual = actual;
+  return finishGenericTerm(std::move(term));
+}
+
+void recordGenericErrorPropagation(const Frame &frame, const void *scope, ValueId origin,
+                                   bool directError) {
+  if (!genericContext(frame))
+    return;
+  auto value = genericTerm(origin);
+  auto term = directError ? value : value.failure ? *value.failure : value;
+  if (auto found = genericErrorScopes_.find(scope); found != genericErrorScopes_.end())
+    found->second = genericErrorUnionTerm(std::move(found->second), term);
+  else
+    genericErrorScopes_.emplace(scope, std::move(term));
+}
+void finishGenericErrorScope(const Frame &frame, ValueId value, const void *scope,
+                             std::optional<ValueId> handlerResult = {}) {
+  if (!genericContext(frame))
+    return;
+  auto term = genericTerm(value);
+  term.failure.reset();
+  if (node(value).type.fallible) {
+    auto failure = concreteGenericTerm(node(value).type).failure;
+    if (auto found = genericErrorScopes_.find(scope); found != genericErrorScopes_.end()) {
+      auto propagated = found->second;
+      if (handlerResult)
+        if (auto handler = genericTerm(*handlerResult).failure)
+          propagated = genericErrorUnionTerm(std::move(propagated), *handler);
+      propagated.actual = failure->actual;
+      failure = std::make_shared<const GenericTerm>(finishGenericTerm(std::move(propagated)));
+    } else if (handlerResult) {
+      if (auto handler = genericTerm(*handlerResult).failure)
+        failure = handler;
+    }
+    term.failure = std::move(failure);
+  }
+  genericValueTerms_[value] = finishGenericTerm(std::move(term));
 }
 
 bool checkGenericTypeApplication(const std::vector<GenericParameter> &parameters,
