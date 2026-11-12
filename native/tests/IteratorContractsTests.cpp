@@ -237,6 +237,80 @@ int main(int argc, char **argv) {
                                                    }),
               "array cursor lost a call, task or branch read loan");
     }
+    const std::string drainSource =
+        "fn main()->unit:\n  a=[1,2]\n  c=iter(a)\n  while true:\n"
+        "    match next(c):\n      Option.None:break\n      Option.Some {value}:()\n"
+        "  a[0]=9\n  again=next(c)\n  a[0]=8\n  close(c)\n  return ()\n";
+    for (const auto &program : {
+             drainSource,
+             "type Recursive:\n  tail:Option[Recursive]\n" + drainSource,
+             std::string(
+                 "fn main()->unit:\n  a=[1,2]\n  c=iter(a)\n  result=next(c)\n  alias=result\n"
+                 "  match alias:\n    Option.None:\n      a[0]=9\n      ()\n    Option.Some "
+                 "{value}:()\n  close(c)\n  return ()\n"),
+             std::string("fn main()->unit:\n  a=[1,2]\n  c=iter(a)\n"
+                         "  advance:fn(mut Iterator[i64,never])->Option[i64]=next[i64,never]\n"
+                         "  while true:\n    match advance(c):\n      Option.Some {value}:()\n     "
+                         " Option.None:break\n"
+                         "  a[0]=9\n  close(c)\n  return ()\n"),
+         }) {
+      auto valid = checkSource(cursorPrelude + program);
+      if (!valid.ok()) {
+        for (const auto &diagnostic : valid.diagnostics)
+          std::cerr << renderDiagnostic(*valid.source, diagnostic);
+        throw std::runtime_error("proven exhaustion did not release the cursor's read loan");
+      }
+    }
+    for (const auto *program : {
+             "fn main()->unit:\n  a=[1,2]\n  c=iter(a)\n  fake:Option[i64]=Option.None\n"
+             "  match fake:\n    Option.None:\n      a[0]=9\n      ()\n    Option.Some "
+             "{value}:()\n  close(c)\n  return ()\n",
+             "fn main()->unit:\n  a=[1,2]\n  c=iter(a)\n  while true:\n"
+             "    match next(c):\n      Option.None:break\n      Option.Some {value}:break\n"
+             "  a[0]=9\n  close(c)\n  return ()\n",
+             "fn main()->unit:\n  a=[1,2]\n  c=iter(a)\n  d=iter(a)\n  while true:\n"
+             "    match next(c):\n      Option.None:break\n      Option.Some {value}:()\n"
+             "  a[0]=9\n  close(c)\n  close(d)\n  return ()\n",
+             "fn main()->unit:\n  a=[1,2]\n  c=iter(a)\n  i=0\n  while i<1:\n"
+             "    match next(c):\n      Option.None:break\n      Option.Some {value}:()\n    "
+             "i=i+1\n"
+             "  a[0]=9\n  close(c)\n  return ()\n",
+         }) {
+      const auto invalid = checkSource(cursorPrelude + program);
+      require(!invalid.ok() && std::ranges::any_of(invalid.diagnostics,
+                                                   [](const auto &diagnostic) {
+                                                     return diagnostic.code == "S077";
+                                                   }),
+              "an unrelated Option or early loop exit released a live read loan");
+    }
+    for (const auto *program : {
+             "fn read(values:[i64])->i64:\n  return values[0]\n"
+             "fn main()->unit ! TaskError:\n  a=[1,2]\n  c=iter(a)\n  try parallel:\n"
+             "    pending=spawn read(a)\n    while true:\n      match next(c):\n"
+             "        Option.None:break\n        Option.Some {value}:()\n"
+             "    a[0]=9\n    value=try await pending\n    ()\n  close(c)\n  return ()\n",
+             "fn replace(own c:Iterator[i64,never],a:[i64])->Iterator[i64,never]:\n"
+             "  close(c)\n  return iter(a)\n"
+             "fn main()->unit:\n  a=[1,2]\n  c=iter(a)\n  old=next(c)\n  fresh=replace(c,a)\n"
+             "  match old:\n    Option.None:\n      a[0]=9\n      ()\n    Option.Some {value}:()\n"
+             "  close(fresh)\n  return ()\n",
+         }) {
+      const auto invalid = checkSource(cursorPrelude + program);
+      require(!invalid.ok() && std::ranges::any_of(invalid.diagnostics,
+                                                   [](const auto &diagnostic) {
+                                                     return diagnostic.code == "S077";
+                                                   }),
+              "cursor exhaustion released another cursor or task's read loan");
+    }
+    auto nestedLoan = checkSource(
+        cursorPrelude +
+        "type Box:\n  values:[i64]\n"
+        "fn main()->unit:\n  a=[1]\n  c=iter([Box {values:a}])\n"
+        "  value=match next(c):\n    Option.None:Box {values:[]}\n    Option.Some {value}:value\n"
+        "  reader=iter(value.values)\n  close(c)\n  a[0]=9\n  close(reader)\n  return ()\n");
+    require(!nestedLoan.ok() && std::ranges::any_of(nestedLoan.diagnostics,
+                                                    [](const auto &d) { return d.code == "S077"; }),
+            "a yielded record lost its array backing provenance in another cursor");
     auto forgedCursor = *cursors.module;
     auto cursor = std::ranges::find_if(
         forgedCursor.records, [](const auto &r) { return r.standard == StandardRecord::Iterator; });

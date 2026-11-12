@@ -1,6 +1,7 @@
 #include "ArrayAccess.h"
 #include <algorithm>
 #include <compare>
+#include <iterator>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -62,6 +63,8 @@ struct Environment {
   std::unordered_map<ValueId, Roots> values, inputs;
   std::unordered_map<SymbolId, Roots> symbols;
   std::map<StorageRoot, ReadLoan> readers;
+  std::unordered_map<SymbolId, Roots> nextSymbols;
+  Roots exhausted;
   bool stopped = false;
   std::set<SymbolId> moved;
   std::map<std::size_t, LoopFlow *> loops;
@@ -319,6 +322,9 @@ private:
       age(loan.roots);
       age(loan.controls);
     }
+    for (auto &[symbol, roots] : env.nextSymbols)
+      age(roots);
+    age(env.exhausted);
   }
   void spend(std::size_t count = 1) {
     if (count > budget)
@@ -358,12 +364,118 @@ private:
   }
   void rememberCursor(ValueId id, const Roots &roots, Environment &env) {
     auto data = cursorData(roots);
-    if (!data.empty())
+    const auto controls = cursorControl(roots);
+    if (!data.empty() && (controls.empty() || !std::ranges::all_of(controls, [&](auto root) {
+                            return env.exhausted.contains(root);
+                          })))
       env.readers[StorageRoot::make(StorageRoot::Kind::Local, id)] =
           ReadLoan{std::move(data), cursorControl(roots)};
   }
+  Roots intersect(const Roots &left, const Roots &right) {
+    Roots result;
+    spend(left.size() + right.size());
+    std::set_intersection(left.begin(), left.end(), right.begin(), right.end(),
+                          std::inserter(result, result.end()));
+    return result;
+  }
+  Roots nextWitness(ValueId id, const Environment &env, std::size_t depth = 0) {
+    spend();
+    if (depth >= 128 || id >= module.expressions.size())
+      return {};
+    const auto &node = module.expressions[id];
+    if (!node.type.record || module.records[*node.type.record].standard != StandardRecord::Option ||
+        node.type.task)
+      return {};
+    if (const auto *read = std::get_if<SymbolRead>(&node.operation)) {
+      const auto found = env.nextSymbols.find(read->symbol);
+      return found == env.nextSymbols.end() ? Roots{} : found->second;
+    }
+    if (const auto *task = std::get_if<TaskOperation>(&node.operation);
+        task && task->prefix == TaskPrefix::Try)
+      return nextWitness(task->operand, env, depth + 1);
+    if (const auto *caught = std::get_if<CatchOperation>(&node.operation))
+      return nextWitness(caught->operand, env, depth + 1);
+    ValueId cursor;
+    if (const auto *next = std::get_if<IteratorOperation>(&node.operation);
+        next && next->action == IteratorAction::Next)
+      cursor = next->arguments.at(0);
+    else {
+      const auto parameter = [&](FunctionId target) -> std::optional<std::size_t> {
+        const auto &fn = module.functions.at(target);
+        if (fn.result >= module.expressions.size())
+          return {};
+        const auto *next = std::get_if<IteratorOperation>(&module.expressions[fn.result].operation);
+        if (!next || next->action != IteratorAction::Next || next->arguments.size() != 1)
+          return {};
+        const auto *read =
+            std::get_if<SymbolRead>(&module.expressions[next->arguments[0]].operation);
+        if (!read)
+          return {};
+        const auto found = std::ranges::find(fn.parameters, read->symbol);
+        return found == fn.parameters.end()
+                   ? std::nullopt
+                   : std::optional<std::size_t>(found - fn.parameters.begin());
+      };
+      if (const auto *call = std::get_if<FunctionCall>(&node.operation)) {
+        const auto index = parameter(call->function);
+        if (!index || *index >= call->arguments.size())
+          return {};
+        cursor = call->arguments[*index];
+      } else if (const auto *call = std::get_if<FunctionInvoke>(&node.operation)) {
+        if (!flow || flow->unknown[id] || flow->targets[id].empty())
+          return {};
+        std::optional<std::size_t> index;
+        for (auto target : flow->targets[id]) {
+          const auto found = parameter(target);
+          if (!found || (index && *index != *found))
+            return {};
+          index = found;
+        }
+        if (!index || *index >= call->arguments.size())
+          return {};
+        cursor = call->arguments[*index];
+      } else
+        return {};
+    }
+    const auto found = env.values.find(cursor);
+    if (found == env.values.end())
+      return {};
+    auto controls = cursorControl(found->second);
+    // A union of possible owners cannot prove that every owner exhausted: only
+    // the dynamically selected one did. Keep those cases conservative.
+    return controls.size() == 1 && !controls.contains(unknown) ? controls : Roots{};
+  }
+  void bindWitness(SymbolId symbol, ValueId value, Environment &env) {
+    auto witness = nextWitness(value, env);
+    if (witness.empty())
+      env.nextSymbols.erase(symbol);
+    else
+      env.nextSymbols[symbol] = std::move(witness);
+  }
+  void proveExhausted(const Roots &controls, Environment &env) {
+    if (controls.empty())
+      return;
+    releaseCursor(controls, env);
+    unite(env.exhausted, controls);
+  }
+  void refineOptionBranch(ValueId condition, Environment &yes, Environment &no) {
+    const auto *compare = std::get_if<ScalarCompare>(&module.expressions[condition].operation);
+    if (!compare || compare->operation != ComparisonKind::Equal)
+      return;
+    const auto refine = [&](ValueId subject, ValueId tag) {
+      const auto *field = std::get_if<RecordFieldRead>(&module.expressions[subject].operation);
+      const auto *number = std::get_if<Int64Literal>(&module.expressions[tag].operation);
+      if (!field || field->field != 0 || !number || (number->value != 1 && number->value != 2))
+        return;
+      const auto witness = nextWitness(field->input, yes);
+      proveExhausted(witness, number->value == 1 ? yes : no);
+    };
+    refine(compare->left, compare->right);
+    refine(compare->right, compare->left);
+  }
   Environment fork(const Environment &from) {
-    spend(from.values.size() + from.symbols.size() + from.readers.size());
+    spend(from.values.size() + from.symbols.size() + from.readers.size() + from.nextSymbols.size() +
+          from.exhausted.size());
     return from;
   }
   bool storage(const ValueType &type) {
@@ -545,6 +657,11 @@ private:
     return result;
   }
   void joinSymbols(Environment &to, const Environment &from) {
+    std::erase_if(to.nextSymbols, [&](const auto &entry) {
+      const auto found = from.nextSymbols.find(entry.first);
+      return found == from.nextSymbols.end() || found->second != entry.second;
+    });
+    to.exhausted = intersect(to.exhausted, from.exhausted);
     to.moved.insert(from.moved.begin(), from.moved.end());
     for (auto &[symbol, roots] : to.symbols)
       if (auto found = from.symbols.find(symbol); found != from.symbols.end())
@@ -585,6 +702,7 @@ private:
       auto value = evaluate(statement.value, env);
       if (statement.binding) {
         consume(statement.value, value, env);
+        bindWitness(*statement.binding, statement.value, env);
         env.symbols[*statement.binding] = std::move(value);
         env.moved.erase(*statement.binding);
       }
@@ -852,6 +970,7 @@ private:
           } else if constexpr (std::is_same_v<T, ConditionalOperation>) {
             input(op.condition);
             auto yes = fork(env), no = fork(env);
+            refineOptionBranch(op.condition, yes, no);
             auto value = body(op.whenTrue, op.trueResult, yes);
             unite(value, body(op.whenFalse, op.falseResult, no));
             for (auto &[symbol, roots] : env.symbols) {
@@ -880,6 +999,20 @@ private:
               env.moved = yes.moved;
               env.moved.insert(no.moved.begin(), no.moved.end());
             }
+            if (yes.stopped && !no.stopped) {
+              env.nextSymbols = no.nextSymbols;
+              env.exhausted = no.exhausted;
+            } else if (no.stopped && !yes.stopped) {
+              env.nextSymbols = yes.nextSymbols;
+              env.exhausted = yes.exhausted;
+            } else {
+              env.nextSymbols = yes.nextSymbols;
+              env.exhausted = intersect(yes.exhausted, no.exhausted);
+              std::erase_if(env.nextSymbols, [&](const auto &entry) {
+                const auto found = no.nextSymbols.find(entry.first);
+                return found == no.nextSymbols.end() || found->second != entry.second;
+              });
+            }
             env.stopped = yes.stopped && no.stopped;
             return value;
           } else if constexpr (std::is_same_v<T, YieldOperation>) {
@@ -906,6 +1039,7 @@ private:
                 auto roots = evaluate(statement.value, path);
                 if (statement.binding) {
                   consume(statement.value, roots, path);
+                  bindWitness(*statement.binding, statement.value, path);
                   path.symbols[*statement.binding] = std::move(roots);
                   path.moved.erase(*statement.binding);
                 }
@@ -924,6 +1058,8 @@ private:
               const auto previousSymbols = head.symbols;
               const auto previousReaders = head.readers;
               const auto previousMoved = head.moved;
+              const auto previousWitnesses = head.nextSymbols;
+              const auto previousExhausted = head.exhausted;
               auto iteration = fork(head);
               iteration.values.clear();
               iteration.inputs.clear();
@@ -942,10 +1078,15 @@ private:
               }
               paths.continues.clear();
               if (head.symbols == previousSymbols && head.readers == previousReaders &&
-                  head.moved == previousMoved)
+                  head.moved == previousMoved && head.nextSymbols == previousWitnesses &&
+                  head.exhausted == previousExhausted)
                 break;
             }
             auto normal = fork(head);
+            if (const auto *condition =
+                    std::get_if<BoolLiteral>(&module.expressions[op.condition].operation);
+                condition && condition->value)
+              normal.stopped = true;
             normal.values.clear();
             normal.inputs.clear();
             statements(op.whenDone, normal);
@@ -957,12 +1098,22 @@ private:
                 roots = normal.symbols.at(symbol);
               env.readers = normal.readers;
               env.moved = normal.moved;
+              env.nextSymbols = normal.nextSymbols;
+              env.exhausted = normal.exhausted;
             } else {
               for (auto &[symbol, roots] : env.symbols)
                 roots.clear();
               env.readers.clear();
+              env.nextSymbols.clear();
+              env.exhausted.clear();
             }
+            bool continuation = !normal.stopped;
             for (const auto &path : paths.breaks) {
+              if (!continuation) {
+                env.nextSymbols = path.nextSymbols;
+                env.exhausted = path.exhausted;
+                continuation = true;
+              }
               joinSymbols(env, path);
               joinReaders(env, path);
             }
@@ -982,6 +1133,7 @@ private:
           } else if constexpr (std::is_same_v<T, CatchOperation>) {
             auto value = input(op.operand);
             auto recovered = fork(env);
+            proveExhausted(nextWitness(op.operand, recovered), recovered);
             unite(value, body(op.body, op.result, recovered));
             joinSymbols(env, recovered);
             joinReaders(env, recovered);
@@ -989,18 +1141,34 @@ private:
           } else if constexpr (std::is_same_v<T, MatchOperation>) {
             input(op.subject);
             Roots value;
-            std::map<StorageRoot, ReadLoan> readers;
             auto incoming = fork(env);
-            for (auto &[symbol, roots] : env.symbols)
-              roots.clear();
+            std::vector<Environment> continuing;
+            const auto witness = nextWitness(op.subject, incoming);
+            bool someSeen = false;
             for (const auto &arm : op.cases) {
               auto branch = fork(incoming);
+              if (arm.tag == 1 || (!arm.tag && someSeen))
+                proveExhausted(witness, branch);
+              someSeen |= arm.tag == 2;
               unite(value, body(arm.body, arm.result, branch));
-              joinSymbols(env, branch);
-              for (const auto &[reader, roots] : branch.readers)
-                unite(readers[reader], roots);
+              if (!branch.stopped)
+                continuing.push_back(std::move(branch));
             }
-            env.readers = std::move(readers);
+            if (continuing.empty()) {
+              env.stopped = true;
+              return value;
+            }
+            const auto &first = continuing.front();
+            for (auto &[symbol, roots] : env.symbols)
+              roots = first.symbols.at(symbol);
+            env.readers = first.readers;
+            env.moved = first.moved;
+            env.nextSymbols = first.nextSymbols;
+            env.exhausted = first.exhausted;
+            for (std::size_t i = 1; i < continuing.size(); ++i) {
+              joinSymbols(env, continuing[i]);
+              joinReaders(env, continuing[i]);
+            }
             return value;
           } else {
             if constexpr (std::is_same_v<T, RecordValue>) {

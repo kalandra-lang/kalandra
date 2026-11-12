@@ -248,6 +248,23 @@ fn main()->unit ! (IoError | TaskError):
   try println(format("{}:{}:{}",word,other,checked))
   return ()
 ''', 'first:second:42\n')
+run('cursor-array-exhaustion-release', array_imports + '''fn main()->unit ! (IoError | TaskError):
+  values=[3,1,2]
+  cursor=iter(values)
+  total=0
+  while true:
+    match next(cursor):
+      Option.None:break
+      Option.Some {value}:
+        total=total+value
+        ()
+  values[0]=9
+  absent=first(cursor,-1)
+  values[0]=8
+''' + gpu_pause + '''  close(cursor)
+  try println(format("{}:{}:{}:{}",total,values[0],absent,checked))
+  return ()
+''', '6:8:-1:42\n')
 run('cursor-array-task-transfer', array_imports + '''fn drain(own cursor:Iterator[i64,never])->i64:
   total=0
   while true:

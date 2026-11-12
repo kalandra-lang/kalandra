@@ -73,6 +73,31 @@ fn main() -> unit ! IoError:
 
 This displays 2:9. The cursor also supports strings, booleans, numerical values and records. Items that refer to backing storage keep that storage alive after the cursor closes. Passing a cursor to an own parameter transfers its position and read loan; a spawned consumer retains the loan until its task has settled.
 
+Exhausting the cursor also releases its source read loan. A loop that stops only at Option.None can then change the source, even before closing the exhausted cursor. An early break after an item keeps the loan active; close the cursor before changing its source in that case.
+
+codeblock { language = kalandra, """from "std/iter" import iter, next, close
+from "std/option" import Option
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  values = [2, 4, 6]
+  cursor = iter(values)
+  total = 0
+  while true:
+    match next(cursor):
+      Option.None: break
+      Option.Some {value}:
+        total = total + value
+        ()
+  values[0] = 9
+  close(cursor)
+  try println(format("{}:{}", total, values[0]))
+  return ()
+""" }
+
+This displays 12:9. Further next calls on the exhausted cursor return Option.None without reading the source.
+
 h2 { "Iterable" }
 
 code { "Iterable.iterator(values: Self) -> Iterator[Self.Item, Self.Error]" }
