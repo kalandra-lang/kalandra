@@ -1,11 +1,14 @@
+#include "../runtime/ByteBuffer.h"
 #include "../runtime/GeneratorFrame.h"
 #include "../runtime/HostArrays.h"
 #include "../runtime/String.h"
 #include "../runtime/StringArray.h"
+#include <array>
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <string_view>
 #include <thread>
@@ -161,11 +164,14 @@ void failures() {
 }
 struct Budget {
   std::uint64_t bytes = 0, maximum = 16384;
+  std::atomic<bool> *cancel = nullptr;
   static bool reserve(void *p, std::uint64_t bytes) noexcept {
     auto &s = *static_cast<Budget *>(p);
     if (bytes > s.maximum - s.bytes)
       return false;
     s.bytes += bytes;
+    if (s.cancel)
+      s.cancel->store(true, std::memory_order_release);
     return true;
   }
   static void release(void *p, std::uint64_t bytes) noexcept {
@@ -174,6 +180,188 @@ struct Budget {
     s.bytes -= bytes;
   }
 };
+struct BufferCapture {
+  BufferDescriptor buffer;
+  Invocation **storage;
+  std::atomic<unsigned> *barrier = nullptr;
+};
+struct BufferFrame {
+  BufferDescriptor buffer;
+  std::atomic<unsigned> *barrier;
+};
+bool constructBuffer(Invocation &ctx, void *out, const Packet &packet) {
+  const auto &capture = *static_cast<const BufferCapture *>(packet.data);
+  if (!packet.source || !ctx.retainFrom(*packet.source, capture.buffer.storage.allocated))
+    return false;
+  auto *frame = new (out) BufferFrame{capture.buffer, capture.barrier};
+  const OwnedDescriptor *owned[]{&frame->buffer};
+  if (!kalandra_file_scope_enter_v1(&ctx, owned, 1))
+    return false;
+  *capture.storage = &ctx;
+  return true;
+}
+void destroyBuffer(void *p) noexcept { static_cast<BufferFrame *>(p)->~BufferFrame(); }
+GeneratorStep endBuffer(Invocation &ctx, void *p, void *) {
+  auto &frame = *static_cast<BufferFrame *>(p);
+  if (frame.barrier) {
+    frame.barrier->store(1, std::memory_order_release);
+    for (unsigned i = 0; i < 1000; ++i) {
+      CHECK(ctx.allocate(16));
+      if (i % 10 == 0)
+        std::this_thread::yield();
+    }
+    while (frame.barrier->load(std::memory_order_acquire) != 2)
+      std::this_thread::yield();
+    CHECK(ctx.allocate(16));
+  }
+  return GeneratorStep::Exhausted;
+}
+void pausedResourceGrowth() {
+  Budget budget;
+  budget.maximum = 1024 * 1024;
+  Invocation creator, worker;
+  creator.bindRecursiveBudget(&budget, Budget::reserve, Budget::release);
+  CHECK(kalandra_file_scope_enter_v1(&creator, nullptr, 0));
+  BufferArguments arguments{};
+  BufferResult created{};
+  kalandra_buffer_v1(&creator, &created, unsigned(kalandra::BufferAction::Create), &arguments);
+  CHECK(!creator.poll() && created.kind == 0);
+  Invocation *storage = nullptr;
+  std::atomic<unsigned> barrier{0};
+  BufferCapture input{created.buffer, &storage, &barrier};
+  const GeneratorEntry entry{1,
+                             sizeof(BufferFrame),
+                             alignof(BufferFrame),
+                             constructBuffer,
+                             destroyBuffer,
+                             endBuffer,
+                             &integer,
+                             nullptr};
+  auto cursor = generatorCreate(creator, entry, {79, &input, sizeof(input), &creator});
+  CHECK(!creator.poll() && storage);
+  CHECK(worker.retainFrom(*storage, input.buffer.storage.allocated));
+  const OwnedDescriptor *transferred[]{&input.buffer};
+  CHECK(kalandra_file_scope_enter_v1(&worker, transferred, 1));
+  const auto before = budget.bytes;
+  arguments.buffer = input.buffer;
+  arguments.value = 1024;
+  BufferResult grown{};
+  kalandra_buffer_v1(&worker, &grown, unsigned(kalandra::BufferAction::Reserve), &arguments);
+  CHECK(!worker.poll() && grown.kind == 0 && bufferStats(worker, input.buffer).capacity >= 1024);
+  CHECK(budget.bytes > before && budget.bytes <= budget.maximum && !creator.poll());
+  Invocation consumer;
+  CHECK(consumer.retainFrom(creator, cursor.storage.allocated));
+  GeneratorStep result = GeneratorStep::Stopped;
+  std::thread advancing([&] {
+    std::int64_t ignored = 0;
+    result = generatorNext(consumer, cursor, integer, nullptr, &ignored, nullptr);
+  });
+  while (!barrier.load(std::memory_order_acquire))
+    std::this_thread::yield();
+  arguments.value = 8192;
+  kalandra_buffer_v1(&worker, &grown, unsigned(kalandra::BufferAction::Reserve), &arguments);
+  CHECK(!worker.poll() && grown.kind == 0 && bufferStats(worker, input.buffer).capacity >= 8192);
+  barrier.store(2, std::memory_order_release);
+  advancing.join();
+  CHECK(result == GeneratorStep::Exhausted && !consumer.poll() && !creator.poll());
+  worker.settle();
+  CHECK(generatorClose(creator, cursor));
+  creator.settle();
+  consumer.settle();
+  CHECK(budget.bytes == 0 && creator.live() == 0 && worker.live() == 0 && consumer.live() == 0);
+}
+void destroyBudgetAnchor(void *p) noexcept { static_cast<OwnedState *>(p)->~OwnedState(); }
+void ignoreBudgetAnchor(void *) noexcept {}
+void deepResourceBudgets() {
+  constexpr unsigned depth = 10000;
+  Invocation owner;
+  std::vector<OwnedState *> anchors;
+  for (unsigned i = 0; i <= depth; ++i) {
+    auto *memory = owner.allocateResource(sizeof(OwnedState), OwnedState::cleanup, true);
+    CHECK(memory);
+    anchors.push_back(new (memory) OwnedState(OwnedKind::Generator, sizeof(OwnedState),
+                                              destroyBudgetAnchor, ignoreBudgetAnchor));
+    CHECK(owner.trackResource(memory));
+  }
+  std::vector<std::unique_ptr<Invocation>> contexts(depth);
+  // Build bottom-up: each anchor has no ancestors until its child is ready.
+  // This isolates one deep growth operation instead of quadratic construction.
+  for (unsigned i = depth; i > 0; --i) {
+    auto &context = contexts[i - 1];
+    context = std::make_unique<Invocation>();
+    context->bindResourceBudget(owner, anchors[i - 1]);
+    CHECK(!context->poll() && context->retainFrom(owner, anchors[i]));
+  }
+  Budget budget;
+  budget.maximum = 64 * 1024 * 1024;
+  Invocation root;
+  root.bindRecursiveBudget(&budget, Budget::reserve, Budget::release);
+  CHECK(root.retainFrom(owner, anchors.front()));
+  const auto before = budget.bytes;
+  CHECK(owner.resizeResource(anchors.back(), 65536));
+  CHECK(budget.bytes == before + 65536);
+  // A failed owner reservation must leave the entire deep graph unchanged.
+  budget.maximum = budget.bytes;
+  CHECK(!owner.resizeResource(anchors.back(), 131072) && owner.status() == 2);
+  CHECK(budget.bytes == before + 65536);
+  for (auto &context : contexts)
+    context.reset();
+  root.settle();
+  owner.settle();
+  CHECK(budget.bytes == 0 && root.live() == 0 && owner.live() == 0);
+}
+void sharedResourceBudgets() {
+  Invocation owner;
+  std::array<OwnedState *, 4> anchors{};
+  for (auto &anchor : anchors) {
+    auto *memory = owner.allocateResource(sizeof(OwnedState), OwnedState::cleanup, true);
+    CHECK(memory);
+    anchor = new (memory) OwnedState(OwnedKind::Generator, sizeof(OwnedState), destroyBudgetAnchor,
+                                     ignoreBudgetAnchor);
+    CHECK(owner.trackResource(memory));
+  }
+  Invocation a, b, grand;
+  a.bindResourceBudget(owner, anchors[1]);
+  b.bindResourceBudget(owner, anchors[2]);
+  CHECK(a.retainFrom(owner, anchors[3]) && b.retainFrom(owner, anchors[3]));
+  grand.bindResourceBudget(owner, anchors[0]);
+  CHECK(grand.retainFrom(owner, anchors[1]) && grand.retainFrom(owner, anchors[2]));
+  Budget first, second;
+  first.maximum = second.maximum = 1024 * 1024;
+  Invocation root, direct, rejected, accepted, cancelled;
+  root.bindRecursiveBudget(&first, Budget::reserve, Budget::release);
+  direct.bindRecursiveBudget(&second, Budget::reserve, Budget::release);
+  CHECK(root.retainFrom(owner, anchors[0]) && direct.retainFrom(owner, anchors[3]));
+  CHECK(rejected.retainFrom(owner, anchors[3]) && accepted.retainFrom(owner, anchors[3]) &&
+        cancelled.retainFrom(owner, anchors[3]));
+  const auto beforeFirst = first.bytes, beforeSecond = second.bytes;
+  first.maximum = beforeFirst + 8191;
+  CHECK(!rejected.resizeResource(anchors[3], 4096) && rejected.status() == 2);
+  CHECK(first.bytes == beforeFirst && second.bytes == beforeSecond);
+  first.maximum = 1024 * 1024;
+  CHECK(accepted.resizeResource(anchors[3], 4096));
+  // Each independent retained owner reserves its path, without recursive
+  // propagation or losing either branch of the shared ancestor's transaction.
+  CHECK(first.bytes == beforeFirst + 8192 && second.bytes == beforeSecond + 4096);
+  const auto heldFirst = first.bytes, heldSecond = second.bytes;
+  std::atomic<bool> token{false};
+  cancelled.bindCancellation(&token);
+  first.cancel = &token;
+  CHECK(!cancelled.resizeResource(anchors[3], 8192) && cancelled.status() == 0 &&
+        cancelled.poll() == -1);
+  CHECK(first.bytes == heldFirst && second.bytes == heldSecond);
+  first.cancel = nullptr;
+  grand.settle();
+  a.settle();
+  b.settle();
+  root.settle();
+  direct.settle();
+  rejected.settle();
+  accepted.settle();
+  cancelled.settle();
+  owner.settle();
+  CHECK(first.bytes == 0 && second.bytes == 0);
+}
 void bounded() {
   Budget budget;
   Probe probe;
@@ -600,6 +788,9 @@ int main() {
   failures();
   bounded();
   ownerBudgets();
+  pausedResourceGrowth();
+  deepResourceBudgets();
+  sharedResourceBudgets();
   activeClose();
   typedTextFailure();
   outlivesCreator();

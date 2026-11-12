@@ -20,33 +20,14 @@ bool same(const ValueLayout &left, const ValueLayout &right) noexcept {
 struct alignas(std::max_align_t) GeneratorState : OwnedState {
   Invocation storage;
   const GeneratorEntry entry;
-  Invocation *active = nullptr;
   std::atomic_flag advancing = ATOMIC_FLAG_INIT;
-  std::uint64_t retained = 0;
   std::size_t resultOffset;
   bool constructed = false, ended = false;
   GeneratorState(const GeneratorEntry &entry, std::size_t size, std::size_t resultOffset) noexcept
       : OwnedState(OwnedKind::Generator, size, destroyState, retireState), entry(entry),
-        resultOffset(resultOffset) {
-    // The frame resource's dynamic accounting follows all of its actual owners.
-    // Never keep a creator TaskRecord's budget or cancellation pointer alive in
-    // a dormant cursor. An active caller is borrowed only for a resume/construct.
-    storage.bindRecursiveBudget(this, reserve, release);
-  }
+        resultOffset(resultOffset) {}
   void *frame() noexcept { return this + 1; }
   void *result() noexcept { return reinterpret_cast<std::byte *>(this) + resultOffset; }
-  static bool reserve(void *p, std::uint64_t bytes) noexcept {
-    auto &s = *static_cast<GeneratorState *>(p);
-    if (!s.active || bytes > UINT64_MAX - s.retained ||
-        !s.active->resizeResource(&s, s.retained + bytes))
-      return false;
-    s.retained += bytes;
-    return true;
-  }
-  static void release(void *p, std::uint64_t bytes) noexcept {
-    auto &s = *static_cast<GeneratorState *>(p);
-    s.retained -= bytes;
-  }
   void finish() noexcept {
     if (std::exchange(ended, true))
       return;
@@ -86,13 +67,9 @@ void stopped(Invocation &caller, GeneratorState &state) noexcept {
 struct Active {
   GeneratorState &state;
   Active(GeneratorState &state, Invocation &caller) noexcept : state(state) {
-    state.active = &caller;
     state.storage.bindCancellation(InvocationABI::cancellationToken(caller));
   }
-  ~Active() {
-    state.storage.bindCancellation(nullptr);
-    state.active = nullptr;
-  }
+  ~Active() { state.storage.bindCancellation(nullptr); }
 };
 struct Advance {
   GeneratorState &state;
@@ -246,6 +223,11 @@ GeneratorDescriptor generatorCreate(Invocation &ctx, const GeneratorEntry &entry
   auto *state = new (memory) GeneratorState(entry, size, offset);
   if (!ctx.trackResource(state))
     return {};
+  state->storage.bindResourceBudget(ctx, state);
+  if (state->storage.status()) {
+    stopped(ctx, *state);
+    return {};
+  }
   {
     Active active(*state, ctx);
     Construction call{*state, packet};

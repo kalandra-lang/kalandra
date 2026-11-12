@@ -163,6 +163,8 @@ struct ResourceWatch;
 struct ResourceAccounting {
   std::uint64_t bytes = 0;
   ResourceWatch *observers = nullptr;
+  std::uint64_t reserved = 0;
+  bool aggregateBudget = false;
 };
 struct ResourceWatch {
   ResourceWatch *next = nullptr, *previous = nullptr, *storeNext = nullptr;
@@ -407,47 +409,193 @@ bool Invocation::trackResource(void *address) noexcept {
   }
   return watchResource(owner->backing);
 }
+namespace {
+enum class ResourceGrowth { Ready, Budget, Stopped };
+bool reserveResourceBudget(void *, std::uint64_t) noexcept;
+void releaseResourceBudget(void *, std::uint64_t) noexcept;
+ResourceGrowth growResource(ResourceAccounting &resource, std::uint64_t bytes,
+                            Invocation *requester) noexcept {
+  // Ordinary resources and task budgets retain their allocation-free path.
+  bool linked = false;
+  for (auto *note = resource.observers; note; note = note->next)
+    linked |= note->reserve == reserveResourceBudget;
+  if (!linked) {
+    auto *failed = resource.observers;
+    for (; failed; failed = failed->next) {
+      if (bytes <= failed->charged)
+        continue;
+      const auto delta = bytes - failed->charged;
+      if (delta > UINT64_MAX - *failed->contextBytes || delta > UINT64_MAX - *failed->scopeBytes ||
+          !failed->reserve(failed->budget, delta))
+        break;
+      *failed->scopeBytes += delta;
+      *failed->contextBytes += delta;
+    }
+    if (failed || (requester && requester->poll())) {
+      for (auto *note = resource.observers; note != failed; note = note->next)
+        if (bytes > note->charged) {
+          const auto delta = bytes - note->charged;
+          *note->scopeBytes -= delta;
+          *note->contextBytes -= delta;
+          note->release(note->budget, delta);
+        }
+      return failed ? ResourceGrowth::Budget : ResourceGrowth::Stopped;
+    }
+    for (auto *note = resource.observers; note; note = note->next)
+      if (bytes > note->charged)
+        note->charged = bytes;
+    resource.bytes = bytes;
+    return ResourceGrowth::Ready;
+  }
+  struct Node {
+    ResourceAccounting *resource;
+    std::uint64_t delta = 0, target = 0;
+    unsigned color = 0;
+    bool reached = false;
+  };
+  struct Visit {
+    std::size_t index;
+    ResourceWatch *next;
+  };
+  struct Charge {
+    ResourceWatch *watch;
+    std::uint64_t bytes;
+  };
+  std::vector<Charge> acquired;
+  const auto rollback = [&] {
+    for (auto i = acquired.rbegin(); i != acquired.rend(); ++i)
+      i->watch->release(i->watch->budget, i->bytes);
+  };
+  try {
+    std::vector<Node> nodes{{&resource}};
+    std::unordered_map<ResourceAccounting *, std::size_t> indices{{&resource, 0}};
+    std::vector<Visit> stack{{0, resource.observers}};
+    std::vector<std::size_t> order;
+    nodes[0].color = 1;
+    // Iterative graph discovery avoids recursive reserve callbacks through a
+    // chain of independently owned generator frames. Ownership must be a DAG.
+    while (!stack.empty()) {
+      auto &visit = stack.back();
+      while (visit.next && visit.next->reserve != reserveResourceBudget)
+        visit.next = visit.next->next;
+      if (!visit.next) {
+        nodes[visit.index].color = 2;
+        order.push_back(visit.index);
+        stack.pop_back();
+        continue;
+      }
+      auto *note = visit.next;
+      visit.next = note->next;
+      auto *parent = static_cast<Backing *>(note->budget)->resource();
+      if (!parent || !parent->aggregateBudget)
+        return ResourceGrowth::Budget;
+      auto [found, inserted] = indices.emplace(parent, nodes.size());
+      const auto index = found->second;
+      if (inserted)
+        nodes.push_back({parent});
+      if (nodes[index].color == 1)
+        return ResourceGrowth::Budget;
+      if (!nodes[index].color) {
+        nodes[index].color = 1;
+        stack.push_back({index, parent->observers});
+      }
+    }
+    nodes[0].target = bytes;
+    nodes[0].reached = true;
+    std::vector<Charge> changes;
+    std::unordered_map<std::uint64_t *, std::uint64_t> counters;
+    const auto chargeCounter = [&](std::uint64_t *counter, std::uint64_t delta) {
+      auto &pending = counters[counter];
+      if (delta > UINT64_MAX - pending || pending + delta > UINT64_MAX - *counter)
+        return false;
+      pending += delta;
+      return true;
+    };
+    // Reverse postorder is child-before-parent. A shared ancestor receives the
+    // sum of every path before reserving from its own surviving owners.
+    for (auto i = order.rbegin(); i != order.rend(); ++i) {
+      auto &node = nodes[*i];
+      if (*i != 0) {
+        if (!node.delta)
+          continue;
+        if (node.delta > UINT64_MAX - node.resource->reserved)
+          return ResourceGrowth::Budget;
+        node.target = node.resource->reserved + node.delta;
+        node.reached = true;
+      }
+      for (auto *note = node.resource->observers; note; note = note->next) {
+        if (node.target <= note->charged)
+          continue;
+        const auto delta = node.target - note->charged;
+        if (!chargeCounter(note->scopeBytes, delta) || !chargeCounter(note->contextBytes, delta))
+          return ResourceGrowth::Budget;
+        changes.push_back({note, delta});
+        if (note->reserve == reserveResourceBudget) {
+          auto &parent = nodes[indices.at(static_cast<Backing *>(note->budget)->resource())];
+          if (delta > UINT64_MAX - parent.delta)
+            return ResourceGrowth::Budget;
+          parent.delta += delta;
+        }
+      }
+    }
+    // Allocate the journal before making externally visible reservations.
+    acquired.reserve(changes.size());
+    for (const auto &change : changes) {
+      auto *note = change.watch;
+      if (note->reserve == reserveResourceBudget)
+        continue;
+      if (!note->reserve(note->budget, change.bytes)) {
+        rollback();
+        return ResourceGrowth::Budget;
+      }
+      acquired.push_back(change);
+    }
+    if (requester && requester->poll()) {
+      rollback();
+      return ResourceGrowth::Stopped;
+    }
+    for (const auto &[counter, delta] : counters)
+      *counter += delta;
+    for (const auto &change : changes)
+      change.watch->charged += change.bytes;
+    for (const auto &node : nodes)
+      if (node.reached) {
+        node.resource->reserved += node.delta;
+        node.resource->bytes = node.target;
+      }
+    return ResourceGrowth::Ready;
+  } catch (...) {
+    rollback();
+    return ResourceGrowth::Budget;
+  }
+}
+bool reserveResourceBudget(void *p, std::uint64_t bytes) noexcept {
+  std::lock_guard lock(resourceAccountingMutex);
+  auto &resource = *static_cast<Backing *>(p)->resource();
+  if (bytes > UINT64_MAX - resource.reserved ||
+      growResource(resource, resource.reserved + bytes, nullptr) != ResourceGrowth::Ready)
+    return false;
+  resource.reserved += bytes;
+  return true;
+}
+void releaseResourceBudget(void *p, std::uint64_t bytes) noexcept {
+  std::lock_guard lock(resourceAccountingMutex);
+  auto &resource = *static_cast<Backing *>(p)->resource();
+  resource.reserved -= bytes;
+  resource.bytes = resource.reserved;
+}
+} // namespace
 bool Invocation::resizeResource(void *address, std::uint64_t bytes) noexcept {
   auto *owner = findOwner(address);
   if (!owner || !owner->backing->resource()) {
     fault(3);
     return false;
   }
-  // Constructor/retain publication registered the actual owning stores.
-  // The current temporary work scope may only borrow that owner; charging it
-  // again would add metadata and reservations to every growth operation.
   std::lock_guard lock(resourceAccountingMutex);
-  auto &resource = *owner->backing->resource();
-  auto *failed = resource.observers;
-  for (; failed; failed = failed->next) {
-    if (bytes <= failed->charged)
-      continue;
-    const auto delta = bytes - failed->charged;
-    if (delta > UINT64_MAX - *failed->contextBytes || delta > UINT64_MAX - *failed->scopeBytes ||
-        !failed->reserve(failed->budget, delta))
-      break;
-    *failed->scopeBytes += delta;
-    *failed->contextBytes += delta;
-  }
-  if (failed || poll()) {
-    for (auto *note = resource.observers; note != failed; note = note->next)
-      if (bytes > note->charged) {
-        const auto delta = bytes - note->charged;
-        *note->scopeBytes -= delta;
-        *note->contextBytes -= delta;
-        note->release(note->budget, delta);
-      }
-    if (failed)
-      fault(2);
-    return false;
-  }
-  for (auto *note = resource.observers; note; note = note->next) {
-    if (bytes <= note->charged)
-      continue;
-    note->charged = bytes;
-  }
-  resource.bytes = bytes;
-  return true;
+  const auto result = growResource(*owner->backing->resource(), bytes, this);
+  if (result == ResourceGrowth::Budget)
+    fault(2);
+  return result == ResourceGrowth::Ready;
 }
 AllocationLease::~AllocationLease() { releaseBacking(backing_); }
 AllocationLease::AllocationLease(AllocationLease &&other) noexcept
@@ -932,6 +1080,24 @@ void Invocation::bindRecursiveBudget(void *state, EnvironmentReserve reserve,
   ledgerState.recursiveBudget_ = state;
   ledgerState.recursiveReserve_ = reserve;
   ledgerState.recursiveRelease_ = release;
+}
+void Invocation::bindResourceBudget(Invocation &owner, void *allocation) noexcept {
+  auto *source = owner.findOwner(allocation);
+  if (!source || !source->backing->resource() || source->backing->cleanup != OwnedState::cleanup ||
+      source->backing->bytes < sizeof(OwnedState) + sizeof(ResourceAccounting) ||
+      static_cast<OwnedState *>(allocation)->kind != OwnedKind::Generator) {
+    fault(3);
+    return;
+  }
+  std::lock_guard lock(resourceAccountingMutex);
+  auto &resource = *source->backing->resource();
+  if (resource.aggregateBudget || resource.bytes) {
+    fault(3);
+    return;
+  }
+  bindRecursiveBudget(source->backing, reserveResourceBudget, releaseResourceBudget);
+  if (!status())
+    resource.aggregateBudget = true;
 }
 void *Invocation::allocateEnvironment(std::uint64_t bytes, const void *key) noexcept {
   if (poll())

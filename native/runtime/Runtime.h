@@ -136,6 +136,11 @@ public:
   // including after explicit release. The default scope settles with Invocation.
   void bindRecursiveBudget(void *state, EnvironmentReserve reserve,
                            EnvironmentRelease release) noexcept;
+  // Private independent-frame budget. The fresh context must settle before
+  // this Generator resource is destroyed; it never retains a self-reference.
+  // Charges follow every surviving owner of the resource, including while the
+  // bound context is dormant and another context grows retained backing.
+  void bindResourceBudget(Invocation &owner, void *allocation) noexcept;
   std::uint64_t recursiveBytes() const noexcept;
   void *allocateEnvironment(std::uint64_t bytes, const void *key) noexcept;
   // Borrow capture bytes from an environment already owned by this invocation.
