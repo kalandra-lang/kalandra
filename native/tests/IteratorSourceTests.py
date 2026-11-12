@@ -144,6 +144,27 @@ numeric('range-host-capture', '''fn answer(values:Range)->i64:
   return total
 ''', 12, 'steps(1,10,3)')
 
+if args.target != 'cpu':
+    run('host-cursor-through-gpu-await', '''from "std/iter" import iter, next, close
+from "std/option" import Option
+fn item(value:Option[i64])->i64:
+  return match value:
+    Option.None:-1
+    Option.Some {value}:value
+fn twice(value:i64)->i64:
+  return value*2
+fn main()->unit ! (IoError | TaskError):
+  cursor=iter(steps(3))
+  a=item(next(cursor))
+  result=try parallel:
+    gpu=devices.gpu()
+    try await spawn twice(21) on gpu
+  b=item(next(cursor))
+  close(cursor)
+  try println(format("{}:{}:{}",a,b,result))
+  return ()
+''', '0:1:42\n')
+
 if args.target == 'cpu':
     cursor_imports = '''from "std/iter" import Iterator, iter, next, close
 from "std/option" import Option

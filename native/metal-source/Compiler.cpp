@@ -13,6 +13,7 @@
 #include "../gpu-source/PointerBridge.h"
 #include "../gpu-source/Supervisor.h"
 #include "../gpu-source/TimeHostBridge.h"
+#include "../lib/IteratorHostBridge.h"
 #include "../lib/NativeLayout.h"
 #include "../lib/TaskValueCopy.h"
 #include "../metal/ElementwiseLayout.h"
@@ -115,6 +116,7 @@ class Compiler {
     ValueType result;
   };
   std::vector<BufferBridgeRequest> bufferBridges;
+  std::vector<IteratorBridgeRequest> iteratorBridges;
   std::vector<FileBridgeRequest> fileBridges;
   struct ParseBridgeRequest {
     std::string name;
@@ -1443,9 +1445,9 @@ class Compiler {
       for (const auto &name : sharedNominalKeys)
         linked->getNamedGlobal(name)->setLinkage(llvm::GlobalValue::InternalLinkage);
     if (!aggregateTypes.empty() || !callableTypes.empty() || hostText || hostTextArray ||
-        !consoleBridges.empty() || !bufferBridges.empty() || !fileBridges.empty() ||
-        !parseBridges.empty() || !pathBridges.empty() || !environmentBridges.empty() ||
-        !timeBridges.empty()) {
+        !consoleBridges.empty() || !bufferBridges.empty() || !iteratorBridges.empty() ||
+        !fileBridges.empty() || !parseBridges.empty() || !pathBridges.empty() ||
+        !environmentBridges.empty() || !timeBridges.empty()) {
       if (!linked) {
         linked = std::make_unique<llvm::Module>("gpu-host-layouts", context);
         linked->setDataLayout(nativeCpuDataLayout);
@@ -1512,6 +1514,7 @@ class Compiler {
         emitParseHostBridge(placement, *linked, request.operation, request.result, request.name);
       for (const auto &request : bufferBridges)
         emitBufferHostBridge(placement, *linked, request.operation, request.result, request.name);
+      emitIteratorHostBridges(placement, *linked, iteratorBridges);
       for (const auto &request : fileBridges)
         emitFileHostBridge(placement, *linked, request.operation, request.result, request.name);
       for (const auto &request : consoleBridges)
@@ -4037,7 +4040,22 @@ class Compiler {
         break;
       }
       case Code::Kernel:
-        if (const auto *buffer = std::get_if<BufferOperation>(&node(op.source).operation)) {
+        if (const auto *iterator = std::get_if<IteratorOperation>(&node(op.source).operation)) {
+          const auto output = get(op.output);
+          const auto bridge = "kalandra_gpu_iterator_" + std::to_string(iteratorBridges.size());
+          iteratorBridges.push_back({bridge, *iterator, plan.slots.at(op.output)});
+          declarations += "extern \"C\" void " + bridge +
+                          "(Invocation*,const void*const*,void*,void*,void*);\n";
+          const auto failure = output.failure ? "&" + failureRef(output) : "nullptr";
+          const auto error =
+              output.applicationError ? "&" + ref(applicationError(output)) : "nullptr";
+          steps.push_back("{const void *iterator_arguments[]={&" + ref(args.at(0)) + "};\n" +
+                          bridge + "(&task.context(),iterator_arguments,&" + ref(output) + "," +
+                          failure + "," + error +
+                          ");if(task.context().status()){hostArrayFailure(task);return;}"
+                          "if(task.cancelled())return;\n" +
+                          commitOutcome(output) + "}\n");
+        } else if (const auto *buffer = std::get_if<BufferOperation>(&node(op.source).operation)) {
           const auto output = get(op.output);
           const auto bridge = "kalandra_gpu_buffer_" + std::to_string(bufferBridges.size());
           bufferBridges.push_back({bridge, *buffer, plan.slots.at(op.output)});

@@ -4,6 +4,7 @@
 #include "EnvironmentLowering.h"
 #include "ErrorFamilies.h"
 #include "FileLowering.h"
+#include "IteratorHostBridge.h"
 #include "NativeCallFoundation.h"
 #include "NativeLayout.h"
 #include "NativeStack.h"
@@ -792,6 +793,33 @@ public:
     auto *result = frameLayout(type);
     finishRecordRetainers();
     return result;
+  }
+  void emitIteratorBridge(const IteratorBridgeRequest &request) {
+    auto *fn = function(request.name, voidType, {pointer, pointer, pointer, pointer, pointer});
+    fn->setLinkage(llvm::GlobalValue::ExternalLinkage);
+    builder.SetInsertPoint(Block::Create(context, "entry", fn));
+    auto *packetType = valueType(request.result);
+    auto *packet = builder.CreateAlloca(packetType);
+    auto *input = builder.CreateLoad(pointer, fn->getArg(1));
+    auto *done = Block::Create(context, "done", fn);
+    auto *failed = Block::Create(context, "faulted", fn);
+    emitIteratorOperation(request.operation, request.result, input, packet, fn->getArg(0), done,
+                          failed);
+    builder.SetInsertPoint(done);
+    copy(fn->getArg(2), builder.CreateStructGEP(packetType, packet, 1),
+         packetType->getElementType(1));
+    if (request.result.fallible) {
+      copy(fn->getArg(3), builder.CreateStructGEP(packetType, packet, 0), failureType);
+      if (request.result.errorRecord)
+        copy(fn->getArg(4), builder.CreateStructGEP(packetType, packet, 2),
+             packetType->getElementType(2));
+    }
+    builder.CreateRetVoid();
+    builder.SetInsertPoint(failed);
+    builder.CreateRetVoid();
+    finishRecordRetainers();
+    if (llvm::verifyFunction(*fn))
+      throw std::invalid_argument("iterator host bridge failed LLVM verification");
   }
 
 private:
@@ -3308,6 +3336,15 @@ std::vector<llvm::GlobalVariable *> emitTaskEntries(continuation::ModulePlan &pl
   Emitter emitter(planner, module);
   emitter.emitEntries();
   return emitter.taskEntries();
+}
+void emitIteratorHostBridges(const TypedModule &input, llvm::Module &module,
+                             std::span<const IteratorBridgeRequest> requests) {
+  if (requests.empty())
+    return;
+  continuation::ModulePlan planner(input);
+  Emitter emitter(planner, module);
+  for (const auto &request : requests)
+    emitter.emitIteratorBridge(request);
 }
 static std::expected<BackendOutput, std::string>
 lowerTaskNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
