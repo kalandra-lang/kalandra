@@ -4,6 +4,10 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'packaging'))
+from LoopCases import CASES
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--compiler', type=Path, required=True)
@@ -11,6 +15,8 @@ parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--variant', choices=('debug', 'optimized', 'sanitized', 'thread-sanitized'), required=True)
 parser.add_argument('--target', choices=('cpu', 'metal', 'vulkan', 'cuda'), default='cpu')
 parser.add_argument('--compile-only', action='store_true')
+parser.add_argument('--case', action='append', dest='cases',
+                    help='Run only this named case; repeat to select several cases.')
 args = parser.parse_args()
 args.compiler = args.compiler.resolve()
 args.output = args.output.resolve()
@@ -21,9 +27,14 @@ prelude = '''from "std/iter" import Range, range as steps
 from "std/io" import println, IoError
 from "std/fmt" import format
 '''
+selected = set(args.cases or [])
+executed = set()
 
 
 def run(name, source, expected, fault=False):
+    if selected and name not in selected:
+        return
+    executed.add(name)
     root = args.output / name
     root.mkdir(exist_ok=True)
     path = root / 'main.k'
@@ -72,6 +83,9 @@ def numeric(name, source, expected, arguments=''):
     main = main.replace('answer()', f'answer({arguments})')
     run(name, source + main, f'{expected}\n')
 
+
+numeric('match-loop-exits', CASES['match-loop-exits'][0].replace(
+    'fn main()->i64:', 'fn answer()->i64:'), CASES['match-loop-exits'][1])
 
 numeric('range-defaults-and-replay', '''fn sum(values:Range)->i64:
   total=0
@@ -213,6 +227,21 @@ fn main()->unit:
   close(right)
   return ()
 ''', '2:4:-1:-1:2\n')
+    run('cursor-match-break-and-continue', cursor_imports + '''fn main()->unit ! IoError:
+  cursor=iter(steps(5))
+  total=0
+  while true:
+    match next(cursor):
+      Option.None: break
+      Option.Some {value}:
+        if value==2:
+          continue
+        total=total+value
+        ()
+  close(cursor)
+  try println(format("{}",total))
+  return ()
+''', '8\n')
     run('cursor-return-transfer-and-partial-close', cursor_imports + '''fn make()->Iterator[i64,never]:
   return iter(steps(10,20,3))
 fn take(own cursor:Iterator[i64,never])->i64:
@@ -281,3 +310,6 @@ fn main()->unit ! IoError:
          '  for value in values:\n    value+1\n')):
         run(name, 'fn zero()->i64:\n  return 0\nfn main()->unit:\n  ' + creation + '\n' +
             traversal + '  return ()\n', '', fault=True)
+
+if selected:
+    assert executed == selected, f'Unknown or unavailable cases for {args.target}: {selected - executed}'

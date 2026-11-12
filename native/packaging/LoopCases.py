@@ -1,5 +1,28 @@
 """Shared executable contracts for statement/expression loops and lexical exits."""
 CASES = {
+    'match-loop-exits': ('''enum Action:
+  Skip
+  End
+  Keep
+fn main()->i64:
+  total=0
+  for value in range(7):
+    action=if value==2:
+      Action.Skip
+    else:
+      if value==5:
+        Action.End
+      else:
+        Action.Keep
+    match action:
+      Action.Skip:
+        continue
+      Action.End: break
+      Action.Keep:
+        total=total+value
+        ()
+  return total
+''', '8'),
     'while-break': ('''fn main()->i64:
   i=0
   result=while i<10:

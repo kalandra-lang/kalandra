@@ -52,6 +52,8 @@ Create a cursor at the beginning of a range. Each call creates an independent po
 
 h2 { "Iterable" }
 
+code { "Iterable.iterator(values: Self) -> Iterator[Self.Item, Self.Error]" }
+
 Iterable describes a reusable source. Its associated Item type specifies each item, and Error specifies failures while advancing the returned cursor. Its iterator function creates an owned Iterator[Self.Item, Self.Error]. Range implements this trait with Item equal to i64 and Error equal to never. A generic function can accept S: Iterable and call iter(values) without knowing the source's concrete representation. Trait dispatch is resolved during compilation.
 
 h2 { "next" }
@@ -68,13 +70,10 @@ from "std/fmt" import format
 fn main() -> unit ! IoError:
   cursor = iter(range(2, 7, 2))
   while true:
-    more = match next(cursor):
-      Option.None: false
+    match next(cursor):
+      Option.None: break
       Option.Some {value}:
         try println(format("{}", value))
-        true
-    if more == false:
-      break
   close(cursor)
   return ()
 """ }

@@ -1089,7 +1089,7 @@ private:
   std::optional<std::vector<Statement>> suite(bool statementsOnly = false) {
     std::vector<Statement> body;
     if (!consume(TokenKind::Newline)) {
-      if (statementsOnly || word("return")) {
+      if (statementsOnly || word("return") || word("break") || word("continue")) {
         auto statement = parseStatement();
         if (!statement)
           return {};
@@ -1135,8 +1135,7 @@ private:
       return {};
     if (body.empty() ||
         (!statementsOnly && (body.back().binding || (statementOnly(body.back().expression) &&
-                                                     !std::holds_alternative<ReturnExpr>(
-                                                         node(body.back().expression).value))))) {
+                                                     !exitsControl(body.back().expression))))) {
       error("P007", "body must end with a result expression", end->span);
       if (!result_.module.editorOnly)
         return {};
