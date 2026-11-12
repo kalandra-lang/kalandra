@@ -1,6 +1,6 @@
 #include "ArrayAccess.h"
 #include <algorithm>
-#include <limits>
+#include <compare>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -9,8 +9,35 @@
 
 namespace kalandra {
 namespace {
-using Roots = std::set<std::size_t>;
-constexpr auto unknown = std::numeric_limits<std::size_t>::max();
+// Storage identity must not depend on the current expression/symbol counts.
+// Distinct kinds keep a cursor's control cell separate from retained data, and
+// let loop aging preserve both identities without arithmetic namespace overlap.
+class StorageRoot {
+public:
+  enum class Kind : std::uint64_t { Local, Parameter, OldLocal, Data, OldData, Unknown = 127 };
+  static constexpr StorageRoot make(Kind kind, std::size_t identity) {
+    return StorageRoot((std::uint64_t(kind) << 56) | identity);
+  }
+  constexpr Kind kind() const { return Kind((bits_ >> 56) & 127); }
+  constexpr std::size_t identity() const { return bits_ & ((UINT64_C(1) << 56) - 1); }
+  constexpr bool borrowed() const { return bits_ >> 63; }
+  constexpr StorageRoot borrow() const { return StorageRoot(bits_ | (UINT64_C(1) << 63)); }
+  constexpr StorageRoot data() const { return StorageRoot(bits_ & ~(UINT64_C(1) << 63)); }
+  constexpr StorageRoot aged() const {
+    const auto next = kind() == Kind::Local  ? Kind::OldLocal
+                      : kind() == Kind::Data ? Kind::OldData
+                                             : kind();
+    return StorageRoot((bits_ & (UINT64_C(1) << 63)) | (std::uint64_t(next) << 56) | identity());
+  }
+  auto operator<=>(const StorageRoot &) const = default;
+
+private:
+  explicit constexpr StorageRoot(std::uint64_t bits) : bits_(bits) {}
+  std::uint64_t bits_;
+};
+static_assert(sizeof(StorageRoot) == sizeof(std::uint64_t));
+using Roots = std::set<StorageRoot>;
+constexpr auto unknown = StorageRoot::make(StorageRoot::Kind::Unknown, 0);
 struct Exhausted {};
 struct Summary {
   std::set<std::size_t> parameters;
@@ -21,7 +48,7 @@ struct LoopFlow;
 struct Environment {
   std::unordered_map<ValueId, Roots> values, inputs;
   std::unordered_map<SymbolId, Roots> symbols;
-  std::map<ValueId, Roots> readers;
+  std::map<StorageRoot, Roots> readers;
   bool stopped = false;
   std::set<SymbolId> moved;
   std::map<std::size_t, LoopFlow *> loops;
@@ -88,7 +115,7 @@ public:
           else if (freshRoot(root))
             next.fresh = true;
           else {
-            const auto symbol = root - module.expressions.size();
+            const auto symbol = root.identity();
             const auto &parameters = module.functions[fn].parameters;
             const auto found = std::ranges::find(parameters, symbol);
             if (found == parameters.end())
@@ -122,20 +149,22 @@ private:
   std::vector<Diagnostic> diagnostics;
   std::size_t budget = 1000000, depth = 0;
   bool checking = false;
+  SourceSpan readerSpan(StorageRoot reader) const {
+    return reader.kind() == StorageRoot::Kind::Parameter
+               ? module.symbols.at(reader.identity()).declaration
+               : module.expressions.at(reader.identity()).span;
+  }
   std::string resourceName(const ValueType &type) const {
     return isIterator(module, type)     ? "Iterator"
            : isByteBuffer(module, type) ? "ByteBuffer"
                                         : "file handle";
   }
-  std::map<std::size_t, bool> writable;
+  std::map<StorageRoot, bool> writable;
   std::map<ValueId, std::set<ValueId>> loopAllocations;
-  std::size_t parameterEnd() const { return module.expressions.size() + module.symbols.size(); }
-  bool parameterRoot(std::size_t root) const {
-    return root >= module.expressions.size() && root < parameterEnd();
-  }
-  bool freshRoot(std::size_t root) const {
-    return root < module.expressions.size() ||
-           (root >= parameterEnd() && root - parameterEnd() < module.expressions.size());
+  bool parameterRoot(StorageRoot root) const { return root.kind() == StorageRoot::Kind::Parameter; }
+  bool freshRoot(StorageRoot root) const {
+    return root.kind() == StorageRoot::Kind::Local || root.kind() == StorageRoot::Kind::OldLocal ||
+           root.kind() == StorageRoot::Kind::Data || root.kind() == StorageRoot::Kind::OldData;
   }
   // Recency is scoped to the loop's structural expression graph. Never age
   // unrelated allocations: a surrounding expression can hold a destination
@@ -257,8 +286,9 @@ private:
       spend(roots.size());
       Roots next;
       for (auto root : roots) {
-        if (root < module.expressions.size() && sites.contains(root)) {
-          const auto old = parameterEnd() + root;
+        if ((root.kind() == StorageRoot::Kind::Local || root.kind() == StorageRoot::Kind::Data) &&
+            sites.contains(root.identity())) {
+          const auto old = root.aged();
           writable[old] = writable.at(root);
           root = old;
         }
@@ -316,8 +346,9 @@ private:
     return false;
   }
   Roots fresh(ValueId id) {
-    writable[id] = true;
-    return {id};
+    const auto root = StorageRoot::make(StorageRoot::Kind::Local, id);
+    writable[root] = true;
+    return {root};
   }
   bool overlap(const Roots &a, const Roots &b) {
     if (a.empty() || b.empty())
@@ -332,7 +363,7 @@ private:
       if (parameterRoot(root))
         for (auto other : b)
           if (parameterRoot(other)) {
-            const auto a = root - module.expressions.size(), b = other - module.expressions.size();
+            const auto a = root.identity(), b = other.identity();
             if (isOwnedResource(module, module.symbols[a].type) &&
                 isOwnedResource(module, module.symbols[b].type))
               continue;
@@ -370,7 +401,7 @@ private:
     }
     for (const auto &[reader, protectedRoots] : env.readers)
       if (overlap(roots, protectedRoots)) {
-        const auto [line, column] = module.source->location(module.expressions[reader].span.begin);
+        const auto [line, column] = module.source->location(readerSpan(reader).begin);
         diagnostics.push_back({"S077",
                                (file ? "can't access file handle while task at "
                                 : isByteBuffer(module, module.expressions[id].type)
@@ -447,7 +478,7 @@ private:
       return;
     for (auto root : roots) {
       if (parameterRoot(root)) {
-        const auto symbol = root - module.expressions.size();
+        const auto symbol = root.identity();
         if (isOwnedResource(module, module.symbols[symbol].type) && !module.symbols[symbol].owned &&
             checking)
           diagnostics.push_back({"S081",
@@ -491,7 +522,7 @@ private:
     const auto &function = module.functions[id];
     for (auto symbol : function.parameters)
       if (storage(module.symbols[symbol].type)) {
-        const auto root = module.expressions.size() + symbol;
+        const auto root = StorageRoot::make(StorageRoot::Kind::Parameter, symbol);
         env.symbols[symbol] = {root};
         writable[root] = module.symbols[symbol].mutableAccess || module.symbols[symbol].owned ||
                          isFileResource(module, module.symbols[symbol].type);
@@ -680,13 +711,14 @@ private:
           } else if constexpr (std::is_same_v<T, TaskOperation>) {
             auto value = evaluate(op.operand, env, op.prefix == TaskPrefix::Spawn);
             if (op.prefix == TaskPrefix::Spawn)
-              env.readers[id] = env.inputs[op.operand];
+              env.readers[StorageRoot::make(StorageRoot::Kind::Local, id)] = env.inputs[op.operand];
             else if (op.prefix == TaskPrefix::Await) {
               // Task identity survives a local alias. Cancellation alone never
               // reaches this settlement edge and therefore never removes a reader.
               const auto identity = module.expressions[op.operand].type.identity;
               std::erase_if(env.readers, [&](const auto &reader) {
-                return module.expressions[reader.first].type.identity == identity;
+                return reader.first.kind() == StorageRoot::Kind::Local &&
+                       module.expressions[reader.first.identity()].type.identity == identity;
               });
             }
             return value;
@@ -836,7 +868,7 @@ private:
           } else if constexpr (std::is_same_v<T, MatchOperation>) {
             input(op.subject);
             Roots value;
-            std::map<ValueId, Roots> readers;
+            std::map<StorageRoot, Roots> readers;
             auto incoming = fork(env);
             for (auto &[symbol, roots] : env.symbols)
               roots.clear();
