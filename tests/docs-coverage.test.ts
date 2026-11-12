@@ -17,9 +17,9 @@ test("every authored documentation page has an execution-plan entry", async () =
 
 test("every compiler-provided callable has a signature and public reference entry", async () => {
   const semantics = await read("native/lib/Semantics.cpp");
-  const start = semantics.indexOf("  invoke(Frame &frame,");
+  const start = semantics.search(/\binvoke\(Frame\s*&frame\s*,/);
   expect(start).toBeGreaterThan(0);
-  const end = semantics.indexOf("    const auto id = found->second;", start);
+  const end = semantics.indexOf("    const auto id = concreteTarget", start);
   expect(end).toBeGreaterThan(start);
   const dispatch = semantics.slice(start, end);
   const names = new Set(
