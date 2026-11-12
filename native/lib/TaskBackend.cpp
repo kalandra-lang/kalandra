@@ -1741,12 +1741,16 @@ private:
     // or callable ordinals. Address-significant schema tokens survive LLVM
     // component linking and cannot collide merely because widths match. Do not
     // mark these constants unnamed_addr: distinct types need distinct addresses.
-    const auto name = "kalandra_payload_schema_v1." + payloadSchema(type);
+    const auto schema = payloadSchema(type);
+    const auto name = "kalandra_payload_schema_v1." + schema;
     auto *token = module.getNamedGlobal(name);
     if (!token) {
-      token =
-          new llvm::GlobalVariable(module, builder.getInt8Ty(), true,
-                                   llvm::GlobalValue::LinkOnceODRLinkage, builder.getInt8(0), name);
+      // Distinct contents also protect against aggressive readonly COMDAT
+      // folding in Windows linkers. A common zero byte would not provide that
+      // guarantee, even with LLVM address significance preserved.
+      auto *bytes = llvm::ConstantDataArray::getString(context, schema);
+      token = new llvm::GlobalVariable(module, bytes->getType(), true,
+                                       llvm::GlobalValue::LinkOnceODRLinkage, bytes, name);
       token->setVisibility(llvm::GlobalValue::HiddenVisibility);
       if (module.getTargetTriple().isOSBinFormatCOFF())
         token->setComdat(module.getOrInsertComdat(name));

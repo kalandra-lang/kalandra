@@ -658,6 +658,13 @@ int main(int argc, char **argv) {
     }
     ordered[1]->setName("iterator_wrong_item");
     ordered[1]->setLinkage(llvm::GlobalValue::ExternalLinkage);
+    const auto token = [&](llvm::GlobalVariable *layout) {
+      return llvm::cast<llvm::GlobalVariable>(
+          llvm::cast<llvm::ConstantExpr>(identity(layout))->getOperand(0));
+    };
+    require(token(ordered[0])->getInitializer() != token(ordered[1])->getInitializer() &&
+                token(ordered[2])->getInitializer() != token(ordered[3])->getInitializer(),
+            "distinct payload tokens have identical readonly contents and could be folded by ICF");
     auto component = std::make_unique<llvm::Module>("iterator-consumer-component", llvmContext);
     component->setDataLayout(native->getDataLayout());
     component->setTargetTriple(native->getTargetTriple());
