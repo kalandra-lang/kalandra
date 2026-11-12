@@ -1111,6 +1111,8 @@ private:
           header.standard = StandardRecord::Line;
         if (syntax_.standardModules[origin] == StandardModule::Parse && label == "ParseError")
           header.standard = StandardRecord::ParseError;
+        if (syntax_.standardModules[origin] == StandardModule::Iteration && label == "Range")
+          header.standard = StandardRecord::Range;
         if (syntax_.standardModules[origin] == StandardModule::Time) {
           if (label == "Instant")
             header.standard = StandardRecord::Instant;
@@ -2143,6 +2145,7 @@ private:
     output_.functions[id].compileTimeOnly = standardFormat(id);
     auto result = standardFormat(id)   ? add(frame, *output_.functions[id].declaredResult,
                                              syntax_.functions[id].span, StringLiteral{std::string{}})
+                  : standardRange(id)  ? rangeBody(frame, id)
                   : standardBuffer(id) ? bufferBody(frame, id, *standardBuffer(id))
                   : standardTime(id)   ? timeBody(frame, id, *standardTime(id))
                   : standardEnvironmentLookup(id) ? environmentBody(frame, id)
@@ -2155,7 +2158,7 @@ private:
                                       syntax_.functions[id].span, parameters);
     if ((standardFormat(id) || standardConsole(id) || standardFile(id) || standardParse(id) ||
          standardPath(id) || standardEnvironmentLookup(id) || standardTime(id) ||
-         standardBuffer(id)) &&
+         standardRange(id) || standardBuffer(id)) &&
         result)
       statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);
@@ -4468,37 +4471,8 @@ private:
     const auto read = [&](SymbolId symbol) {
       return add(frame, output_.symbols[symbol].type, span, SymbolRead{symbol});
     };
-    ValueId condition;
-    const auto *call = std::get_if<CallExpr>(&syntax_.expressions[loop.input].value);
-    const auto *callee =
-        call ? std::get_if<NameExpr>(&syntax_.expressions[call->callee].value) : nullptr;
-    if (callee && name(callee->name) == "range") {
-      if (call->arguments.empty() || call->arguments.size() > 3) {
-        error("S076", "range expects stop, start/stop, or start/stop/step",
-              syntax_.expressions[loop.input].span);
-        return {};
-      }
-      std::vector<ValueId> arguments;
-      for (auto argument : call->arguments) {
-        auto value = expression(frame, argument, integer);
-        if (!value)
-          return {};
-        if (!sameFunctionValueType(node(*value).type, integer)) {
-          error("S076", "range arguments require completed int scalars", node(*value).span);
-          return {};
-        }
-        auto symbol = bind(*value, false, initial);
-        auto pinned = read(symbol);
-        if (!pinned)
-          return {};
-        arguments.push_back(*pinned);
-      }
-      auto zero = literal(0), one = literal(1);
-      if (!zero || !one)
-        return {};
-      const auto start = arguments.size() == 1 ? *zero : arguments[0];
-      const auto stop = arguments.size() == 1 ? arguments[0] : arguments[1];
-      const auto step = arguments.size() == 3 ? arguments[2] : *one;
+    const auto rangeCondition = [&](ValueId start, ValueId stop, ValueId step)
+        -> std::optional<ValueId> {
       auto checked =
           add(frame, integer, span,
               IntegerRangeOperation{IntegerRangeOperation::Kind::Validate, start, stop, step});
@@ -4513,7 +4487,6 @@ private:
               IntegerRangeOperation{IntegerRangeOperation::Kind::Test, *position, stop, step});
       if (!test)
         return {};
-      condition = *test;
       // Capture the iteration value before advancement. Continue therefore
       // reaches the next value, while body writes cannot alter the range.
       auto item = read(current);
@@ -4526,13 +4499,76 @@ private:
       if (!advance)
         return {};
       iteration.push_back({span, current, *advance});
+      return *test;
+    };
+    ValueId condition;
+    const auto *call = std::get_if<CallExpr>(&syntax_.expressions[loop.input].value);
+    const auto *callee =
+        call ? std::get_if<NameExpr>(&syntax_.expressions[call->callee].value) : nullptr;
+    const auto rangeTarget = functions_.find(functionKey(frame, "range"));
+    if (callee && name(callee->name) == "range" && !lookupSymbol(frame, callee->name) &&
+        (rangeTarget == functions_.end() || standardRange(rangeTarget->second))) {
+      if (call->arguments.empty() || call->arguments.size() > 3) {
+        error("S076", "range expects stop, start/stop, or start/stop/step",
+              syntax_.expressions[loop.input].span);
+        return {};
+      }
+      std::vector<ValueId> arguments;
+      for (auto argument : call->arguments) {
+        auto value = expression(frame, argument, integer);
+        if (!value)
+          return {};
+        if (!sameFunctionValueType(node(*value).type, integer)) {
+          error("S076", "range arguments require completed i64 scalars", node(*value).span);
+          return {};
+        }
+        auto symbol = bind(*value, false, initial);
+        auto pinned = read(symbol);
+        if (!pinned)
+          return {};
+        arguments.push_back(*pinned);
+      }
+      auto zero = literal(0), one = literal(1);
+      if (!zero || !one)
+        return {};
+      const auto start = arguments.size() == 1 ? *zero : arguments[0];
+      const auto stop = arguments.size() == 1 ? arguments[0] : arguments[1];
+      const auto step = arguments.size() == 3 ? arguments[2] : *one;
+      auto ranged = rangeCondition(start, stop, step);
+      if (!ranged)
+        return {};
+      condition = *ranged;
     } else {
       auto input = expression(frame, loop.input);
       if (!input)
         return {};
       const auto type = node(*input).type;
+      if (!type.tensor && !type.array && !type.task && !type.fallible && !type.device &&
+          type.record && output_.records[*type.record].standard == StandardRecord::Range) {
+        const auto source = bind(*input, false, initial);
+        auto values = read(source);
+        if (!values)
+          return {};
+        std::vector<ValueId> fields;
+        for (std::size_t field = 0; field < 3; ++field) {
+          auto value = add(frame, integer, span, RecordFieldRead{*values, field});
+          if (!value)
+            return {};
+          const auto pinned = bind(*value, false, initial);
+          auto saved = read(pinned);
+          if (!saved)
+            return {};
+          fields.push_back(*saved);
+        }
+        auto ranged = rangeCondition(fields[0], fields[1], fields[2]);
+        if (!ranged)
+          return {};
+        return checkLoop(
+            frame, span, WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting},
+            expected, *ranged, std::move(nested), std::move(initial), std::move(iteration));
+      }
       if (!type.array || type.task || type.fallible || type.device) {
-        error("S076", "for expects a completed CPU array or range(...) iterable",
+        error("S076", "for expects a completed CPU array, Range or range(...) iterable",
               node(*input).span);
         return {};
       }
@@ -6530,6 +6566,13 @@ private:
     if (!signatures_[id])
       return {};
     const bool signatureQuery = queryingSignature(span);
+    if (standardRange(id) && signatureQuery)
+      return rangeSignature(frame, id, span, arguments);
+    if (standardRange(id) && !concreteArguments && !signatureQuery && !completingArgument(arguments)) {
+      concreteArguments = rangeArguments(frame, span, arguments);
+      if (!concreteArguments)
+        return {};
+    }
     const auto slot = signatureQuery ? options_.signature->argumentIndex : std::nullopt;
     const bool projected = slot && *slot < arguments.size() &&
                            *slot < output_.functions[id].parameters.size() &&
@@ -6559,7 +6602,8 @@ private:
         }
       }
     }
-    if (arguments.size() != output_.functions[id].parameters.size()) {
+    if ((concreteArguments ? concreteArguments->size() : arguments.size()) !=
+        output_.functions[id].parameters.size()) {
       error("S027", "wrong argument count for '" + callee + "'", span);
       return {};
     }
@@ -6580,7 +6624,8 @@ private:
       for (std::size_t i = 0; i < operands.size(); ++i) {
         auto value =
             conform(frame, operands[i], output_.symbols[output_.functions[id].parameters[i]].type,
-                    syntax_.expressions[arguments[i]].span, options_.placement && spawned);
+                    i < arguments.size() ? syntax_.expressions[arguments[i]].span : span,
+                    options_.placement && spawned);
         if (!value)
           return {};
         operands[i] = *value;
@@ -6664,6 +6709,7 @@ private:
   }
 #include "GenericChecking.h"
 #include "NeverChecking.h"
+#include "IterationChecking.h"
   std::size_t nextLoop_ = 1;
   Module syntax_;
   SemanticLimits limits_;

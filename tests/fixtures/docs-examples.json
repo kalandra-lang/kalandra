@@ -568,5 +568,11 @@
       "kind": "cpu",
       "expected": "42:7"
     }
+  ],
+  "iteration": [
+    {
+      "kind": "cpu",
+      "expected": "24"
+    }
   ]
 }

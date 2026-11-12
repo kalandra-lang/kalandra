@@ -469,7 +469,8 @@ enum class StandardRecord {
   EnvValue,
   Instant,
   Duration,
-  TimeError
+  TimeError,
+  Range
 };
 struct TypedRecord {
   std::string name;

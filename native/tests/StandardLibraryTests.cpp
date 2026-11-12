@@ -26,17 +26,17 @@ int main(int argc, char **argv) {
                     "open\nfrom \"std/path\" import join\nfrom \"std/parse\" import parseI64, "
                     "ParseError\nfrom \"std/env\" import get\nfrom \"std/time\" import now\nfrom "
                     "\"./helper.k\" import "
-                    "helper\nfrom \"std/option\" import Option\nfn main()->unit:\n  return\n");
+                    "helper\nfrom \"std/option\" import Option\nfrom \"std/iter\" import Range, range\nfn main()->unit:\n  return\n");
     write("helper.k", "from \"std/io\" import println\nexport fn helper()->unit:\n  return\n");
     auto loaded = loadModules((root / "main.k").string());
     require(loaded && loaded->ok(), "standard imports did not parse");
     const auto &module = loaded->module;
-    require(module.standardModules.size() == 12, "standard modules were duplicated or omitted");
+    require(module.standardModules.size() == 13, "standard modules were duplicated or omitted");
     require(!module.standardModules[0], "ordinary root acquired standard identity");
     for (const auto kind : {StandardModule::Io, StandardModule::Format, StandardModule::Process,
                             StandardModule::Filesystem, StandardModule::Buffer,
                             StandardModule::Parse, StandardModule::Path, StandardModule::Env,
-                            StandardModule::Time, StandardModule::Option}) {
+                            StandardModule::Time, StandardModule::Option, StandardModule::Iteration}) {
       require(std::ranges::count(module.standardModules, std::optional(kind)) == 1,
               "standard module identity not canonical");
     }

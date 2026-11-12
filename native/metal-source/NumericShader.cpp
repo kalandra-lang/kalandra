@@ -1038,7 +1038,7 @@ bool usesScalarControl(const TypedModule &input, FunctionId function) {
              fn.expressions,
              [&](auto id) {
                const auto &op = input.expressions.at(id).operation;
-               if (input.expressions.at(id).type.array ||
+               if (input.expressions.at(id).type.array || input.expressions.at(id).type.record ||
                    (!fn.resultType.tensor && std::holds_alternative<TensorIndex>(op)))
                  return true;
                if (std::holds_alternative<WhileOperation>(op))

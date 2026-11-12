@@ -99,6 +99,19 @@ inline std::optional<Diagnostic> recordFieldError(const TypedModule &module) {
       return fail("non-union type carries error origins", record.declaration);
     if (record.fields.empty())
       return fail("record declarations require fields", record.declaration);
+    if (record.standard == StandardRecord::Range) {
+      if (record.error || record.uninhabited || !record.variants.empty() || record.fields.size() != 3)
+        return fail("invalid standard Range layout", record.declaration);
+      const std::string_view names[]{"start", "stop", "step"};
+      for (std::size_t i = 0; i < 3; ++i) {
+        const auto &field = record.fields[i];
+        const auto &type = field.type;
+        if (field.name != names[i] || type.builtin != BuiltinValue::Numeric ||
+            type.element != NumericType::Int64 || type.tensor || type.array || type.task ||
+            type.fallible || type.device || type.record)
+          return fail("standard Range fields require start/stop/step i64 scalars", field.declaration);
+      }
+    }
     if (record.uninhabited) {
       const auto &tag = record.fields.front().type;
       if (sawNever || record.name != "never" || !record.error || record.taskErrorFamily ||

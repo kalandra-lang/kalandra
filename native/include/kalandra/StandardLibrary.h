@@ -12,9 +12,12 @@ enum class StandardModule {
   Path,
   Env,
   Time,
-  Option
+  Option,
+  Iteration
 };
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/iter")
+    return StandardModule::Iteration;
   if (name == "std/option")
     return StandardModule::Option;
   if (name == "std/buffer")
@@ -39,6 +42,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Iteration:
+    return "kalandra-stdlib:std/iter.k";
   case StandardModule::Option:
     return "kalandra-stdlib:std/option.k";
   case StandardModule::Buffer:
@@ -63,6 +68,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Iteration))
+    return StandardModule::Iteration;
   if (path == standardModulePath(StandardModule::Option))
     return StandardModule::Option;
   if (path == standardModulePath(StandardModule::Buffer))
@@ -90,6 +97,14 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Iteration:
+    return R"k(export type Range:
+  start: i64
+  stop: i64
+  step: i64
+export fn range(start: i64, stop: i64, step: i64) -> Range:
+  return __kalandra_range(start, stop, step)
+)k";
   case StandardModule::Option:
     return R"k(export enum Option[T]:
   None

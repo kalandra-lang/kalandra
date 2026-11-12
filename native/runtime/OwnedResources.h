@@ -7,12 +7,15 @@ namespace kalandra::runtime {
 struct OwnedDescriptor {
   CpuTensor<NumericType::UInt8, 1> storage;
 };
-enum class OwnedKind { File, ByteBuffer };
+enum class OwnedKind { File, ByteBuffer, Generator };
 struct ResourceScope;
 struct OwnedState {
   std::mutex mutex;
   ResourceScope *scope = nullptr;
   AllocationLease scopeOwner;
+  // A linked scope keeps a resource pinned until its detached cleanup runs.
+  AllocationLease scopePin;
+  OwnedState *retirementNext = nullptr;
   OwnedState *previous = nullptr, *next = nullptr;
   std::atomic<bool> retired{false};
   OwnedKind kind;

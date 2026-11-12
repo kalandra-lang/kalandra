@@ -59,6 +59,27 @@ persistent state to bounded invocation-owned storage and release it at close.
 Existing resumable call frames provide useful control-flow machinery but are
 not an independently owned generator representation by themselves.
 
+The synchronous frame bridge has its own backing ledger. It borrows the active
+caller's cancellation token only during construction or advancement and clears
+that binding before becoming dormant. Its budget adapter charges retained state
+through the frame resource's live owning scopes, rather than retaining a raw
+creator-task budget pointer. Captured graphs can outlive their creator. Produced
+values are retained into the receiver before terminal cleanup retires storage.
+The bridge neither allocates nor submits a scheduler task for a cursor.
+
+Resource retirement detaches scope members under the registry mutex, then runs
+cleanup outside that mutex. A backing pin protects each detached member. Nested
+scope cleanup adds members to a per-thread intrusive retirement queue, drained
+iteratively without allocating a cleanup stack. This is lifetime bookkeeping;
+it is not an ambient invocation, source finalizer or scheduler callback. An
+in-flight foreign operation keeps its existing resource pin and stop rules.
+
+A producer's expected error is reported once, closes its frame, and is followed
+by sticky exhaustion on later advancement. Runtime faults and cancellation keep
+their existing invocation precedence; an infallible expected-error channel does
+not disable those checks. Reentrant or overlapping private-ABI advancement is
+rejected before touching suspended locals, in addition to source ownership checks.
+
 Specialize source, adapter and item types before lowering. Direct iteration of
 arrays/ranges and statically known lazy pipelines should lower to ordinary loops
 without allocating a frame per element or adding an indirect call per element.

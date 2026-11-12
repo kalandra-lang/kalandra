@@ -106,6 +106,21 @@ int main(int argc, char **argv) {
     require(bottom != malformed.records.end(), "never lost its canonical empty type");
     bottom->variants.push_back({"Forged", {}, {}});
     require(bool(recordFieldError(malformed)), "an inhabited never type passed IR validation");
+    auto ranges = checkSource("from \"std/iter\" import Range, range as steps\n"
+                              "fn sum(values:Range)->i64:\n  total=0\n"
+                              "  for value in values:\n    total=total+value\n  return total\n"
+                              "fn main()->i64:\n  values=steps(10,0,-2)\n"
+                              "  return sum(values)+sum(steps(4))+sum(steps(2,5))\n");
+    for (const auto &d : ranges.diagnostics)
+      std::cerr << renderDiagnostic(*ranges.source, d);
+    require(ranges.ok(), "first-class reusable Range values failed source checking");
+    auto forgedRange = *ranges.module;
+    auto range = std::ranges::find_if(forgedRange.records, [](const auto &r) {
+      return r.standard == StandardRecord::Range;
+    });
+    require(range != forgedRange.records.end(), "Range lost its standard nominal identity");
+    range->fields[2].type.builtin = BuiltinValue::Bool;
+    require(bool(recordFieldError(forgedRange)), "a forged Range field passed layout validation");
     std::cout
         << "PASS: canonical Option aliases, specialization, ownership and exhaustion contracts\n";
   } catch (const std::exception &error) {

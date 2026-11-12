@@ -1,0 +1,45 @@
+#pragma once
+#include "OwnedResources.h"
+#include "Tasks.h"
+namespace kalandra::runtime {
+enum class GeneratorStep : std::uint32_t { Item, Exhausted, Error, Stopped };
+// Trusted, static compiler descriptors. A cursor has its own ledger and frame,
+// but no TaskCore, scheduler admission record, worker or thread. resume runs only
+// to the next item/terminal result; source-level suspension uses a separate
+// continuation bridge rather than blocking a scheduler worker in this callback.
+// A failing construct cleans partial payload fields itself; its managed backing
+// is settled by the frame. A successful resume initializes the selected result.
+struct GeneratorEntry {
+  std::uint32_t revision;
+  std::size_t frameBytes, frameAlignment;
+  bool (*construct)(Invocation &, void *, const Packet &);
+  void (*destroy)(void *) noexcept;
+  GeneratorStep (*resume)(Invocation &, void *, void *);
+  const ValueLayout *item;
+  const ValueLayout *error; // null for `never`, with no error storage or wrapper
+};
+using GeneratorDescriptor = OwnedDescriptor;
+// The compiler creates capture packets after evaluating source expressions in
+// order. Construction only snapshots/retains captures; it never advances a body.
+GeneratorDescriptor generatorCreate(Invocation &, const GeneratorEntry &, const Packet &) noexcept;
+GeneratorStep generatorNext(Invocation &, const GeneratorDescriptor &, const ValueLayout &item,
+                            const ValueLayout *error, void *output, void *failure) noexcept;
+bool generatorClose(Invocation &, const GeneratorDescriptor &) noexcept;
+} // namespace kalandra::runtime
+extern "C" {
+void kalandra_generator_create_v1(kalandra::runtime::Invocation *,
+                                  kalandra::runtime::GeneratorDescriptor *,
+                                  const kalandra::runtime::GeneratorEntry *,
+                                  const kalandra::runtime::Packet *) noexcept;
+std::uint32_t kalandra_generator_next_v1(kalandra::runtime::Invocation *,
+                                         const kalandra::runtime::GeneratorDescriptor *,
+                                         const kalandra::runtime::ValueLayout *,
+                                         const kalandra::runtime::ValueLayout *, void *,
+                                         void *) noexcept;
+bool kalandra_generator_close_v1(kalandra::runtime::Invocation *,
+                                  const kalandra::runtime::GeneratorDescriptor *) noexcept;
+}
+static_assert(sizeof(kalandra::runtime::GeneratorEntry) == 64 &&
+              alignof(kalandra::runtime::GeneratorEntry) == 8 &&
+              offsetof(kalandra::runtime::GeneratorEntry, item) == 48 &&
+              offsetof(kalandra::runtime::GeneratorEntry, error) == 56);

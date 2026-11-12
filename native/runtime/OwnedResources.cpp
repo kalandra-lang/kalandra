@@ -1,6 +1,45 @@
 #include "OwnedResources.h"
 #include <utility>
 namespace kalandra::runtime {
+namespace {
+// Nested owned scopes can retire without nesting C++ cleanup frames. No source
+// code or scheduler work runs here, and this is not a current Invocation.
+struct RetirementQueue {
+  OwnedState *first = nullptr, *last = nullptr;
+  bool draining = false;
+  void append(OwnedState &value) noexcept {
+    value.retirementNext = nullptr;
+    if (last)
+      last->retirementNext = &value;
+    else
+      first = &value;
+    last = &value;
+  }
+  void drain() noexcept {
+    if (draining)
+      return;
+    draining = true;
+    while (first) {
+      auto *value = first;
+      first = std::exchange(value->retirementNext, nullptr);
+      if (!first)
+        last = nullptr;
+      auto pin = std::move(value->scopePin);
+      auto scopeOwner = std::move(value->scopeOwner);
+      {
+        std::unique_lock access(value->mutex, std::try_to_lock);
+        if (access)
+          value->retire(value);
+      }
+      // In-flight foreign I/O may hold the state mutex. Its own backing pin
+      // keeps the retired state alive until the operation ends. Both pins
+      // release after the state lock, outside the registry lock.
+    }
+    draining = false;
+  }
+};
+thread_local RetirementQueue retirements;
+} // namespace
 std::mutex &resourceMutex() {
   static auto *value = new std::mutex;
   return *value;
@@ -24,37 +63,48 @@ OwnedState::~OwnedState() {
 ResourceControl::~ResourceControl() {
   if (!scope)
     return;
-  std::lock_guard lock(resourceMutex());
-  scope->active = false;
-  while (scope->first) {
-    auto *value = scope->first;
-    value->detach();
-    value->scopeOwner = {};
-    value->retired.store(true, std::memory_order_release);
-    std::unique_lock access(value->mutex, std::try_to_lock);
-    if (access)
-      value->retire(value);
+  {
+    std::lock_guard lock(resourceMutex());
+    scope->active = false;
+    while (scope->first) {
+      auto *value = scope->first;
+      value->detach();
+      value->retired.store(true, std::memory_order_release);
+      retirements.append(*value);
+    }
   }
+  retirements.drain();
 }
 ResourceControl *currentScope(Invocation &ctx) noexcept {
   return static_cast<ResourceControl *>(ctx.latestControl(ResourceControl::cleanup));
 }
 void adopt(Invocation &ctx, OwnedState &file, ResourceScope *scope) noexcept {
   auto owner = scope ? ctx.lease(scope) : std::optional<AllocationLease>{};
-  if (scope && !owner) {
+  auto pin = scope ? ctx.lease(&file) : std::optional<AllocationLease>{};
+  if (scope && (!owner || !pin)) {
     ctx.fault(3);
     return;
   }
-  std::lock_guard lock(resourceMutex());
-  file.detach();
-  file.scopeOwner = owner ? std::move(*owner) : AllocationLease{};
-  if (!scope)
-    return;
-  file.scope = scope;
-  file.next = scope->first;
-  if (file.next)
-    file.next->previous = &file;
-  scope->first = &file;
+  AllocationLease previousOwner, previousPin;
+  {
+    std::lock_guard lock(resourceMutex());
+    if (file.retired.load(std::memory_order_acquire) || (scope && !scope->active)) {
+      ctx.fault(3);
+      return;
+    }
+    file.detach();
+    previousOwner = std::move(file.scopeOwner);
+    previousPin = std::move(file.scopePin);
+    file.scopeOwner = owner ? std::move(*owner) : AllocationLease{};
+    file.scopePin = pin ? std::move(*pin) : AllocationLease{};
+    if (scope) {
+      file.scope = scope;
+      file.next = scope->first;
+      if (file.next)
+        file.next->previous = &file;
+      scope->first = &file;
+    }
+  }
 }
 OwnedDescriptor ownedDescriptor(OwnedState *value) noexcept {
   OwnedDescriptor result;

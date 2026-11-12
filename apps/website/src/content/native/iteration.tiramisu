@@ -1,0 +1,45 @@
+meta { title = "Integer ranges", description = "Build reusable integer ranges without allocating arrays.", order = 11, group = "Library reference" }
+
+Import range from std/iter when you want to store an integer sequence, pass it to a function or traverse it more than once. A Range stores its start, exclusive stop and step. It does not allocate an array or store a current iteration position.
+
+h2 { "range" }
+
+code { "range(stop: i64) -> Range" }
+code { "range(start: i64, stop: i64) -> Range" }
+code { "range(start: i64, stop: i64, step: i64) -> Range" }
+
+The default start is zero and the default step is one. A negative step counts downward. The stop is excluded, and a step pointing away from the stop produces an empty sequence. Arguments are evaluated once, from left to right, when the Range is created. Traversal does not repeat their effects.
+
+codeblock { language = kalandra, """from "std/iter" import Range, range
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn sum(values: Range) -> i64:
+  total = 0
+  for value in values:
+    total = total + value
+  return total
+
+fn main() -> unit ! IoError:
+  evens = range(0, 7, 2)
+  try println(format("{}", sum(evens) + sum(evens)))
+  return ()
+""" }
+
+This displays 24. Each call to sum traverses 0, 2, 4 and 6 independently. Sharing a Range does not share an advancing cursor. Its three i64 fields are immutable values, so ranges can also be captured by functions or passed to supported GPU functions.
+
+A zero step causes a checked arithmetic fault, even when start equals stop. Advancing past the i64 limits ends traversal without wrapping around. This is a runtime fault, rather than an expected-error channel to handle with try.
+
+When used as a function value, range has its full three-argument signature. For example, a callback expecting fn(i64, i64, i64) -> Range can receive range directly.
+
+h2 { "Range" }
+
+Range is an immutable record with i64 fields start, stop and step. Reading its fields does not consume it. If you construct the record directly, for validates its step before traversal begins. The range function performs that validation at construction.
+
+The allocation-free syntax for value in range(...) is also available without an import. Import std/iter.range to use the factory outside that loop syntax, or give the import an alias such as steps. Both traversal forms use the same exclusive stop and overflow rules.
+
+list {
+  link { url = "/docs/control-flow#iterate-over-an-integer-range", "Range loops, break and continue" },
+  link { url = "/docs/options", "Represent a present or absent value" },
+  link { url = "/docs/parallelism", "Structured tasks and expected execution failures" }
+}

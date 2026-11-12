@@ -88,7 +88,7 @@ This displays 8. continue advances to the next element. A bare break would end t
 
 h2 { "Iterate over an integer range" }
 
-Use range(stop), range(start, stop), or range(start, stop, step) as a for iterable. These forms are allocation-free loop syntax; they do not construct an array or a reusable iterator value. Arguments are completed i64 values, evaluated once from left to right. The default start is zero and the default step is one. The stop is exclusive. A negative step counts downward; a direction that cannot reach the stop produces no iterations. A zero step produces a checked arithmetic fault, including for an otherwise empty range. Advancing beyond the i64 limits ends the range without wrapping around.
+Use range(stop), range(start, stop), or range(start, stop, step) as a for iterable. These forms are allocation-free loop syntax and do not construct an array. To store or pass a reusable Range value, import range from std/iter. Arguments are completed i64 values, evaluated once from left to right. The default start is zero and the default step is one. The stop is exclusive. A negative step counts downward; a direction that cannot reach the stop produces no iterations. A zero step produces a checked arithmetic fault, including for an otherwise empty range. Advancing beyond the i64 limits ends the range without wrapping around.
 
 codeblock { language = kalandra, """from "std/io" import println, IoError
 from "std/fmt" import format
