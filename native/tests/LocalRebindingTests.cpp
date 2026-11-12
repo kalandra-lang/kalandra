@@ -3,6 +3,7 @@
 #ifndef KALANDRA_REBIND_FRONTEND_ONLY
 #include "../lib/NativeStack.h"
 #include "llvm/AsmParser/Parser.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/SourceMgr.h"
 #endif
@@ -78,8 +79,21 @@ int main() {
       if (function.getName().starts_with("collection.payload.copy.")) {
         require(!nativeStackBudgetError(function, wideModule->getDataLayout()),
                 "collection copy adapter bypassed the native stack budget");
-        sawElement |= function.getName() == "collection.payload.copy.record.0";
       }
+    // Locate the actual 600-field item through its layout descriptor. Private
+    // adapter names encode structural schemas and are not a stable ABI.
+    for (const auto &global : wideModule->globals()) {
+      if (!global.getName().starts_with("collection.payload.layout."))
+        continue;
+      auto *layout = llvm::dyn_cast_or_null<llvm::ConstantStruct>(global.getInitializer());
+      if (!layout || layout->getNumOperands() != 5)
+        continue;
+      auto *bytes = llvm::dyn_cast<llvm::ConstantInt>(layout->getOperand(1));
+      auto *copy = llvm::dyn_cast<llvm::Function>(layout->getOperand(3)->stripPointerCasts());
+      if (bytes && bytes->getZExtValue() == 600 * sizeof(std::int64_t) && copy &&
+          copy->getName().starts_with("collection.payload.copy.") && !copy->isDeclaration())
+        sawElement = true;
+    }
     require(sawElement, "wide collector element adapter was not emitted");
 #endif
     for (auto source :
