@@ -903,6 +903,8 @@ private:
   std::string payloadKey(const ValueType &type) {
     if (type.task)
       return "handle";
+    if (type.builtin == BuiltinValue::Unit && !type.array && !type.tensor)
+      return "unit";
     if (type.builtin == BuiltinValue::Function)
       return type.array
                  ? "array.Function." + std::to_string(functionSignature(recordArrayElement(type)))
@@ -1698,8 +1700,61 @@ private:
     rawArrayLayouts.emplace(name, result);
     return result;
   }
+  std::string payloadSchema(const ValueType &type, std::size_t &remaining,
+                            std::size_t depth) const {
+    if (!remaining || depth >= 128)
+      throw std::runtime_error("payload schema exceeds the bounded type traversal budget");
+    --remaining;
+    auto name = "b" + std::to_string(unsigned(type.builtin));
+    name += type.array    ? ".array"
+            : type.tensor ? ".rank" + std::to_string(type.shape.size())
+                          : ".scalar";
+    for (const auto &extent : type.shape)
+      name += extent.constant ? ".extent" + std::to_string(*extent.constant) : ".dynamic";
+    if (type.task)
+      name += ".task";
+    if (type.device)
+      name += ".device" + std::to_string(*type.device);
+    if (type.builtin == BuiltinValue::Numeric)
+      name += ".n" + std::to_string(unsigned(type.element));
+    if (type.record)
+      name += ".record" + std::to_string(*type.record);
+    if (type.callable) {
+      name += ".fn" + std::to_string(type.callable->parameters.size());
+      for (std::size_t i = 0; i < type.callable->parameters.size(); ++i)
+        name += std::string(type.callable->owns(i)      ? ".own."
+                            : type.callable->mutates(i) ? ".mut."
+                                                        : ".read.") +
+                payloadSchema(type.callable->parameters[i], remaining, depth + 1);
+      name += ".result." + payloadSchema(type.callable->result, remaining, depth + 1) + ".end";
+    }
+    if (type.fallible)
+      name += type.errorRecord ? ".error" + std::to_string(*type.errorRecord) : ".TaskError";
+    return name;
+  }
+  std::string payloadSchema(const ValueType &type) const {
+    std::size_t remaining = 300000;
+    return payloadSchema(type, remaining, 0);
+  }
+  llvm::Constant *payloadIdentity(const ValueType &type) {
+    // Components share the checked nominal table, but not an Emitter's caches
+    // or callable ordinals. Address-significant schema tokens survive LLVM
+    // component linking and cannot collide merely because widths match. Do not
+    // mark these constants unnamed_addr: distinct types need distinct addresses.
+    const auto name = "kalandra_payload_schema_v1." + payloadSchema(type);
+    auto *token = module.getNamedGlobal(name);
+    if (!token) {
+      token =
+          new llvm::GlobalVariable(module, builder.getInt8Ty(), true,
+                                   llvm::GlobalValue::LinkOnceODRLinkage, builder.getInt8(0), name);
+      token->setVisibility(llvm::GlobalValue::HiddenVisibility);
+      if (module.getTargetTriple().isOSBinFormatCOFF())
+        token->setComdat(module.getOrInsertComdat(name));
+    }
+    return llvm::ConstantExpr::getPtrToInt(token, i64);
+  }
   llvm::GlobalVariable *payloadLayout(const ValueType &type) {
-    const auto name = key(type);
+    const auto name = payloadSchema(type);
     if (auto found = payloadLayouts.find(name); found != payloadLayouts.end())
       return found->second;
     llvm::IRBuilderBase::InsertPointGuard guard(builder);
@@ -1725,9 +1780,8 @@ private:
     builder.CreateRet(builder.getFalse());
     auto *result = new llvm::GlobalVariable(
         module, layoutType, true, llvm::GlobalValue::InternalLinkage,
-        llvm::ConstantStruct::get(layoutType, {c64(0xf000000000ULL + payloadLayouts.size()),
-                                               c64(size(payloadType)), c64(alignment(payloadType)),
-                                               fn, destroy}),
+        llvm::ConstantStruct::get(layoutType, {payloadIdentity(type), c64(size(payloadType)),
+                                               c64(alignment(payloadType)), fn, destroy}),
         "collection.payload.layout." + name);
     // Like other private copy adapters, this callback must fit the checked
     // native headroom. Keep wide aggregates in memory instead of SSA packets.
