@@ -46,6 +46,20 @@ public:
           synchronizeFunction();
         continue;
       }
+      if (word("trait") || (word("export") && source_->slice(peek().span) == "trait")) {
+        if (auto declaration = parseTrait())
+          result_.module.traits.push_back(std::move(*declaration));
+        else
+          synchronizeFunction();
+        continue;
+      }
+      if (word("impl")) {
+        if (auto declaration = parseImplementation())
+          result_.module.implementations.push_back(std::move(*declaration));
+        else
+          synchronizeFunction();
+        continue;
+      }
       if (word("type") || word("enum") || word("error") ||
           (word("export") &&
            (source_->slice(peek().span) == "type" || source_->slice(peek().span) == "enum" ||
@@ -64,7 +78,8 @@ public:
         synchronizeFunction();
     }
     if (result_.module.functions.empty() && result_.module.imports.empty() &&
-        result_.module.records.empty() && result_.diagnostics.empty())
+        result_.module.records.empty() && result_.module.traits.empty() &&
+        result_.module.implementations.empty() && result_.diagnostics.empty())
       error("P001", "expected at least one named function", current().span);
     return std::move(result_);
   }
@@ -204,8 +219,32 @@ private:
     TypeSyntax type;
     type.name = name->span;
     type.span = name->span;
-    if (source_->slice(name->span) != "Tensor")
+    if (source_->slice(name->span) != "Tensor") {
+      if (consume(TokenKind::LeftBracket)) {
+        if (at(TokenKind::RightBracket)) {
+          error("P038", "generic type arguments cannot be empty", current().span);
+          return {};
+        }
+        do {
+          auto argument = parseType();
+          if (!argument)
+            return {};
+          type.arguments.push_back(std::move(*argument));
+        } while (consume(TokenKind::Comma) && !at(TokenKind::RightBracket));
+        auto end = expect(TokenKind::RightBracket, "expected ']' after generic type arguments");
+        if (!end)
+          return {};
+        type.span.end = end->span.end;
+      }
+      while (consume(TokenKind::Dot)) {
+        auto member = expect(TokenKind::Identifier, "expected an associated type name");
+        if (!member)
+          return {};
+        type.members.push_back(member->span);
+        type.span.end = member->span.end;
+      }
       return type;
+    }
     type.tensor = true;
     if (!expect(TokenKind::LeftBracket, "expected '[' after Tensor"))
       return {};
@@ -297,6 +336,118 @@ private:
     }
     return members;
   }
+  std::optional<std::vector<GenericParameter>> genericParameters() {
+    std::vector<GenericParameter> parameters;
+    if (!consume(TokenKind::LeftBracket))
+      return parameters;
+    if (at(TokenKind::RightBracket)) {
+      error("P038", "generic parameter lists cannot be empty", current().span);
+      return {};
+    }
+    do {
+      auto name = expect(TokenKind::Identifier, "expected a generic type parameter");
+      if (!name)
+        return {};
+      GenericParameter parameter{name->span, {}};
+      if (consume(TokenKind::Colon)) {
+        do {
+          auto bound = expect(TokenKind::Identifier, "expected a trait bound");
+          if (!bound)
+            return {};
+          parameter.bounds.push_back(bound->span);
+        } while (consume(TokenKind::Plus));
+      }
+      parameters.push_back(std::move(parameter));
+      if (parameters.size() > limits_.maxDepth) {
+        error("P038", "generic parameter limit exceeded", current().span);
+        return {};
+      }
+    } while (consume(TokenKind::Comma) && !at(TokenKind::RightBracket));
+    if (!expect(TokenKind::RightBracket, "expected ']' after generic parameters"))
+      return {};
+    return parameters;
+  }
+  std::optional<TraitDeclaration> parseTrait() {
+    TraitDeclaration trait;
+    trait.exported = word("export");
+    if (trait.exported)
+      advance();
+    advance(); // trait
+    auto name = expect(TokenKind::Identifier, "expected a trait name");
+    if (!name)
+      return {};
+    trait.name = name->span;
+    if (!expect(TokenKind::Colon, "expected ':' after trait name") ||
+        !expect(TokenKind::Newline, "trait requirements must start on the next line") ||
+        !expect(TokenKind::Indent, "expected indented trait requirements"))
+      return {};
+    while (!at(TokenKind::Dedent) && !at(TokenKind::End)) {
+      if (consume(TokenKind::Newline))
+        continue;
+      if (word("type")) {
+        advance();
+        auto associated = expect(TokenKind::Identifier, "expected an associated type name");
+        if (!associated || !expect(TokenKind::Newline, "associated types are requirements, not defaults"))
+          return {};
+        trait.associatedTypes.push_back(associated->span);
+      } else {
+        auto method = parseFunction(true);
+        if (!method)
+          return {};
+        trait.methods.push_back(std::move(*method));
+      }
+    }
+    if (!expect(TokenKind::Dedent, "expected end of trait"))
+      return {};
+    return trait;
+  }
+  std::optional<TraitImplementation> parseImplementation() {
+    advance(); // impl
+    TraitImplementation implementation;
+    auto parameters = genericParameters();
+    if (!parameters)
+      return {};
+    implementation.generics = std::move(*parameters);
+    auto trait = expect(TokenKind::Identifier, "expected a trait after impl");
+    if (!trait)
+      return {};
+    implementation.trait = trait->span;
+    if (!word("for")) {
+      error("P038", "expected 'for' and an implementing type", current().span);
+      return {};
+    }
+    advance();
+    auto target = parseType();
+    if (!target)
+      return {};
+    implementation.target = std::move(*target);
+    if (!expect(TokenKind::Colon, "expected ':' before implementation") ||
+        !expect(TokenKind::Newline, "implementation must start on the next line") ||
+        !expect(TokenKind::Indent, "expected indented implementation"))
+      return {};
+    while (!at(TokenKind::Dedent) && !at(TokenKind::End)) {
+      if (consume(TokenKind::Newline))
+        continue;
+      if (word("type")) {
+        advance();
+        auto associated = expect(TokenKind::Identifier, "expected an associated type name");
+        if (!associated || !expect(TokenKind::Equal, "expected '=' for associated type definition"))
+          return {};
+        auto value = parseType();
+        if (!value || !expect(TokenKind::Newline, "expected end of associated type definition"))
+          return {};
+        implementation.associatedTypes.emplace_back(associated->span, std::move(*value));
+      } else {
+        auto method = parseFunction();
+        if (!method)
+          return {};
+        implementation.methods.push_back(std::move(*method));
+      }
+    }
+    if (!expect(TokenKind::Dedent, "expected end of implementation"))
+      return {};
+    return implementation;
+  }
   std::optional<RecordDeclaration> parseRecord() {
     const bool exported = word("export");
     if (exported)
@@ -306,6 +457,9 @@ private:
     advance();
     auto name = expect(TokenKind::Identifier, "expected a record or enum type name");
     if (!name)
+      return {};
+    auto generics = genericParameters();
+    if (!generics)
       return {};
     if (!enumeration && consume(TokenKind::Equal)) {
       auto members = errorMembers(false);
@@ -321,6 +475,7 @@ private:
       return {};
     RecordDeclaration result{name->span, {}, exported};
     result.error = applicationError;
+    result.generics = std::move(*generics);
     if (enumeration) {
       while (!at(TokenKind::Dedent) && !at(TokenKind::End)) {
         auto variant = expect(TokenKind::Identifier, "expected an enum variant name");
@@ -382,7 +537,7 @@ private:
       return {};
     return fields;
   }
-  std::optional<Function> parseFunction() {
+  std::optional<Function> parseFunction(bool requirement = false) {
     const bool exported = word("export");
     if (exported)
       advance();
@@ -400,6 +555,10 @@ private:
     Function function;
     function.exported = exported;
     function.name = name->span;
+    auto generics = genericParameters();
+    if (!generics)
+      return {};
+    function.generics = std::move(*generics);
     if (!expect(TokenKind::LeftParen, "expected '(' after function name"))
       return {};
     if (!at(TokenKind::RightParen)) {
@@ -443,6 +602,13 @@ private:
       function.errorType = channels->front();
       function.errorTypes = std::move(*channels);
       function.taskError = true;
+    }
+    if (requirement) {
+      auto end = expect(TokenKind::Newline, "trait functions declare signatures without bodies");
+      if (!end)
+        return {};
+      function.span = {start, end->span.end};
+      return function;
     }
     if (!expect(TokenKind::Colon, "expected ':' before function body") ||
         !expect(TokenKind::Newline, "function body must start on the next line") ||
@@ -687,11 +853,38 @@ private:
       }
       if (consume(TokenKind::LeftBracket)) {
         const auto begin = node(*left).span.begin;
-        auto indices = sequence(TokenKind::RightBracket);
-        if (!indices)
-          return {};
-        left =
-            add({{begin, tokens_[position_ - 1].span.end}, IndexExpr{*left, std::move(*indices)}});
+        const auto saved = position_, diagnostics = result_.diagnostics.size();
+        std::vector<TypeSyntax> types;
+        bool typed = !at(TokenKind::RightBracket);
+        while (typed) {
+          auto type = parseType();
+          if (!type) {
+            typed = false;
+            break;
+          }
+          types.push_back(std::move(*type));
+          if (!consume(TokenKind::Comma) || at(TokenKind::RightBracket))
+            break;
+        }
+        typed = typed && at(TokenKind::RightBracket);
+        std::vector<ExprId> indices;
+        if (typed) {
+          advance();
+          result_.diagnostics.resize(diagnostics);
+          for (const auto &type : types)
+            if (auto index = typeExpression(type))
+              indices.push_back(*index);
+        } else {
+          position_ = saved;
+          result_.diagnostics.resize(diagnostics);
+          auto parsed = sequence(TokenKind::RightBracket);
+          if (!parsed)
+            return {};
+          indices = std::move(*parsed);
+          types.clear();
+        }
+        left = add({{begin, tokens_[position_ - 1].span.end},
+                    IndexExpr{*left, std::move(indices), std::move(types)}});
         if (!left)
           return {};
         continue;
@@ -713,6 +906,7 @@ private:
         const bool update = word("with");
         SourceSpan name{};
         std::optional<SourceSpan> family;
+        std::vector<TypeSyntax> typeArguments;
         if (update) {
           advance();
           if (!expect(TokenKind::LeftBrace, "expected '{' after with"))
@@ -721,8 +915,20 @@ private:
           const auto *identifier = std::get_if<NameExpr>(&node(*left).value);
           if (identifier)
             name = identifier->name;
-          else if (const auto *qualified = std::get_if<FieldExpr>(&node(*left).value)) {
+          else if (const auto *specialization = std::get_if<IndexExpr>(&node(*left).value)) {
+            const auto *owner = std::get_if<NameExpr>(&node(specialization->input).value);
+            if (!owner || specialization->typeArguments.empty()) {
+              error("P035", "record construction requires a generic type name", node(*left).span);
+              return {};
+            }
+            name = owner->name;
+            typeArguments = specialization->typeArguments;
+          } else if (const auto *qualified = std::get_if<FieldExpr>(&node(*left).value)) {
             const auto *owner = std::get_if<NameExpr>(&node(qualified->input).value);
+            if (const auto *specialization = std::get_if<IndexExpr>(&node(qualified->input).value)) {
+              owner = std::get_if<NameExpr>(&node(specialization->input).value);
+              typeArguments = specialization->typeArguments;
+            }
             if (!owner) {
               error("P035", "variant construction requires Type.Variant", node(*left).span);
               return {};
@@ -739,7 +945,8 @@ private:
         if (!fields)
           return {};
         left = add({{begin, tokens_[position_ - 1].span.end},
-                    RecordExpr{update ? left : std::nullopt, name, std::move(*fields), family}});
+                    RecordExpr{update ? left : std::nullopt, name, std::move(*fields), family,
+                               std::move(typeArguments)}});
         if (!left)
           return {};
         continue;
@@ -805,6 +1012,38 @@ private:
       return {};
     }
     return left;
+  }
+  std::optional<ExprId> typeExpression(TypeSyntax type) {
+    if (type.function)
+      return {};
+    if (type.array) {
+      type.array = false;
+      auto element = typeExpression(type);
+      if (!element)
+        return {};
+      return add({type.span, ArrayExpr{{*element}}});
+    }
+    auto input = add({type.name, NameExpr{type.name}});
+    if (!input)
+      return {};
+    if (!type.arguments.empty()) {
+      std::vector<ExprId> indices;
+      for (const auto &argument : type.arguments) {
+        auto value = typeExpression(argument);
+        if (!value)
+          return {};
+        indices.push_back(*value);
+      }
+      input = add({type.span, IndexExpr{*input, std::move(indices), type.arguments}});
+      if (!input)
+        return {};
+    }
+    for (auto member : type.members) {
+      input = add({{type.name.begin, member.end}, FieldExpr{*input, member}});
+      if (!input)
+        return {};
+    }
+    return input;
   }
   std::optional<std::vector<ExprId>> sequence(TokenKind closing) {
     std::vector<ExprId> values;
