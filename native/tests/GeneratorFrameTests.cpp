@@ -838,6 +838,7 @@ struct CoordinatingProbe {
   std::atomic<bool> first{false}, advance{false}, externalReady{false};
   ExternalCompletion completion;
   unsigned mode = 0;
+  bool captureBuffer = false;
   Invocation *captureSource = nullptr;
   GeneratorDescriptor captured;
   TaskCore *cancelCore = nullptr;
@@ -926,6 +927,8 @@ void resumeCoordinatingBody(Task &task) {
   auto &f = *static_cast<CoordinatingFrame *>(task.frame());
   auto &probe = *f.probe;
   ++probe.resumed;
+  if (probe.captureBuffer)
+    CHECK(bufferStats(task.context(), probe.captured).length == 0);
   f.itemScope.reset();
   Invocation::OwnershipSelection selected(f.itemScope);
   CoordinatingValue result;
@@ -974,6 +977,18 @@ void resumeCoordinatingConsumer(Task &task) {
   auto &f = *static_cast<CoordinatingConsumer *>(task.frame());
   auto &probe = *f.probe;
   if (f.pc == 0) {
+    void *captureScope = nullptr;
+    if (probe.captureBuffer) {
+      captureScope = kalandra_file_scope_enter_v1(&task.context(), nullptr, 0);
+      CHECK(captureScope);
+      BufferArguments arguments{};
+      BufferResult result{};
+      kalandra_buffer_v1(&task.context(), &result, unsigned(kalandra::BufferAction::Create),
+                         &arguments);
+      CHECK(!task.context().poll() && result.kind == 0);
+      probe.captureSource = &task.context();
+      probe.captured = result.buffer;
+    }
     auto *input = f.probe;
     f.cursor = generatorTaskCreate(task, coordinatingGenerator,
                                    {0, &input, sizeof(input), &task.context()});
@@ -981,6 +996,8 @@ void resumeCoordinatingConsumer(Task &task) {
       return;
     CHECK(f.cursor.storage.allocated && probe.constructed == 1 && probe.resumed == 0);
     CHECK(isTaskGenerator(task.context(), f.cursor));
+    if (captureScope)
+      kalandra_file_scope_leave_v1(&task.context(), captureScope, &f.cursor);
     f.pc = probe.mode == 9 ? 4 : 1;
   }
   f.itemScope.reset();
@@ -1184,57 +1201,58 @@ void boundedCoordinatingStream() {
 }
 void coordinatingGenerators() {
   for (unsigned workers : {1u, 4u})
-    for (unsigned mode : {0u, 1u, 2u, 3u, 4u, 5u, 9u, 11u}) {
-      TaskLimits limits;
-      limits.workers = workers;
-      limits.records = 2; // one consumer and one real child; no cursor task
-      limits.groups = 2;
-      limits.ready = 1;
-      auto core = TaskCore::create(limits);
-      CHECK(core);
-      auto group = core->openRoot();
-      CoordinatingProbe probe;
-      probe.mode = mode;
-      auto *input = &probe;
-      auto task = core->submit(group, coordinatingConsumer, {0, &input, sizeof(input)});
-      CHECK(task);
-      if (mode != 5 && mode != 9) {
-        for (unsigned i = 0; i != 1024 &&
-             !(probe.first.load(std::memory_order_acquire) &&
-               probe.externalReady.load(std::memory_order_acquire)); ++i)
-          core->step();
-        CHECK(probe.first && probe.externalReady && probe.resumed == 1 &&
-              probe.destroyed == 0 && probe.childDestroyed == 0);
-        CHECK(core->stats().records == 2 && core->stats().callFrames == 0);
-        probe.advance.store(true, std::memory_order_release);
-        for (unsigned i = 0; i != 256; ++i)
-          core->step();
-        CHECK(!core->settled(task) && probe.destroyed == 0 && probe.childDestroyed == 0);
-        CHECK(probe.completion.signal());
+    for (bool captureBuffer : {false, true})
+      for (unsigned mode : {0u, 1u, 2u, 3u, 4u, 5u, 9u, 11u}) {
+        TaskLimits limits;
+        limits.workers = workers;
+        limits.records = 2; // one consumer and one real child; no cursor task
+        limits.groups = 2;
+        limits.ready = 1;
+        auto core = TaskCore::create(limits);
+        CHECK(core);
+        auto group = core->openRoot();
+        CoordinatingProbe probe;
+        probe.mode = mode;
+        probe.captureBuffer = captureBuffer;
+        auto *input = &probe;
+        auto task = core->submit(group, coordinatingConsumer, {0, &input, sizeof(input)});
+        CHECK(task);
+        if (mode != 5 && mode != 9) {
+          for (unsigned i = 0; i != 1024 && !(probe.first.load(std::memory_order_acquire) &&
+                                              probe.externalReady.load(std::memory_order_acquire));
+               ++i)
+            core->step();
+          CHECK(probe.first && probe.externalReady && probe.resumed == 1 && probe.destroyed == 0 &&
+                probe.childDestroyed == 0);
+          CHECK(core->stats().records == 2 && core->stats().callFrames == 0);
+          probe.advance.store(true, std::memory_order_release);
+          for (unsigned i = 0; i != 256; ++i)
+            core->step();
+          CHECK(!core->settled(task) && probe.destroyed == 0 && probe.childDestroyed == 0);
+          CHECK(probe.completion.signal());
+        }
+        CHECK(core->drainToCompletion() && core->settled(task));
+        const auto failure = core->failure(task);
+        if (mode == 11) {
+          CHECK(failure.kind == TaskFailure::Fault && failure.code == 9 && failure.line == 44 &&
+                failure.column == 2);
+          CHECK(!probe.terminalPublished.load(std::memory_order_acquire));
+        } else if (mode == 4)
+          CHECK(failure.kind == TaskFailure::Fault && failure.code == 8 && failure.line == 37);
+        else if (mode == 5)
+          CHECK(failure.kind == TaskFailure::Fault && failure.code == 3);
+        else {
+          CHECK(failure.kind == TaskFailure::None);
+          Invocation receiver;
+          std::int64_t value = 0;
+          CHECK(core->observe(task, integer, receiver, &value) && value == 17);
+        }
+        CHECK(probe.constructed == 1 && probe.destroyed == unsigned(mode != 5));
+        CHECK(probe.resumed == (mode == 5 || mode == 9 ? 0 : mode == 2 || mode == 3 ? 1 : 2));
+        CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+        CHECK(core->stats().retainedBytes == 0 && core->stats().callBytes == 0 &&
+              core->stats().records == 0 && core->stats().retainedOwners == 0);
       }
-      CHECK(core->drainToCompletion() && core->settled(task));
-      const auto failure = core->failure(task);
-      if (mode == 11) {
-        CHECK(failure.kind == TaskFailure::Fault && failure.code == 9 && failure.line == 44 &&
-              failure.column == 2);
-        CHECK(!probe.terminalPublished.load(std::memory_order_acquire));
-      }
-      else if (mode == 4)
-        CHECK(failure.kind == TaskFailure::Fault && failure.code == 8 && failure.line == 37);
-      else if (mode == 5)
-        CHECK(failure.kind == TaskFailure::Fault && failure.code == 3);
-      else {
-        CHECK(failure.kind == TaskFailure::None);
-        Invocation receiver;
-        std::int64_t value = 0;
-        CHECK(core->observe(task, integer, receiver, &value) && value == 17);
-      }
-      CHECK(probe.constructed == 1 && probe.destroyed == unsigned(mode != 5));
-      CHECK(probe.resumed == (mode == 5 || mode == 9 ? 0 : mode == 2 || mode == 3 ? 1 : 2));
-      CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
-      CHECK(core->stats().retainedBytes == 0 && core->stats().callBytes == 0 &&
-            core->stats().records == 0 && core->stats().retainedOwners == 0);
-    }
 }
 } // namespace
 int main() {

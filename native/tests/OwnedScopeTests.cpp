@@ -402,6 +402,44 @@ void ownedResultTransfer() {
   CHECK(source.live() == 0 && destination.live() == 0);
   CHECK(budget.bytes == 0);
 }
+void synchronousResultTransfer() {
+  for (unsigned mode : {0u, 1u, 2u, 3u, 4u}) {
+    Counts counts;
+    Invocation source, destination, borrowed;
+    auto *sourceScope =
+        static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&source, nullptr, 0));
+    CHECK(sourceScope);
+    auto *value = make(source, counts);
+    const auto descriptor = ownedDescriptor(value);
+    ResourceControl *destinationScope = nullptr;
+    if (mode != 1)
+      destinationScope =
+          static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&destination, nullptr, 0));
+    CHECK(mode == 1 || destinationScope);
+    if (mode == 3)
+      CHECK(kalandra_owned_copy_v1(&borrowed, &source, &descriptor));
+    if (mode == 4)
+      destination.failAllocationAt(InvocationABI::allocationAttempts(destination) + 1);
+    {
+      OwnedReceiveGuard receiving(mode == 2 ? borrowed : source, destination);
+      const bool copied =
+          kalandra_owned_copy_v1(&destination, mode == 3 ? &borrowed : &source, &descriptor);
+      CHECK(copied == (mode != 4));
+    }
+    const bool moved = mode < 2;
+    CHECK(value->scope ==
+          (moved ? destinationScope ? destinationScope->scope : nullptr : sourceScope->scope));
+    kalandra_file_scope_leave_v1(&source, sourceScope, nullptr);
+    source.settle();
+    CHECK(counts.retired == unsigned(!moved));
+    CHECK(counts.destroyed == unsigned(mode == 4));
+    if (destinationScope)
+      kalandra_file_scope_leave_v1(&destination, destinationScope, nullptr);
+    destination.settle();
+    borrowed.settle();
+    CHECK(counts.destroyed == 1 && destination.live() == 0 && borrowed.live() == 0);
+  }
+}
 void affineBindingAdoption() {
   Counts counts;
   Invocation source, snapshot;
@@ -469,6 +507,7 @@ int main() {
   independentControlLifetimes();
   affineBindingAdoption();
   ownedResultTransfer();
+  synchronousResultTransfer();
   escapeRoot();
   escapeRootAdmission();
   for (unsigned stop = 0; stop != 3; ++stop)

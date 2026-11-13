@@ -189,6 +189,14 @@ captures with their previous owner; failure after a successful move leaves them
 under the new header for asynchronous task failure cleanup. Constructor guards
 live outside the native interruption boundary.
 
+Consuming copy guards transfer synchronous owned captures as well as coordinating
+cursors. A captured File or ByteBuffer moves into the receiving logical scope
+before its creator can leave. An ordinary result destination with no logical
+scope instead owns synchronous destruction through its admitted physical backing.
+Borrowed copies, copies from another snapshot, and failed destination admission
+retain the original logical owner. No asynchronous resource uses physical backing
+alone as a cancellation/join boundary.
+
 The native wrapper preserves the body's program counter across item results and
 ordinary resumable calls. It stages a terminal Option/error value, retires the
 body and its groups, then publishes from its surviving header. The staged value

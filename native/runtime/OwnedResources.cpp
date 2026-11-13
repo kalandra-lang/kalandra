@@ -232,13 +232,20 @@ bool receiveOwned(Invocation &ctx, OwnedState &file, const Invocation *source) n
       return false;
     }
     unowned = file.scope == nullptr && !retired;
-    transferring = source && file.deferredOwner && !retired &&
-                   OwnedReceiveGuard::receives(ctx, *source, file.scope);
+    transferring =
+        source && !retired && OwnedReceiveGuard::receives(ctx, *source, file.scope);
   }
   if (file.deferredOwner && (unowned || transferring)) {
     if (!ensureOwnedEscapeScope(ctx))
       return false;
     adopt(ctx, file, currentScope(ctx)->scope);
+  } else if (transferring) {
+    // A consuming capture/result copy also moves synchronous handles. Keeping
+    // their old logical owner would close them when the creator scope exits,
+    // before the receiver can use them. With no receiving logical scope, the
+    // already-admitted physical value owns their synchronous destruction.
+    auto *scope = currentScope(ctx);
+    adopt(ctx, file, scope ? scope->scope : nullptr);
   } else if (unowned)
     if (auto *scope = currentScope(ctx))
       adopt(ctx, file, scope->scope);
