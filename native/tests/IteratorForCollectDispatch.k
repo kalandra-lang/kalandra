@@ -13,11 +13,12 @@ fn worker(own cursor:Iterator[i64,Problem],limit:i64)->Answer:
     close(cursor)
     return Answer {value:0}
   count=0
-  result=for value in cursor:
+  result=array(for value in cursor:
     yield Answer {value:value}
     count=count+1
     if count==limit:
       break
+  )
   values=result catch fn(error):
     return match error:
       Problem.Bad {code,message}:

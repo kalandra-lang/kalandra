@@ -3,6 +3,49 @@
 namespace kalandra {
 inline std::optional<std::string>
 iteratorCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericTarget target) {
+  if (const auto *generator = std::get_if<GeneratorCreate>(&expr.operation)) {
+    if (target != NumericTarget::Cpu)
+      return "generator frames require host execution";
+    if (!isIterator(module, expr.type) || expr.type.fallible || expr.type.task ||
+        expr.type.device || expr.type.array || expr.type.tensor || expr.type.errorRecord ||
+        !expr.type.shape.empty() || generator->function >= module.functions.size())
+      return "invalid generator construction type or producer";
+    const auto &function = module.functions[generator->function];
+    const auto &cursor = module.records[*expr.type.record];
+    if (!function.generator || cursor.typeArguments.size() != 2 ||
+        function.parameters.size() != generator->captures.size() ||
+        function.captureCount != generator->captures.size() ||
+        !sameFunctionValueType(function.generator->item, cursor.typeArguments[0]))
+      return "generator captures or item type disagree with its producer";
+    for (std::size_t index = 0; index < generator->captures.size(); ++index)
+      if (generator->captures[index] >= module.expressions.size() ||
+          function.parameters[index] >= module.symbols.size() ||
+          module.symbols[function.parameters[index]].owner != generator->function ||
+          !module.symbols[function.parameters[index]].parameter ||
+          module.symbols[function.parameters[index]].mutableAccess ||
+          module.symbols[function.parameters[index]].owned !=
+              isOwnedResource(module, module.expressions[generator->captures[index]].type) ||
+          !sameFunctionValueType(module.expressions[generator->captures[index]].type,
+                                 module.symbols[function.parameters[index]].type))
+        return "generator capture changes its source type";
+    const auto &result = function.resultType;
+    if (result.builtin != BuiltinValue::Record || result.array || result.tensor || result.task ||
+        result.device || !result.shape.empty() || !result.record ||
+        *result.record >= module.records.size())
+      return "generator producer must return its typed Option envelope";
+    const auto &option = module.records[*result.record];
+    if (option.standard != StandardRecord::Option || option.typeArguments.size() != 1 ||
+        !sameFunctionValueType(option.typeArguments[0], function.generator->item))
+      return "generator producer has an incompatible Option envelope";
+    const auto &error = cursor.typeArguments[1];
+    const bool empty = error.record && *error.record < module.records.size() &&
+                       module.records[*error.record].uninhabited;
+    const bool task = error.builtin == BuiltinValue::TaskError;
+    if (result.fallible == empty ||
+        result.errorRecord != (empty || task ? std::optional<std::size_t>{} : error.record))
+      return "generator producer and cursor error channels disagree";
+    return {};
+  }
   const auto *operation = std::get_if<IteratorOperation>(&expr.operation);
   if (!operation)
     return {};

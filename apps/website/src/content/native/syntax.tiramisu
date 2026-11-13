@@ -1,6 +1,6 @@
 meta { title = "Syntax and values", description = "Source files, indentation, bindings, calls and function results.", order = 1, group = "Language reference" }
 
-Source files use the .k extension. Indentation defines a block of statements and expressions. Use spaces consistently; the formatter uses two spaces per level. A colon introduces a function or control-flow body. Use return to produce a function result. if, while and for support value-producing forms as well as statements; a loop expression can collect values with yield, or select a single result with else and break value.
+Source files use the .k extension. Indentation defines a block of statements and expressions. Use spaces consistently; the formatter uses two spaces per level. A colon introduces a function or control-flow body. Use return to produce a function result. if, while and for support value-producing forms as well as statements; a loop expression can produce a lazy sequence with yield, or select a single result with else and break value.
 
 h2 { "Bindings and results" }
 

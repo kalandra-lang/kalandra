@@ -20,7 +20,7 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
   return std::visit(
       [](const auto &op) -> std::vector<ValueId> {
         using T = std::decay_t<decltype(op)>;
-        if constexpr (std::is_same_v<T, FunctionReference>)
+        if constexpr (std::is_same_v<T, FunctionReference> || std::is_same_v<T, GeneratorCreate>)
           return op.captures;
         else if constexpr (std::is_same_v<T, FunctionInvoke>) {
           auto values = op.arguments;
@@ -119,6 +119,8 @@ class Builder : public ModulePlan {
     std::unordered_map<std::size_t, LoopBoundary *> loops;
     std::unordered_map<std::size_t, Slot> collections;
     std::vector<Slot> collectionStack;
+    std::optional<std::pair<std::size_t, Slot>> generator;
+    std::optional<ValueId> generatorRoot;
   };
 
 public:
@@ -535,7 +537,7 @@ private:
     for (std::size_t i = 0; i < args.size(); ++i)
       bindScalar(plan, env, fn.parameters[i], args[i]);
     std::optional<Slot> resourceScope;
-    if (resourceFunction(id)) {
+    if (resourceFunction(id) && !fn.generator) {
       ValueType token;
       token.element = NumericType::UInt64;
       resourceScope = slot(plan, token);
@@ -548,6 +550,14 @@ private:
     }
     Boundary boundary{slot(plan, fn.resultType), {}, {}};
     env.boundary = &boundary;
+    if (fn.generator) {
+      env.generator = {{fn.generator->collection, boundary.output}};
+      auto root = fn.body.front().value;
+      if (const auto *operation = std::get_if<TaskOperation>(&input.expressions[root].operation);
+          operation && operation->prefix == TaskPrefix::Try)
+        root = operation->operand;
+      env.generatorRoot = root;
+    }
     Slot value = boundary.output;
     for (const auto &item : fn.body)
       value = statement(plan, item, env, stack, fn.result);
@@ -568,7 +578,7 @@ private:
   std::unordered_map<ValueId, ValueId> importedValues;
   std::unordered_map<SymbolId, SymbolId> importedSymbols;
   bool nativeFunction(FunctionId id) const {
-    return !resourceFunction(id) && !resumable.at(id) &&
+    return !input.functions[id].generator && !resourceFunction(id) && !resumable.at(id) &&
            std::ranges::none_of(input.functions[id].parameters, [&](auto parameter) {
              const auto &type = input.symbols[parameter].type;
              return type.fallible || type.task;
@@ -1283,9 +1293,13 @@ private:
         env.values[id] = value;
         return value;
       }
+      // Immediate materialization already has private capture bindings. Inline
+      // its collector boundary without adding a second invocation lifecycle;
+      // the recursion guard still applies to calls reached from that body.
       if (!options.preserveCalls && !coordinating.at(call->function) &&
           (stack.contains(call->function) ||
-           (!options.inlineLoopCalls && loopControl.at(call->function)))) {
+           (!options.inlineLoopCalls && loopControl.at(call->function) &&
+            !input.functions.at(call->function).publicationCollection))) {
         if (input.functions.at(call->function).captureCount)
           throw std::runtime_error("direct recursive calls require a named function entry");
         auto value = slot(plan, node.type);
@@ -1318,6 +1332,18 @@ private:
       deviceMap(plan, id, output, *map, env, stack);
     } else if (const auto *map = std::get_if<ArrayMap>(&node.operation); map && map->parallel) {
       parallelMap(plan, id, output, *map, env, stack);
+    } else if (const auto *generator = std::get_if<GeneratorCreate>(&node.operation)) {
+      if (options.deviceCallFrames || (options.deviceValues && !options.preserveCalls))
+        throw std::runtime_error("generator construction requires host execution");
+      if (!scheduled.at(generator->function)) {
+        scheduled[generator->function] = true;
+        pending.push_back(generator->function);
+      }
+      std::vector<Slot> captures;
+      for (auto capture : generator->captures)
+        captures.push_back(expression(plan, capture, env, stack));
+      plan.code.push_back(
+          {Code::GeneratorCreate, output, std::move(captures), generator->function, 0, 0, id});
     } else if (const auto *reference = std::get_if<kalandra::FunctionReference>(&node.operation);
                reference && options.deviceCallFrames) {
       if (coordinating.at(reference->function))
@@ -1484,6 +1510,11 @@ private:
           plan.code[jump].jump = exit;
     } else if (const auto *yield = std::get_if<YieldOperation>(&node.operation)) {
       const auto value = expression(plan, yield->operand, env, stack);
+      if (env.generator && env.generator->first == yield->collection) {
+        plan.code.push_back({Code::GeneratorYield, env.generator->second, {value}, 0, 0, 0, id});
+        env.values[id] = output;
+        return output;
+      }
       const auto found = env.collections.find(yield->collection);
       if (found == env.collections.end())
         throw std::runtime_error("yield has no lexical collection");
@@ -1525,7 +1556,14 @@ private:
         env.collectionStack.push_back(output);
         plan.code.push_back({Code::CollectInit, output, {}, 0, 0, 0, id});
       }
-      const auto loopScope = enterResources(plan, suiteResources(loop->initial), id);
+      // A lifted producer's root loop is its entire executable body. Its
+      // captured cursor is already owned by the frame's cleanup boundary;
+      // creating another logical owner here would retain the same nested
+      // producer through two budget paths at every adapter stage. Terminal
+      // frame cleanup closes that cursor on exhaustion, break and error.
+      const auto loopScope = env.generatorRoot == id
+                                 ? std::optional<Slot>{}
+                                 : enterResources(plan, suiteResources(loop->initial), id);
       for (const auto &item : loop->initial)
         statement(plan, item, env, stack);
       const auto header = plan.code.size();
@@ -1730,6 +1768,15 @@ private:
       for (auto n = env.collectionStack.size(); n > env.boundary->collectionDepth; --n)
         plan.code.back().collections.push_back(env.collectionStack[n - 1]);
       env.boundary->jumps.push_back(index);
+    } else if (const auto *record = std::get_if<RecordValue>(&node.operation);
+               record && (!options.deviceValues || options.preserveCalls) &&
+               !options.deviceCallFrames && !record->base && record->fields.empty() &&
+               record->variant &&
+               input.records.at(*node.type.record).variants.at(*record->variant).fields.empty()) {
+      // Empty variants have no evaluated payload. Initialize the persistent
+      // slot directly, avoiding a native aggregate-return helper whose stack
+      // carrier would include every inactive variant's potentially wide data.
+      plan.code.push_back({Code::Literal, output, {}, 0, 0, 0, id});
     } else if ((std::holds_alternative<BoolLiteral>(node.operation) ||
                 std::holds_alternative<Float64Literal>(node.operation) ||
                 std::holds_alternative<Float32Literal>(node.operation)) ||
@@ -1768,6 +1815,9 @@ private:
           {Code::Kernel, output, args,
            !options.preserveCalls ||
                    std::holds_alternative<IntegerRangeOperation>(node.operation) ||
+                   (options.valueScopes && std::holds_alternative<TensorIndex>(node.operation)) ||
+                   (options.valueScopes && node.type.tensor && !node.type.array && literal &&
+                    !embedded) ||
                    (options.valueScopes &&
                     (node.type.array || node.type.record ||
                      node.type.builtin == BuiltinValue::String ||
@@ -2032,8 +2082,10 @@ std::string dump(const ModulePlan &module) {
                                           "collect.finish",
                                           "resource.enter",
                                           "resource.leave",
-                                          "resource.adopt"};
-  static_assert(std::size(names) == static_cast<unsigned>(Code::ResourceAdopt) + 1);
+                                          "resource.adopt",
+                                          "generator.create",
+                                          "generator.yield"};
+  static_assert(std::size(names) == static_cast<unsigned>(Code::GeneratorYield) + 1);
   std::ostringstream out;
   for (std::size_t f = 0; f < module.plans.size(); ++f) {
     const auto &plan = *module.plans[f];

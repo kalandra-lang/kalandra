@@ -205,8 +205,8 @@ backing. Explicit close and abandonment share the same retirement callbacks;
 expected errors are delivered once, followed by sticky exhaustion. A fault
 recorded by the cleanup fence overrides a staged terminal value before the
 consumer can observe it. Synchronous and coordinating generator headers validate
-their distinct cleanup identities before interpreting their private storage. Compiler lifting must still provide
-lexical owned scopes and the static capture/write/loan proofs for source loops.
+their distinct cleanup identities before interpreting their private storage. Compiler lifting supplies lexical owned scopes and static capture/write/loan
+proofs for source loops.
 
 Erased host cursor advancement and close dispatch on the validated header kind.
 The task-aware runtime reuses this validation for synchronous cursors instead of
@@ -223,7 +223,9 @@ The compiler/runtime integration test supplies an actual coordinating producer
 to compiler-emitted `next` and `close`, using that module's own Option layout and
 copy callbacks. It covers partial close, exhaustion, never-started close, faults
 and external acknowledgement barriers with one/four workers and two task slots.
-This private test does not enable source generator syntax.
+Source integration tests separately compile yielding loops through the public
+CLI and execute them against the same runtime, including instrumented generated
+code for the sanitizer variants.
 
 ## Cursor traversal boundaries
 
@@ -264,3 +266,46 @@ projection, including factories and callback arguments. Synchronous CPU exports
 keep their native callable identities. Host scheduling/call frames are separate
 from device call frames. This mechanism neither executes host I/O inside kernels
 nor substitutes CPU execution for a device function.
+
+## Source generator host integration
+
+The checker lifts each yielding loop expression into a producer function with
+explicit captures and a canonical `Option[T] ! E` terminal envelope. Construction
+is an infallible owned-cursor operation; body errors are part of advancing the
+cursor. Scalar captures are snapshots, resource captures move, and captured
+array backing remains read-borrowed. Publication loans prevent the producer from
+mutating backing that it has yielded to a consumer.
+
+A proven synchronous producer uses `GeneratorEntry` directly. The proof checks
+its actual operations and calls; `E = never` is not evidence that a producer
+cannot suspend. Owned captures, parallel groups, I/O and unknown callbacks use
+`GeneratorTaskEntry`, whose body borrows the consuming task without reserving
+another scheduler record. Its persistent program counter survives yields.
+
+The producer frame already owns its captures. In particular, its root traversal
+must not create a second logical owner for a captured source cursor. The root
+loop is the producer's whole executable body, so exhaustion, break and expected
+error proceed directly to terminal frame retirement. Inner loops and other
+lexical scopes retain their normal cleanup boundaries. This avoids duplicate
+accounting paths through a chain of adapters while retaining the original
+resource limits and child-fault precedence.
+
+The shared Metal/Vulkan/CUDA host supervisor uses generated LLVM bridges for
+producer results. C++ helper outcomes are converted into the canonical native
+next-result envelope before staging. Producer layout, classification, exhausted
+value and next/close bridges are emitted together, sharing address-significant
+layout identities. Function-valued items validate against the linked CPU and
+host-resumable callable projections, rather than a second set of fictitious
+CPU entry points. No cursor is a device value and no host operation is silently
+lowered as a device kernel.
+
+Staging a borrowed completion may execute user-independent retain callbacks
+outside the core mutex. It must reacquire that mutex before the scheduler guard
+updates progress or notifies waiters. A yielding result is not a task completion;
+unfinished children remain live until resumption or generator retirement.
+
+Tensor publication normalizes flexible CPU descriptors to the canonical packed
+record-field representation before constructing `Option.Some`. Packed views
+retain their backing; strided and offset views use checked, cancellable byte
+copies. The same normalization applies to synchronous frames, coordinating
+frames and shared GPU host bridges, including rank-zero and empty tensors.

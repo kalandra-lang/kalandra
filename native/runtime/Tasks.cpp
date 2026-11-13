@@ -2553,6 +2553,7 @@ void Task::completeFrom(const Invocation &source, const void *value, bool publis
       }
       guard.lock.unlock();
       borrow.stageCompletion(*this, borrow.state, source, value);
+      core_.acquire(guard.lock);
       return;
     }
   }

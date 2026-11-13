@@ -12,6 +12,12 @@ void require(bool condition, const std::string &message) {
     throw std::runtime_error(message);
 }
 CheckResult analyze(std::string source, SemanticLimits limits = {}) {
+  if (source.find("yield ") != std::string::npos) {
+    const SourceOverlay overlay{"generics.k", std::move(source)};
+    auto loaded = loadModules(overlay.path, {}, {}, {}, {&overlay, 1});
+    require(bool(loaded), "cannot load generator generic fixture");
+    return check(std::move(*loaded), limits);
+  }
   return check(parse(std::make_shared<SourceFile>("generics.k", std::move(source))), limits);
 }
 void good(const std::string &name, const std::string &source) {
@@ -97,12 +103,12 @@ int main(int argc, char **argv) {
     }
     good("bound preserved through a collecting loop",
          measure + "fn use[T:Measure](x:T)->i64:\n"
-                   "  values=for item in [x]:\n    yield item\n"
+                   "  values=array(for item in [x]:\n    yield item\n  )\n"
                    "  return Measure.size(values[0])\n"
                    "fn main()->i64:\n  return use(Point {x:42})\n");
     bad("collecting loop cannot invent a bound",
         measure + "fn use[T](x:T)->i64:\n"
-                  "  values=for item in [x]:\n    yield item\n"
+                  "  values=array(for item in [x]:\n    yield item\n  )\n"
                   "  return Measure.size(values[0])\n"
                   "fn main()->i64:\n  return use(Point {x:42})\n",
         "S083");

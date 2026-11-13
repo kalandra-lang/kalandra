@@ -629,7 +629,40 @@ void rangeSources() {
   (void)generatorRange(cancelled, {0, 0, 0}, integer, 23, 5);
   CHECK(cancelled.status() == 0 && cancelled.poll() == -1);
 }
+template <kalandra::NumericType Element> void numericTensorPublication() {
+  Invocation source, receiver;
+  using Scalar = NumericValue<Element>;
+  auto *values = static_cast<Scalar *>(source.allocate(16 * sizeof(Scalar)));
+  CHECK(values);
+  for (unsigned index = 0; index < 16; ++index)
+    values[index] = Scalar(index * 2 + 3);
+  CpuTensor<Element, 2> view{values, values + 1, 1, {2, 2}, {4, 2}}, packed{};
+  CHECK(kalandra_record_tensor_pack_v1(&receiver, &packed, &source, &view, 2, unsigned(Element)));
+  CHECK(packed.allocated == packed.aligned && packed.allocated != values && !packed.offset);
+  CHECK((packed.sizes == std::array<std::int64_t, 2>{2, 2}));
+  CHECK((packed.strides == std::array<std::int64_t, 2>{2, 1}));
+  for (unsigned index = 0; index < 4; ++index)
+    CHECK(packed.aligned[index] == Scalar(index * 4 + 7));
+  CpuTensor<Element, 2> alias{};
+  CHECK(
+      kalandra_record_tensor_pack_v1(&receiver, &alias, &receiver, &packed, 2, unsigned(Element)));
+  CHECK(alias.allocated == packed.allocated); // Already packed storage is retained.
+  CpuTensor<Element, 0> scalar{values, values + 1, 1}, scalarPacked{};
+  CHECK(kalandra_record_tensor_pack_v1(&receiver, &scalarPacked, &source, &scalar, 0,
+                                       unsigned(Element)));
+  CHECK(scalarPacked.aligned[0] == Scalar(7) && !scalarPacked.offset);
+  CpuTensor<Element, 2> empty{values, values, 1, {0, INT64_MAX}, {INT64_MAX, 1}}, emptyPacked{};
+  CHECK(kalandra_record_tensor_pack_v1(&receiver, &emptyPacked, &source, &empty, 2,
+                                       unsigned(Element)));
+  CHECK(!emptyPacked.allocated && !emptyPacked.aligned && !emptyPacked.offset);
+  CHECK((emptyPacked.strides == std::array<std::int64_t, 2>{0, 0}));
+  source.settle();
+  CHECK(packed.aligned[3] == Scalar(19) && scalarPacked.aligned[0] == Scalar(7));
+  receiver.settle();
+  CHECK(!source.live() && !receiver.live());
+}
 template <kalandra::NumericType Element> void numericArraySources() {
+  numericTensorPublication<Element>();
   Invocation ctx;
   using Scalar = NumericValue<Element>;
   auto *values = static_cast<Scalar *>(ctx.allocate(5 * sizeof(Scalar)));

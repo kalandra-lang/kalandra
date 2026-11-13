@@ -22,6 +22,7 @@ if(BUILD_TESTING)
       LABELS "feature-frontend;feature-control")
   endforeach()
   add_custom_target(native-iterator-qualification DEPENDS kalandra
+    kalandra-task-core-optimized
     kalandra-iterator-contract-tests-debug kalandra-iterator-contract-tests-sanitized)
   foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
     if(WIN32 AND variant STREQUAL "thread-sanitized")
@@ -33,6 +34,13 @@ if(BUILD_TESTING)
     elseif(variant STREQUAL "thread-sanitized")
       set(runtime kalandra-native-runtime-thread-sanitized)
     endif()
+    add_test(NAME native-generator-source-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/GeneratorSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>"
+        --clang "${CMAKE_CXX_COMPILER}" --runtime "$<TARGET_FILE:${runtime}>"
+        --variant "${variant}" --output "${CMAKE_CURRENT_BINARY_DIR}/generator-source-${variant}")
+    set_tests_properties(native-generator-source-${variant} PROPERTIES TIMEOUT 600
+      LABELS "feature-frontend;feature-control")
     add_executable(kalandra-owned-scope-tests-${variant} tests/OwnedScopeTests.cpp)
     target_link_libraries(kalandra-owned-scope-tests-${variant} PRIVATE ${runtime})
     target_compile_options(kalandra-owned-scope-tests-${variant} PRIVATE -Wall -Wextra -Werror)
@@ -119,8 +127,16 @@ if(BUILD_TESTING)
           --output "${CMAKE_CURRENT_BINARY_DIR}/${backend}-iterators-source-${variant}" ${execution})
       set_tests_properties(native-${backend}-iterators-source-${variant} PROPERTIES TIMEOUT 600
         LABELS "feature-frontend;feature-control;feature-gpu" RESOURCE_LOCK "${backend}-gpu")
+      add_test(NAME native-${backend}-generator-source-${variant}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/GeneratorGpuSourceTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}" --target "${backend}"
+          --output "${CMAKE_CURRENT_BINARY_DIR}/${backend}-generator-source-${variant}" ${execution})
+      set_tests_properties(native-${backend}-generator-source-${variant} PROPERTIES TIMEOUT 900
+        LABELS "feature-frontend;feature-control;feature-gpu" RESOURCE_LOCK "${backend}-gpu")
       if(backend STREQUAL "metal")
         set_tests_properties(native-${backend}-iterators-source-${variant} PROPERTIES
+          RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+        set_tests_properties(native-${backend}-generator-source-${variant} PROPERTIES
           RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
       endif()
     endforeach()

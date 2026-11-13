@@ -1,5 +1,6 @@
 #include "../lib/IteratorCapabilities.h"
 #include "../lib/RecordLayout.h"
+#include "kalandra/Continuation.h"
 #include "kalandra/Semantics.h"
 #include <algorithm>
 #include <filesystem>
@@ -27,7 +28,7 @@ int main(int argc, char **argv) {
       }
       auto loaded = loadModules(path.string());
       require(bool(loaded), "cannot load iterator contract fixture");
-      return check(std::move(*loaded));
+      return check(std::move(*loaded), {}, {});
     };
     auto canonical = checkSource(
         "from \"std/option\" import Option\nfrom \"std/option\" import Option as Maybe\n"
@@ -372,6 +373,107 @@ int main(int argc, char **argv) {
                                                               std::string::npos;
                                                  }),
             "an implicit cursor capture lost its ownership diagnostic");
+    auto implicitGenerator =
+        checkSource("fn main()->[i64]:\n  return array(for value in range(3):\n"
+                    "    yield value*value\n  )\n");
+    require(implicitGenerator.ok(),
+            "yield syntax did not load its canonical iterator declarations");
+    auto hiddenNames =
+        checkSource("fn main()->[i64]:\n  values=for value in range(3):\n    yield value\n"
+                    "  cursor:Iterator[i64,never]=values\n  return array(cursor)\n");
+    require(!hiddenNames.ok(),
+            "implicit generator dependency leaked exported names into user scope");
+    auto publishedMaterialization =
+        checkSource("type Box:\n  values:[i64]\nfn main()->unit:\n"
+                    "  result=array(for i in range(2):\n    values=[i,1]\n"
+                    "    yield Box {values:values}\n    values[0]=2\n  )\n  return ()\n");
+    require(!publishedMaterialization.ok() &&
+                std::ranges::any_of(publishedMaterialization.diagnostics,
+                                    [](const auto &d) { return d.code == "S077"; }),
+            "direct materialization erased the generator publication loan");
+    auto lifted =
+        checkSource("from \"std/iter\" import Iterator,close\n"
+                    "fn squares(start:i64)->Iterator[i64,never]:\n"
+                    "  return for value in range(start,start+3):\n    yield value*value\n"
+                    "fn main()->unit:\n  cursor=squares(4)\n  close(cursor)\n  return ()\n");
+    for (const auto &diagnostic : lifted.diagnostics)
+      std::cerr << renderDiagnostic(*lifted.source, diagnostic);
+    require(lifted.ok(), "lazy loop lifting failed");
+    require(std::ranges::count_if(lifted.module->functions,
+                                  [](const auto &function) { return bool(function.generator); }) ==
+                1,
+            "yielding loop did not get its own producer function");
+    const auto create = std::ranges::find_if(lifted.module->expressions, [](const auto &value) {
+      return std::holds_alternative<GeneratorCreate>(value.operation);
+    });
+    require(create != lifted.module->expressions.end(), "yielding loop lost its constructor");
+    const auto &construction = std::get<GeneratorCreate>(create->operation);
+    require(construction.captures.size() == 1, "generator did not snapshot its scalar capture");
+    auto abstractItem = checkSource(
+        cursorPrelude + "trait Measure:\n  fn size(value:Self)->i64\n"
+                        "type Point:\n  x:i64\nimpl Measure for Point:\n"
+                        "  fn size(value:Self)->i64:\n    return value.x\n"
+                        "fn inspect[T](own values:Iterator[T,never])->i64:\n"
+                        "  for value in values:\n    return Measure.size(value)\n  return 0\n"
+                        "fn main()->i64:\n  return inspect(iter([Point {x:42}]))\n");
+    require(!abstractItem.ok() &&
+                std::ranges::any_of(abstractItem.diagnostics,
+                                    [](const auto &d) { return d.code == "S083"; }),
+            "cursor for erased its abstract item type and admitted an undeclared operation");
+    require(!iteratorCapabilityError(*lifted.module, *create, NumericTarget::Cpu),
+            "generator producer failed its typed construction contract");
+    auto producerPlan =
+        continuation::plan(*lifted.module, {.preserveCalls = true, .valueScopes = true});
+    if (!producerPlan)
+      throw std::runtime_error(producerPlan.error());
+    const auto planned = continuation::dump(*producerPlan);
+    require(planned.find("generator.create") != std::string::npos &&
+                planned.find("generator.yield") != std::string::npos,
+            "source generator lost its suspended continuation");
+    require(planned.find("collect.append") == std::string::npos,
+            "source generator still lowered to eager materialization");
+    const auto generatorCheck = [&](const std::string &program, const char *diagnostic = nullptr) {
+      auto result = checkSource(cursorPrelude + program);
+      const bool accepted = diagnostic == nullptr;
+      if (result.ok() != accepted) {
+        for (const auto &error : result.diagnostics)
+          std::cerr << renderDiagnostic(*result.source, error);
+        throw std::runtime_error("lazy generator checking mismatch:\n" + program);
+      }
+      if (!accepted && !std::ranges::any_of(result.diagnostics, [&](const auto &error) {
+            return error.code == diagnostic;
+          })) {
+        for (const auto &error : result.diagnostics)
+          std::cerr << renderDiagnostic(*result.source, error);
+        throw std::runtime_error("lazy generator lost its intended diagnostic:\n" + program);
+      }
+    };
+    generatorCheck("error E:\n  Bad:\n    message:String\n"
+                   "fn values()->Iterator[i64,E]:\n  return for value in range(3):\n"
+                   "    if value==2:\n      fail E.Bad {message:\"done\"}\n"
+                   "    yield value\nfn main()->unit:\n  cursor=values()\n"
+                   "  close(cursor)\n  return ()\n");
+    generatorCheck("fn main()->unit:\n  a=0\n  cursor=while a<3:\n"
+                   "    a=a+1\n    yield a\n  close(cursor)\n  a=9\n  return ()\n");
+    generatorCheck("fn main()->unit:\n  values=[3,1]\n  cursor=for value in values:\n"
+                   "    yield value\n  sort(values)\n  close(cursor)\n  return ()\n",
+                   "S077");
+    generatorCheck("fn main()->unit:\n  values=[3,1]\n  cursor=for value in values:\n"
+                   "    yield value\n  close(cursor)\n  sort(values)\n  return ()\n");
+    generatorCheck("fn main()->unit:\n  cursor=for i in range(2):\n"
+                   "    values=[i,1]\n    yield values\n    values[0]=2\n"
+                   "  close(cursor)\n  return ()\n",
+                   "S077");
+    generatorCheck("fn main()->unit:\n  cursor=for i in range(2):\n"
+                   "    values=[i,1]\n    yield copy(values)\n    values[0]=2\n"
+                   "  close(cursor)\n  return ()\n");
+    generatorCheck("fn main()->unit:\n  cursor=for i in range(2):\n"
+                   "    values=[i,1]\n    yield values\n"
+                   "  close(cursor)\n  return ()\n");
+    generatorCheck("fn main()->unit:\n  cursor=for i in range(2):\n"
+                   "    if i==1:\n      return ()\n    yield i\n"
+                   "  close(cursor)\n  return ()\n",
+                   "S079");
     std::cout
         << "PASS: canonical Option aliases, specialization, ownership and exhaustion contracts\n";
   } catch (const std::exception &error) {

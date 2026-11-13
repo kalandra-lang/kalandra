@@ -229,9 +229,10 @@ run('cursor-for-through-await', array_imports + '''fn main()->unit ! (IoError | 
   return ()
 ''', '6:9\n')
 run('cursor-for-nested-try-yield', array_imports + '''fn main()->unit ! (IoError | TaskError):
-  values=for row in range(2):
+  values=array(for row in range(2):
     try for value in iter([3,5]):
       yield row*10+value
+  )
   total=values[0]+values[1]+values[2]+values[3]
 ''' + gpu_pause + '''  try println(format("{}:{}",total,checked))
   return ()
@@ -637,6 +638,20 @@ fn main()->unit ! IoError:
          '  for value in values:\n    value+1\n')):
         run(name, 'fn zero()->i64:\n  return 0\nfn main()->unit:\n  ' + creation + '\n' +
             traversal + '  return ()\n', '', fault=True)
+
+run('cursor-materialize', array_imports + '''fn main()->unit ! (IoError | TaskError):
+  source=[3,1,2]
+  values=array(iter(source))
+  source[0]=7
+  ranged=array(steps(4))
+  total=0
+  for value in ranged:
+    total=total+value
+  flags=array(iter([true,false]))
+  words=array(iter(["a","b"]))
+''' + gpu_pause + '''  try println(format("{}:{}:{}:{}",values[0],total,length(flags),words[1]))
+  return ()
+''', '3:6:2:b\n')
 
 if selected:
     assert executed == selected, f'Unknown or unavailable cases for {args.target}: {selected - executed}'

@@ -56,6 +56,7 @@ struct Summary {
 };
 struct ReadLoan {
   Roots roots, controls; // Nonempty controls identify a cursor's retained-data loan.
+  bool published = false; // Yielded backing cannot be rewritten by the producer.
   bool operator==(const ReadLoan &) const = default;
 };
 struct LoopFlow;
@@ -91,7 +92,8 @@ public:
                  std::holds_alternative<ArraySort>(v.operation) ||
                  std::holds_alternative<FileOperation>(v.operation) ||
                  std::holds_alternative<BufferOperation>(v.operation) ||
-                 std::holds_alternative<IteratorOperation>(v.operation);
+                 std::holds_alternative<IteratorOperation>(v.operation) ||
+                 std::holds_alternative<GeneratorCreate>(v.operation);
         });
     const bool indirect = std::ranges::any_of(module.expressions, [&](const auto &value) {
       const auto *call = std::get_if<FunctionInvoke>(&value.operation);
@@ -116,6 +118,9 @@ public:
         for (auto id : module.functions[fn].expressions) {
           if (const auto *call = std::get_if<FunctionCall>(&module.expressions[id].operation))
             callers.at(call->function).push_back(fn);
+          else if (const auto *producer =
+                       std::get_if<GeneratorCreate>(&module.expressions[id].operation))
+            callers.at(producer->function).push_back(fn);
           else if (flow && std::holds_alternative<FunctionInvoke>(module.expressions[id].operation))
             for (auto target : flow->targets[id])
               callers.at(target).push_back(fn);
@@ -170,6 +175,7 @@ private:
   std::vector<Diagnostic> diagnostics;
   std::size_t budget = 1000000, depth = 0;
   bool checking = false;
+  std::optional<std::size_t> producerCollection;
   SourceSpan readerSpan(StorageRoot reader) const {
     return reader.kind() == StorageRoot::Kind::Parameter
                ? module.symbols.at(reader.identity()).declaration
@@ -339,6 +345,7 @@ private:
   void unite(ReadLoan &to, const ReadLoan &from) {
     unite(to.roots, from.roots);
     unite(to.controls, from.controls);
+    to.published |= from.published;
   }
   Roots cursorControl(const Roots &roots) {
     Roots result;
@@ -576,6 +583,12 @@ private:
     }
     for (const auto &[reader, loan] : env.readers)
       if (!(cursor && !loan.controls.empty()) && overlap(writableRoots, loan.roots)) {
+        if (loan.published) {
+          diagnostics.push_back(
+              {"S077", "can't mutate backing after yielding it; yield copy(...) for a snapshot",
+               module.expressions[id].span});
+          return;
+        }
         const auto [line, column] = module.source->location(readerSpan(reader).begin);
         diagnostics.push_back(
             {"S077",
@@ -766,6 +779,11 @@ private:
     writable.clear();
     Environment env;
     const auto &function = module.functions[id];
+    producerCollection = function.generator ? std::optional(function.generator->collection)
+                                            : function.publicationCollection;
+    Roots published;
+    if (function.generator)
+      env.collections[function.generator->collection] = &published;
     for (auto symbol : function.parameters)
       if (storage(module.symbols[symbol].type)) {
         const auto root = StorageRoot::make(StorageRoot::Kind::Parameter, symbol);
@@ -779,7 +797,9 @@ private:
           env.readers[root] = ReadLoan{{data}, {root}};
         }
       }
-    return body(function.body, function.result, env);
+    auto result = body(function.body, function.result, env);
+    unite(result, published);
+    return result;
   }
   Roots evaluate(ValueId id, Environment &env, bool spawned = false) {
     spend();
@@ -852,6 +872,23 @@ private:
                   isIterator(module, module.symbols[function.parameters.at(i)].type))
                 releaseCursor(args[i], env);
             return storage(node.type) ? returned(op.function, id, args) : Roots{};
+          } else if constexpr (std::is_same_v<T, GeneratorCreate>) {
+            std::vector<Roots> captures;
+            std::vector<ResourceUse> uses;
+            for (auto capture : op.captures) {
+              captures.push_back(input(capture));
+              rememberResource(capture, captures.back(), env, uses);
+            }
+            validateResources(uses, env);
+            auto data = returned(op.function, id, captures);
+            auto result = fresh(id);
+            for (std::size_t index = 0; index < captures.size(); ++index) {
+              unite(data, captures[index]);
+              consume(op.captures[index], captures[index], env);
+            }
+            for (auto root : data)
+              result.insert(root.borrow());
+            return result;
           } else if constexpr (std::is_same_v<T, IteratorOperation>) {
             std::vector<Roots> args;
             std::vector<ResourceUse> uses;
@@ -997,7 +1034,7 @@ private:
               // reaches this settlement edge and therefore never removes a reader.
               const auto identity = module.expressions[op.operand].type.identity;
               std::erase_if(env.readers, [&](const auto &reader) {
-                return reader.second.controls.empty() &&
+                return !reader.second.published && reader.second.controls.empty() &&
                        reader.first.kind() == StorageRoot::Kind::Local &&
                        module.expressions[reader.first.identity()].type.identity == identity;
               });
@@ -1007,7 +1044,8 @@ private:
             const auto incoming = env.readers;
             auto value = body(op.body, op.result, env);
             std::erase_if(env.readers, [&](const auto &reader) {
-              return reader.second.controls.empty() && !incoming.contains(reader.first);
+              return !reader.second.published && reader.second.controls.empty() &&
+                     !incoming.contains(reader.first);
             });
             return value;
           } else if constexpr (std::is_same_v<T, ConditionalOperation>) {
@@ -1068,6 +1106,9 @@ private:
             if (found == env.collections.end())
               throw Exhausted{};
             unite(*found->second, input(op.operand));
+            if (producerCollection == op.collection)
+              unite(env.readers[StorageRoot::make(StorageRoot::Kind::Local, id)],
+                    ReadLoan{inputs, {}, true});
             return {};
           } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
             auto found = env.loops.find(op.loop);

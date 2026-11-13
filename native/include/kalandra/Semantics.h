@@ -226,6 +226,10 @@ struct IteratorOperation {
   std::vector<ValueId> arguments;
   SourceSpan source;
 };
+struct GeneratorCreate {
+  FunctionId function;
+  std::vector<ValueId> captures;
+};
 
 struct TimeOperation {
   TimeAction action;
@@ -513,7 +517,7 @@ struct TypedExpr {
                ConditionalOperation, WhileOperation, LoopTransferOperation, IntegerRangeOperation,
                YieldOperation, CatchOperation, MatchOperation, ErrorFieldRead, FailOperation,
                GuardOperation, RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference,
-               FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort>
+               FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort, GeneratorCreate>
       operation;
 };
 struct ShapeEquality {
@@ -545,6 +549,13 @@ struct TypedFunction {
   // Checked compiler adapter: parameter target flow comes from this original
   // entry. Symbols and runtime arguments remain distinct; signatures must match.
   std::optional<FunctionId> parameterOrigin = {};
+  struct Generator {
+    ValueType item;
+    std::size_t collection;
+  };
+  std::optional<Generator> generator = {};
+  // Retain the publication proof when direct materialization removes a cursor.
+  std::optional<std::size_t> publicationCollection = {};
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.

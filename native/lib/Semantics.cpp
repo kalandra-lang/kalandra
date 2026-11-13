@@ -41,12 +41,14 @@ class Checker {
     std::size_t identity;
     std::optional<ValueType> element;
     std::vector<ValueId> values;
+    bool lazy = false;
   };
   struct Frame;
   struct ClosureScope {
     Frame *parent;
     std::unordered_map<std::string, SymbolId> captures;
     std::vector<SymbolId> origins;
+    bool generator = false;
   };
   struct Frame {
     FunctionId function;
@@ -2560,7 +2562,7 @@ private:
     if (!origin)
       return {};
     const auto capture = output_.symbols[*origin];
-    if (isOwnedResource(output_, capture.type)) {
+    if (isOwnedResource(output_, capture.type) && !frame.closure->generator) {
       error(
           "S081",
           isIterator(output_, capture.type)
@@ -2572,13 +2574,15 @@ private:
       return {};
     }
     auto type = capture.type;
-    const bool privateCopy = mayReassign(frame, identifier) && localBinding(type);
+    const bool privateCopy = mayReassign(frame, identifier) && localBinding(type) &&
+                             !(frame.closure->generator && type.array);
     if (privateCopy)
       type = bindingType(type);
     if (type.task || type.fallible || type.device ||
         (type.builtin != BuiltinValue::Numeric && !isBooleanStorage(type) &&
          type.builtin != BuiltinValue::Record && type.builtin != BuiltinValue::String &&
-         type.builtin != BuiltinValue::Function)) {
+         type.builtin != BuiltinValue::Function &&
+         !(frame.closure->generator && type.builtin == BuiltinValue::TaskError))) {
       error("S060",
             "anonymous callbacks capture only completed CPU numbers, collections, bool, records or "
             "Strings",
@@ -2589,6 +2593,8 @@ private:
     output_.symbols.push_back({identifier, type, span, frame.function, true,
                                capture.definition.value_or(capture.declaration)});
     output_.symbols.back().reassignable = privateCopy;
+    output_.symbols.back().owned =
+        frame.closure->generator && isOwnedResource(output_, capture.type);
     if (auto provenance = genericSymbolTerms_.find(*origin);
         provenance != genericSymbolTerms_.end())
       genericSymbolTerms_[symbol] = provenance->second;
@@ -4101,7 +4107,11 @@ private:
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ReturnExpr &exit,
                                const std::optional<ValueType> &) {
     if (!frame.returns) {
-      error("S079", "return requires an enclosing function", span);
+      error("S079",
+            frame.collection && frame.collection->lazy
+                ? "return cannot leave a yielding loop; use break to finish the generator"
+                : "return requires an enclosing function",
+            span);
       return {};
     }
     std::optional<GenericTerm> returnTerm;
@@ -4278,8 +4288,8 @@ private:
     if (!value)
       return {};
     const auto type = node(*value).type;
-    if (type.task || type.fallible || type.tensor || type.array || type.device ||
-        type.builtin == BuiltinValue::Device) {
+    if (type.task || type.fallible || ((!collection.lazy) && (type.tensor || type.array)) ||
+        type.device || type.builtin == BuiltinValue::Device || isOwnedResource(output_, type)) {
       error("S076", "yield requires a completed CPU array element; handle errors before yielding",
             span);
       return {};
@@ -4338,6 +4348,8 @@ private:
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const WhileExpr &loop,
                                const std::optional<ValueType> &expected) {
+    if (loop.collecting)
+      return generatorLoop(frame, span, loop, expected);
     auto condition = expression(frame, loop.condition);
     if (!condition)
       return {};
@@ -4347,7 +4359,8 @@ private:
                                    const std::optional<ValueType> &expected, ValueId condition,
                                    Frame nested, std::vector<TypedStatement> initial = {},
                                    std::vector<TypedStatement> iteration = {},
-                                   std::optional<ValueType> traversalError = {}) {
+                                   std::optional<ValueType> traversalError = {},
+                                   std::optional<ValueId> traversalValue = {}) {
     const auto test = node(condition).type;
     if (test.builtin != BuiltinValue::Bool || test.tensor || test.array || test.task ||
         test.fallible || test.device) {
@@ -4451,15 +4464,20 @@ private:
     if (!(traversalError && traversalError->fallible) && !scope->breaks &&
         ((literal && literal->value) || normal.stopped))
       frame.stopped = true;
-    return add(frame, resultType, span,
-               WhileOperation{condition, std::move(body), std::move(whenDone),
-                              loop.statementOnly ? std::optional<ValueId>{} : normalResult,
-                              scope->identity, scope->transfers, std::move(initial),
-                              std::move(iteration), scope->results, loop.collecting, false,
-                              traversalError && traversalError->fallible});
+    auto result = add(frame, resultType, span,
+                      WhileOperation{condition, std::move(body), std::move(whenDone),
+                                     loop.statementOnly ? std::optional<ValueId>{} : normalResult,
+                                     scope->identity, scope->transfers, std::move(initial),
+                                     std::move(iteration), scope->results, loop.collecting, false,
+                                     traversalError && traversalError->fallible});
+    if (result && traversalValue)
+      traversalGenericError(frame, *result, *traversalValue);
+    return result;
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ForExpr &loop,
                                const std::optional<ValueType> &expected) {
+    if (loop.collecting)
+      return generatorLoop(frame, span, loop, expected);
     if (reservedControl(name(loop.binding))) {
       error("S076", "invalid for iteration binding", loop.binding);
       return {};
@@ -4635,6 +4653,7 @@ private:
         if (!advanced)
           return {};
         const auto traversalError = result;
+        const auto traversalValue = *advanced;
         if (fallible) {
           frame.tasks->handled.insert(node(*advanced).type.identity);
           auto completed = result;
@@ -4661,7 +4680,8 @@ private:
         return checkLoop(
             frame, span,
             WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting}, expected,
-            *test, std::move(nested), std::move(initial), std::move(iteration), traversalError);
+            *test, std::move(nested), std::move(initial), std::move(iteration), traversalError,
+            traversalValue);
       }
       if (!type.array || type.task || type.fallible || type.device) {
         error("S076", "for expects a completed CPU array, Range, Iterator or range(...) iterable",
@@ -6548,17 +6568,52 @@ private:
         return conversion(frame, span, *numeric, arguments);
       if (callee == "array") {
         if (arguments.size() != 1) {
-          error("S027", "array expects exactly one tensor argument", span);
+          error("S027", "array expects exactly one tensor or iterable argument", span);
           return {};
         }
         if (expected && !expected->array) {
           error("S026", "array construction requires an array result context", span);
           return {};
         }
-        auto input = expression(frame, arguments[0]);
+        std::optional<ValueId> input;
+        if (expected && expected->array) {
+          auto item = bindingType(*expected);
+          item.array = item.tensor = false;
+          item.shape.clear();
+          item.fallible = false;
+          item.errorRecord.reset();
+          item.emptyErrorChannel = false;
+          item.identity = 0;
+          const auto &argument = syntax_.expressions.at(arguments[0]);
+          if (const auto *loop = std::get_if<ForExpr>(&argument.value); loop && loop->collecting)
+            input = generatorLoop(frame, argument.span, *loop, {}, item);
+          else if (const auto *loop = std::get_if<WhileExpr>(&argument.value);
+                   loop && loop->collecting)
+            input = generatorLoop(frame, argument.span, *loop, {}, item);
+          else
+            input = expression(frame, arguments[0]);
+        } else
+          input = expression(frame, arguments[0]);
         if (!input)
           return {};
+        if (std::holds_alternative<GeneratorCreate>(node(*input).operation))
+          return materializeFreshGenerator(frame, *input, span);
         auto output = node(*input).type;
+        if (!output.task && !output.fallible && !output.device && output.array) {
+          if (genericContext(frame) && !genericTerm(*input).variables.empty())
+            return materializeIterator(frame, span, *input);
+          ValueType integer;
+          integer.element = NumericType::Int64;
+          const auto start = add(frame, integer, span, Int64Literal{0});
+          const auto end =
+              add(frame, integer, span, CollectionQuery{CollectionQueryKind::Length, *input});
+          if (!start || !end)
+            return {};
+          output.emptyErrorChannel = true;
+          return add(frame, output, span, ArraySlice{*input, *start, *end});
+        }
+        if (!output.tensor && !output.task && !output.fallible && !output.device && output.record)
+          return materializeIterator(frame, span, *input);
         if (!output.tensor || output.array || output.task || output.fallible || output.device ||
             output.builtin != BuiltinValue::Numeric) {
           error("S026", "array construction requires a completed CPU numeric tensor", span);

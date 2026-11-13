@@ -446,6 +446,9 @@ void kalandra_record_validate_v1(kalandra::runtime::Invocation *, const void *, 
 bool kalandra_record_retain_v1(kalandra::runtime::Invocation *,
                                const kalandra::runtime::Invocation *, const void *, std::uint64_t,
                                std::uint64_t) noexcept;
+bool kalandra_record_tensor_pack_v1(kalandra::runtime::Invocation *, void *,
+                                    const kalandra::runtime::Invocation *, const void *,
+                                    std::uint64_t, std::uint64_t) noexcept;
 bool kalandra_retain_v1(kalandra::runtime::Invocation *, const kalandra::runtime::Invocation *,
                         void *) noexcept;
 void kalandra_expected_task_error_v1(kalandra::runtime::Invocation *, std::int64_t, std::int64_t,

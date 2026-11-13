@@ -41,9 +41,9 @@ obligations, and terminal state. The creator's return must not invalidate it.
 Advancing, closing, and transferring the frame require one consumer; aliases
 cannot independently advance the same state or release a live capture.
 
-This capability is separate from general record mutation. Source `mut` currently
-permits flat numeric/bool arrays and `ByteBuffer`; iteration must not silently
-make arbitrary record fields writable. Compiler-managed cursor/frame state has
+This capability is separate from general record mutation. Source `mut` permits flat numeric/bool arrays and explicit owned-capability
+operations such as advancing a cursor; iteration does not make arbitrary record
+fields writable. Compiler-managed cursor/frame state has
 an explicit ownership and access contract.
 
 Borrowed array backing remains read-locked while the cursor can still read it.
@@ -93,3 +93,34 @@ never becomes a device instruction or hidden host fallback.
 Qualification compares equivalent source-level work, validates values and side
 effects, and retains control/paired/replication outcomes. Existing ordinary,
 resumable, array and GPU programs remain part of regression acceptance.
+
+## Adapter ownership and errors
+
+`std/iter.map` and `filter` consume an `Iterator[T, E]` and capture their callback
+by value. The returned cursor combines source errors with callback errors;
+`never` erases an absent channel. Return-type inference preserves this union in
+the generic implementation. Adapters do not evaluate callbacks until requested.
+`take` accepts an `i64` limit; nonpositive limits never advance their input.
+Closing an adapter closes its owned source recursively through the iterative
+resource-retirement machinery, including cancellation and joining of suspended
+children. None of these operations creates a scheduler task per cursor.
+
+Capturing a scalar copies its binding state. Mutation within a generator cannot
+reassign the creator's binding. Array capture retains shared backing with a read
+loan; explicit `copy` is required for independent storage. Captured owned handles
+move into the generator. A generated frame's root loop uses that existing owner
+rather than adding a second scope reservation for its source. Inner lexical
+cleanup boundaries remain distinct.
+
+Immediate `array(for ... yield ...)` and `array(while ... yield ...)`
+materialization uses a private collecting function instead of constructing a
+cursor that cannot escape. Its captures still have private scalar bindings and
+the same publication loans. Inlining this function avoids a second invocation
+boundary; it does not permit mutation of already published backing. Materializing
+an existing cursor still advances and closes that cursor normally.
+
+Tensor items cross into `Option.Some` using the existing packed record-field
+representation. Canonical packed backing is retained directly. Offset or strided
+views are copied in logical element order, with checked dimensions, cancellation
+polling and byte-preserving copies for all ten numeric types. This normalization
+does not change floating-point values or copy captured arrays implicitly.

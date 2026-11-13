@@ -143,6 +143,26 @@ fn main() -> unit ! IoError:
 
 This displays 12. The else value is returned on exhaustion; break value can provide an earlier result. Closing the cursor does not invalidate an item that retains its own backing storage.
 
+h2 { "array" }
+
+code { "array(source: Iterator[T, E]) -> [T] ! E" }
+
+Consume the remaining items into an array and close the cursor before returning. A range or another Iterable source can also be passed directly. Materialization happens immediately. Handle E with try or catch; with E equal to never, the call is infallible. A traversal error discards the partial array and closes the source before the error is delivered.
+
+codeblock { language = kalandra, """from "std/iter" import range, iter
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  cursor = iter(range(4))
+  values = array(cursor)
+  values[0] = 9
+  try println(format("{}:{}", length(values), values[0]))
+  return ()
+""" }
+
+This displays 4:9. Materializing an existing array creates new outer element storage; references stored inside its elements retain their ordinary sharing rules. Array and tensor items cannot be nested in another array by this operation: wrap each such item in a record. To convert a numeric tensor into a flat array, use array(tensor).
+
 h2 { "Iterable" }
 
 code { "Iterable.iterator(values: Self) -> Iterator[Self.Item, Self.Error]" }
@@ -178,6 +198,68 @@ h2 { "close" }
 code { "close[T, E](own cursor: Iterator[T, E]) -> unit" }
 
 Stop iteration and release the cursor's suspended state. Closing consumes ownership, so the binding cannot be used afterward. Close a partially consumed cursor when you have finished with it. Leaving its owning scope also cleans it up, including on faults and cancellation.
+
+
+h2 { "Lazy generators" }
+
+A for or while expression with yield creates an Iterator. Creating it captures its inputs without running its body. The loop source expression and bounds are evaluated when iteration begins, using the captured bindings. Each next call runs until one item is yielded, the body finishes or an expected error occurs. A consuming for loop advances it automatically. Use array(generator) when you want all remaining items stored immediately.
+
+codeblock { language = kalandra, """from "std/iter" import Iterator
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn squares(start: i64) -> Iterator[i64, never]:
+  return for value in range(start, start + 3):
+    yield value * value
+
+fn main() -> unit ! IoError:
+  total = 0
+  for value in squares(4):
+    total = total + value
+  try println(format("{}", total))
+  return ()
+""" }
+
+This displays 77. The cursor produces 16, 25 and 36 one at a time. A bare break ends a yielding loop; continue skips to its next iteration. Nested statement loops yield into the enclosing sequence. An independently bound yielding expression owns a separate sequence. Use break rather than return to end a generator body; return still ends the function that creates or consumes it.
+
+Scalar bindings are captured by value. Reassigning a captured scalar inside the generator changes its private binding, and reassigning the enclosing binding does not change the cursor. Captured arrays retain their backing with a read loan, rather than copying their elements. Mutation through another alias is rejected while that loan is active. Use copy explicitly for independent backing. Values already yielded must remain safe for the consumer: the producer cannot subsequently mutate their shared backing. Owned resources captured by a generator move into it and close when it finishes or is closed.
+
+Expected errors in the body belong to the cursor's E channel. Construction is infallible with respect to E; handle errors when advancing or materializing the cursor. Once exhausted, the cursor stays exhausted. An error ends the sequence and closes its state; subsequent advancement returns Option.None. Dropping or explicitly closing a paused cursor also releases its state.
+
+A generator can await tasks between items. Children spawned inside a parallel block continue while it is paused; consuming the next item may resume that block. Closing, dropping or exhausting the generator cancels unfinished children and joins them before releasing captures and read loans. Child faults retain their precedence over an expected terminal error. Long-lived paused cursors therefore retain their live resources until consumption or closure.
+
+Generators run on the CPU host. In a mixed GPU program, their bodies can submit kernels and await completed CPU results before yielding. A generator cursor itself cannot be transferred to or advanced inside a GPU kernel. This does not change the device support of ordinary array and range loops.
+
+h2 { "Lazy adapters" }
+
+Import map, filter and take from std/iter to transform a cursor without constructing intermediate arrays. These functions consume their input cursor. To adapt an array, Range or another reusable Iterable, first call iter(source). Give the iterator map an import alias when you also use the built-in array map.
+
+code { "map[T, U, E, F](own values: Iterator[T, E], transform: fn(T) -> U ! F)" }
+
+Return a cursor of U items. The callback runs once for each requested input item. Its expected errors combine with the source's E channel; either ends the sequence. An infallible callback has F equal to never.
+
+code { "filter[T, E, F](own values: Iterator[T, E], predicate: fn(T) -> bool ! F)" }
+
+Return a cursor of T items for which predicate is true, preserving source order. Requesting one output may advance through several rejected input items. Source and predicate errors combine in the returned cursor's error channel.
+
+code { "take[T, E](own values: Iterator[T, E], count: i64) -> Iterator[T, E]" }
+
+Return at most count items. A zero or negative count produces no items and does not advance the source. Exhausting or closing the adapter closes its input, including its pending child tasks. To release a partially consumed adapter immediately, close it or leave its owning scope.
+
+codeblock { language = kalandra, """from "std/iter" import iter, map as mapItems, filter, take
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  doubled = mapItems(iter([1, 2, 3, 4, 5, 6]),
+    fn(value: i64) -> i64: return value * 2)
+  selected = filter(doubled, fn(value: i64) -> bool: return value % 3 != 0)
+  values = array(take(selected, 2))
+  try println(format("{}:{}", values[0], values[1]))
+  return ()
+""" }
+
+This displays 2:4. The adapters stop after two accepted items, and array stores only those items. Calling an adapter does not advance its source or invoke its callback.
 
 list {
   link { url = "/docs/control-flow#iterate-over-an-integer-range", "Range loops, break and continue" },

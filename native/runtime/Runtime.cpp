@@ -1825,6 +1825,76 @@ extern "C" bool kalandra_record_retain_v1(kalandra::runtime::Invocation *destina
   }
   return !allocated || destination->retainFrom(*source, allocated);
 }
+extern "C" bool kalandra_record_tensor_pack_v1(kalandra::runtime::Invocation *destination,
+                                               void *output,
+                                               const kalandra::runtime::Invocation *source,
+                                               const void *input, std::uint64_t rank,
+                                               std::uint64_t element) noexcept {
+  if (!destination)
+    return false;
+  if (!output || !source || !input || rank > 128) {
+    destination->fault(3);
+    return false;
+  }
+  if (!kalandra_environment_tensor_retain_v1(destination, source, input, rank, element))
+    return false;
+  // A tensor's ordinary native view may have an aligned pointer, offset and
+  // strides. Inline record fields have the existing canonical packed ABI.
+  void *allocated = nullptr;
+  const auto descriptorBytes = 2 * sizeof(void *) + 8 + 16 * rank;
+  if (validRecordStorage(*source, input, rank, element, allocated)) {
+    std::memcpy(output, input, descriptorBytes);
+    return true;
+  }
+  const auto *raw = static_cast<const std::byte *>(input);
+  void *aligned;
+  std::int64_t offset, sizes[128], strides[128], indices[128]{};
+  std::memcpy(&aligned, raw + sizeof(void *), sizeof(void *));
+  std::memcpy(&offset, raw + 2 * sizeof(void *), 8);
+  std::memcpy(sizes, raw + 2 * sizeof(void *) + 8, rank * 8);
+  std::memcpy(strides, raw + 2 * sizeof(void *) + 8 + rank * 8, rank * 8);
+  const auto width =
+      kalandra::describeNumeric(static_cast<kalandra::NumericType>(element))->bytes();
+  std::uint64_t count =
+      std::any_of(sizes, sizes + rank, [](auto size) { return size == 0; }) ? 0 : 1;
+  for (std::size_t axis = 0; axis < rank; ++axis) {
+    if (count && count > std::uint64_t(INT64_MAX) / width / std::uint64_t(sizes[axis])) {
+      destination->fault(2);
+      return false;
+    }
+    count *= std::uint64_t(sizes[axis]);
+  }
+  allocated = count ? destination->allocateRecord(count * width) : nullptr;
+  if (count && !allocated)
+    return false;
+  for (std::uint64_t index = 0; index < count; ++index) {
+    if ((index & 255) == 0 && destination->poll())
+      return false;
+    auto position = std::uint64_t(offset);
+    for (std::size_t axis = 0; axis < rank; ++axis)
+      position += std::uint64_t(indices[axis]) * std::uint64_t(strides[axis]);
+    std::memcpy(static_cast<std::byte *>(allocated) + index * width,
+                static_cast<const std::byte *>(aligned) + position * width, width);
+    for (auto axis = rank; axis; --axis) {
+      if (++indices[axis - 1] < sizes[axis - 1])
+        break;
+      indices[axis - 1] = 0;
+    }
+  }
+  auto *out = static_cast<std::byte *>(output);
+  std::memcpy(out, &allocated, sizeof(void *));
+  std::memcpy(out + sizeof(void *), &allocated, sizeof(void *));
+  offset = 0;
+  std::memcpy(out + 2 * sizeof(void *), &offset, 8);
+  std::memcpy(out + 2 * sizeof(void *) + 8, sizes, rank * 8);
+  std::uint64_t stride = count ? 1 : 0;
+  for (auto axis = rank; axis; --axis) {
+    strides[axis - 1] = std::int64_t(stride);
+    stride *= std::uint64_t(sizes[axis - 1]);
+  }
+  std::memcpy(out + 2 * sizeof(void *) + 8 + rank * 8, strides, rank * 8);
+  return !destination->poll();
+}
 
 namespace {
 bool validRecordArray(const kalandra::runtime::Invocation &source, const void *descriptor,

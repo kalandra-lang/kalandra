@@ -52,7 +52,9 @@ enum class Code {
   CollectFinish,
   ResourceEnter,
   ResourceLeave,
-  ResourceAdopt
+  ResourceAdopt,
+  GeneratorCreate,
+  GeneratorYield
 };
 struct Instruction {
   Code code;

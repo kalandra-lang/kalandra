@@ -111,8 +111,7 @@ inline std::optional<Diagnostic> recordFieldError(const TypedModule &module) {
           storage.device)
         return fail("Iterator storage requires its private byte descriptor", record.declaration);
       const auto &item = record.typeArguments[0], &error = record.typeArguments[1];
-      if (item.array || item.tensor || item.task || item.fallible || item.errorRecord ||
-          item.device ||
+      if (item.task || item.fallible || item.errorRecord || item.device ||
           (item.builtin != BuiltinValue::Numeric && !isBooleanStorage(item) &&
            item.builtin != BuiltinValue::String && item.builtin != BuiltinValue::Function &&
            item.builtin != BuiltinValue::Record) ||

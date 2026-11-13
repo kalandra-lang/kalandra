@@ -127,6 +127,23 @@ export fn next[T, E](mut cursor: Iterator[T, E]) -> Option[T] ! E:
   return __kalandra_iterator_next(cursor)
 export fn close[T, E](own cursor: Iterator[T, E]) -> unit:
   return __kalandra_iterator_close(cursor)
+export fn map[T, U, E, F](own values: Iterator[T, E], transform: fn(T) -> U ! F):
+  return for value in values:
+    yield try transform(value)
+export fn filter[T, E, F](own values: Iterator[T, E], predicate: fn(T) -> bool ! F):
+  return for value in values:
+    if try predicate(value):
+      yield value
+export fn take[T, E](own values: Iterator[T, E], count: i64) -> Iterator[T, E]:
+  return while count > 0:
+    item = try next(values)
+    match item:
+      Option.None: break
+      Option.Some {value}:
+        count = count - 1
+        yield value
+        ()
+    ()
 )k";
   case StandardModule::Option:
     return R"k(export enum Option[T]:

@@ -3791,7 +3791,8 @@ private:
                                std::is_same_v<T, FailOperation> ||
                                std::is_same_v<T, GuardOperation> ||
                                std::is_same_v<T, LoopTransferOperation> ||
-                               std::is_same_v<T, YieldOperation>) {
+                               std::is_same_v<T, YieldOperation> ||
+                               std::is_same_v<T, GeneratorCreate>) {
             throw LoweringFailure{"task operation requires continuation lowering"};
           } else if constexpr (std::is_same_v<T, ShapeCheck>) {
             auto input = expression(frame, operation.input);

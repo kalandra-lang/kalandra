@@ -165,6 +165,8 @@ Use tensor(array) for a rank-one numeric tensor, or tensor(array, dimensions) fo
 
 Both conversions copy numerical storage. Editing a source array cannot change an immutable tensor snapshot, and editing an array produced from a tensor cannot change that tensor.
 
+array(source) also consumes an iteration cursor or materializes a reusable Iterable source. It closes the cursor before returning the complete array or a traversal error. See link { url = "/docs/iteration", "Iteration" } for ownership and error handling.
+
 h2 { "Edit local elements" }
 
 A fresh numeric or bool array supports checked element assignment. A plain binding aliases the same backing; copy creates independent outer storage. A helper that writes caller-owned storage declares a mut parameter.

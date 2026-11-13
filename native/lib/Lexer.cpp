@@ -210,6 +210,14 @@ private:
           (result_.tokens.size() < 2 ||
            result_.tokens[result_.tokens.size() - 2].kind != TokenKind::Dot))
         functionStart_ = delimiters_.size();
+      if (kind == TokenKind::Identifier && !delimiters_.empty() &&
+          (result_.tokens.size() < 2 ||
+           result_.tokens[result_.tokens.size() - 2].kind != TokenKind::Dot)) {
+        const auto word = text_.substr(begin, end - begin);
+        if (word == "for" || word == "while" || word == "if" || word == "match" ||
+            word == "parallel")
+          functionHeaders_.push_back(delimiters_.size());
+      }
       if (kind == TokenKind::Comma)
         while (!functionHeaders_.empty() && functionHeaders_.back() == delimiters_.size())
           functionHeaders_.pop_back();
@@ -356,7 +364,7 @@ private:
   }
   void close(TokenKind kind, TokenKind expected, std::size_t begin) {
     if (!layouts_.empty() && layouts_.back().depth == delimiters_.size()) {
-      error("L016", "close the delimiter on a dedented line after the anonymous body",
+      error("L016", "close the delimiter on a dedented line after the expression body",
             {begin, position_});
       while (indents_.size() > layouts_.back().floor) {
         indents_.pop_back();
@@ -435,7 +443,7 @@ private:
     std::size_t depth, base, floor;
     bool pending;
   };
-  // Delimited anonymous suites temporarily restore layout at their delimiter
+  // Delimited expression suites temporarily restore layout at their delimiter
   // depth. Deeper calls and collections still use ordinary line continuation.
   std::vector<Layout> layouts_;
   std::vector<std::size_t> functionHeaders_;

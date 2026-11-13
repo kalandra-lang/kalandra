@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
+#include <unordered_set>
 
 namespace kalandra {
 bool hasOrdinaryStrings(const TypedModule &module) {
@@ -142,6 +143,10 @@ std::string describeType(const ValueType &type) {
 std::optional<std::string> numericCapabilityError(const TypedModule &module, NumericTarget target,
                                                   bool mixedPlacement) {
   const auto nonCompleting = nonCompletingValues(module);
+  std::unordered_set<std::size_t> generatorCollections;
+  for (const auto &function : module.functions)
+    if (function.generator)
+      generatorCollections.insert(function.generator->collection);
   if (mixedPlacement && target != NumericTarget::Cpu)
     return "mixed placement validation requires CPU host types";
   if (auto error = recursiveProgramError(module, mixedPlacement))
@@ -302,8 +307,10 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           expression.type.fallible)
         return "invalid yield operation";
       const auto &element = module.expressions[yield->operand].type;
-      if (element.array || element.tensor || element.task || element.fallible || element.device ||
-          element.builtin == BuiltinValue::Device)
+      if ((!generatorCollections.contains(yield->collection) &&
+           (element.array || element.tensor)) ||
+          element.task || element.fallible || element.device ||
+          element.builtin == BuiltinValue::Device || isOwnedResource(module, element))
         return "yield requires a completed CPU array element";
     }
     if (const auto *jump = std::get_if<LoopTransferOperation>(&expression.operation)) {
@@ -1196,6 +1203,12 @@ std::string dumpTypedIR(const TypedModule &module) {
               for (auto arg : operation.arguments) {
                 out << " ";
                 value(arg);
+              }
+            } else if constexpr (std::is_same_v<T, GeneratorCreate>) {
+              out << "generator.create @" << operation.function;
+              for (auto capture : operation.captures) {
+                out << " ";
+                value(capture);
               }
             } else if constexpr (std::is_same_v<T, BufferOperation>) {
               out << "buffer." << unsigned(operation.action);

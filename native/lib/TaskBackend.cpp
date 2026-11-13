@@ -69,6 +69,8 @@ class Emitter {
   std::vector<llvm::GlobalVariable *> scopeTables;
   std::vector<Function *> frameDestroyers;
   std::vector<llvm::GlobalVariable *> entries;
+  std::map<FunctionId, llvm::GlobalVariable *> generatorEntries;
+  std::map<FunctionId, llvm::GlobalVariable *> synchronousGeneratorEntries;
   std::map<Function *, Value *> consoleScratch, fileScratch, fileArguments, parseScratch,
       environmentScratch, pathScratch, timeScratch, bufferScratch, bufferArguments;
   Function *closedApplication = nullptr;
@@ -81,6 +83,7 @@ class Emitter {
   std::map<std::size_t, Function *> environmentBoxes;
   std::map<std::size_t, Function *> iteratorItemBoxes;
   const TypedModule *hostCallables = nullptr;
+  bool componentLayouts = false;
   std::vector<FunctionId> hostTargets;
   std::map<FunctionId, FunctionId> hostNativeTargets;
 
@@ -202,8 +205,8 @@ public:
     // Lexical loop exits use native CFGs, but do not create a scheduling effect.
     // Give those ordinary functions direct synchronous entries as well.
     for (FunctionId id = 0; id < planner.input.functions.size(); ++id)
-      if (!coordinating.at(id) && !planner.input.functions[id].resultType.fallible &&
-          loopControl[id])
+      if (!planner.input.functions[id].generator && !coordinating.at(id) &&
+          !planner.input.functions[id].resultType.fallible && loopControl[id])
         synchronousTargets.insert(id);
     for (const auto &name : exports) {
       if (name.empty())
@@ -327,6 +330,15 @@ public:
     if (exports.empty())
       for (std::size_t id = 0; id < planner.plans.size(); ++id)
         emitPlan(id);
+    if (exports.empty())
+      for (std::size_t id = 0; id < planner.plans.size(); ++id)
+        if (planner.input.functions[id].generator && !coordinating[id]) {
+          emitPlan(id, false, false, true);
+          if (auto error = nativeStackBudgetError(
+                  *module.getFunction("generator.resume." + std::to_string(id)),
+                  module.getDataLayout()))
+            throw std::runtime_error(*error);
+        }
     for (std::size_t id = 0; id < synchronousEntries.size(); ++id)
       if (synchronousEntries[id]) {
         emitPlan(id, true);
@@ -666,6 +678,7 @@ public:
 
   void setHostCallables(const TypedModule *source, std::span<const FunctionId> targets,
                         std::span<const std::pair<FunctionId, FunctionId>> nativeTargets) {
+    componentLayouts = true;
     hostCallables = source;
     hostTargets.assign(targets.begin(), targets.end());
     hostNativeTargets.insert(nativeTargets.begin(), nativeTargets.end());
@@ -824,7 +837,110 @@ public:
       throw std::invalid_argument("iterator host bridge failed LLVM verification");
   }
 
+  // The shared GPU supervisor has its own C++ outcome carrier. Keep the
+  // generator's stored next-result in the CPU continuation ABI, and translate
+  // at this boundary rather than weakening the runtime's layout checks.
+  void emitGeneratorBridge(const GeneratorBridgeRequest &request) {
+    const auto &producer = planner.input.functions.at(request.producer);
+    if (!producer.generator)
+      throw std::invalid_argument("host generator bridge requires a checked producer");
+    const auto &result = producer.resultType;
+    auto *wrapper = valueType(result);
+    auto *option = scalarType(result);
+    auto exported = [&](const std::string &suffix, Type *returns, const std::vector<Type *> &args) {
+      auto *fn = function(request.name + suffix, returns, args);
+      fn->setLinkage(llvm::GlobalValue::ExternalLinkage);
+      builder.SetInsertPoint(Block::Create(context, "entry", fn));
+      return fn;
+    };
+    exported("_layout", pointer, {});
+    builder.CreateRet(layout(result));
+    auto *classify = exported("_classify", i32, {pointer});
+    auto *tagged = Block::Create(context, "option", classify);
+    if (result.fallible) {
+      auto *error = Block::Create(context, "error", classify);
+      builder.CreateCondBr(hasResultError(result, classify->getArg(0)), error, tagged);
+      builder.SetInsertPoint(error);
+      builder.CreateRet(c32(2));
+    } else
+      builder.CreateBr(tagged);
+    builder.SetInsertPoint(tagged);
+    auto *payload = builder.CreateStructGEP(wrapper, classify->getArg(0), 1);
+    auto *tag = builder.CreateLoad(i64, builder.CreateStructGEP(option, payload, 0));
+    builder.CreateRet(builder.CreateSelect(
+        builder.CreateICmpEQ(tag, c64(2)), c32(0),
+        builder.CreateSelect(builder.CreateICmpEQ(tag, c64(1)), c32(1), c32(3))));
+    auto *exhausted = exported("_exhausted", voidType, {pointer});
+    builder.CreateMemSet(exhausted->getArg(0), builder.getInt8(0), size(wrapper),
+                         llvm::MaybeAlign(alignment(wrapper)));
+    auto *none = builder.CreateStructGEP(wrapper, exhausted->getArg(0), 1);
+    builder.CreateStore(c64(1), builder.CreateStructGEP(option, none, 0));
+    builder.CreateRetVoid();
+
+    auto *complete =
+        exported("_complete", voidType, {pointer, pointer, pointer, pointer, pointer, boolean});
+    auto *out = builder.CreateAlloca(wrapper);
+    builder.CreateMemSet(out, builder.getInt8(0), size(wrapper),
+                         llvm::MaybeAlign(alignment(wrapper)));
+    auto *published = Block::Create(context, "publish", complete);
+    auto *item = Block::Create(context, "item", complete);
+    auto *terminal = Block::Create(context, "terminal", complete);
+    auto *failed = Block::Create(context, "failed", complete);
+    builder.CreateCondBr(complete->getArg(5), item, terminal);
+    builder.SetInsertPoint(item);
+    auto *some = builder.CreateStructGEP(wrapper, out, 1);
+    auto *member = builder.CreateStructGEP(option, some, 1);
+    if (taskTypes->fieldStorage(*result.record, 1) == RecordFieldStorage::ManagedReference) {
+      const std::size_t id = *producer.generator->item.record;
+      const std::size_t targets[]{id};
+      auto *boxed = builder.CreateCall(emitTaskRecordBoxes(planner.input, targets, module).at(id),
+                                       {complete->getArg(0), complete->getArg(2)});
+      auto *ready = Block::Create(context, "boxed", complete);
+      builder.CreateCondBr(call("kalandra_invocation_ready_v1", boolean, {complete->getArg(0)}),
+                           ready, failed);
+      builder.SetInsertPoint(ready);
+      builder.CreateStore(boxed, member);
+    } else
+      copyIteratorItem(producer.generator->item, member, complete->getArg(2), complete->getArg(0),
+                       complete, failed);
+    builder.CreateStore(c64(2), builder.CreateStructGEP(option, some, 0));
+    builder.CreateBr(published);
+    builder.SetInsertPoint(terminal);
+    if (result.fallible) {
+      copy(builder.CreateStructGEP(wrapper, out, 0), complete->getArg(3), failureType);
+      if (result.errorRecord)
+        copy(builder.CreateStructGEP(wrapper, out, 2), complete->getArg(4),
+             wrapper->getElementType(2));
+      auto *success = Block::Create(context, "success", complete);
+      builder.CreateCondBr(hasResultError(result, out), published, success);
+      builder.SetInsertPoint(success);
+    }
+    copy(builder.CreateStructGEP(wrapper, out, 1), complete->getArg(2), option);
+    builder.CreateBr(published);
+    builder.SetInsertPoint(published);
+    call("kalandra_gpu_generator_publish_v1", voidType, {complete->getArg(1), out});
+    builder.CreateRetVoid();
+    builder.SetInsertPoint(failed);
+    builder.CreateRetVoid();
+    finishRecordRetainers();
+    for (const auto &suffix : {"_layout", "_classify", "_exhausted", "_complete"})
+      if (llvm::verifyFunction(*module.getFunction(request.name + suffix)))
+        throw std::invalid_argument("generator host bridge failed LLVM verification");
+  }
+
 private:
+  void copyIteratorItem(const ValueType &item, Value *output, Value *input, Value *ctx,
+                        Function *fn, Block *failed) {
+    if (item.tensor && !item.array) {
+      auto *copied = call("kalandra_record_tensor_pack_v1", boolean,
+                          {ctx, output, ctx, input, c64(item.shape.size()),
+                           c64(static_cast<unsigned>(item.element))});
+      auto *ready = Block::Create(context, "iterator.tensor.packed", fn);
+      builder.CreateCondBr(copied, ready, failed);
+      builder.SetInsertPoint(ready);
+    } else
+      copy(output, input, scalarType(item));
+  }
   Function *recordRetainer(std::size_t id) {
     if (const auto found = recordRetainers.find(id); found != recordRetainers.end())
       return found->second;
@@ -876,6 +992,15 @@ private:
   Function *function(const std::string &name, Type *result, const std::vector<Type *> &args) {
     return Function::Create(llvm::FunctionType::get(result, args, false),
                             llvm::GlobalValue::InternalLinkage, name, module);
+  }
+  Function *forwardFunction(const std::string &name, Type *result,
+                            const std::vector<Type *> &args) {
+    if (auto *found = module.getFunction(name)) {
+      if (found->getFunctionType() != llvm::FunctionType::get(result, args, false))
+        throw std::runtime_error("generator callback declaration changed its ABI");
+      return found;
+    }
+    return function(name, result, args);
   }
   Value *call(const char *name, Type *result, std::initializer_list<Value *> args) {
     std::vector<Type *> types;
@@ -1530,28 +1655,30 @@ private:
       if (const auto *ref = std::get_if<FunctionReference>(&expression.operation)) {
         const auto id = std::to_string(ref->function);
         const bool projectedFallible =
-            planner.input.functions.empty() &&
+            (componentLayouts || planner.input.functions.empty()) &&
             planner.kernels.functions.at(ref->function).resultType.fallible;
         auto *code = module.getFunction(
             (projectedFallible ? "kalandra_callable_plan_" : "kalandra_callable_") + id);
         accept(planner.kernels, *ref, expression.type, code);
       }
-    for (const auto &expression : planner.input.expressions)
-      if (const auto *ref = std::get_if<FunctionReference>(&expression.operation))
-        accept(planner.input, *ref, expression.type,
-               coordinating.at(ref->function) ? static_cast<Value *>(entries.at(ref->function))
-                                              : synchronousEntries.at(ref->function));
+    if (!componentLayouts)
+      for (const auto &expression : planner.input.expressions)
+        if (const auto *ref = std::get_if<FunctionReference>(&expression.operation))
+          accept(planner.input, *ref, expression.type,
+                 coordinating.at(ref->function) ? static_cast<Value *>(entries.at(ref->function))
+                                                : synchronousEntries.at(ref->function));
     // Map/generate adapters also introduce code-bound references in the plan.
     // They are not necessarily FunctionReference nodes in the source module.
     // Scoped callers must normalize these callbacks just like source closures.
-    for (const auto &plan : planner.plans)
-      for (const auto &instruction : plan->code)
-        if (instruction.code == Code::FunctionReference)
-          accept(planner.input, FunctionReference{instruction.target, {}},
-                 plan->slots.at(instruction.output),
-                 coordinating.at(instruction.target)
-                     ? static_cast<Value *>(entries.at(instruction.target))
-                     : synchronousEntries.at(instruction.target));
+    if (!componentLayouts)
+      for (const auto &plan : planner.plans)
+        for (const auto &instruction : plan->code)
+          if (instruction.code == Code::FunctionReference)
+            accept(planner.input, FunctionReference{instruction.target, {}},
+                   plan->slots.at(instruction.output),
+                   coordinating.at(instruction.target)
+                       ? static_cast<Value *>(entries.at(instruction.target))
+                       : synchronousEntries.at(instruction.target));
     if (hostCallables)
       for (auto id : hostTargets) {
         const auto found = std::ranges::find_if(hostCallables->expressions, [&](const auto &value) {
@@ -1678,7 +1805,7 @@ private:
       ready();
       builder.CreateStore(boxed, member);
     } else
-      copy(member, itemSlot, scalarType(item));
+      copyIteratorItem(item, member, itemSlot, ctx, fn, abort);
     builder.CreateStore(c64(2), builder.CreateStructGEP(option, out, 0));
     builder.CreateBr(next);
     builder.SetInsertPoint(none);
@@ -2050,13 +2177,126 @@ private:
     builder.CreateStore(c64(size(packets[target])), builder.CreateStructGEP(packetType, packet, 2));
     builder.CreateStore(ctx, builder.CreateStructGEP(packetType, packet, 3));
   }
-  void emitPlan(std::size_t id, bool synchronous = false, bool closed = false) {
+  llvm::GlobalVariable *generatorEntry(FunctionId id) {
+    if (auto found = generatorEntries.find(id); found != generatorEntries.end())
+      return found->second;
+    const auto &producer = planner.input.functions.at(id);
+    if (!producer.generator)
+      throw std::runtime_error("generator constructor has no checked producer");
+    llvm::IRBuilderBase::InsertPointGuard restore(builder);
+    const auto &result = planner.plans[id]->slots[planner.plans[id]->result];
+    auto *wrapper = valueType(result);
+    auto *option = scalarType(result);
+    auto *classify = function("generator.classify." + std::to_string(id), i32, {pointer});
+    builder.SetInsertPoint(Block::Create(context, "entry", classify));
+    auto *tagged = Block::Create(context, "option", classify);
+    if (result.fallible) {
+      auto *error = Block::Create(context, "error", classify);
+      builder.CreateCondBr(hasResultError(result, classify->getArg(0)), error, tagged);
+      builder.SetInsertPoint(error);
+      builder.CreateRet(c32(2));
+    } else
+      builder.CreateBr(tagged);
+    builder.SetInsertPoint(tagged);
+    auto *payload = builder.CreateStructGEP(wrapper, classify->getArg(0), 1);
+    auto *tag = builder.CreateLoad(i64, builder.CreateStructGEP(option, payload, 0));
+    builder.CreateRet(builder.CreateSelect(
+        builder.CreateICmpEQ(tag, c64(2)), c32(0),
+        builder.CreateSelect(builder.CreateICmpEQ(tag, c64(1)), c32(1), c32(3))));
+    auto *exhausted = function("generator.exhausted." + std::to_string(id), voidType, {pointer});
+    builder.SetInsertPoint(Block::Create(context, "entry", exhausted));
+    builder.CreateMemSet(exhausted->getArg(0), builder.getInt8(0), size(wrapper),
+                         llvm::MaybeAlign(alignment(wrapper)));
+    auto *none = builder.CreateStructGEP(wrapper, exhausted->getArg(0), 1);
+    builder.CreateStore(c64(1), builder.CreateStructGEP(option, none, 0));
+    builder.CreateRetVoid();
+    auto *type = llvm::StructType::get(context, {i32, pointer, pointer, pointer});
+    auto *entry = new llvm::GlobalVariable(
+        module, type, true, llvm::GlobalValue::InternalLinkage,
+        llvm::ConstantStruct::get(type, {c32(1), entries.at(id), classify, exhausted}),
+        "generator.entry." + std::to_string(id));
+    generatorEntries.emplace(id, entry);
+    return entry;
+  }
+  llvm::GlobalVariable *synchronousGeneratorEntry(FunctionId id) {
+    if (auto found = synchronousGeneratorEntries.find(id);
+        found != synchronousGeneratorEntries.end())
+      return found->second;
+    if (!planner.input.functions[id].generator || coordinating[id])
+      throw std::runtime_error("synchronous generator requires a non-coordinating producer");
+    llvm::IRBuilderBase::InsertPointGuard restore(builder);
+    auto *construct =
+        function("generator.construct." + std::to_string(id), boolean, {pointer, pointer, pointer});
+    builder.SetInsertPoint(Block::Create(context, "entry", construct));
+    auto *packet = construct->getArg(2);
+    auto *data = builder.CreateLoad(pointer, builder.CreateStructGEP(packetType, packet, 1));
+    auto *valid = builder.CreateAnd(
+        builder.CreateICmpEQ(
+            builder.CreateLoad(i64, builder.CreateStructGEP(packetType, packet, 0)), c64(id + 100)),
+        builder.CreateICmpEQ(
+            builder.CreateLoad(i64, builder.CreateStructGEP(packetType, packet, 2)),
+            c64(size(packets[id]))));
+    if (!planner.plans[id]->parameters.empty()) {
+      valid = builder.CreateAnd(valid, builder.CreateIsNotNull(data));
+      valid = builder.CreateAnd(
+          valid, builder.CreateICmpEQ(builder.CreateURem(builder.CreatePtrToInt(data, i64),
+                                                         c64(alignment(packets[id]))),
+                                      c64(0)));
+      valid =
+          builder.CreateAnd(valid, builder.CreateIsNotNull(builder.CreateLoad(
+                                       pointer, builder.CreateStructGEP(packetType, packet, 3))));
+    }
+    auto *ready = Block::Create(context, "packet.ready", construct);
+    auto *failed = Block::Create(context, "packet.invalid", construct);
+    builder.CreateCondBr(valid, ready, failed);
+    builder.SetInsertPoint(failed);
+    call("kalandra_fault_v1", voidType, {construct->getArg(0), c64(3), c64(0), c64(0)});
+    builder.CreateRet(builder.getFalse());
+    builder.SetInsertPoint(ready);
+    builder.CreateRet(builder.CreateCall(forwardFunction("task.construct." + std::to_string(id),
+                                                         boolean, {pointer, pointer, pointer}),
+                                         {construct->getArg(0), construct->getArg(1), packet}));
+    const auto &result = planner.plans[id]->slots[planner.plans[id]->result];
+    ValueType error;
+    error.builtin = result.errorRecord ? BuiltinValue::Record : BuiltinValue::TaskError;
+    error.record = result.errorRecord;
+    auto *type = llvm::StructType::get(
+        context, {i32, i64, i64, pointer, pointer, pointer, pointer, pointer});
+    auto *entry = new llvm::GlobalVariable(
+        module, type, true, llvm::GlobalValue::InternalLinkage,
+        llvm::ConstantStruct::get(type, {c32(1), c64(size(frames[id])), c64(alignment(frames[id])),
+                                         construct, frameDestroyers[id],
+                                         forwardFunction("generator.resume." + std::to_string(id),
+                                                         i32, {pointer, pointer, pointer}),
+                                         payloadLayout(planner.input.functions[id].generator->item),
+                                         result.fallible
+                                             ? static_cast<llvm::Constant *>(payloadLayout(error))
+                                             : llvm::ConstantPointerNull::get(builder.getPtrTy())}),
+        "generator.sync.entry." + std::to_string(id));
+    synchronousGeneratorEntries.emplace(id, entry);
+    return entry;
+  }
+  void emitPlan(std::size_t id, bool synchronous = false, bool closed = false,
+                bool generator = false) {
     const auto &plan = *planner.plans[id];
+    if (generator &&
+        (coordinating[id] || plan.groups || std::ranges::any_of(plan.code, [](const auto &op) {
+           return op.code == Code::Open || op.code == Code::Spawn || op.code == Code::Await ||
+                  op.code == Code::ResumableCall || op.code == Code::Join ||
+                  op.code == Code::MapJoin || op.code == Code::ReleaseGroup ||
+                  op.code == Code::Device || op.code == Code::Transfer ||
+                  op.code == Code::ResourceEnter || op.code == Code::ResourceLeave ||
+                  op.code == Code::ResourceAdopt || op.code == Code::GeneratorCreate;
+         })))
+      throw std::runtime_error(
+          "synchronous generator plan contains coordinating ownership or tasks");
     auto *frameType = frames[id];
     Function *construct = nullptr;
-    if (!synchronous) {
-      construct =
-          function("task.construct." + std::to_string(id), boolean, {pointer, pointer, pointer});
+    if (!synchronous && !generator) {
+      const auto name = "task.construct." + std::to_string(id);
+      construct = planner.input.functions[id].generator
+                      ? forwardFunction(name, boolean, {pointer, pointer, pointer})
+                      : function(name, boolean, {pointer, pointer, pointer});
       builder.SetInsertPoint(Block::Create(context, "entry", construct));
       builder.CreateMemSet(construct->getArg(1), builder.getInt8(0), size(frameType),
                            llvm::MaybeAlign(alignment(frameType)));
@@ -2093,14 +2333,18 @@ private:
       builder.CreateRet(builder.getFalse());
     }
     const auto resultType = plan.slots[plan.result];
-    auto *resume = synchronous ? (closed ? closedApplication : synchronousEntries.at(id))
-                               : function("task.resume." + std::to_string(id), voidType, {pointer});
+    auto *resume = generator ? forwardFunction("generator.resume." + std::to_string(id), i32,
+                                               {pointer, pointer, pointer})
+                   : synchronous
+                       ? (closed ? closedApplication : synchronousEntries.at(id))
+                       : function("task.resume." + std::to_string(id), voidType, {pointer});
     builder.SetInsertPoint(Block::Create(context, "entry", resume));
-    Value *task = synchronous
+    Value *task = synchronous || generator
                       ? static_cast<Value *>(llvm::ConstantPointerNull::get(builder.getPtrTy()))
                       : resume->getArg(0);
-    Value *ctx = synchronous ? resume->getArg(resume->arg_size() - 1)
-                             : call("kalandra_task_context_v1", pointer, {task});
+    Value *ctx = generator     ? resume->getArg(0)
+                 : synchronous ? resume->getArg(resume->arg_size() - 1)
+                               : call("kalandra_task_context_v1", pointer, {task});
     Value *frame;
     const bool stackFrame =
         synchronous && !resultType.fallible && !arenaFields[id] && size(frameType) <= 2048 &&
@@ -2111,7 +2355,9 @@ private:
     auto returnZero = [&](bool admitted = true) {
       if (synchronous && admitted)
         call("kalandra_call_leave_v1", voidType, {ctx});
-      if (resume->getReturnType()->isVoidTy())
+      if (generator)
+        builder.CreateRet(c32(3));
+      else if (resume->getReturnType()->isVoidTy())
         builder.CreateRetVoid();
       else
         builder.CreateRet(llvm::Constant::getNullValue(resume->getReturnType()));
@@ -2137,13 +2383,16 @@ private:
       }
       frame = stackFrame ? static_cast<Value *>(builder.CreateAlloca(frameType))
                          : call("kalandra_alloc_v1", pointer, {ctx, c64(size(frameType))});
-    } else
+    } else if (generator)
+      frame = resume->getArg(1);
+    else
       frame = call("kalandra_task_frame_v1", pointer, {task});
     auto *packet = builder.CreateAlloca(packetType);
     // Packet staging belongs to one resume interval, never to a suspended frame.
     std::unordered_map<std::size_t, Value *> staging;
     for (const auto &instruction : plan.code)
-      if ((instruction.code == Code::Spawn || instruction.code == Code::ResumableCall) &&
+      if ((instruction.code == Code::Spawn || instruction.code == Code::ResumableCall ||
+           instruction.code == Code::GeneratorCreate) &&
           !staging.contains(instruction.target))
         staging[instruction.target] = builder.CreateAlloca(packets[instruction.target]);
     auto *spawnFailure = staging.empty() ? nullptr : builder.CreateAlloca(failureType);
@@ -2231,7 +2480,21 @@ private:
     }
     returnZero();
     builder.SetInsertPoint(abort);
-    if (synchronous) {
+    if (generator) {
+      auto *valid = Block::Create(context, "generator.failed", resume);
+      auto *invalid = Block::Create(context, "generator.invalid", resume);
+      builder.CreateCondBr(builder.CreateICmpEQ(call("kalandra_poll_v1", i64, {ctx}), c64(0)),
+                           invalid, valid);
+      builder.SetInsertPoint(invalid);
+      call("kalandra_fault_v1", voidType, {ctx, c64(3), c64(0), c64(0)});
+      builder.CreateBr(valid);
+      builder.SetInsertPoint(valid);
+      if (arenaFields[id])
+        call("kalandra_value_scopes_end_v1", voidType,
+             {builder.CreateLoad(pointer,
+                                 builder.CreateStructGEP(frameType, frame, *arenaFields[id]))});
+      builder.CreateRet(c32(3));
+    } else if (synchronous) {
       auto *invalid = Block::Create(context, "call.invalid", resume);
       auto *cleanup = Block::Create(context, "call.cleanup", resume);
       auto *status = call("kalandra_poll_v1", i64, {ctx});
@@ -2336,6 +2599,7 @@ private:
       case Code::Kernel:
       case Code::Copy:
       case Code::FunctionReference:
+      case Code::GeneratorCreate:
       case Code::CallableSyncGuard:
       case Code::SynchronousCall:
       case Code::ResumableCall:
@@ -2378,6 +2642,64 @@ private:
       };
       const auto &type = plan.slots[instruction.output];
       switch (instruction.code) {
+      case Code::GeneratorCreate: {
+        if (synchronous || generator)
+          throw std::runtime_error("coordinating generator construction requires a source task");
+        for (std::size_t index = 0; index < instruction.args.size(); ++index)
+          copy(builder.CreateStructGEP(packets[instruction.target], staging[instruction.target],
+                                       index),
+               slot(instruction.args[index]), valueType(plan.slots[instruction.args[index]]));
+        fillPacket(packet, instruction.target, staging[instruction.target], ctx);
+        if (coordinating[instruction.target])
+          call("kalandra_generator_task_create_v1", voidType,
+               {task, payload(instruction.output), generatorEntry(instruction.target), packet});
+        else
+          call("kalandra_generator_create_v1", voidType,
+               {ctx, payload(instruction.output), synchronousGeneratorEntry(instruction.target),
+                packet});
+        check();
+        break;
+      }
+      case Code::GeneratorYield: {
+        if (synchronous || !planner.input.functions[id].generator)
+          throw std::runtime_error("generator yield requires its producer continuation");
+        const auto input = instruction.args[0];
+        if (generator) {
+          copy(resume->getArg(2), payload(input), scalarType(plan.slots[input]));
+          builder.CreateStore(c32(n + 1), pc);
+          if (arenaFields[id])
+            call("kalandra_value_scopes_end_v1", voidType, {arena()});
+          builder.CreateRet(c32(0));
+          break;
+        }
+        auto *wrapper = valueType(type);
+        builder.CreateMemSet(slot(instruction.output), builder.getInt8(0), size(wrapper),
+                             llvm::MaybeAlign(alignment(wrapper)));
+        auto *option = scalarType(type);
+        builder.CreateStore(c64(2),
+                            builder.CreateStructGEP(option, payload(instruction.output), 0));
+        auto *member = builder.CreateStructGEP(option, payload(instruction.output), 1);
+        if (taskTypes->fieldStorage(*type.record, 1) == RecordFieldStorage::ManagedReference) {
+          const auto record = *plan.slots[input].record;
+          if (!iteratorItemBoxes.contains(record)) {
+            const std::size_t targets[]{record};
+            iteratorItemBoxes.emplace(
+                record, emitTaskRecordBoxes(planner.input, targets, module).at(record));
+          }
+          auto *boxed = builder.CreateCall(iteratorItemBoxes.at(record), {ctx, payload(input)});
+          auto *ready = Block::Create(context, "yield.boxed", resume);
+          builder.CreateCondBr(call("kalandra_invocation_ready_v1", boolean, {ctx}), ready, abort);
+          builder.SetInsertPoint(ready);
+          builder.CreateStore(boxed, member);
+        } else
+          copyIteratorItem(plan.slots[input], member, payload(input), ctx, resume, abort);
+        builder.CreateStore(c32(n + 1), pc);
+        call("kalandra_task_complete_v1", voidType, {task, slot(instruction.output)});
+        if (arenaFields[id])
+          call("kalandra_value_scopes_end_v1", voidType, {arena()});
+        builder.CreateRetVoid();
+        break;
+      }
       case Code::ResourceAdopt: {
         const auto value = instruction.args[0];
         if (plan.slots[value].fallible) {
@@ -2423,6 +2745,16 @@ private:
       }
       case Code::Literal: {
         const auto &literal = planner.input.expressions[instruction.source].operation;
+        if (const auto *record = std::get_if<RecordValue>(&literal)) {
+          auto *wrapper = valueType(type);
+          builder.CreateMemSet(slot(instruction.output), builder.getInt8(0), size(wrapper),
+                               llvm::MaybeAlign(alignment(wrapper)));
+          builder.CreateStore(
+              c64(*record->variant + 1),
+              builder.CreateStructGEP(scalarType(type), payload(instruction.output), 0));
+          builder.CreateBr(next);
+          break;
+        }
         if (const auto *integer = std::get_if<Int32Literal>(&literal)) {
           builder.CreateStore(
               llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(scalarType(type)),
@@ -3322,7 +3654,43 @@ private:
       case Code::Transfer:
         throw std::runtime_error("CPU emitter received an unsupported placed operation");
       case Code::Return:
-        if (synchronous) {
+        if (generator) {
+          const auto value = instruction.args[0];
+          const auto &returned = plan.slots[value];
+          auto *ended = Block::Create(context, "generator.exhausted", resume);
+          if (returned.fallible) {
+            auto *error = Block::Create(context, "generator.error", resume);
+            builder.CreateCondBr(hasResultError(returned, slot(value)), error, ended);
+            builder.SetInsertPoint(error);
+            if (returned.errorRecord) {
+              auto *application = Block::Create(context, "generator.application.error", resume);
+              auto *copied = Block::Create(context, "generator.error.copied", resume);
+              auto *header = builder.CreateStructGEP(valueType(returned), slot(value), 0);
+              if (errorSubset(planner.input, {}, returned.errorRecord)) {
+                auto *taskError = Block::Create(context, "generator.task.error", resume);
+                builder.CreateCondBr(hasFailure(header), taskError, application);
+                builder.SetInsertPoint(taskError);
+                injectTaskError(*returned.errorRecord, resume->getArg(2), header);
+                builder.CreateBr(copied);
+              } else
+                builder.CreateBr(application);
+              builder.SetInsertPoint(application);
+              copy(resume->getArg(2), this->application(returned, slot(value)),
+                   scalarType(errorRecordType(*returned.errorRecord)));
+              builder.CreateBr(copied);
+              builder.SetInsertPoint(copied);
+            } else
+              copy(resume->getArg(2), slot(value), failureType);
+            if (arenaFields[id])
+              call("kalandra_value_scopes_end_v1", voidType, {arena()});
+            builder.CreateRet(c32(2));
+          } else
+            builder.CreateBr(ended);
+          builder.SetInsertPoint(ended);
+          if (arenaFields[id])
+            call("kalandra_value_scopes_end_v1", voidType, {arena()});
+          builder.CreateRet(c32(1));
+        } else if (synchronous) {
           Value *published = nullptr;
           if (arenaFields[id] && scopeSlots[id].contains(instruction.args[0])) {
             if (key(resultType) != key(plan.slots[instruction.args[0]]))
@@ -3369,7 +3737,7 @@ private:
         break;
       }
     }
-    if (!synchronous) {
+    if (!synchronous && !generator) {
       auto *resultLayout = layout(plan.slots[plan.result]);
       entries[id]->setInitializer(llvm::ConstantStruct::get(
           entryType, {c32(1), c64(id + 100), c64(size(packets[id])), c64(alignment(packets[id])),
@@ -3443,13 +3811,20 @@ std::vector<llvm::GlobalVariable *> emitTaskEntries(continuation::ModulePlan &pl
   return emitter.taskEntries();
 }
 void emitIteratorHostBridges(const TypedModule &input, llvm::Module &module,
-                             std::span<const IteratorBridgeRequest> requests) {
-  if (requests.empty())
+                             std::span<const IteratorBridgeRequest> requests,
+                             std::span<const GeneratorBridgeRequest> generators,
+                             const TypedModule &kernels, std::span<const FunctionId> hostTargets,
+                             std::span<const std::pair<FunctionId, FunctionId>> hostNativeTargets) {
+  if (requests.empty() && generators.empty())
     return;
   continuation::ModulePlan planner(input);
+  planner.kernels = kernels;
   Emitter emitter(planner, module);
+  emitter.setHostCallables(&input, hostTargets, hostNativeTargets);
   for (const auto &request : requests)
     emitter.emitIteratorBridge(request);
+  for (const auto &request : generators)
+    emitter.emitGeneratorBridge(request);
 }
 static std::expected<BackendOutput, std::string>
 lowerTaskNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,

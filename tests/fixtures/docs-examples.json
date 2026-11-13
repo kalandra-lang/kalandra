@@ -450,12 +450,17 @@
     {
       "kind": "cpu",
       "expected": "argument: hello\nargument: two words",
-      "args": ["hello", "two words"]
+      "args": [
+        "hello",
+        "two words"
+      ]
     },
     {
       "kind": "cpu",
       "expected": "",
-      "args": ["ready"]
+      "args": [
+        "ready"
+      ]
     }
   ],
   "console": [
@@ -592,7 +597,19 @@
     },
     {
       "kind": "cpu",
+      "expected": "4:9"
+    },
+    {
+      "kind": "cpu",
       "expected": "2\n4\n6"
+    },
+    {
+      "kind": "cpu",
+      "expected": "77"
+    },
+    {
+      "kind": "cpu",
+      "expected": "2:4"
     }
   ]
 }
