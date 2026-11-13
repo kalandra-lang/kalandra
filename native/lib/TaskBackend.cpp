@@ -1985,13 +1985,15 @@ private:
         builder.CreateCondBr(hasFailure(builder.CreateStructGEP(wrapper, fn->getArg(3), 0)), ready,
                              retain);
         builder.SetInsertPoint(retain);
-        retainRecord(type, builder.CreateStructGEP(wrapper, fn->getArg(3), 1), fn, failed);
         if (isOwnedResource(planner.input, type)) {
-          auto *ok = call("kalandra_file_receive_v1", boolean,
-                          {fn->getArg(0), builder.CreateStructGEP(wrapper, fn->getArg(3), 1)});
+          auto *ok = call("kalandra_owned_copy_v1", boolean,
+                          {fn->getArg(0), fn->getArg(2),
+                           builder.CreateStructGEP(wrapper, fn->getArg(3), 1)});
           builder.CreateCondBr(ok, ready, failed);
-        } else
+        } else {
+          retainRecord(type, builder.CreateStructGEP(wrapper, fn->getArg(3), 1), fn, failed);
           builder.CreateBr(ready);
+        }
         builder.SetInsertPoint(failed);
         builder.CreateRet(builder.getFalse());
       } else

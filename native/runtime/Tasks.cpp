@@ -135,6 +135,14 @@ bool aligned(const void *pointer, std::size_t alignment) {
 bool validAlignment(std::size_t alignment) {
   return alignment && !(alignment & (alignment - 1)) && alignment <= alignof(std::max_align_t);
 }
+inline bool copyResultValue(const ValueLayout &layout, Invocation &destination, void *output,
+                             const Invocation &source, const void *input) noexcept {
+  if (source.hasDeferredOwnedResource() && &source != &destination) {
+    OwnedReceiveGuard receiving(source, destination);
+    return layout.copy(destination, output, source, input);
+  }
+  return layout.copy(destination, output, source, input);
+}
 Failure invocationFailure(const Invocation &context) {
   return {TaskFailure::Fault, context.status() ? context.status() : 3, context.line(),
           context.column()};
@@ -1087,7 +1095,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     task->observed = true;
     ++task->readers;
     lock.unlock();
-    const auto copied = layout.copy(destination, output, task->outcome, task->value);
+    const auto copied = copyResultValue(layout, destination, output, task->outcome, task->value);
     acquire(lock);
     --task->readers;
     if (auto *group = get(task->group);
@@ -1230,13 +1238,24 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
         // Source callbacks have returned and owned children have settled.
         // Preflight asynchronous lexical resources before any frame, file,
         // ownership ledger or native borrowed-call lease can be destroyed.
+        if (task.failure.kind != TaskFailure::None && task.outcome.hasDeferredOwnedResource() &&
+            !prepareInvocationScopes(i, task.outcome, lock))
+          continue;
         if (task.returned) {
+          if (task.returned->outcome.hasDeferredOwnedResource() &&
+              !prepareInvocationScopes(i, task.returned->outcome, lock))
+            continue;
           auto &ctx = task.returned->borrowed ? *borrowedCall(*task.returned).entry->execution
                                               : task.returned->execution;
           if (ctx.hasDeferredOwnedResource() && !prepareInvocationScopes(i, ctx, lock))
             continue;
         }
         for (auto *node = task.call; node; node = node->parent) {
+          if (node->outcome.hasDeferredOwnedResource() &&
+              !prepareInvocationScopes(i, node->outcome, lock)) {
+            pending = true;
+            break;
+          }
           auto &ctx = node->borrowed ? *borrowedCall(*node).entry->execution : node->execution;
           if (ctx.hasDeferredOwnedResource() && !prepareInvocationScopes(i, ctx, lock)) {
             pending = true;
@@ -1732,10 +1751,15 @@ bool Task::call(const TaskEntry &entry, Packet packet, void *output, GroupHandle
       return false;
     }
     guard.lock.unlock();
-    const auto copied = entry.result->copy(context(), output, node->outcome, node->value);
+    const auto copied = copyResultValue(*entry.result, context(), output, node->outcome, node->value);
     core_.acquire(guard.lock);
-    record.returned = nullptr;
-    core_.destroyCall(node, guard.lock);
+    // A failed consuming copy leaves its original owner in the callee outcome.
+    // Keep that frame for fault/cancellation preflight rather than synchronously
+    // destroying a producer whose children may still be running.
+    if (copied || !node->outcome.hasDeferredOwnedResource()) {
+      record.returned = nullptr;
+      core_.destroyCall(node, guard.lock);
+    }
     if (!copied && !context().poll())
       context().fault(3);
     return copied;
@@ -1838,10 +1862,15 @@ bool Task::callBorrowed(const BorrowedTaskEntry &borrowed, AllocationLease pin, 
       return false;
     }
     guard.lock.unlock();
-    const auto copied = entry->result->copy(context(), output, node->outcome, node->value);
+    const auto copied = copyResultValue(*entry->result, context(), output, node->outcome, node->value);
     core_.acquire(guard.lock);
-    record.returned = nullptr;
-    core_.destroyCall(node, guard.lock);
+    // A failed consuming copy leaves its original owner in the callee outcome.
+    // Keep that frame for fault/cancellation preflight rather than synchronously
+    // destroying a producer whose children may still be running.
+    if (copied || !node->outcome.hasDeferredOwnedResource()) {
+      record.returned = nullptr;
+      core_.destroyCall(node, guard.lock);
+    }
     if (!copied && !context().poll())
       context().fault(3);
     return copied;
@@ -2429,7 +2458,7 @@ void Task::completeFrom(const Invocation &source, const void *value, bool publis
   bool copied = false;
   if (aligned(value, layout.alignment)) {
     guard.lock.unlock();
-    copied = layout.copy(outcome, output, source, value);
+    copied = copyResultValue(layout, outcome, output, source, value);
     core_.acquire(guard.lock);
   }
   if (!copied) {

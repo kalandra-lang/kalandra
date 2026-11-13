@@ -67,11 +67,28 @@ ResourceControl *currentScope(Invocation &) noexcept;
 // Private factory prerequisite. Admit before constructing asynchronous owned
 // captures; failed result publication leaves their source escape owner intact.
 ResourceControl *ensureOwnedEscapeScope(Invocation &) noexcept;
+// Synchronous result/capture copy only. Borrowed parameter copies do not opt in
+// and retain the original logical owner. The source stays alive through copying.
+class OwnedReceiveGuard final {
+public:
+  OwnedReceiveGuard(const Invocation &source, Invocation &destination) noexcept;
+  ~OwnedReceiveGuard();
+  OwnedReceiveGuard(const OwnedReceiveGuard &) = delete;
+  OwnedReceiveGuard &operator=(const OwnedReceiveGuard &) = delete;
+  static bool receives(Invocation &, const Invocation &, const ResourceScope *) noexcept;
+private:
+  const OwnedReceiveGuard *previous_;
+  const Invocation *source_;
+  Invocation *destination_;
+};
 void adopt(Invocation &, OwnedState &, ResourceScope *) noexcept;
 OwnedDescriptor ownedDescriptor(OwnedState *) noexcept;
 OwnedState *inspectOwned(Invocation &, const OwnedDescriptor &) noexcept;
 } // namespace kalandra::runtime
 extern "C" {
+bool kalandra_owned_copy_v1(kalandra::runtime::Invocation *,
+                             const kalandra::runtime::Invocation *,
+                             const kalandra::runtime::OwnedDescriptor *) noexcept;
 void *kalandra_file_scope_enter_v1(kalandra::runtime::Invocation *,
                                    const kalandra::runtime::OwnedDescriptor *const *,
                                    std::uint64_t) noexcept;

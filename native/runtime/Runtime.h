@@ -94,6 +94,8 @@ public:
   // address. The cleanup identity distinguishes resources from ordinary bytes.
   void *readResource(void *address, void (*cleanup)(void *) noexcept,
                      std::uint64_t minimumBytes) noexcept;
+  void *readResourceFrom(const Invocation &, void *address, void (*cleanup)(void *) noexcept,
+                        std::uint64_t minimumBytes) noexcept;
   // Private compiler frame metadata, never source-visible or leaseable. The
   // caller completes infallible construction before returning to source code.
   // Cleanup does not enter source code; descendants retire before their parent.

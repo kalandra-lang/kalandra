@@ -1,4 +1,5 @@
 #include "../runtime/OwnedResources.h"
+#include "../runtime/Tasks.h"
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -284,8 +285,126 @@ void escapeRootAdmission() {
   }
   CHECK(rejected && succeeded);
 }
+struct DeferredValue : OwnedState {
+  Invocation body;
+  BorrowedGroupOwner groups{body};
+  BorrowedCleanup cleanup{this, nullptr, finish, nullptr};
+  Counts &counts;
+  bool finished = false;
+  explicit DeferredValue(Counts &counts)
+      : OwnedState(OwnedKind::Generator, sizeof(DeferredValue), destroy, finish), counts(counts) {
+    deferredOwner = &groups;
+    deferredCleanup = &cleanup;
+  }
+  static void finish(void *p) noexcept {
+    auto &value = *static_cast<DeferredValue *>(p);
+    if (!value.finished) {
+      value.finished = true;
+      value.body.settle(); // construction-only fixture: it never starts child tasks
+      ++value.counts.retired;
+    }
+  }
+  static void destroy(void *p) noexcept {
+    auto &value = *static_cast<DeferredValue *>(p);
+    finish(p);
+    ++value.counts.destroyed;
+    value.~DeferredValue();
+  }
+};
+struct CopyBudget {
+  std::uint64_t bytes = 0;
+  static bool reserve(void *p, std::uint64_t count) noexcept {
+    auto &budget = *static_cast<CopyBudget *>(p);
+    if (count > 16 * 1024 * 1024 - budget.bytes)
+      return false;
+    budget.bytes += count;
+    return true;
+  }
+  static void release(void *p, std::uint64_t count) noexcept {
+    auto &budget = *static_cast<CopyBudget *>(p);
+    CHECK(count <= budget.bytes);
+    budget.bytes -= count;
+  }
+};
+void ownedResultTransfer() {
+  Counts counts;
+  Invocation source;
+  auto *root = ensureOwnedEscapeScope(source);
+  CHECK(root);
+  DeferredValue *value;
+  {
+    Invocation::OwnershipSelection selected(root->storage);
+    auto *memory = source.allocateResource(sizeof(DeferredValue), OwnedState::cleanup, true);
+    CHECK(memory);
+    value = new (memory) DeferredValue(counts);
+    CHECK(source.trackResource(value));
+    adopt(source, *value, root->scope);
+    value->body.bindResourceBudget(source, value);
+    CHECK(value->body.allocate(64));
+  }
+  const auto descriptor = ownedDescriptor(value);
+  {
+    Invocation borrowed;
+    CHECK(kalandra_owned_copy_v1(&borrowed, &source, &descriptor));
+    CHECK(value->scope == root->scope && !borrowed.hasDeferredOwnedResource());
+    borrowed.settle();
+    CHECK(!value->finished && value->body.live() != 0);
+  }
+  {
+    Invocation rejected;
+    rejected.failAllocationAt(1);
+    OwnedReceiveGuard receiving(source, rejected);
+    CHECK(!kalandra_owned_copy_v1(&rejected, &source, &descriptor));
+    CHECK(rejected.status() == 2 && value->scope == root->scope && !value->finished);
+  }
+  {
+    Invocation destination, unrelated;
+    OwnedReceiveGuard wrongSource(unrelated, destination);
+    CHECK(kalandra_owned_copy_v1(&destination, &source, &descriptor));
+    CHECK(value->scope == root->scope);
+    destination.settle();
+    CHECK(!value->finished);
+  }
+  {
+    Invocation borrowed, destination;
+    CHECK(kalandra_owned_copy_v1(&borrowed, &source, &descriptor));
+    OwnedReceiveGuard outer(source, destination);
+    CHECK(kalandra_owned_copy_v1(&destination, &borrowed, &descriptor));
+    CHECK(value->scope == root->scope); // permission must match this copy's actual source
+  }
+  CopyBudget budget;
+  Invocation destination;
+  destination.bindRecursiveBudget(&budget, CopyBudget::reserve, CopyBudget::release);
+  auto *scope = static_cast<ResourceControl *>(
+      kalandra_file_scope_enter_v1(&destination, nullptr, 0));
+  CHECK(scope);
+  {
+    OwnedReceiveGuard receiving(source, destination);
+    // Another worker cannot inherit this thread's consuming-copy permission.
+    std::thread worker([&] {
+      Invocation borrowed;
+      CHECK(kalandra_owned_copy_v1(&borrowed, &source, &descriptor));
+      CHECK(value->scope == root->scope);
+    });
+    worker.join();
+    CHECK(kalandra_owned_copy_v1(&destination, &source, &descriptor));
+  }
+  CHECK(value->scope == scope->scope && destination.hasDeferredOwnedResource());
+  const auto bodyBytes = value->body.recursiveBytes();
+  const auto receiverBytes = budget.bytes;
+  CHECK(value->body.allocate(4096));
+  CHECK(budget.bytes - receiverBytes == value->body.recursiveBytes() - bodyBytes);
+  source.settle();
+  CHECK(!value->finished && counts.retired == 0 && counts.destroyed == 0);
+  kalandra_file_scope_leave_v1(&destination, scope, nullptr);
+  CHECK(counts.retired == 1 && counts.destroyed == 1);
+  destination.settle();
+  CHECK(source.live() == 0 && destination.live() == 0);
+  CHECK(budget.bytes == 0);
+}
 } // namespace
 int main() {
+  ownedResultTransfer();
   escapeRoot();
   escapeRootAdmission();
   for (unsigned stop = 0; stop != 3; ++stop)

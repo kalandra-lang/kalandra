@@ -39,10 +39,22 @@ struct RetirementQueue {
   }
 };
 thread_local RetirementQueue retirements;
+thread_local const OwnedReceiveGuard *ownedReceive = nullptr;
 } // namespace
 std::mutex &resourceMutex() {
   static auto *value = new std::mutex;
   return *value;
+}
+OwnedReceiveGuard::OwnedReceiveGuard(const Invocation &source, Invocation &destination) noexcept
+    : previous_(ownedReceive), source_(&source), destination_(&destination) {
+  ownedReceive = this;
+}
+OwnedReceiveGuard::~OwnedReceiveGuard() { ownedReceive = previous_; }
+bool OwnedReceiveGuard::receives(Invocation &destination, const Invocation &source,
+                                  const ResourceScope *scope) noexcept {
+  return ownedReceive && ownedReceive->source_ == &source &&
+         ownedReceive->destination_ == &destination && scope &&
+         scope->context == ownedReceive->source_ && scope->context != &destination;
 }
 void OwnedState::detach() noexcept {
   if (!scope)
@@ -210,7 +222,68 @@ OwnedState *inspectOwned(Invocation &ctx, const OwnedDescriptor &value) noexcept
 using namespace kalandra::runtime;
 namespace {
 bool healthy(Invocation &ctx) noexcept { return !ctx.poll() && ctx.usable(); }
+bool receiveOwned(Invocation &ctx, OwnedState &file, const Invocation *source) noexcept {
+  bool unowned, transferring;
+  {
+    std::lock_guard lock(resourceMutex());
+    const bool retired = file.retired.load(std::memory_order_acquire);
+    if (file.deferredOwner && retired) {
+      ctx.fault(3);
+      return false;
+    }
+    unowned = file.scope == nullptr && !retired;
+    transferring = source && file.deferredOwner && !retired &&
+                   OwnedReceiveGuard::receives(ctx, *source, file.scope);
+  }
+  if (file.deferredOwner && (unowned || transferring)) {
+    if (!ensureOwnedEscapeScope(ctx))
+      return false;
+    adopt(ctx, file, currentScope(ctx)->scope);
+  } else if (unowned)
+    if (auto *scope = currentScope(ctx))
+      adopt(ctx, file, scope->scope);
+  return healthy(ctx);
+}
 } // namespace
+extern "C" bool kalandra_owned_copy_v1(Invocation *ctx, const Invocation *source,
+                                         const OwnedDescriptor *value) noexcept {
+  if (!ctx)
+    return false;
+  if (!healthy(*ctx))
+    return false;
+  if (!source || !value) {
+    ctx->fault(3);
+    return false;
+  }
+  const auto &s = value->storage;
+  if (!s.allocated || s.aligned != s.allocated || s.offset || s.strides[0] != 1 ||
+      s.sizes[0] < std::int64_t(sizeof(OwnedState))) {
+    ctx->fault(3);
+    return false;
+  }
+  auto *state = static_cast<OwnedState *>(
+      ctx->readResourceFrom(*source, s.allocated, OwnedState::cleanup, std::uint64_t(s.sizes[0])));
+  if (!state)
+    return false;
+  if (state->bytes != std::uint64_t(s.sizes[0])) {
+    ctx->fault(3);
+    return false;
+  }
+  if (state->deferredOwner) {
+    if (state->retired.load(std::memory_order_acquire)) {
+      ctx->fault(3);
+      return false;
+    }
+    if (!ensureOwnedEscapeScope(*ctx))
+      return false;
+    auto *scope = currentScope(*ctx);
+    // Keep one dynamic accounting path per logical store rather than adding a
+    // temporary value-store observer at every nested owned-result boundary.
+    Invocation::OwnershipSelection selected(scope->storage);
+    return ctx->retainFrom(*source, s.allocated) && receiveOwned(*ctx, *state, source);
+  }
+  return ctx->retainFrom(*source, s.allocated) && receiveOwned(*ctx, *state, source);
+}
 extern "C" void *kalandra_file_scope_enter_v1(Invocation *ctx, const OwnedDescriptor *const *owned,
                                               std::uint64_t count) noexcept {
   if (!healthy(*ctx))
@@ -267,15 +340,8 @@ extern "C" bool kalandra_file_receive_v1(Invocation *ctx, const OwnedDescriptor 
   auto *file = inspectOwned(*ctx, *value);
   if (!file)
     return false;
-  bool unowned;
-  {
-    std::lock_guard lock(resourceMutex());
-    unowned = file->scope == nullptr && !file->retired.load(std::memory_order_acquire);
-  }
   // A returned worker value has left its producer's logical scope. Adopt it in
-  // its receiver; ordinary borrowed task parameters keep their existing owner.
-  if (unowned)
-    if (auto *scope = currentScope(*ctx))
-      adopt(*ctx, *file, scope->scope);
-  return healthy(*ctx);
+  // its receiver. This legacy callback has no source identity, so it cannot
+  // consume an existing owner through an enclosing result-copy permission.
+  return receiveOwned(*ctx, *file, nullptr);
 }

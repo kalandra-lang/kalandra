@@ -828,6 +828,23 @@ void *Invocation::readResource(void *address, void (*cleanup)(void *) noexcept,
   }
   return address;
 }
+void *Invocation::readResourceFrom(const Invocation &source, void *address,
+                                   void (*cleanup)(void *) noexcept,
+                                   std::uint64_t minimumBytes) noexcept {
+  if (poll() || !usable())
+    return nullptr;
+  if (!source.usable() || !cleanup) {
+    fault(3);
+    return nullptr;
+  }
+  auto *owner = source.findOwner(address);
+  if (!owner || owner->backing->cleanup != cleanup ||
+      owner->backing->bytes < minimumBytes) {
+    fault(3);
+    return nullptr;
+  }
+  return address;
+}
 void *Invocation::allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept {
   AccountingGuard accounting(flags_ & DynamicResources);
   auto &state = ledger();
