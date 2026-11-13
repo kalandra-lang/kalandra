@@ -78,11 +78,13 @@ fn work() -> i64:
       return values
   return [0, 0]
 ''', 'i64', True, 42),
-    'abandoned-collection': ('''fn choose() -> i64:
-  values = for i in range(10):
-    if i == 7:
-      return 42
+    'materialized-loop-exit': ('''fn choose() -> i64:
+  values = array(for i in range(10):
     yield i
+  )
+  for value in values:
+    if value == 7:
+      return 42
   return length(values)
 fn work() -> i64:
   callback = fn() -> i64: return choose()

@@ -38,9 +38,10 @@ def write_cases(root):
     root.mkdir()
     for size in (32, 1024, 8192):
         collection = f"""fn work(n:i64)->[i64]:
-  return for i in range(n):
+  return array(for i in range(n):
     if i%3==0:
       yield i+7
+  )
 fn main()->i64 ! TaskError:
   return try parallel:
     values=try await spawn work({size}) on devices.gpu()

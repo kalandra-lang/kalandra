@@ -133,12 +133,13 @@ fn main() -> i64 ! TaskError:
 fn main() -> i64:
   return choose(true) + choose(false)
 ''', '84\n'),
-    'abandoned-collection': ('''fn pick() -> i64:
+    'abandoned-generator': ('''fn pick() -> i64:
   values = for i in range(10):
-    if i == 7:
-      return 42
     yield i
-  return length(values)
+  for value in values:
+    if value == 7:
+      return 42
+  return 0
 fn main() -> i64:
   return pick()
 ''', '42\n'),
