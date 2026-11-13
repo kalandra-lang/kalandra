@@ -102,7 +102,8 @@ fn main()->unit ! (ReportError | TaskError):
                     line,
                 )
             )
+        stdout = run.stdout.replace(b"\r\n", b"\n")
         assert (
-            run.returncode == 0 and run.stdout == f"{output}41:{expected}\n".encode() and not stderr
+            run.returncode == 0 and stdout == f"{output}41:{expected}\n".encode() and not stderr
         ), (name, workers, run)
     print("PASS executed", name, flush=True)

@@ -126,5 +126,6 @@ for name, (source, expected, output) in cases.items():
             if name in ("prefetch-close-cancels-timer", "adapter-prefetch-close")
             else 180,
         )
-        assert result.stdout.decode() == output + "PASS\n" and not result.stderr, result
+        text = result.stdout.decode().replace("\r\n", "\n")
+        assert text == output + "PASS\n" and not result.stderr, result
     print("PASS", name, flush=True)
