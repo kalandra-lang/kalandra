@@ -1,4 +1,4 @@
-meta { title = "Conditions, loops and matching", description = "Choose values, iterate over arrays and ranges, and exit loops safely.", order = 4, group = "Language reference" }
+meta { title = "Conditions, loops and matching", description = "Choose values, traverse arrays, ranges and cursors, and exit loops safely.", order = 4, group = "Language reference" }
 
 bool has the values true and false. Comparisons return bool. Use not, and and or for Boolean logic. and and or evaluate only the operands needed to determine the result.
 
@@ -104,6 +104,14 @@ fn main() -> unit ! IoError:
 """ }
 
 This displays 8, from 5 + 3 + 1 - 1. Reassigning index inside the body changes that iteration's local value; it does not change the next range value.
+
+h2 { "Iterate over a cursor" }
+
+A for loop also accepts an Iterator. It takes ownership and closes the cursor when traversal ends, including on break or return. Use next manually when you need to resume the same cursor later. A fallible cursor makes the loop's result fallible; use try or catch to handle that traversal error.
+
+list {
+  link { url = "/docs/iteration#for-over-a-cursor", "Cursor ownership, traversal errors and examples" }
+}
 
 h2 { "Build an array with yield" }
 

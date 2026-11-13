@@ -1,3 +1,55 @@
+// Resolve the canonical standard Option without depending on a user import
+// alias. Iterator declarations already load std/option as a module dependency.
+std::optional<std::size_t> iteratorOption(const ValueType &item, SourceSpan site) {
+  for (std::size_t id = 0; id < syntax_.records.size(); ++id) {
+    const auto &record = syntax_.records[id];
+    const auto origin = syntax_.source->partIndex(record.name.begin);
+    if (origin < syntax_.standardModules.size() &&
+        syntax_.standardModules[origin] == StandardModule::Option &&
+        name(record.name) == "Option" && record.generics.size() == 1)
+      return specializeRecord(id, {{name(record.generics[0].name), item}}, site);
+  }
+  error("S076", "Iterator traversal requires its standard Option module", site);
+  return {};
+}
+// Lower a reusable user source through the canonical static Iterable contract.
+// Reuse the already checked input so construction effects run exactly once.
+std::optional<ValueId> iterableCursor(Frame &frame, ValueId input, SourceSpan site,
+                                      bool construct = true) {
+  for (FunctionId id = 0; id < syntax_.functions.size(); ++id) {
+    const auto original = syntax_.functions[id];
+    if (original.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[original.moduleIndex] != StandardModule::Iteration ||
+        name(original.name) != "iter" || original.generics.size() != 1)
+      continue;
+    const auto label = genericParameterLabel(original.generics[0]);
+    GenericBindings bindings{{label, node(input).type}};
+    GenericTermBindings terms{{label, genericTerm(input)}};
+    if (genericContext(frame) && !checkGenericTermBounds(frame, original.generics, terms, site))
+      return {};
+    if (!construct)
+      return input;
+    auto target = specializeFunction(id, std::move(bindings), site);
+    if (!target || !analyzeFunction(*target))
+      return {};
+    const auto type = output_.functions[*target].resultType;
+    if (!isIterator(output_, type) || type.fallible || type.task || type.device) {
+      error("S083", "Iterable.iterator must return a completed owned Iterator", site);
+      return {};
+    }
+    auto result = add(frame, type, site, FunctionCall{*target, {input}});
+    if (result && genericContext(frame) && original.result) {
+      auto term = instantiateGenericTerm(*original.result, type, terms);
+      term.actual = type;
+      genericValueTerms_[*result] = std::move(term);
+    }
+    return result;
+  }
+  error(genericContext(frame) ? "S083" : "S076",
+        "for expects an array, Range, Iterator or an Iterable source with a declared capability",
+        site);
+  return {};
+}
 bool standardRange(FunctionId id) const {
   if (id >= syntax_.functions.size())
     return false;

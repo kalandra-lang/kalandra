@@ -1157,6 +1157,12 @@ private:
             normal.inputs.clear();
             statements(op.whenDone, normal, op.normalResult);
             Roots value = paths.result;
+            if (op.traversalErrorBoundary) {
+              // A next failure exits before the normal-completion suite. Its
+              // error payload may retain backing read through this cursor.
+              paths.breaks.push_back(fork(head));
+              unite(value, inputs);
+            }
             if (op.normalResult && !normal.stopped)
               unite(value, evaluate(*op.normalResult, normal));
             if (!normal.stopped) {

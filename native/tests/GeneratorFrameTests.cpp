@@ -658,6 +658,11 @@ template <kalandra::NumericType Element> void numericArraySources() {
   CHECK(!ctx.poll());
   CHECK(generatorNext(ctx, absent, item, nullptr, &value, nullptr) == GeneratorStep::Exhausted);
   CHECK(generatorClose(ctx, absent));
+  empty.strides[0] = 0; // Compiler-generated empty numeric arrays use a zero stride.
+  absent = generatorArray(ctx, hostArrayLayout<Element>(), item, &empty);
+  CHECK(!ctx.poll());
+  CHECK(generatorNext(ctx, absent, item, nullptr, &value, nullptr) == GeneratorStep::Exhausted);
+  CHECK(generatorClose(ctx, absent));
   ctx.settle();
   CHECK(ctx.live() == 0);
 }

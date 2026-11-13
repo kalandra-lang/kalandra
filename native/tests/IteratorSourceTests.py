@@ -194,6 +194,128 @@ gpu_pause = '''  checked=try parallel:
     gpu=devices.gpu()
     try await spawn marker(41) on gpu
 ''' if args.target != 'cpu' else '  checked=marker(41)\n'
+run('cursor-for-owned-drop', array_imports + '''fn main()->unit ! (IoError | TaskError):
+  values=[1,2,3,4]
+  cursor=iter(values)
+  total=0
+  for value in cursor:
+    if value==2:
+      continue
+    total=total+value
+    if value==3:
+      break
+  values[0]=9
+''' + gpu_pause + '''  try println(format("{}:{}:{}",total,values[0],checked))
+  return ()
+''', '4:9:42\n')
+device_setup = '    gpu=devices.gpu()\n' if args.target != 'cpu' else ''
+placement = ' on gpu' if args.target != 'cpu' else ''
+run('cursor-for-through-await', array_imports + '''fn main()->unit ! (IoError | TaskError):
+  values=[1,2,3,1000]
+  cursor=iter(values)
+  result=try parallel:
+''' + device_setup + '''    total=0
+    for value in cursor:
+      pending=spawn marker(value)''' + placement + '''
+      item=try await pending
+      if value==2:
+        continue
+      total=total+item
+      if value==3:
+        break
+    values[0]=9
+    total
+  try println(format("{}:{}",result,values[0]))
+  return ()
+''', '6:9\n')
+run('cursor-for-nested-try-yield', array_imports + '''fn main()->unit ! (IoError | TaskError):
+  values=for row in range(2):
+    try for value in iter([3,5]):
+      yield row*10+value
+  total=values[0]+values[1]+values[2]+values[3]
+''' + gpu_pause + '''  try println(format("{}:{}",total,checked))
+  return ()
+''', '36:42\n')
+run('cursor-for-custom-iterable', array_imports + '''from "std/iter" import Iterable
+type Countdown:
+  stop:i64
+impl Iterable for Countdown:
+  type Item=i64
+  type Error=never
+  fn iterator(values:Self)->Iterator[i64,never]:
+    return iter(steps(values.stop,0,-1))
+fn make()->Countdown ! IoError:
+  try println("once")
+  return Countdown {stop:3}
+fn count[S:Iterable](values:S)->i64 ! S.Error:
+  total=0
+  return try for value in values:
+    total=total+1
+  else:total
+fn main()->unit ! (IoError | TaskError):
+  total=0
+  for value in try make():
+    total=total+value
+  reusable=Countdown {stop:4}
+  a=try count(reusable)
+  b=try count(reusable)
+  c=try count([1,2])
+  d=try count(steps(2))
+''' + gpu_pause + '''  try println(format("{}:{}:{}:{}:{}:{}",total,a,b,c,d,checked))
+  return ()
+''', 'once\n6:4:4:2:2:42\n')
+run('cursor-for-generic-error-channel', array_imports + '''fn sum[E](own cursor:Iterator[i64,E])->i64 ! E:
+  total=0
+  return try for value in cursor:
+    total=total+value
+  else:total
+fn main()->unit ! (IoError | TaskError):
+  total=try sum(iter([3,5,7]))
+''' + gpu_pause + '''  try println(format("{}:{}",total,checked))
+  return ()
+''', '15:42\n')
+run('cursor-for-expression-and-items', array_imports + '''fn pick(own cursor:Iterator[i64,never])->i64:
+  return for value in cursor:
+    if value>2:
+      break value
+  else:-1
+fn main()->unit ! (IoError | TaskError):
+  found=pick(iter([1,3,5]))
+  empty:[i64]=[]
+  absent=pick(iter(empty))
+  total=0
+  for value in iter([7,11]):
+    total=total+value
+  word=for part in iter(["first","second"]):
+    break part
+  else:"empty"
+  count=0
+  for flag in iter([true,false,true]):
+    if flag:
+      count=count+1
+''' + gpu_pause + '''  try println(format("{}:{}:{}:{}:{}:{}",found,absent,total,word,count,checked))
+  return ()
+''', '3:-1:18:first:2:42\n')
+if args.target == 'cpu':
+    run('cursor-for-callable-result', array_imports + '''fn main()->unit ! IoError:
+  values=[7,8]
+  callback=fn()->i64:return values[0]
+  got=for run in iter([callback]):
+    break run
+  else:fn()->i64:return -1
+  values[0]=9
+  try println(format("{}",got()))
+  return ()
+''', '9\n')
+    run('cursor-for-record-items', array_imports + '''type Box:
+  value:i64
+fn main()->unit ! IoError:
+  total=0
+  for box in iter([Box {value:7},Box {value:11}]):
+    total=total+box.value
+  try println(format("{}",total))
+  return ()
+''', '18\n')
 run('cursor-array-replay-and-close', array_imports + '''fn main()->unit ! (IoError | TaskError):
   values=[3,1,2]
   left=iter(values)
@@ -357,6 +479,8 @@ for index, kind in enumerate(numeric_types):
     number_steps += f'''  c{index}=iter([{kind}(3),{kind}(5)])
   total=total+i64(first(c{index},{kind}(0)))+i64(first(c{index},{kind}(0)))
   close(c{index})
+  for value in iter([{kind}(3),{kind}(5)]):
+    total=total+i64(value)
 '''
 run('cursor-array-numeric-types', array_imports + '''fn main()->unit ! (IoError | TaskError):
   total=0
@@ -367,9 +491,12 @@ run('cursor-array-numeric-types', array_imports + '''fn main()->unit ! (IoError 
   units=iter([(),()])
   x=first(units,())
   close(units)
-  try println(format("{}:{}:{}:{}",total,a,b,checked))
+  unitCount=0
+  for token in iter([(),()]):
+    unitCount=unitCount+1
+  try println(format("{}:{}:{}:{}:{}",total,a,b,unitCount,checked))
   return ()
-''', '80:true:false:42\n')
+''', '160:true:false:2:42\n')
 
 if args.target == 'cpu':
     cursor_imports = '''from "std/iter" import Iterator, iter, next, close

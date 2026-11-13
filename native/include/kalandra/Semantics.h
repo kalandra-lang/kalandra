@@ -391,6 +391,7 @@ struct WhileOperation {
   std::vector<ValueId> exitValues = {};
   bool collecting = false;
   bool functionBoundary = false;
+  bool traversalErrorBoundary = false; // Cursor-next errors belong to this loop result.
 };
 struct YieldOperation {
   std::size_t collection;

@@ -925,6 +925,30 @@ void Invocation::releaseControl(void *address) noexcept {
     clearControl();
   clearControl();
 }
+bool Invocation::releaseIndependentControl(void *address,
+                                           void (*cleanup)(void *) noexcept) noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
+  auto &state = ledger();
+  auto **link = &state.controls_;
+  while (*link && *link + 1 != address)
+    link = &(*link)->next;
+  auto *control = *link;
+  if (!control || !cleanup || control->cleanup != cleanup) {
+    fault(3);
+    return false;
+  }
+  *link = control->next;
+  control->cleanup(control + 1);
+  const auto charge = control->charge;
+  control->~ControlAllocation();
+  std::free(control);
+  if (charge && state.recursiveRelease_)
+    state.recursiveRelease_(state.recursiveBudget_, charge);
+  state.recursiveBytes_ -= charge;
+  live_.store(live_.load(std::memory_order_relaxed) - 1, std::memory_order_relaxed);
+  ++state.releases_;
+  return true;
+}
 void *Invocation::latestControl(void (*cleanup)(void *) noexcept) noexcept {
   if (!(flags_ & Materialized))
     return nullptr;

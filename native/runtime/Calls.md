@@ -217,6 +217,29 @@ copy callbacks. It covers partial close, exhaustion, never-started close, faults
 and external acknowledgement barriers with one/four workers and two task slots.
 This private test does not enable source generator syntax.
 
+## Cursor traversal boundaries
+
+A source for loop moves a cursor into its own lexical resource scope. Header
+advancement tests the canonical Option; the item is projected only on Some.
+Break, exhaustion and expected traversal failure close that scope. Return,
+execution fault and cancellation use the enclosing lexical unwind barrier.
+Reusable user sources dispatch through the canonical static Iterable contract;
+construction is evaluated once. Arrays and Range retain their direct loops.
+
+A fallible cursor's next operation targets a loop-local error boundary. The loop
+result carries that expected error for the caller's try/catch; explicit try in
+the body keeps its original enclosing boundary. Failure can bypass the normal
+else suite, so noncompletion and alias analyses retain that exit path. A never
+traversal channel erases without changing generic try-for source code.
+
+Partial eager array builders discard their initialized prefix on traversal
+failure and skip final materialization. Builders are independent metadata, not
+lexical parents of resource scopes created later. Their cleanup unlinks exactly
+the matching native control entry; it must never pop newer resource controls or
+bypass asynchronous preflight. Ordinary lexical control release keeps its LIFO
+unwind semantics. Cleanup identity checks reject a mismatched or repeated
+independent release, and both paths refund native control admission charges.
+
 ## Mixed GPU host callables
 
 Metal, Vulkan, and CUDA supervisors use the same call runtime. Resumable host

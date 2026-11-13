@@ -137,7 +137,11 @@ int main(int argc, char **argv) {
       require(!iteratorCapabilityError(*cursors.module, expr, NumericTarget::Cpu),
               "checked iterator operation failed its executable-IR contract");
     for (const auto &source :
-         {"fn bad(cursor:Iterator[i64,never])->Option[i64]:\n  return next(cursor)\n"
+         {"fn bad(cursor:Iterator[i64,never])->unit:\n  for value in cursor:\n    ()\n  return ()\n"
+          "fn main()->unit:\n  return ()\n",
+          "fn main()->unit:\n  cursor=iter(range(3))\n  for value in cursor:\n    break\n"
+          "  value=next(cursor)\n  return ()\n",
+          "fn bad(cursor:Iterator[i64,never])->Option[i64]:\n  return next(cursor)\n"
           "fn main()->unit:\n  return ()\n",
           "fn bad(cursor:Iterator[i64,never])->unit:\n  close(cursor)\n  return ()\n"
           "fn main()->unit:\n  return ()\n",
@@ -154,6 +158,40 @@ int main(int argc, char **argv) {
       auto invalid = checkSource(cursorPrelude + source);
       require(!invalid.ok() && !invalid.module,
               "cursor admitted unauthorized mutation, ownership reuse or opaque storage access");
+    }
+    const auto ignoredTraversal =
+        checkSource(cursorPrelude + "error Problem:\n  Bad\n"
+                                    "fn bad(own cursor:Iterator[i64,Problem])->unit:\n"
+                                    "  for value in cursor:\n    ()\n  return ()\n"
+                                    "fn main()->unit:\n  return ()\n");
+    require(!ignoredTraversal.ok() &&
+                std::ranges::any_of(ignoredTraversal.diagnostics,
+                                    [](const auto &d) { return d.code == "S036"; }),
+            "fallible cursor traversal silently ignored its expected error");
+    const auto implicitIterable = checkSource(
+        cursorPrelude +
+        "from \"std/iter\" import Iterable\n"
+        "type Source:\n  stop:i64\nimpl Iterable for Source:\n"
+        "  type Item=i64\n  type Error=never\n"
+        "  fn iterator(values:Self)->Iterator[i64,never]:\n    return iter(range(values.stop))\n"
+        "fn count[S](values:S)->i64:\n  total=0\n"
+        "  for value in values:\n    total=total+1\n  return total\n"
+        "fn main()->unit:\n  total=count(Source {stop:3})\n  return ()\n");
+    require(!implicitIterable.ok() &&
+                std::ranges::any_of(implicitIterable.diagnostics,
+                                    [](const auto &d) { return d.code == "S083"; }),
+            "for inferred an undeclared Iterable capability for an abstract generic source");
+    for (const auto *value : {"[1,2]", "range(3)"}) {
+      const auto abstractSource =
+          checkSource(cursorPrelude +
+                      "from \"std/iter\" import Iterable\nfn count[S](values:S)->i64:\n  total=0\n"
+                      "  for value in values:\n    total=total+1\n  return total\n"
+                      "fn main()->unit:\n  total=count(" +
+                      value + ")\n  return ()\n");
+      require(!abstractSource.ok() &&
+                  std::ranges::any_of(abstractSource.diagnostics,
+                                      [](const auto &d) { return d.code == "S083"; }),
+              "for specialized an abstract source without its declared Iterable capability");
     }
     const auto loanCheck = [&](const std::string &program, bool valid) {
       auto result = checkSource(cursorPrelude +
@@ -199,6 +237,7 @@ int main(int argc, char **argv) {
          })
       loanCheck(program, true);
     for (const auto *program : {
+             "fn main()->unit:\n  a=[3,1]\n  for value in iter(a):\n    a[0]=9\n  return ()\n",
              "fn main()->unit:\n  a=[3,1]\n  c=borrow(a)\n  a[0]=9\n  close(c)\n  return ()\n",
              "fn main()->unit:\n  a=[3,1]\n  b=a\n  c=borrow(a)\n  sort(b)\n  close(c)\n  return "
              "()\n",
@@ -291,6 +330,10 @@ int main(int argc, char **argv) {
              "    pending=spawn read(a)\n    while true:\n      match next(c):\n"
              "        Option.None:break\n        Option.Some {value}:()\n"
              "    a[0]=9\n    value=try await pending\n    ()\n  close(c)\n  return ()\n",
+             "fn read(values:[i64])->i64:\n  return values[0]\n"
+             "fn main()->unit ! TaskError:\n  a=[1,2]\n  try parallel:\n"
+             "    pending=spawn read(a)\n    for value in iter(a):\n      ()\n"
+             "    a[0]=9\n    value=try await pending\n    ()\n  return ()\n",
              "fn replace(own c:Iterator[i64,never],a:[i64])->Iterator[i64,never]:\n"
              "  close(c)\n  return iter(a)\n"
              "fn main()->unit:\n  a=[1,2]\n  c=iter(a)\n  old=next(c)\n  fresh=replace(c,a)\n"

@@ -324,8 +324,10 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           (!loop->normalResult && !loop->collecting && !loop->functionBoundary &&
            !nonCompleting[&expression - module.expressions.data()] &&
            (expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
-            expression.type.task || expression.type.fallible)))
+            expression.type.task || (expression.type.fallible && !loop->traversalErrorBoundary))))
         return "while requires a completed CPU Bool condition and a valid result";
+      if (loop->traversalErrorBoundary && !expression.type.fallible)
+        return "cursor traversal error boundary requires a fallible loop result";
       if (loop->functionBoundary) {
         const auto *literal =
             std::get_if<BoolLiteral>(&module.expressions[loop->condition].operation);
@@ -340,8 +342,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
             return "while references an invalid statement";
       if (loop->collecting) {
         if (!expression.type.array || expression.type.shape.size() != 1 || expression.type.task ||
-            expression.type.fallible || expression.type.device || loop->normalResult ||
-            !loop->whenDone.empty() || loop->exitValues.empty())
+            (expression.type.fallible && !loop->traversalErrorBoundary) || expression.type.device ||
+            loop->normalResult || !loop->whenDone.empty() || loop->exitValues.empty())
           return "invalid collecting loop result";
         for (auto yielded : loop->exitValues)
           if (yielded >= module.expressions.size() ||
@@ -1267,6 +1269,8 @@ std::string dumpTypedIR(const TypedModule &module) {
                       : operation.normalResult ? "while.expression "
                                                : "while.statement ");
               value(operation.condition);
+              if (operation.traversalErrorBoundary)
+                out << " traversal.errors";
               out << " {";
               for (const auto &statement : operation.body) {
                 out << " ";

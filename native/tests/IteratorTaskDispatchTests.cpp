@@ -1,4 +1,5 @@
 #include "../runtime/GeneratorTasks.h"
+#include "../runtime/String.h"
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -20,6 +21,12 @@ struct OptionResult {
   Failure failure;
   std::uint64_t tag = 1;
   std::int64_t value = 0;
+#if defined(ITERATOR_FALLIBLE) && !defined(ITERATOR_TASK_ERROR)
+  struct {
+    std::int64_t tag = 0, code = 0;
+    StringDescriptor message;
+  } error;
+#endif
 };
 struct Answer {
   Failure failure;
@@ -81,11 +88,24 @@ void resumeProducer(Task &task) {
     CHECK(group && task.spawn(group, child, {0, &input, sizeof(input), &task.context()}));
     CHECK(task.close(group));
   }
+  OptionResult result;
   if (producer.index == 1 && producer.probe->fault) {
+#ifdef ITERATOR_TASK_ERROR
+    result.failure.kind = TaskFailure::Cancelled;
+    task.complete(&result);
+#elif defined(ITERATOR_FALLIBLE)
+    result.error.tag = 1;
+    result.error.code = 7;
+    StringDescriptor prefix, suffix;
+    kalandra_string_literal_v1(&task.context(), &prefix, "er", 2);
+    kalandra_string_literal_v1(&task.context(), &suffix, "ror", 3);
+    kalandra_string_concat_v1(&task.context(), &result.error.message, &prefix, &suffix);
+    task.complete(&result);
+#else
     task.context().fault(9, 37, 4);
+#endif
     return;
   }
-  OptionResult result;
   if (producer.index != 3) {
     result.tag = 2;
     result.value = 10 + producer.index++;
@@ -104,6 +124,13 @@ const TaskEntry body{1,
                      resumeProducer,
                      &kalandra_iterator_dispatch_layout};
 GeneratorStep classify(const void *value) noexcept {
+#ifdef ITERATOR_TASK_ERROR
+  if (static_cast<const OptionResult *>(value)->failure.kind != TaskFailure::None)
+    return GeneratorStep::Error;
+#elif defined(ITERATOR_FALLIBLE)
+  if (static_cast<const OptionResult *>(value)->error.tag)
+    return GeneratorStep::Error;
+#endif
   return static_cast<const OptionResult *>(value)->tag == 2 ? GeneratorStep::Item
                                                             : GeneratorStep::Exhausted;
 }
@@ -193,17 +220,31 @@ int main() {
         }
         CHECK(core->drainToCompletion() && probe.destroyed == 1 && probe.produced == count);
         const auto failure = core->failure(task);
+#ifndef ITERATOR_FALLIBLE
         if (fault && limit)
           CHECK(failure.kind == TaskFailure::Fault && failure.code == 9 && failure.line == 37 &&
                 failure.column == 4);
-        else {
+        else
+#endif
+        {
           Invocation receiver;
           Answer answer;
+          if (failure.kind != TaskFailure::None)
+            std::fprintf(
+                stderr, "workers=%u limit=%lld injected=%u failure=%u code=%lld at %lld:%lld\n",
+                workers, static_cast<long long>(limit), unsigned(fault), unsigned(failure.kind),
+                static_cast<long long>(failure.code), static_cast<long long>(failure.line),
+                static_cast<long long>(failure.column));
           CHECK(failure.kind == TaskFailure::None &&
                 core->observe(task, answerLayout, receiver, &answer));
-          CHECK(answer.failure.kind == TaskFailure::None && answer.value == (limit == 0   ? 0
-                                                                             : limit == 2 ? 21
-                                                                                          : 33));
+          const auto expected = limit == 0 ? 0 :
+#ifdef ITERATOR_FALLIBLE
+                                fault ? -7
+                                :
+#endif
+                                limit == 2 ? 21
+                                           : 33;
+          CHECK(answer.failure.kind == TaskFailure::None && answer.value == expected);
         }
         CHECK(core->release(group));
         const auto stats = core->stats();

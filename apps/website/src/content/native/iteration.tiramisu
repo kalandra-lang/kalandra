@@ -73,7 +73,7 @@ fn main() -> unit ! IoError:
   return ()
 """ }
 
-This displays 2:9. The cursor also supports strings, booleans, numerical values and records. Items that refer to backing storage keep that storage alive after the cursor closes. Passing a cursor to an own parameter transfers its position and read loan; a spawned consumer retains the loan until its task has settled.
+This displays 2:9. The cursor also supports strings, booleans, numerical values and records. Record and function array cursors require a CPU-only program; mixed GPU host continuations accept numeric, bool and String arrays. Items that refer to backing storage keep that storage alive after the cursor closes. Passing a cursor to an own parameter transfers its position and read loan; a spawned consumer retains the loan until its task has settled.
 
 Exhausting the cursor also releases its source read loan. A loop that stops only at Option.None can then change the source, even before closing the exhausted cursor. An early break keeps the loan active when the cursor is owned outside the loop; close that cursor before changing its source. A cursor created inside an iteration closes when that iteration ends, including on break or continue.
 
@@ -100,11 +100,54 @@ fn main() -> unit ! IoError:
 
 This displays 12:9. Further next calls on the exhausted cursor return Option.None without reading the source.
 
+h2 { "for over a cursor" }
+
+A for loop consumes an Iterator. It advances once for each item and closes the cursor before the loop finishes, including on break, an expected error or an early return. Continue advances to the next item. The original cursor binding has moved and cannot be advanced or closed afterward. Traversing an array or Range directly keeps that reusable source available.
+
+codeblock { language = kalandra, """from "std/iter" import iter
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  values = [2, 4, 6]
+  cursor = iter(values)
+  total = 0
+  for value in cursor:
+    total = total + value
+    if total == 6:
+      break
+  values[0] = 9
+  try println(format("{}:{}", total, values[0]))
+  return ()
+""" }
+
+This displays 6:9. The loop closes its partially consumed cursor, so the source can be changed immediately afterward. Use manual next calls when you want to keep the cursor's position after stopping.
+
+Traversing Iterator[T, E] makes the loop's result fallible with E. Use try to propagate that result or catch to handle it. Body expressions still use their own explicit error handling. Generic traversal also accepts E equal to never; its empty error channel is removed during compilation.
+
+codeblock { language = kalandra, """from "std/iter" import Iterator, iter
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn sum[E](own cursor: Iterator[i64, E]) -> i64 ! E:
+  total = 0
+  return try for value in cursor:
+    total = total + value
+  else: total
+
+fn main() -> unit ! IoError:
+  result = try sum(iter([2, 4, 6]))
+  try println(format("{}", result))
+  return ()
+""" }
+
+This displays 12. The else value is returned on exhaustion; break value can provide an earlier result. Closing the cursor does not invalidate an item that retains its own backing storage.
+
 h2 { "Iterable" }
 
 code { "Iterable.iterator(values: Self) -> Iterator[Self.Item, Self.Error]" }
 
-Iterable describes a reusable source. Its associated Item type specifies each item, and Error specifies failures while advancing the returned cursor. Its iterator function creates an owned Iterator[Self.Item, Self.Error]. Range implements this trait with Item equal to i64 and Error equal to never. An array [T] implements it with Item equal to T and Error equal to never. A generic function can accept S: Iterable and call iter(values) without knowing the source's concrete representation. Trait dispatch is resolved during compilation.
+Iterable describes a reusable source. Its associated Item type specifies each item, and Error specifies failures while advancing the returned cursor. Its iterator function creates an owned Iterator[Self.Item, Self.Error]. Range implements this trait with Item equal to i64 and Error equal to never. An array [T] implements it with Item equal to T and Error equal to never. A generic function can accept S: Iterable and call iter(values) or use a for loop without knowing the source's concrete representation. A for loop over a user-defined Iterable creates one cursor, traverses it and closes it. Constructing the source is evaluated once. Trait dispatch is resolved during compilation; direct array and Range loops keep their allocation-free traversal.
 
 h2 { "next" }
 

@@ -49,6 +49,13 @@ int main(int argc, char **argv) {
     expect("\r\n   \r\n", "");
     expect("# only", "# only\n");
     expect("fn main():\n  return 1", "fn main():\n  return 1\n");
+    expect("fn main():\n    try for value in values:\n        if value>0:\n            break\n"
+           "    return ()\n",
+           "fn main():\n  try for value in values:\n    if value > 0:\n      break\n  return ()\n");
+    expect("fn main():\n    values=for row in range(2):\n        try for value in cursor:\n"
+           "            yield row+value\n    return values\n",
+           "fn main():\n  values = for row in range(2):\n    try for value in cursor:\n"
+           "      yield row + value\n  return values\n");
     require(!format("fn main(\n").text, "invalid source formatted");
     require(!format("fn main():\n\t1\n").text, "tabs repaired instead of rejected");
     require(!format(std::string("# ") + char(0xff)).text, "invalid UTF-8 formatted");

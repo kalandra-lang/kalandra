@@ -104,6 +104,10 @@ public:
   // Admission/rollback finishes first; no existing control is destroyed/moved.
   bool moveNewestControlToRoot(void *) noexcept;
   void releaseControl(void *) noexcept;
+  // Private independent metadata (array builders) has no descendant controls.
+  // Match its cleanup identity and unlink only this entry; lexical resource
+  // controls above it must retain their asynchronous retirement boundaries.
+  bool releaseIndependentControl(void *, void (*cleanup)(void *) noexcept) noexcept;
   void *latestControl(void (*cleanup)(void *) noexcept) noexcept;
   // Field backing remains invocation-owned across inline aggregate copies.
   // Release only at a scalar CLI boundary; ordinary helpers may return records.

@@ -584,6 +584,14 @@
     },
     {
       "kind": "cpu",
+      "expected": "6:9"
+    },
+    {
+      "kind": "cpu",
+      "expected": "12"
+    },
+    {
+      "kind": "cpu",
       "expected": "2\n4\n6"
     }
   ]

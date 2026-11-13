@@ -685,6 +685,9 @@ private:
                 if (containsYield(arm.body))
                   return true;
               return false;
+            } else if constexpr (std::is_same_v<T, TaskExpr>) {
+              return op.prefix == TaskPrefix::Try &&
+                     containsYield({{node(op.operand).span, {}, {}, op.operand}});
             } else if constexpr (requires { op.body; })
               return containsYield(op.body);
             else
@@ -708,6 +711,8 @@ private:
       return loop->statementOnly;
     if (const auto *choice = std::get_if<ConditionalExpr>(&value))
       return choice->statementOnly;
+    if (const auto *task = std::get_if<TaskExpr>(&value); task && task->prefix == TaskPrefix::Try)
+      return statementOnly(task->operand);
     return false;
   }
   bool exitsControl(ExprId id) {
@@ -1429,7 +1434,7 @@ private:
       }
       if (text == "spawn" || text == "await" || text == "try") {
         advance();
-        auto operand = parseExpression(40);
+        auto operand = parseExpression(40, statementIf && text == "try");
         if (!operand)
           return {};
         auto prefix = text == "spawn"   ? TaskPrefix::Spawn

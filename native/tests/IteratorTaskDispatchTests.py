@@ -12,6 +12,14 @@ parser.add_argument('--clang', type=Path, required=True)
 parser.add_argument('--runtime', type=Path, required=True)
 parser.add_argument('--variant', choices=('debug', 'optimized', 'sanitized', 'thread-sanitized'), required=True)
 parser.add_argument('--output', type=Path, required=True)
+parser.add_argument('--for-loop', action='store_true')
+parser.add_argument('--fallible', action='store_true')
+parser.add_argument('--propagate', action='store_true')
+parser.add_argument('--nonlocal-return', action='store_true')
+parser.add_argument('--collecting', action='store_true')
+parser.add_argument('--collect-return', action='store_true')
+parser.add_argument('--task-error', action='store_true')
+parser.add_argument('--statement', action='store_true')
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 root = Path(__file__).resolve().parent
@@ -39,7 +47,17 @@ def run(command, name):
 
 
 ir = args.output / 'source.ll'
-run([args.compiler, root / 'IteratorTaskDispatch.k', *flags, '--test-entry', 'worker',
+fixture = next((name for enabled, name in (
+    (args.statement, 'IteratorForStatementDispatch.k'),
+    (args.task_error, 'IteratorForTaskErrorDispatch.k'),
+    (args.collect_return, 'IteratorForCollectReturnDispatch.k'),
+    (args.collecting, 'IteratorForCollectDispatch.k'),
+    (args.nonlocal_return, 'IteratorForReturnDispatch.k'),
+    (args.propagate, 'IteratorForPropagateDispatch.k'),
+    (args.fallible, 'IteratorForErrorDispatch.k'),
+    (args.for_loop, 'IteratorForDispatch.k'),
+) if enabled), 'IteratorTaskDispatch.k')
+run([args.compiler, root / fixture, *flags, '--test-entry', 'worker',
      '--emit-llvm', ir, '-o', args.output / ('source.exe' if windows else 'source')], 'compile')
 text = ir.read_text()
 layouts = set(re.findall(r'call i32 @kalandra_generator_next_task_v1\([^\n]*, ptr(?: nonnull)? @([\w.$]+), ptr', text))
@@ -50,10 +68,13 @@ assert re.search(r'^@' + re.escape(name) + r' = internal ', text, re.MULTILINE)
 # the real compiler-emitted copy/validation callbacks remain unchanged.
 text = text.replace('@' + name + ' = internal ', '@' + name + ' = ')
 text = re.sub('@' + re.escape(name) + r'\b', '@kalandra_iterator_dispatch_layout', text)
-assert '@kalandra_generator_close_task_v1' in text
+if fixture == 'IteratorTaskDispatch.k':
+    assert '@kalandra_generator_close_task_v1' in text
 ir.write_text(text)
 binary = args.output / ('dispatch.exe' if windows else 'dispatch')
 run([args.clang, '-std=c++23', '-Wall', '-Wextra', '-Werror', '-Wno-override-module',
      *(['-fms-runtime-lib=static'] if windows else ['-pthread']), *native,
+     *(['-DITERATOR_FALLIBLE'] if args.fallible or args.propagate or args.nonlocal_return or args.collecting or args.collect_return or args.task_error or args.statement else []),
+     *(['-DITERATOR_TASK_ERROR'] if args.task_error else []),
      root / 'IteratorTaskDispatchTests.cpp', ir, args.runtime, '-o', binary], 'link')
 print(run([binary], 'run').decode(), end='', flush=True)

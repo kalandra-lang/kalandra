@@ -85,6 +85,15 @@ if(BUILD_TESTING)
         --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-task-dispatch-${variant}")
     set_tests_properties(native-iterator-task-dispatch-${variant} PROPERTIES TIMEOUT 240
       LABELS "feature-frontend;feature-control")
+    foreach(mode IN ITEMS for-loop fallible propagate nonlocal-return collecting collect-return task-error statement)
+      add_test(NAME native-iterator-${mode}-${variant}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorTaskDispatchTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+          --runtime "$<TARGET_FILE:${runtime}>" --variant "${variant}" "--${mode}"
+          --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-${mode}-${variant}")
+      set_tests_properties(native-iterator-${mode}-${variant} PROPERTIES TIMEOUT 240
+        LABELS "feature-frontend;feature-control")
+    endforeach()
     foreach(backend IN ITEMS metal vulkan cuda)
       if(NOT ((backend STREQUAL "metal" AND KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
          OR (backend STREQUAL "vulkan" AND KALANDRA_BUILD_VULKAN_RUNTIME)

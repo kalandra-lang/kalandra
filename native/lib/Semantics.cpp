@@ -1469,7 +1469,7 @@ private:
   }
   static bool localBinding(const ValueType &type) {
     return !type.task && !type.fallible && !type.device &&
-           (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type)) &&
+           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool) &&
            ((!type.tensor && !type.array) || (type.tensor && type.array && type.shape.size() == 1));
   }
   ValueType bindingType(ValueType type) {
@@ -4346,7 +4346,8 @@ private:
   std::optional<ValueId> checkLoop(Frame &frame, SourceSpan span, const WhileExpr &loop,
                                    const std::optional<ValueType> &expected, ValueId condition,
                                    Frame nested, std::vector<TypedStatement> initial = {},
-                                   std::vector<TypedStatement> iteration = {}) {
+                                   std::vector<TypedStatement> iteration = {},
+                                   std::optional<ValueType> traversalError = {}) {
     const auto test = node(condition).type;
     if (test.builtin != BuiltinValue::Bool || test.tensor || test.array || test.task ||
         test.fallible || test.device) {
@@ -4441,14 +4442,21 @@ private:
       }
       resultType.identity = 0;
     }
+    if (traversalError) {
+      if (!joinErrors(resultType, *traversalError, span))
+        return {};
+      resultType.emptyErrorChannel |= traversalError->emptyErrorChannel && !resultType.fallible;
+    }
     const auto *literal = std::get_if<BoolLiteral>(&node(condition).operation);
-    if (!scope->breaks && ((literal && literal->value) || normal.stopped))
+    if (!(traversalError && traversalError->fallible) && !scope->breaks &&
+        ((literal && literal->value) || normal.stopped))
       frame.stopped = true;
     return add(frame, resultType, span,
                WhileOperation{condition, std::move(body), std::move(whenDone),
                               loop.statementOnly ? std::optional<ValueId>{} : normalResult,
                               scope->identity, scope->transfers, std::move(initial),
-                              std::move(iteration), scope->results, loop.collecting});
+                              std::move(iteration), scope->results, loop.collecting, false,
+                              traversalError && traversalError->fallible});
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ForExpr &loop,
                                const std::optional<ValueType> &expected) {
@@ -4514,6 +4522,8 @@ private:
       return *test;
     };
     ValueId condition;
+    ValueType infallibleTraversal;
+    infallibleTraversal.emptyErrorChannel = true;
     const auto *call = std::get_if<CallExpr>(&syntax_.expressions[loop.input].value);
     const auto *callee =
         call ? std::get_if<NameExpr>(&syntax_.expressions[call->callee].value) : nullptr;
@@ -4554,7 +4564,12 @@ private:
       auto input = expression(frame, loop.input);
       if (!input)
         return {};
-      const auto type = node(*input).type;
+      auto type = node(*input).type;
+      if (genericContext(frame) && !genericTerm(*input).variables.empty() &&
+          (type.array ||
+           (type.record && output_.records[*type.record].standard == StandardRecord::Range)) &&
+          !iterableCursor(frame, *input, node(*input).span, false))
+        return {};
       if (!type.tensor && !type.array && !type.task && !type.fallible && !type.device &&
           type.record && output_.records[*type.record].standard == StandardRecord::Range) {
         const auto source = bind(*input, false, initial);
@@ -4576,11 +4591,80 @@ private:
         if (!ranged)
           return {};
         return checkLoop(
-            frame, span, WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting},
-            expected, *ranged, std::move(nested), std::move(initial), std::move(iteration));
+            frame, span,
+            WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting}, expected,
+            *ranged, std::move(nested), std::move(initial), std::move(iteration),
+            infallibleTraversal);
+      }
+      if (!type.array && !type.task && !type.fallible && !type.device &&
+          !isIterator(output_, type)) {
+        input = iterableCursor(frame, *input, node(*input).span);
+        if (!input)
+          return {};
+        type = node(*input).type;
+      }
+      if (!type.task && !type.fallible && !type.device && isIterator(output_, type)) {
+        if (genericContext(frame) && !genericTerm(*input).variables.empty()) {
+          error("S083",
+                "cursor traversal requires an explicit Iterator[T, E] parameter; use an Iterable "
+                "bound for an abstract reusable source",
+                node(*input).span);
+          return {};
+        }
+        const auto arguments = output_.records[*type.record].typeArguments;
+        const auto option = iteratorOption(arguments[0], span);
+        if (!option)
+          return {};
+        auto result = recordType(*option);
+        const auto failure = arguments[1];
+        const bool fallible = !failure.record || !output_.records[*failure.record].uninhabited;
+        if (fallible) {
+          result.fallible = true;
+          result.errorRecord = failure.record;
+          if (failure.builtin == BuiltinValue::TaskError ||
+              (failure.record && output_.records[*failure.record].taskErrorFamily))
+            result.errorRecord.reset();
+        }
+        result.emptyErrorChannel = !fallible;
+        const auto source = bind(*input, false, initial);
+        const auto cursor = read(source);
+        if (!cursor)
+          return {};
+        auto advanced =
+            add(frame, result, span, IteratorOperation{IteratorAction::Next, {*cursor}, span});
+        if (!advanced)
+          return {};
+        const auto traversalError = result;
+        if (fallible) {
+          frame.tasks->handled.insert(node(*advanced).type.identity);
+          auto completed = result;
+          completed.fallible = false;
+          completed.errorRecord.reset();
+          completed.identity = 0;
+          advanced = add(frame, completed, span, TaskOperation{TaskPrefix::Try, *advanced});
+          if (!advanced)
+            return {};
+        }
+        auto no = add(frame, boolean, span, BoolLiteral{false});
+        auto yes = add(frame, boolean, span, BoolLiteral{true});
+        if (!no || !yes)
+          return {};
+        auto test =
+            add(frame, boolean, span,
+                MatchOperation{*advanced,
+                               {{1, {{span, {}, *no}}, *no}, {2, {{span, {}, *yes}}, *yes}}});
+        auto item = add(frame, arguments[0], span,
+                        RecordFieldRead{*advanced, output_.records[*option].variants[1].fields[0]});
+        if (!test || !item)
+          return {};
+        bind(*item, localBinding(arguments[0]), iteration, loop.binding);
+        return checkLoop(
+            frame, span,
+            WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting}, expected,
+            *test, std::move(nested), std::move(initial), std::move(iteration), traversalError);
       }
       if (!type.array || type.task || type.fallible || type.device) {
-        error("S076", "for expects a completed CPU array, Range or range(...) iterable",
+        error("S076", "for expects a completed CPU array, Range, Iterator or range(...) iterable",
               node(*input).span);
         return {};
       }
@@ -4610,9 +4694,10 @@ private:
         return {};
       iteration.push_back({span, counter, *advance});
     }
-    return checkLoop(
-        frame, span, WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting},
-        expected, condition, std::move(nested), std::move(initial), std::move(iteration));
+    return checkLoop(frame, span,
+                     WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting},
+                     expected, condition, std::move(nested), std::move(initial),
+                     std::move(iteration), infallibleTraversal);
   }
   std::optional<ValueId> statementValue(Frame &frame, const Statement &statement,
                                         const std::optional<ValueType> &expected, bool last) {

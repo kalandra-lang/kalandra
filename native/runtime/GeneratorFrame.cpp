@@ -166,7 +166,8 @@ bool constructArray(Invocation &ctx, void *out, const Packet &input) {
     return false;
   };
   const auto &value = frame.value;
-  if (value.offset < 0 || value.count < 0 || value.stride != 1)
+  if (value.offset < 0 || value.count < 0 ||
+      (value.stride != 1 && !(value.count == 0 && value.stride == 0)))
     return fail();
   if (value.count) {
     const auto base = reinterpret_cast<std::uintptr_t>(value.allocated);

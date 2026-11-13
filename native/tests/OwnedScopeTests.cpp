@@ -425,8 +425,48 @@ void affineBindingAdoption() {
   source.settle();
   CHECK(counts.retired == 2 && counts.destroyed == 2);
 }
+void metadataCleanup(void *p) noexcept { ++**static_cast<unsigned **>(p); }
+void descendantCleanup(void *p) noexcept { **static_cast<unsigned **>(p) += 2; }
+void independentControlLifetimes() {
+  for (unsigned mode : {0u, 1u, 2u}) {
+    CopyBudget budget;
+    Invocation ctx;
+    ctx.bindRecursiveBudget(&budget, CopyBudget::reserve, CopyBudget::release);
+    unsigned cleaned = 0;
+    auto *metadata =
+        static_cast<unsigned **>(ctx.allocateControl(sizeof(unsigned *), metadataCleanup));
+    CHECK(metadata);
+    *metadata = &cleaned;
+    auto *scope = static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&ctx, nullptr, 0));
+    CHECK(scope);
+    auto *descendant =
+        static_cast<unsigned **>(ctx.allocateControl(sizeof(unsigned *), descendantCleanup));
+    CHECK(descendant);
+    *descendant = &cleaned;
+    const auto before = budget.bytes;
+    if (mode == 1) {
+      CHECK(!ctx.releaseIndependentControl(metadata, descendantCleanup) && ctx.status() == 3);
+      CHECK(cleaned == 0 && budget.bytes == before);
+    } else {
+      CHECK(ctx.releaseIndependentControl(metadata, metadataCleanup));
+      CHECK(cleaned == 1 && budget.bytes < before);
+      if (mode == 2)
+        CHECK(!ctx.releaseIndependentControl(metadata, metadataCleanup) && ctx.status() == 3);
+    }
+    // Removing independent metadata must never pop a later lexical scope or
+    // its descendants. They still belong to the task's cleanup barrier.
+    CHECK(currentScope(ctx) == scope && ctx.latestControl(descendantCleanup) == descendant);
+    ctx.releaseControl(scope);
+    CHECK(cleaned == (mode == 1 ? 2u : 3u));
+    ctx.settle();
+    CHECK(cleaned == 3 && budget.bytes == 0 && ctx.live() == 0 &&
+          ctx.allocations() == ctx.releases());
+  }
+}
+
 } // namespace
 int main() {
+  independentControlLifetimes();
   affineBindingAdoption();
   ownedResultTransfer();
   escapeRoot();

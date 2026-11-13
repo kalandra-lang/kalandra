@@ -1533,7 +1533,12 @@ private:
       auto iteration = env;
       const auto testScope = enterResources(
           plan, resourceExpressions[loop->condition] && !spawnExpressions[loop->condition], id);
+      Boundary traversalBoundary{
+          output, {}, {}, env.collectionStack.size() - unsigned(loop->collecting)};
+      if (loop->traversalErrorBoundary)
+        iteration.boundary = &traversalBoundary;
       const auto condition = expression(plan, loop->condition, iteration, stack);
+      iteration.boundary = env.boundary;
       leaveResources(plan, testScope, {}, id);
       LoopBoundary boundary{output, condition, header, env.groups.size(), id, {}};
       boundary.collectionDepth = env.collectionStack.size();
@@ -1568,11 +1573,27 @@ private:
       plan.code.push_back({Code::Label, 0, {}});
       for (auto branch : boundary.exits)
         plan.code[branch].jump = exit;
+      if (!loop->collecting)
+        for (auto branch : traversalBoundary.jumps)
+          plan.code[branch].jump = exit;
       leaveResources(plan, loopScope, output, id);
       if (loop->collecting) {
         plan.code.push_back({Code::CollectFinish, output, {}, 0, 0, 0, id});
         env.collections.erase(loop->identity);
         env.collectionStack.pop_back();
+        if (!traversalBoundary.jumps.empty()) {
+          const auto completed = plan.code.size();
+          plan.code.push_back({Code::Jump, 0, {}, 0, 0, 0, id});
+          const auto failed = plan.code.size();
+          plan.code.push_back({Code::Label, 0, {}});
+          for (auto branch : traversalBoundary.jumps)
+            plan.code[branch].jump = failed;
+          // Try already discarded the partial builder. Close the consumed
+          // cursor without finishing/materializing an abandoned collection.
+          leaveResources(plan, loopScope, output, id);
+          plan.code[completed].jump = plan.code.size();
+          plan.code.push_back({Code::Label, 0, {}});
+        }
       }
     } else if (const auto *guard = std::get_if<GuardOperation>(&node.operation)) {
       const auto subjectScope = enterResources(
