@@ -201,6 +201,8 @@ their distinct cleanup identities before interpreting their private storage. Com
 lexical owned scopes and the static capture/write/loan proofs for source loops.
 
 Erased host cursor advancement and close dispatch on the validated header kind.
+The task-aware runtime reuses this validation for synchronous cursors instead of
+inspecting their descriptor a second time.
 The CPU continuation stores its retry program counter before entering a
 coordinating producer. The shared GPU supervisor bridge receives its existing
 Invocation plus Task and returns a readiness flag; on suspension, it leaves

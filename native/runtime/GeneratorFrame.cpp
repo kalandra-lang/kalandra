@@ -1,4 +1,5 @@
 #include "GeneratorFrame.h"
+#include "GeneratorTasks.h"
 #include <algorithm>
 #include <cstring>
 #include <limits>
@@ -245,14 +246,9 @@ GeneratorDescriptor generatorCreate(Invocation &ctx, const GeneratorEntry &entry
     adopt(ctx, *state, scope->scope);
   return healthy(ctx) ? ownedDescriptor(state) : GeneratorDescriptor{};
 }
-GeneratorStep generatorNext(Invocation &ctx, const GeneratorDescriptor &descriptor,
-                            const ValueLayout &item, const ValueLayout *error, void *output,
-                            void *failure) noexcept {
-  if (!healthy(ctx))
-    return GeneratorStep::Stopped;
-  auto *state = inspect(ctx, descriptor);
-  if (!state)
-    return GeneratorStep::Stopped;
+namespace {
+GeneratorStep nextValidated(Invocation &ctx, GeneratorState *state, const ValueLayout &item,
+                            const ValueLayout *error, void *output, void *failure) noexcept {
   if (!same(item, *state->entry.item) || bool(error) != bool(state->entry.error) ||
       (error && !same(*error, *state->entry.error)) || !output || (error && !failure)) {
     ctx.fault(3);
@@ -307,10 +303,7 @@ GeneratorStep generatorNext(Invocation &ctx, const GeneratorDescriptor &descript
   }
   return call.step;
 }
-bool generatorClose(Invocation &ctx, const GeneratorDescriptor &descriptor) noexcept {
-  auto *state = inspect(ctx, descriptor);
-  if (!state)
-    return false;
+bool closeValidated(Invocation &ctx, GeneratorState *state) noexcept {
   auto pin = ctx.lease(state);
   if (!pin) {
     ctx.fault(3);
@@ -324,6 +317,50 @@ bool generatorClose(Invocation &ctx, const GeneratorDescriptor &descriptor) noex
   state->finish();
   return true;
 }
+} // namespace
+GeneratorStep generatorNext(Invocation &ctx, const GeneratorDescriptor &descriptor,
+                            const ValueLayout &item, const ValueLayout *error, void *output,
+                            void *failure) noexcept {
+  if (!healthy(ctx))
+    return GeneratorStep::Stopped;
+  auto *state = inspect(ctx, descriptor);
+  return state ? nextValidated(ctx, state, item, error, output, failure) : GeneratorStep::Stopped;
+}
+bool generatorClose(Invocation &ctx, const GeneratorDescriptor &descriptor) noexcept {
+  auto *state = inspect(ctx, descriptor);
+  return state && closeValidated(ctx, state);
+}
+std::uint32_t generatorNextTask(Task &task, const GeneratorDescriptor &descriptor,
+                                const ValueLayout &item, const ValueLayout *error, void *output,
+                                void *failure, const ValueLayout &result, void *envelope) noexcept {
+  auto &ctx = task.context();
+  if (!healthy(ctx))
+    return std::uint32_t(GeneratorStep::Stopped);
+  auto *state = inspectOwned(ctx, descriptor);
+  if (!state || state->kind != OwnedKind::Generator) {
+    ctx.fault(3);
+    return std::uint32_t(GeneratorStep::Stopped);
+  }
+  // Validate once for the ordinary synchronous path. Coordinating headers use
+  // their own checked borrowed-frame protocol and never enter this frame cast.
+  if (state->destroy == GeneratorState::destroyState && state->bytes >= sizeof(GeneratorState))
+    return std::uint32_t(
+        nextValidated(ctx, static_cast<GeneratorState *>(state), item, error, output, failure));
+  return generatorTaskNext(task, descriptor, result, envelope) ? generatorDispatchComplete
+                                                               : generatorDispatchPending;
+}
+bool generatorCloseTask(Task &task, const GeneratorDescriptor &descriptor) noexcept {
+  auto &ctx = task.context();
+  auto *state = inspectOwned(ctx, descriptor);
+  if (!state || state->kind != OwnedKind::Generator) {
+    ctx.fault(3);
+    return false;
+  }
+  if (state->destroy == GeneratorState::destroyState && state->bytes >= sizeof(GeneratorState))
+    return closeValidated(ctx, static_cast<GeneratorState *>(state));
+  return generatorTaskClose(task, descriptor);
+}
+
 GeneratorDescriptor generatorRange(Invocation &ctx, IntegerRangeValue range,
                                    const ValueLayout &item, std::int64_t line,
                                    std::int64_t column) noexcept {
@@ -416,4 +453,23 @@ extern "C" void kalandra_iterator_array_v1(Invocation *ctx, GeneratorDescriptor 
     return;
   }
   *out = generatorArray(*ctx, *source, *item, input);
+}
+
+extern "C" std::uint32_t
+kalandra_generator_next_task_v1(Task *task, const GeneratorDescriptor *cursor,
+                                const ValueLayout *item, const ValueLayout *error, void *output,
+                                void *failure, const ValueLayout *result, void *envelope) noexcept {
+  if (!cursor || !item || !result) {
+    task->context().fault(3);
+    return std::uint32_t(GeneratorStep::Stopped);
+  }
+  return generatorNextTask(*task, *cursor, *item, error, output, failure, *result, envelope);
+}
+extern "C" bool kalandra_generator_close_task_v1(Task *task,
+                                                 const GeneratorDescriptor *cursor) noexcept {
+  if (!cursor) {
+    task->context().fault(3);
+    return false;
+  }
+  return generatorCloseTask(*task, *cursor);
 }

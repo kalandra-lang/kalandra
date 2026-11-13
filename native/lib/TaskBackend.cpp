@@ -5,6 +5,7 @@
 #include "ErrorFamilies.h"
 #include "FileLowering.h"
 #include "IteratorHostBridge.h"
+#include "../runtime/GeneratorFrame.h"
 #include "NativeCallFoundation.h"
 #include "NativeLayout.h"
 #include "NativeStack.h"
@@ -1609,29 +1610,17 @@ private:
       builder.CreateBr(next);
       return;
     }
-    if (task) {
-      // An erased cursor may own a coordinating producer. Retry its borrowed
-      // frame on the same source continuation; never run it synchronously or
-      // retain this invocation's stack output pointer across the suspension.
-      auto *coordinating = Block::Create(context, "iterator.coordinating", fn);
-      auto *synchronous = Block::Create(context, "iterator.synchronous", fn);
-      builder.CreateCondBr(call("kalandra_generator_task_kind_v1", boolean, {ctx, input}),
-                           coordinating, synchronous);
-      builder.SetInsertPoint(coordinating);
-      auto *complete = operation.action == IteratorAction::Close
-                           ? call("kalandra_generator_task_close_v1", boolean, {task, input})
-                           : call("kalandra_generator_task_next_v1", boolean,
-                                  {task, input, layout(result), output});
-      auto *completed = Block::Create(context, "iterator.completed", fn);
-      builder.CreateCondBr(complete, completed, pending);
-      builder.SetInsertPoint(completed);
-      ready();
-      builder.CreateBr(next);
-      builder.SetInsertPoint(synchronous);
-    }
     if (operation.action == IteratorAction::Close) {
-      auto *closed = call("kalandra_generator_close_v1", boolean, {ctx, input});
-      builder.CreateCondBr(closed, next, abort);
+      auto *closed = task ? call("kalandra_generator_close_task_v1", boolean, {task, input})
+                          : call("kalandra_generator_close_v1", boolean, {ctx, input});
+      if (task) {
+        auto *completed = Block::Create(context, "iterator.closed", fn);
+        builder.CreateCondBr(closed, completed, pending);
+        builder.SetInsertPoint(completed);
+        ready();
+        builder.CreateBr(next);
+      } else
+        builder.CreateCondBr(closed, next, abort);
       return;
     }
     const auto &cursor =
@@ -1651,8 +1640,11 @@ private:
       errorSlot = entry.CreateAlloca(scalarType(error), nullptr, "iterator.error");
       errorLayout = payloadLayout(error);
     }
-    auto *step = call("kalandra_generator_next_v1", i32,
-                      {ctx, input, payloadLayout(item), errorLayout, itemSlot, errorSlot});
+    auto *step = task ? call("kalandra_generator_next_task_v1", i32,
+                             {task, input, payloadLayout(item), errorLayout, itemSlot, errorSlot,
+                              layout(result), output})
+                      : call("kalandra_generator_next_v1", i32,
+                             {ctx, input, payloadLayout(item), errorLayout, itemSlot, errorSlot});
     ready();
     auto *some = Block::Create(context, "iterator.some", fn);
     auto *none = Block::Create(context, "iterator.none", fn);
@@ -1660,6 +1652,10 @@ private:
     auto *dispatch = builder.CreateSwitch(step, invalid, infallible ? 2 : 3);
     dispatch->addCase(c32(0), some);
     dispatch->addCase(c32(1), none);
+    if (task) {
+      dispatch->addCase(c32(runtime::generatorDispatchPending), pending);
+      dispatch->addCase(c32(runtime::generatorDispatchComplete), next);
+    }
     if (!infallible) {
       auto *failed = Block::Create(context, "iterator.error", fn);
       dispatch->addCase(c32(2), failed);

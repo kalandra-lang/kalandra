@@ -42,7 +42,7 @@ ir = args.output / 'source.ll'
 run([args.compiler, root / 'IteratorTaskDispatch.k', *flags, '--test-entry', 'worker',
      '--emit-llvm', ir, '-o', args.output / ('source.exe' if windows else 'source')], 'compile')
 text = ir.read_text()
-layouts = set(re.findall(r'call i1 @kalandra_generator_task_next_v1\([^\n]*?ptr(?: nonnull)? @([\w.$]+), ptr', text))
+layouts = set(re.findall(r'call i32 @kalandra_generator_next_task_v1\([^\n]*, ptr(?: nonnull)? @([\w.$]+), ptr', text))
 assert len(layouts) == 1, ('missing or ambiguous generated next layout', layouts)
 name = layouts.pop()
 assert re.search(r'^@' + re.escape(name) + r' = internal ', text, re.MULTILINE)
@@ -50,7 +50,7 @@ assert re.search(r'^@' + re.escape(name) + r' = internal ', text, re.MULTILINE)
 # the real compiler-emitted copy/validation callbacks remain unchanged.
 text = text.replace('@' + name + ' = internal ', '@' + name + ' = ')
 text = re.sub('@' + re.escape(name) + r'\b', '@kalandra_iterator_dispatch_layout', text)
-assert '@kalandra_generator_task_close_v1' in text
+assert '@kalandra_generator_close_task_v1' in text
 ir.write_text(text)
 binary = args.output / ('dispatch.exe' if windows else 'dispatch')
 run([args.clang, '-std=c++23', '-Wall', '-Wextra', '-Werror', '-Wno-override-module',

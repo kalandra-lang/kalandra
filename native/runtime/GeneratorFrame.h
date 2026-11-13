@@ -29,6 +29,13 @@ GeneratorDescriptor generatorCreate(Invocation &, const GeneratorEntry &, const 
 GeneratorStep generatorNext(Invocation &, const GeneratorDescriptor &, const ValueLayout &item,
                             const ValueLayout *error, void *output, void *failure) noexcept;
 bool generatorClose(Invocation &, const GeneratorDescriptor &) noexcept;
+// Task-aware erased dispatch reuses synchronous validation. Complete means the
+// typed result envelope is initialized; Pending means retry on the same Task.
+inline constexpr std::uint32_t generatorDispatchPending = 4, generatorDispatchComplete = 5;
+std::uint32_t generatorNextTask(Task &, const GeneratorDescriptor &, const ValueLayout &item,
+                                const ValueLayout *error, void *output, void *failure,
+                                const ValueLayout &result, void *envelope) noexcept;
+bool generatorCloseTask(Task &, const GeneratorDescriptor &) noexcept;
 GeneratorDescriptor generatorRange(Invocation &, IntegerRangeValue, const ValueLayout &item,
                                    std::int64_t line, std::int64_t column) noexcept;
 // Private compiler bridge. The source layout validates/retains a contiguous
@@ -49,7 +56,15 @@ std::uint32_t kalandra_generator_next_v1(kalandra::runtime::Invocation *,
                                          const kalandra::runtime::ValueLayout *, void *,
                                          void *) noexcept;
 bool kalandra_generator_close_v1(kalandra::runtime::Invocation *,
-                                  const kalandra::runtime::GeneratorDescriptor *) noexcept;
+                                 const kalandra::runtime::GeneratorDescriptor *) noexcept;
+std::uint32_t kalandra_generator_next_task_v1(kalandra::runtime::Task *,
+                                              const kalandra::runtime::GeneratorDescriptor *,
+                                              const kalandra::runtime::ValueLayout *,
+                                              const kalandra::runtime::ValueLayout *, void *,
+                                              void *, const kalandra::runtime::ValueLayout *,
+                                              void *) noexcept;
+bool kalandra_generator_close_task_v1(kalandra::runtime::Task *,
+                                      const kalandra::runtime::GeneratorDescriptor *) noexcept;
 void kalandra_iterator_array_v1(kalandra::runtime::Invocation *,
                                 kalandra::runtime::GeneratorDescriptor *,
                                 const kalandra::runtime::ValueLayout *,
