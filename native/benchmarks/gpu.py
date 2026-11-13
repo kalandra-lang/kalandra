@@ -73,7 +73,7 @@ def main():
     flags = ['-std=c++23', '-Wall', '-Wextra', '-Werror', '-O2', '-DNDEBUG', '-ffp-contract=off']
     objects = []
     for index, source in enumerate([ROOT / 'native/benchmarks/GpuScaling.mm', ROOT / 'native/metal/Metal.mm',
-                                    ROOT / 'native/runtime/Runtime.cpp', ROOT / 'native/runtime/Tasks.cpp', bundle / 'cpu.ll']):
+                                    ROOT / 'native/runtime/Runtime.cpp', ROOT / 'native/runtime/Tasks.cpp', ROOT / 'native/runtime/OwnedResources.cpp', bundle / 'cpu.ll']):
         obj = build / f'unit-{index}.o'
         objects.append(obj)
         extra = ['-fobjc-arc', '-fblocks', '-fno-objc-msgsend-class-selector-stubs'] if source.suffix == '.mm' else []
@@ -86,7 +86,7 @@ def main():
         args.baseline_dir.mkdir(parents=True, exist_ok=True)
         baseline_objects = []
         for index, source in enumerate([ROOT / 'native/benchmarks/GpuScaling.mm', args.baseline_metal_source.resolve(),
-                                       ROOT / 'native/runtime/Runtime.cpp', ROOT / 'native/runtime/Tasks.cpp', bundle / 'cpu.ll']):
+                                       ROOT / 'native/runtime/Runtime.cpp', ROOT / 'native/runtime/Tasks.cpp', ROOT / 'native/runtime/OwnedResources.cpp', bundle / 'cpu.ll']):
             obj = args.baseline_dir / f'unit-{index}.o'
             baseline_objects.append(obj)
             extra = ['-fobjc-arc', '-fblocks', '-fno-objc-msgsend-class-selector-stubs'] if source.suffix == '.mm' else []
@@ -148,7 +148,7 @@ def main():
     summary = summarize(trials)
     sources = ['native/benchmarks/GpuScaling.mm', 'native/benchmarks/gpu.py', 'native/benchmarks/gpu.k',
                'native/metal/Metal.h', 'native/metal/Metal.mm', 'native/metal/MatmulLayout.h', 'native/runtime/Tensor.h', 'native/runtime/Runtime.h', 'native/runtime/Runtime.cpp',
-               'native/runtime/Tasks.h', 'native/runtime/Tasks.cpp', 'native/lib/Backend.cpp', 'native/lib/CheckedABI.cpp',
+               'native/runtime/Tasks.h', 'native/runtime/OwnedResources.cpp', 'native/runtime/OwnedResources.h', 'native/runtime/Tasks.cpp', 'native/lib/Backend.cpp', 'native/lib/CheckedABI.cpp',
                'native/metal-source/Compiler.cpp', 'native/metal-source/MatmulShader.h', 'native/metal-source/MatmulTiles.h', 'native/metal-source/Build.cpp',
                'native/lib/StrictFloat.cpp', 'native/metal-proof/FloatOracle.h', 'native/metal-proof/Strict.cpp', 'native/metal-proof/Extract.cpp', 'native/toolchain-proof/toolchain.json']
     artifacts = [binary, args.compiler, bundle / 'cpu.ll', bundle / 'cpu.mlir']

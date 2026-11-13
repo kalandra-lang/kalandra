@@ -45,7 +45,7 @@ def main():
         [clang, '-std=c++23', '-Wall', '-Wextra', '-Werror', '-O2', '-DNDEBUG',
          '-ffp-contract=off', '-Wno-override-module',
          ROOT / 'native/benchmarks/CpuScaling.cpp', ir,
-         ROOT / 'native/runtime/Runtime.cpp', ROOT / 'native/runtime/Tasks.cpp', '-o', binary],
+         ROOT / 'native/runtime/Runtime.cpp', ROOT / 'native/runtime/Tasks.cpp', ROOT / 'native/runtime/OwnedResources.cpp', '-o', binary],
     ]
     start = time.monotonic()
     for command in commands:
@@ -53,7 +53,7 @@ def main():
     build_seconds = time.monotonic() - start
     sources = ['native/benchmarks/CpuScaling.cpp', 'native/benchmarks/run.py',
                'native/tests/fixtures/dynamic-projection.k', 'native/runtime/Runtime.cpp',
-               'native/runtime/Runtime.h', 'native/runtime/Tasks.cpp', 'native/runtime/Tasks.h',
+               'native/runtime/Runtime.h', 'native/runtime/Tasks.cpp', 'native/runtime/Tasks.h', 'native/runtime/OwnedResources.cpp', 'native/runtime/OwnedResources.h',
                'native/lib/Backend.cpp', 'native/lib/CheckedABI.cpp']
     hashes = {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in sources}
     trials = []

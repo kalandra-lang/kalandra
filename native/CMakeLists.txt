@@ -374,7 +374,7 @@ endif()
 
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
-    add_executable(kalandra-worker-tests-${VARIANT} tests/WorkerTests.cpp runtime/Runtime.cpp runtime/Tasks.cpp)
+    add_executable(kalandra-worker-tests-${VARIANT} tests/WorkerTests.cpp runtime/Runtime.cpp runtime/Tasks.cpp runtime/OwnedResources.cpp)
     target_link_libraries(kalandra-worker-tests-${VARIANT} PRIVATE Threads::Threads)
     target_compile_options(kalandra-worker-tests-${VARIANT} PRIVATE -Wall -Wextra -Werror)
     if(VARIANT STREQUAL "sanitized")
@@ -406,7 +406,7 @@ if(BUILD_TESTING)
   # Diagnostic probes are excluded from ordinary runtime/performance builds.
   # Validate their counters and synchronization separately under TSan.
   add_executable(kalandra-scheduler-profile-tests
-    benchmarks/Scheduler.cpp runtime/Tasks.cpp runtime/Runtime.cpp)
+    benchmarks/Scheduler.cpp runtime/Tasks.cpp runtime/Runtime.cpp runtime/OwnedResources.cpp)
   target_link_libraries(kalandra-scheduler-profile-tests PRIVATE Threads::Threads)
   target_compile_definitions(kalandra-scheduler-profile-tests PRIVATE KALANDRA_TASK_PROFILE)
   target_compile_options(kalandra-scheduler-profile-tests PRIVATE
