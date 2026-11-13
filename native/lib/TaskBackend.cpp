@@ -795,7 +795,8 @@ public:
     return result;
   }
   void emitIteratorBridge(const IteratorBridgeRequest &request) {
-    auto *fn = function(request.name, voidType, {pointer, pointer, pointer, pointer, pointer});
+    auto *fn =
+        function(request.name, boolean, {pointer, pointer, pointer, pointer, pointer, pointer});
     fn->setLinkage(llvm::GlobalValue::ExternalLinkage);
     builder.SetInsertPoint(Block::Create(context, "entry", fn));
     auto *packetType = valueType(request.result);
@@ -804,7 +805,7 @@ public:
     auto *done = Block::Create(context, "done", fn);
     auto *failed = Block::Create(context, "faulted", fn);
     emitIteratorOperation(request.operation, request.result, input, packet, fn->getArg(0), done,
-                          failed);
+                          failed, fn->getArg(5), failed);
     builder.SetInsertPoint(done);
     copy(fn->getArg(2), builder.CreateStructGEP(packetType, packet, 1),
          packetType->getElementType(1));
@@ -814,9 +815,9 @@ public:
         copy(fn->getArg(4), builder.CreateStructGEP(packetType, packet, 2),
              packetType->getElementType(2));
     }
-    builder.CreateRetVoid();
+    builder.CreateRet(builder.getTrue());
     builder.SetInsertPoint(failed);
-    builder.CreateRetVoid();
+    builder.CreateRet(builder.getFalse());
     finishRecordRetainers();
     if (llvm::verifyFunction(*fn))
       throw std::invalid_argument("iterator host bridge failed LLVM verification");
@@ -1579,7 +1580,8 @@ private:
       throw std::runtime_error(*error);
   }
   void emitIteratorOperation(const IteratorOperation &operation, const ValueType &result,
-                             Value *input, Value *output, Value *ctx, Block *next, Block *abort) {
+                             Value *input, Value *output, Value *ctx, Block *next, Block *abort,
+                             Value *task = nullptr, Block *pending = nullptr) {
     auto *fn = builder.GetInsertBlock()->getParent();
     auto *wrapper = valueType(result);
     builder.CreateStore(llvm::Constant::getNullValue(wrapper), output);
@@ -1606,6 +1608,26 @@ private:
       ready();
       builder.CreateBr(next);
       return;
+    }
+    if (task) {
+      // An erased cursor may own a coordinating producer. Retry its borrowed
+      // frame on the same source continuation; never run it synchronously or
+      // retain this invocation's stack output pointer across the suspension.
+      auto *coordinating = Block::Create(context, "iterator.coordinating", fn);
+      auto *synchronous = Block::Create(context, "iterator.synchronous", fn);
+      builder.CreateCondBr(call("kalandra_generator_task_kind_v1", boolean, {ctx, input}),
+                           coordinating, synchronous);
+      builder.SetInsertPoint(coordinating);
+      auto *complete = operation.action == IteratorAction::Close
+                           ? call("kalandra_generator_task_close_v1", boolean, {task, input})
+                           : call("kalandra_generator_task_next_v1", boolean,
+                                  {task, input, layout(result), output});
+      auto *completed = Block::Create(context, "iterator.completed", fn);
+      builder.CreateCondBr(complete, completed, pending);
+      builder.SetInsertPoint(completed);
+      ready();
+      builder.CreateBr(next);
+      builder.SetInsertPoint(synchronous);
     }
     if (operation.action == IteratorAction::Close) {
       auto *closed = call("kalandra_generator_close_v1", boolean, {ctx, input});
@@ -2477,8 +2499,13 @@ private:
       case Code::Kernel: {
         if (const auto *iterator = std::get_if<IteratorOperation>(
                 &planner.input.expressions[instruction.source].operation)) {
+          const bool maySuspend = !synchronous && (iterator->action == IteratorAction::Next ||
+                                                   iterator->action == IteratorAction::Close);
+          if (maySuspend)
+            builder.CreateStore(c32(n), pc);
           emitIteratorOperation(*iterator, type, payload(instruction.args.at(0)),
-                                slot(instruction.output), ctx, next, abort);
+                                slot(instruction.output), ctx, next, abort,
+                                maySuspend ? task : nullptr, maySuspend ? leave : nullptr);
           break;
         }
         if (const auto *buffer = std::get_if<BufferOperation>(

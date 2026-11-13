@@ -4058,15 +4058,16 @@ class Compiler {
           const auto output = get(op.output);
           const auto bridge = "kalandra_gpu_iterator_" + std::to_string(iteratorBridges.size());
           iteratorBridges.push_back({bridge, *iterator, plan.slots.at(op.output)});
-          declarations += "extern \"C\" void " + bridge +
-                          "(Invocation*,const void*const*,void*,void*,void*);\n";
+          declarations += "extern \"C\" bool " + bridge +
+                          "(Invocation*,const void*const*,void*,void*,void*,Task*);\n";
           const auto failure = output.failure ? "&" + failureRef(output) : "nullptr";
           const auto error =
               output.applicationError ? "&" + ref(applicationError(output)) : "nullptr";
           steps.push_back("{const void *iterator_arguments[]={&" + ref(args.at(0)) + "};\n" +
-                          bridge + "(&task.context(),iterator_arguments,&" + ref(output) + "," +
-                          failure + "," + error +
-                          ");if(task.context().status()){hostArrayFailure(task);return;}"
+                          "if(!" + bridge + "(&task.context(),iterator_arguments,&" + ref(output) +
+                          "," + failure + "," + error + ",&task)){f.pc=@pc" + std::to_string(i) +
+                          "@;if(task.context().status())hostArrayFailure(task);return;}"
+                          "if(task.context().status()){hostArrayFailure(task);return;}"
                           "if(task.cancelled())return;\n" +
                           commitOutcome(output) + "}\n");
         } else if (const auto *buffer = std::get_if<BufferOperation>(&node(op.source).operation)) {

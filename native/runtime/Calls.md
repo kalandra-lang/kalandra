@@ -196,10 +196,24 @@ has an item-local ownership store, so subsequent advances release previous stagi
 backing. Explicit close and abandonment share the same retirement callbacks;
 expected errors are delivered once, followed by sticky exhaustion. A fault
 recorded by the cleanup fence overrides a staged terminal value before the
-consumer can observe it. Synchronous
-and coordinating generator headers validate their distinct cleanup identities
-before interpreting their private storage. Compiler lifting must still provide
+consumer can observe it. Synchronous and coordinating generator headers validate
+their distinct cleanup identities before interpreting their private storage. Compiler lifting must still provide
 lexical owned scopes and the static capture/write/loan proofs for source loops.
+
+Erased host cursor advancement and close dispatch on the validated header kind.
+The CPU continuation stores its retry program counter before entering a
+coordinating producer. The shared GPU supervisor bridge receives its existing
+Invocation plus Task and returns a readiness flag; on suspension, it leaves
+the destination uncommitted and retries the same instruction. Ordinary cursors
+retain synchronous advancement. The temporary bridge packet is not retained by
+the borrowed call: only a successful retry copies its typed result into that
+packet. No pointer into a returned native stack frame survives a suspension.
+
+The compiler/runtime integration test supplies an actual coordinating producer
+to compiler-emitted `next` and `close`, using that module's own Option layout and
+copy callbacks. It covers partial close, exhaustion, never-started close, faults
+and external acknowledgement barriers with one/four workers and two task slots.
+This private test does not enable source generator syntax.
 
 ## Mixed GPU host callables
 
