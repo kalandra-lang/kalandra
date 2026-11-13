@@ -946,6 +946,9 @@ struct PersistentProducer : OwnedState {
   std::atomic<bool> terminalParked{false}, releaseTerminalLease{true};
   bool terminalRequested = false;
   bool completionStaged = false;
+  bool cancelDuringStage = false;
+  TaskCore *stageCore = nullptr;
+  GroupHandle stageGroup;
   std::uint64_t terminalPayload = 0;
   BorrowedCleanup retirement{};
   BorrowedTaskEntry descriptor{};
@@ -1456,8 +1459,13 @@ static void failedAdvanceCleanup() {
 static void stageTerminalCompletion(Task &task, void *state, const Invocation &source,
                                      const void *value) noexcept {
   auto &f = *static_cast<PersistentProducer *>(state);
+  if (f.cancelDuringStage)
+    CHECK(f.stageCore && f.stageCore->cancel(f.stageGroup));
   if (!copyIndependentString(f.staged, &f.stagedValue, source, value)) {
-    task.context().fault(f.staged.status() ? f.staged.status() : 3);
+    if (f.staged.status())
+      task.context().fault(f.staged.status(), f.staged.line(), f.staged.column());
+    else if (!task.cancelled())
+      task.context().fault(3);
     return;
   }
   f.completionStaged = true;
@@ -1469,7 +1477,12 @@ static void resumeTerminalProducer(Task &task) {
     StringDescriptor value;
     kalandra_string_literal_v1(&task.context(), &value, "terminal", 8);
     task.complete(&value); // generated body completion is staged by the native wrapper
-    CHECK(f.completionStaged && !f.staged.status());
+    if (!f.completionStaged) {
+      CHECK(task.cancelled() || task.context().status());
+      f.terminalParked.store(true, std::memory_order_release);
+      return;
+    }
+    CHECK(!f.staged.status());
     f.terminalRequested = true;
     if (f.failDuringAdvance)
       task.context().fault(2, 19, 5);
@@ -1502,6 +1515,7 @@ static const TaskEntry deniedTerminalProducer{1, 0, 0, 1, sizeof(std::uint64_t),
 struct TerminalCaller {
   PersistentProducer *producer;
   StringDescriptor value;
+  ResourceControl *scope = nullptr;
 };
 static bool constructTerminalCaller(Invocation &ctx, void *out, const Packet &packet) {
   const auto input = *static_cast<const TerminalCaller *>(packet.data);
@@ -1512,6 +1526,13 @@ static bool constructTerminalCaller(Invocation &ctx, void *out, const Packet &pa
 }
 static void resumeTerminalCaller(Task &task) {
   auto &f = *static_cast<TerminalCaller *>(task.frame());
+  if (!f.scope) {
+    auto descriptor = ownedDescriptor(f.producer);
+    const OwnedDescriptor *owned[] = {&descriptor};
+    f.scope = static_cast<ResourceControl *>(
+        kalandra_file_scope_enter_v1(&task.context(), owned, 1));
+    CHECK(f.scope);
+  }
   auto pin = task.context().lease(f.producer);
   CHECK(pin);
   if (!task.callBorrowed(f.producer->descriptor, std::move(*pin), &f.value))
@@ -1523,9 +1544,9 @@ static const TaskEntry terminalCaller{1, 98, sizeof(TerminalCaller), alignof(Ter
                                        constructTerminalCaller, nothing, resumeTerminalCaller,
                                        &independentString};
 static void borrowedTerminalCleanup() {
-  for (unsigned variant = 0; variant < 8; ++variant) {
-    const unsigned mode = variant % 4;
-    const unsigned workers = variant < 4 ? 4 : 1;
+  for (unsigned variant = 0; variant < 10; ++variant) {
+    const unsigned mode = variant % 5;
+    const unsigned workers = variant < 5 ? 4 : 1;
     const bool cancel = mode == 1;
     Invocation owner;
     BorrowProbe probe;
@@ -1564,8 +1585,14 @@ static void borrowedTerminalCleanup() {
     state->failDuringAdvance = mode == 2;
     state->descriptor.terminalCleanupAllowed = mode != 3;
     state->descriptor.stageCompletion = mode == 3 ? nullptr : stageTerminalCompletion;
+    state->retirement = {state, nullptr, finishProducerCleanup, producerCleanupFailure};
+    state->deferredOwner = &state->groups;
+    state->deferredCleanup = &state->retirement;
+    state->cancelDuringStage = mode == 4;
     state->releaseTerminalLease.store(workers == 1);
     auto root = core->openRoot();
+    state->stageCore = core.get();
+    state->stageGroup = root;
     TerminalCaller terminal{state, {}};
     auto task = core->submit(root, terminalCaller, {98, &terminal, sizeof(terminal), &owner});
     CHECK(task && core->step()); // select independently owned borrowed frame
@@ -1584,13 +1611,9 @@ static void borrowedTerminalCleanup() {
     CHECK(probe.finalized == 0 && !core->settled(task));
     CHECK(child.completion.signal());
     CHECK(core->drainToCompletion() && core->settled(task));
-    if (mode == 3) {
-      CHECK(probe.finalized == 0 && state->execution.live() != 0);
-      finishProducerCleanup(state); // rejected native proof did not destroy independent backing
-    }
     CHECK(probe.finalized == 1 && probe.entered == probe.left && !state->active);
     StringDescriptor result;
-    if (cancel)
+    if (cancel || mode == 4)
       CHECK(core->failure(task).kind == TaskFailure::Cancelled);
     else if (mode >= 2) {
       const auto failure = core->failure(task);

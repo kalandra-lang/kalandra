@@ -123,6 +123,8 @@ struct BorrowedTaskEntry {
   bool terminalCleanupAllowed = false;
   // Optional native-wrapper staging hook. It retains a generated body's result
   // without publishing or detaching groups; the wrapper decides item/terminal.
+  // Failed staging preserves a recorded fault or cancellation; it must not
+  // convert cancellation-only copy failure into an invalid-value fault.
   void (*stageCompletion)(Task &, void *, const Invocation &, const void *) noexcept = nullptr;
 };
 struct TaskLimits {
