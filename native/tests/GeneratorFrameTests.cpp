@@ -1,5 +1,6 @@
 #include "../runtime/ByteBuffer.h"
 #include "../runtime/GeneratorFrame.h"
+#include "../runtime/GeneratorTasks.h"
 #include "../runtime/HostArrays.h"
 #include "../runtime/String.h"
 #include "../runtime/StringArray.h"
@@ -827,8 +828,405 @@ void retirementDuringPublication() {
     CHECK(ctx.live() == 0);
   }
 }
+struct CoordinatingProbe {
+  std::atomic<unsigned> constructed{0}, resumed{0}, destroyed{0}, childDestroyed{0};
+  std::atomic<bool> first{false}, advance{false}, externalReady{false};
+  ExternalCompletion completion;
+  unsigned mode = 0;
+  Invocation *captureSource = nullptr;
+  GeneratorDescriptor captured;
+  TaskCore *cancelCore = nullptr;
+  GroupHandle cancelGroup;
+  std::atomic<unsigned> copies{0};
+  std::atomic<unsigned> items{0};
+};
+struct CoordinatingValue {
+  GeneratorStep step = GeneratorStep::Exhausted;
+  StringDescriptor text;
+  CoordinatingProbe *probe = nullptr;
+};
+bool copyCoordinatingValue(Invocation &ctx, void *out, const Invocation &source,
+                          const void *input) noexcept {
+  const auto &value = *static_cast<const CoordinatingValue *>(input);
+  if (value.probe && value.probe->mode == 8 && ++value.probe->copies == 1)
+    CHECK(value.probe->cancelCore->cancel(value.probe->cancelGroup));
+  if (value.step == GeneratorStep::Item || value.step == GeneratorStep::Error) {
+    if (!kalandra_string_retain_v1(&ctx, &source, &value.text))
+      return false;
+  } else if (value.step != GeneratorStep::Exhausted) {
+    ctx.fault(3);
+    return false;
+  }
+  new (out) CoordinatingValue(value);
+  return true;
+}
+const ValueLayout coordinatingValue{0x47454e10, sizeof(CoordinatingValue), alignof(CoordinatingValue),
+                                   copyCoordinatingValue, nothing};
+GeneratorStep classifyCoordinatingValue(const void *p) noexcept {
+  return static_cast<const CoordinatingValue *>(p)->step;
+}
+void exhaustedCoordinatingValue(void *p) noexcept { new (p) CoordinatingValue; }
+bool constructCoordinatingChild(Invocation &, void *out, const Packet &packet) {
+  new (out) CoordinatingProbe *(*static_cast<CoordinatingProbe *const *>(packet.data));
+  return true;
+}
+void destroyCoordinatingChild(void *p) noexcept {
+  ++(*static_cast<CoordinatingProbe **>(p))->childDestroyed;
+}
+void resumeCoordinatingChild(Task &task) {
+  auto &probe = **static_cast<CoordinatingProbe **>(task.frame());
+  probe.completion = task.suspendExternal();
+  CHECK(probe.completion);
+  probe.externalReady.store(true, std::memory_order_release);
+}
+const TaskEntry coordinatingChild{1, 0, sizeof(CoordinatingProbe *), alignof(CoordinatingProbe *),
+                                 sizeof(CoordinatingProbe *), alignof(CoordinatingProbe *),
+                                 constructCoordinatingChild, destroyCoordinatingChild,
+                                 resumeCoordinatingChild, &integer};
+struct CoordinatingFrame {
+  CoordinatingProbe *probe;
+  unsigned pc = 0;
+  Invocation::OwnershipScope itemScope;
+  CoordinatingFrame(Invocation &ctx, CoordinatingProbe *probe) : probe(probe), itemScope(ctx) {}
+};
+bool constructCoordinatingBody(Invocation &ctx, void *out, const Packet &packet) {
+  auto *probe = *static_cast<CoordinatingProbe *const *>(packet.data);
+  ++probe->constructed;
+  if (probe->captureSource) {
+    if (probe->mode == 7)
+      ctx.failAllocationAt(ctx.allocations() + 1);
+    if (!kalandra_owned_copy_v1(&ctx, probe->captureSource, &probe->captured)) {
+      auto *owned = inspectOwned(*probe->captureSource, probe->captured);
+      CHECK(owned && owned->scope && owned->scope->context == probe->captureSource);
+      return false;
+    }
+    auto *owned = inspectOwned(ctx, probe->captured);
+    CHECK(owned && owned->scope && owned->scope->context == &ctx);
+  }
+  if (probe->mode >= 5 && probe->mode <= 7)
+    return false;
+  new (out) CoordinatingFrame(ctx, probe);
+  return true;
+}
+void destroyCoordinatingBody(void *p) noexcept {
+  auto &f = *static_cast<CoordinatingFrame *>(p);
+  CHECK(f.probe->childDestroyed == unsigned(f.probe->resumed != 0));
+  ++f.probe->destroyed;
+  f.~CoordinatingFrame();
+}
+void resumeCoordinatingBody(Task &task) {
+  auto &f = *static_cast<CoordinatingFrame *>(task.frame());
+  auto &probe = *f.probe;
+  ++probe.resumed;
+  f.itemScope.reset();
+  Invocation::OwnershipSelection selected(f.itemScope);
+  CoordinatingValue result;
+  result.probe = f.probe;
+  if (!f.pc++) {
+    auto group = task.openGroup();
+    CHECK(group);
+    auto *input = f.probe;
+    CHECK(task.spawn(group, coordinatingChild, {0, &input, sizeof(input)}));
+    result.step = GeneratorStep::Item;
+    kalandra_string_literal_v1(&task.context(), &result.text, "first", 5);
+  } else if (probe.mode == 10 && f.pc <= 10000) {
+    result.step = GeneratorStep::Item;
+    kalandra_string_literal_v1(&task.context(), &result.text, "first", 5);
+  } else if (probe.mode == 4) {
+    task.fault(8, 37, 9);
+    return;
+  } else if (probe.mode == 1) {
+    result.step = GeneratorStep::Error;
+    kalandra_string_literal_v1(&task.context(), &result.text, "error", 5);
+  }
+  task.complete(&result);
+}
+const TaskEntry coordinatingBody{1, 0, sizeof(CoordinatingProbe *), alignof(CoordinatingProbe *),
+                                sizeof(CoordinatingFrame), alignof(CoordinatingFrame),
+                                constructCoordinatingBody, destroyCoordinatingBody,
+                                resumeCoordinatingBody, &coordinatingValue};
+const GeneratorTaskEntry coordinatingGenerator{1, &coordinatingBody, classifyCoordinatingValue,
+                                               exhaustedCoordinatingValue};
+struct CoordinatingConsumer {
+  CoordinatingProbe *probe;
+  GeneratorDescriptor cursor;
+  CoordinatingValue value;
+  unsigned pc = 0;
+  Invocation::OwnershipScope itemScope;
+  CoordinatingConsumer(Invocation &ctx, CoordinatingProbe *probe) : probe(probe), itemScope(ctx) {}
+};
+bool constructCoordinatingConsumer(Invocation &ctx, void *out, const Packet &packet) {
+  new (out) CoordinatingConsumer(ctx, *static_cast<CoordinatingProbe *const *>(packet.data));
+  return true;
+}
+void destroyCoordinatingConsumer(void *p) noexcept {
+  static_cast<CoordinatingConsumer *>(p)->~CoordinatingConsumer();
+}
+void resumeCoordinatingConsumer(Task &task) {
+  auto &f = *static_cast<CoordinatingConsumer *>(task.frame());
+  auto &probe = *f.probe;
+  if (f.pc == 0) {
+    auto *input = f.probe;
+    f.cursor = generatorTaskCreate(task, coordinatingGenerator,
+                                   {0, &input, sizeof(input), &task.context()});
+    if (task.context().poll())
+      return;
+    CHECK(f.cursor.storage.allocated && probe.constructed == 1 && probe.resumed == 0);
+    CHECK(isTaskGenerator(task.context(), f.cursor));
+    f.pc = probe.mode == 9 ? 4 : 1;
+  }
+  f.itemScope.reset();
+  Invocation::OwnershipSelection selected(f.itemScope);
+  if (f.pc == 4) {
+    if (!generatorTaskClose(task, f.cursor))
+      return;
+    CHECK(generatorTaskNext(task, f.cursor, coordinatingValue, &f.value));
+    CHECK(f.value.step == GeneratorStep::Exhausted && probe.resumed == 0);
+    const std::int64_t result = 17;
+    task.complete(&result);
+    return;
+  }
+  if (f.pc == 1) {
+    if (!generatorTaskNext(task, f.cursor, coordinatingValue, &f.value))
+      return;
+    CHECK(f.value.step == GeneratorStep::Item &&
+          std::string_view(f.value.text.data, f.value.text.byteLength) == "first");
+    ++probe.items;
+    probe.first.store(true, std::memory_order_release);
+    f.pc = 2;
+  }
+  if (!probe.advance.load(std::memory_order_acquire)) {
+    task.yield();
+    return;
+  }
+  if (f.pc == 2) {
+    if (probe.mode == 3) {
+      const std::int64_t result = 17;
+      task.complete(&result); // abandonment must run the same owned cleanup
+      return;
+    }
+    if (probe.mode == 2) {
+      if (!generatorTaskClose(task, f.cursor))
+        return;
+    } else {
+      if (!generatorTaskNext(task, f.cursor, coordinatingValue, &f.value))
+        return;
+      if (probe.mode == 10 && f.value.step == GeneratorStep::Item) {
+        CHECK(std::string_view(f.value.text.data, f.value.text.byteLength) == "first");
+        ++probe.items;
+        task.yield();
+        return;
+      }
+      CHECK(f.value.step == (probe.mode == 1 ? GeneratorStep::Error : GeneratorStep::Exhausted));
+      if (probe.mode == 1)
+        CHECK(std::string_view(f.value.text.data, f.value.text.byteLength) == "error");
+    }
+    CHECK(probe.destroyed == 1);
+    f.pc = 3;
+  }
+  CHECK(generatorTaskNext(task, f.cursor, coordinatingValue, &f.value));
+  CHECK(f.value.step == GeneratorStep::Exhausted); // sticky, no body re-entry
+  CHECK(generatorTaskClose(task, f.cursor));
+  const std::int64_t result = 17;
+  task.complete(&result);
+}
+const TaskEntry coordinatingConsumer{1, 0, sizeof(CoordinatingProbe *), alignof(CoordinatingProbe *),
+                                    sizeof(CoordinatingConsumer), alignof(CoordinatingConsumer),
+                                    constructCoordinatingConsumer, destroyCoordinatingConsumer,
+                                    resumeCoordinatingConsumer, &integer};
+struct CaptureFailureConsumer {
+  CoordinatingProbe *outer, *inner;
+  GeneratorDescriptor cursor;
+  CoordinatingValue value;
+};
+bool constructCaptureFailureConsumer(Invocation &, void *out, const Packet &packet) {
+  new (out) CaptureFailureConsumer(*static_cast<const CaptureFailureConsumer *>(packet.data));
+  return true;
+}
+void resumeCaptureFailureConsumer(Task &task) {
+  auto &f = *static_cast<CaptureFailureConsumer *>(task.frame());
+  if (!f.cursor.storage.allocated) {
+    auto *input = f.inner;
+    f.cursor = generatorTaskCreate(task, coordinatingGenerator,
+                                   {0, &input, sizeof(input), &task.context()});
+    CHECK(f.cursor.storage.allocated);
+  }
+  if (!f.inner->first.load(std::memory_order_acquire)) {
+    if (!generatorTaskNext(task, f.cursor, coordinatingValue, &f.value))
+      return;
+    CHECK(f.value.step == GeneratorStep::Item);
+    f.inner->first.store(true, std::memory_order_release);
+  }
+  if (!f.inner->advance.load(std::memory_order_acquire)) {
+    task.yield();
+    return;
+  }
+  f.outer->captureSource = &task.context();
+  f.outer->captured = f.cursor;
+  auto *input = f.outer;
+  auto failed = generatorTaskCreate(task, coordinatingGenerator,
+                                    {0, &input, sizeof(input), &task.context()});
+  CHECK(!failed.storage.allocated);
+  CHECK(task.context().status() == (f.outer->mode == 7 ? 2 : 3));
+}
+const TaskEntry captureFailureConsumer{1, 0, sizeof(CaptureFailureConsumer), alignof(CaptureFailureConsumer),
+                                     sizeof(CaptureFailureConsumer), alignof(CaptureFailureConsumer),
+                                     constructCaptureFailureConsumer, nothing,
+                                     resumeCaptureFailureConsumer, &integer};
+void partialCoordinatingCapture() {
+  for (unsigned workers : {1u, 4u})
+    for (unsigned mode : {6u, 7u}) {
+      TaskLimits limits;
+      limits.workers = workers;
+      limits.records = 2; // one consumer and one real child; no cursor task
+      limits.groups = 2;
+      limits.ready = 1;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto group = core->openRoot();
+      CoordinatingProbe outer, inner;
+      outer.mode = mode;
+      CaptureFailureConsumer input{&outer, &inner, {}, {}};
+      auto task = core->submit(group, captureFailureConsumer, {0, &input, sizeof(input)});
+      CHECK(task);
+      for (unsigned i = 0; i != 1024 &&
+           !(inner.first.load(std::memory_order_acquire) &&
+             inner.externalReady.load(std::memory_order_acquire)); ++i)
+        core->step();
+      CHECK(inner.first && inner.externalReady && inner.resumed == 1 && inner.destroyed == 0);
+      inner.advance.store(true, std::memory_order_release);
+      for (unsigned i = 0; i != 256; ++i)
+        core->step();
+      CHECK(outer.constructed == 1 && outer.resumed == 0 && outer.destroyed == 0);
+      CHECK(!core->settled(task) && inner.destroyed == 0 && inner.childDestroyed == 0);
+      CHECK(inner.completion.signal());
+      CHECK(core->drainToCompletion() && core->settled(task));
+      const auto failure = core->failure(task);
+      CHECK(failure.kind == TaskFailure::Fault && failure.code == (mode == 7 ? 2 : 3));
+      CHECK(inner.destroyed == 1 && outer.destroyed == 0);
+      CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+      CHECK(core->stats().retainedBytes == 0 && core->stats().callBytes == 0 &&
+            core->stats().records == 0 && core->stats().retainedOwners == 0);
+    }
+}
+void cancellationDuringGeneratorStaging() {
+  for (unsigned workers : {1u, 4u}) {
+    TaskLimits limits;
+    limits.workers = workers;
+    limits.records = 2;
+    limits.groups = 2;
+    limits.ready = 1;
+    auto core = TaskCore::create(limits);
+    CHECK(core);
+    auto group = core->openRoot();
+    CoordinatingProbe probe;
+    probe.mode = 8;
+    probe.cancelCore = core.get();
+    probe.cancelGroup = group;
+    auto *input = &probe;
+    auto task = core->submit(group, coordinatingConsumer, {0, &input, sizeof(input)});
+    CHECK(task);
+    for (unsigned i = 0; i != 512 && !core->settled(task); ++i)
+      core->step();
+    if (probe.externalReady.load(std::memory_order_acquire))
+      CHECK(probe.completion.signal());
+    CHECK(core->drainToCompletion() && core->settled(task));
+    CHECK(core->failure(task).kind == TaskFailure::Cancelled);
+    CHECK(probe.copies == 1 && probe.destroyed == 1 && probe.resumed == 1);
+    CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+    CHECK(core->stats().retainedBytes == 0 && core->stats().callBytes == 0 &&
+          core->stats().records == 0);
+  }
+}
+void boundedCoordinatingStream() {
+  for (unsigned workers : {1u, 4u}) {
+    TaskLimits limits;
+    limits.workers = workers;
+    limits.records = 2;
+    limits.groups = 2;
+    limits.ready = 1;
+    limits.bytes = 65536;
+    auto core = TaskCore::create(limits);
+    CHECK(core);
+    auto group = core->openRoot();
+    CoordinatingProbe probe;
+    probe.mode = 10;
+    probe.advance = true;
+    auto *input = &probe;
+    auto task = core->submit(group, coordinatingConsumer, {0, &input, sizeof(input)});
+    CHECK(task);
+    for (unsigned i = 0; i != 100000 && probe.items != 10000 && !core->settled(task); ++i)
+      core->step();
+    CHECK(probe.items == 10000 && !core->settled(task));
+    for (unsigned i = 0; i != 128; ++i)
+      core->step();
+    CHECK(probe.destroyed == 0 && probe.childDestroyed == 0 && probe.externalReady);
+    CHECK(probe.completion.signal());
+    CHECK(core->drainToCompletion() && core->settled(task));
+    CHECK(core->failure(task).kind == TaskFailure::None && probe.resumed == 10001 && probe.destroyed == 1);
+    Invocation receiver;
+    std::int64_t value = 0;
+    CHECK(core->observe(task, integer, receiver, &value) && value == 17);
+    CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+    CHECK(core->stats().retainedBytes == 0 && core->stats().peakBytes <= limits.bytes &&
+          core->stats().callBytes == 0);
+  }
+}
+void coordinatingGenerators() {
+  for (unsigned workers : {1u, 4u})
+    for (unsigned mode : {0u, 1u, 2u, 3u, 4u, 5u, 9u}) {
+      TaskLimits limits;
+      limits.workers = workers;
+      limits.records = 2; // one consumer and one real child; no cursor task
+      limits.groups = 2;
+      limits.ready = 1;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto group = core->openRoot();
+      CoordinatingProbe probe;
+      probe.mode = mode;
+      auto *input = &probe;
+      auto task = core->submit(group, coordinatingConsumer, {0, &input, sizeof(input)});
+      CHECK(task);
+      if (mode != 5 && mode != 9) {
+        for (unsigned i = 0; i != 1024 &&
+             !(probe.first.load(std::memory_order_acquire) &&
+               probe.externalReady.load(std::memory_order_acquire)); ++i)
+          core->step();
+        CHECK(probe.first && probe.externalReady && probe.resumed == 1 &&
+              probe.destroyed == 0 && probe.childDestroyed == 0);
+        CHECK(core->stats().records == 2 && core->stats().callFrames == 0);
+        probe.advance.store(true, std::memory_order_release);
+        for (unsigned i = 0; i != 256; ++i)
+          core->step();
+        CHECK(!core->settled(task) && probe.destroyed == 0 && probe.childDestroyed == 0);
+        CHECK(probe.completion.signal());
+      }
+      CHECK(core->drainToCompletion() && core->settled(task));
+      const auto failure = core->failure(task);
+      if (mode == 4)
+        CHECK(failure.kind == TaskFailure::Fault && failure.code == 8 && failure.line == 37);
+      else if (mode == 5)
+        CHECK(failure.kind == TaskFailure::Fault && failure.code == 3);
+      else {
+        CHECK(failure.kind == TaskFailure::None);
+        Invocation receiver;
+        std::int64_t value = 0;
+        CHECK(core->observe(task, integer, receiver, &value) && value == 17);
+      }
+      CHECK(probe.constructed == 1 && probe.destroyed == unsigned(mode != 5));
+      CHECK(probe.resumed == (mode == 5 || mode == 9 ? 0 : mode == 2 || mode == 3 ? 1 : 2));
+      CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+      CHECK(core->stats().retainedBytes == 0 && core->stats().callBytes == 0 &&
+            core->stats().records == 0 && core->stats().retainedOwners == 0);
+    }
+}
 } // namespace
 int main() {
+  coordinatingGenerators();
+  partialCoordinatingCapture();
+  cancellationDuringGeneratorStaging();
+  boundedCoordinatingStream();
   multipleFrameLedgers();
   independent();
   failures();

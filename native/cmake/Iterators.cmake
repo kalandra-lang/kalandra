@@ -1,6 +1,6 @@
 foreach(target IN ITEMS kalandra-native-runtime kalandra-native-runtime-sanitized
     kalandra-native-runtime-thread-sanitized kalandra-task-core-optimized)
-  target_sources(${target} PRIVATE runtime/GeneratorFrame.cpp)
+  target_sources(${target} PRIVATE runtime/GeneratorFrame.cpp runtime/GeneratorTasks.cpp)
 endforeach()
 if(BUILD_TESTING)
   foreach(variant IN ITEMS debug sanitized)

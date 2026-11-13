@@ -158,6 +158,25 @@ outcomes create. It cannot substitute for an external kernel acknowledging its
 completion. Cancellation arriving during frame destruction also preflights a
 previously successful owned outcome before publishing cancellation.
 
+`GeneratorTaskEntry` supplies a compiler-generated body and its typed next-result
+layout, classification callback and exhausted-value constructor. The native
+factory admits the owning header and escape scope before moving captures, then
+snapshots captures without advancing the body. Capture construction and staged
+results use distinct budget-bound ledgers. Constructor admission failure leaves
+captures with their previous owner; failure after a successful move leaves them
+under the new header for asynchronous task failure cleanup. Constructor guards
+live outside the native interruption boundary.
+
+The native wrapper preserves the body's program counter across item results and
+ordinary resumable calls. It stages a terminal Option/error value, retires the
+body and its groups, then publishes from its surviving header. The staged value
+has an item-local ownership store, so subsequent advances release previous staging
+backing. Explicit close and abandonment share the same retirement callbacks;
+expected errors are delivered once, followed by sticky exhaustion. Synchronous
+and coordinating generator headers validate their distinct cleanup identities
+before interpreting their private storage. Compiler lifting must still provide
+lexical owned scopes and the static capture/write/loan proofs for source loops.
+
 ## Mixed GPU host callables
 
 Metal, Vulkan, and CUDA supervisors use the same call runtime. Resumable host

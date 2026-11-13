@@ -51,7 +51,8 @@ GeneratorState *inspect(Invocation &ctx, const GeneratorDescriptor &value) noexc
   auto *state = inspectOwned(ctx, value);
   if (!state)
     return nullptr;
-  if (state->kind != OwnedKind::Generator || state->bytes < sizeof(GeneratorState)) {
+  if (state->kind != OwnedKind::Generator || state->bytes < sizeof(GeneratorState) ||
+      state->destroy != GeneratorState::destroyState) {
     ctx.fault(3);
     return nullptr;
   }
