@@ -1091,7 +1091,7 @@ void Invocation::bindResourceBudget(Invocation &owner, void *allocation) noexcep
   }
   std::lock_guard lock(resourceAccountingMutex);
   auto &resource = *source->backing->resource();
-  if (resource.aggregateBudget || resource.bytes) {
+  if (!resource.aggregateBudget && resource.bytes) {
     fault(3);
     return;
   }

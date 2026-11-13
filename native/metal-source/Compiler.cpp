@@ -4034,9 +4034,9 @@ class Compiler {
           }
         }
         steps.push_back(
-            "kalandra_file_scope_leave_v1(&task.context(),reinterpret_cast<void*>(std::uintptr_t(" +
-            ref(args[0]) + "))," + escaping +
-            ");if(task.context().status()){hostArrayFailure(task);return;}\n");
+            "if(!task.leaveOwnedScope(reinterpret_cast<ResourceControl*>(std::uintptr_t(" +
+            ref(args[0]) + "))," + escaping + ")){f.pc=@pc" + std::to_string(i) +
+            "@;return;}if(task.context().status()){hostArrayFailure(task);return;}\n");
         break;
       }
       case Code::Kernel:

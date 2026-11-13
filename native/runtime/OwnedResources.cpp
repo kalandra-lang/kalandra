@@ -91,10 +91,32 @@ void adopt(Invocation &ctx, OwnedState &file, ResourceScope *scope) noexcept {
     ctx.fault(3);
     return;
   }
+  // An asynchronous producer lives to the end of its logical scope. Physical
+  // references held by children cannot replace that scope's budget reservation.
+  // Only these producers receive the extra scope owner; ordinary resources keep
+  // their existing final-value retirement behavior.
+  if (scope && file.deferredOwner) {
+    {
+      std::lock_guard lock(resourceMutex());
+      if (file.scope == scope)
+        return;
+      if (!scope->active || scope->retiring || file.retired.load(std::memory_order_acquire) ||
+          scope->context != &ctx || !scope->control) {
+        ctx.fault(3);
+        return;
+      }
+    }
+    Invocation::OwnershipSelection selected(scope->control->storage);
+    if (!ctx.retainLease(*pin))
+      return;
+    scope->hasDeferred.store(true, std::memory_order_release);
+    ctx.markDeferredOwnedResource();
+  }
   AllocationLease previousOwner;
   {
     std::lock_guard lock(resourceMutex());
-    if (file.retired.load(std::memory_order_acquire) || (scope && !scope->active)) {
+    if (file.retired.load(std::memory_order_acquire) ||
+        (scope && (!scope->active || scope->retiring))) {
       ctx.fault(3);
       return;
     }
@@ -157,6 +179,8 @@ extern "C" void *kalandra_file_scope_enter_v1(Invocation *ctx, const OwnedDescri
     if (!data)
       return nullptr;
     control->scope = new (data) ResourceScope;
+    control->scope->context = ctx;
+    control->scope->control = control;
     if (parent) {
       control->scope->parent = parent->scope;
       auto lease = ctx->lease(parent->scope);

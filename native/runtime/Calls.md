@@ -70,6 +70,53 @@ closed runners use `drainToCompletion()`, which continues productive batches and
 rejects a stalled graph without an external progress source. A scheduler slice
 budget is not a source-program execution limit.
 
+## Persistent borrowed frames and retirement
+
+`Task::callBorrowed` temporarily executes independently owned continuation
+storage on the current task's call stack. Its physical allocation remains pinned
+through result publication and the final execution-lease callback. It does not
+construct or destroy the producer payload, allocate a task record, or retain a
+dormant caller's cancellation token. The entry callback binds cancellation only
+for the active advance and removes that binding when the lease ends.
+
+A `BorrowedGroupOwner` gives the producer's structured groups a stable identity.
+Completing an advance detaches those groups from the advancing task; their
+children continue running. A later advance reattaches them. The control header's
+immutable weak core binding survives settlement of producer locals and rejects
+use through another application runtime.
+
+Asynchronous retirement uses an intrusive cleanup job in that control header.
+The owning task enters `WaitingOwned`; retirement consumes neither a new task
+admission slot nor an ordinary call frame. Each job cancels, joins and disposes
+its producer groups, queues owned child producers, waits for them, and finally
+destroys its payload. Native control headers remain alive under queue pins.
+The root fence remains pinned until all siblings and descendants finish, even
+when its own payload finishes first. Maintenance runs bounded batches, with
+callbacks outside the scheduler mutex. An external completion must acknowledge
+cancellation before its producer payload can be destroyed.
+
+`Task::leaveOwnedScope` moves an escaping result to its enclosing logical scope
+before starting retirement. The generated continuation retries the same leave
+instruction after suspension. The scope's files, captures, ownership stores and
+budget observers remain alive until the entire fence settles. Task success,
+fault and cancellation also preflight execution scopes before frame destruction
+or public completion. A quiescent settling task may retire its own borrowed
+payload; an independently active mutable lease cannot be retired.
+
+Owned asynchronous captures must be retained directly in their logical scope's
+ownership store. Retaining the same dynamic resource first in a temporary store
+and then in its logical store creates two conservative accounting paths. Repeating
+that pattern through nested producers can amplify reservations despite sharing
+physical backing. Separate fresh body and staged-outcome invocations may bind to
+one generator's aggregate resource budget; rebinding an existing invocation is
+invalid. Their ledgers must settle before their control header is destroyed.
+
+These private primitives do not by themselves lift source `yield` expressions
+into resumable producers. A producer entry must supply its own suspension and
+typed-result protocol, preserve its native header during payload retirement, and
+arrange cleanup before exposing a returned or abandoned owned result. Destroying
+a standalone foreign `Invocation` is not an asynchronous scheduler barrier.
+
 ## Mixed GPU host callables
 
 Metal, Vulkan, and CUDA supervisors use the same call runtime. Resumable host

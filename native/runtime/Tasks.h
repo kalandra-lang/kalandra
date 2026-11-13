@@ -43,6 +43,8 @@ struct ValueLayout {
 class Task;
 class ExternalCompletion;
 class ClosedTaskRunner;
+struct ResourceControl;
+struct OwnedDescriptor;
 struct TaskEntry {
   std::uint32_t revision;
   std::uint64_t packetLayout;
@@ -52,6 +54,14 @@ struct TaskEntry {
   void (*resume)(Task &);
   const ValueLayout *result;
 };
+class BorrowedGroupOwner;
+struct BorrowedCleanup {
+  void *state = nullptr;
+  void (*children)(BorrowedGroupOwner &, void *) noexcept = nullptr;
+  void (*finish)(void *) noexcept = nullptr;
+  Failure (*failure)(void *) noexcept = nullptr;
+};
+enum class CleanupStart { Complete, Pending, Rejected };
 // Stable identity for groups belonging to a persistent producer frame. Only
 // the borrowed frame's exclusive execution lease may bind or advance it.
 // The enclosing backing must remain pinned until all its groups are disposed.
@@ -60,10 +70,36 @@ public:
   explicit BorrowedGroupOwner(Invocation &storage) noexcept : storage_(&storage) {}
   BorrowedGroupOwner(const BorrowedGroupOwner &) = delete;
   BorrowedGroupOwner &operator=(const BorrowedGroupOwner &) = delete;
+  // Trusted retirement callbacks only; they never execute producer source code.
+  bool enqueueCleanupChild(BorrowedGroupOwner &, AllocationLease, BorrowedCleanup) noexcept;
+  bool enqueueCleanupSibling(BorrowedGroupOwner &, AllocationLease, BorrowedCleanup) noexcept;
+  // Called only by the trusted children callback, after this producer's own
+  // groups have settled. Its body scopes stay alive until all children finish.
+  bool enqueueOwnedScopeChildren(Invocation &) noexcept;
+  void sealCleanup() noexcept;
+  bool cleanupFinished() const noexcept { return cleanupDone_.load(std::memory_order_acquire); }
 
 private:
   Invocation *storage_;
-  std::atomic<void *> binding_{nullptr};
+  // Published once under the exclusive producer lease. It belongs to the
+  // control header, whose lifetime extends beyond settled producer locals.
+  std::weak_ptr<void> core_;
+  std::atomic<bool> bound_{false};
+  enum class CleanupPhase { Idle, Groups, WaitingGroups, Children, Finish, Done };
+  struct Cleanup {
+    BorrowedGroupOwner *next = nullptr, *parent = nullptr, *root = nullptr;
+    AllocationLease pin, anchor;
+    BorrowedCleanup callbacks;
+    TaskHandle waiter;
+    std::uint64_t children = 0, pending = 0;
+    Failure failure;
+    CleanupPhase phase = CleanupPhase::Idle;
+    bool queued = false, busy = false, sealed = false;
+  } cleanup_;
+  void *cleanupCore_ = nullptr; // present only while retirement is queued
+  std::atomic<bool> cleanupDone_{false};
+  std::atomic<bool> closing_{false};
+  std::uint32_t groupCount_ = 0;
   friend class Task;
   friend class TaskCore;
 };
@@ -154,6 +190,7 @@ private:
   friend class ExternalCompletion;
   friend class Task;
   friend class ClosedTaskRunner;
+  friend class BorrowedGroupOwner;
 };
 // Ordinary synchronous entry. The scheduler and its cancellation capabilities
 // never escape this owner. Concurrent run calls are serialized; stats is read-only.
@@ -212,6 +249,15 @@ public:
   // Private cleanup continuation. Cancels and joins the active borrowed
   // producer's groups without executing its suspended body. Retry after wait.
   bool settleBorrowedGroups() noexcept;
+  // Begin a trusted cleanup batch without a scheduled task per producer.
+  // For a batch with siblings, pass seal=false, enqueue them, then sealCleanup.
+  CleanupStart beginOwnedCleanup(BorrowedGroupOwner &, AllocationLease, BorrowedCleanup,
+                                 bool seal = true) noexcept;
+  Failure ownedCleanupFailure() const noexcept;
+  // Private lexical-scope barrier. The caller keeps the control alive, retries
+  // after Pending, and releases it only after Complete. No source body runs.
+  CleanupStart prepareOwnedScope(ResourceControl &) noexcept;
+  bool leaveOwnedScope(ResourceControl *, const OwnedDescriptor *escaping = nullptr) noexcept;
   bool await(TaskHandle) noexcept;
   bool join(GroupHandle) noexcept;
   bool releaseGroup(GroupHandle) noexcept;
@@ -234,6 +280,10 @@ public:
   void suspendUntil(std::chrono::steady_clock::time_point deadline) noexcept;
   void yield() noexcept;
   void complete(const void *value) noexcept;
+  // Trusted terminal publication from an independently retained outcome ledger,
+  // after persistent producer locals have been cleaned. Source remains exclusively
+  // readable for this execution lease; normal completion uses context().
+  void completeFrom(const Invocation &source, const void *value) noexcept;
   // Propagate a settled child/group error without converting its variant to Fault.
   // An existing invocation fault or cancellation still takes precedence.
   void fail(Failure) noexcept;

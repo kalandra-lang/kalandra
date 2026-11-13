@@ -362,6 +362,51 @@ void sharedResourceBudgets() {
   owner.settle();
   CHECK(first.bytes == 0 && second.bytes == 0);
 }
+void multipleFrameLedgers() {
+  Budget budget;
+  budget.maximum = 8 * 1024 * 1024;
+  Invocation owner, body, outcome;
+  owner.bindRecursiveBudget(&budget, Budget::reserve, Budget::release);
+  auto *memory = owner.allocateResource(sizeof(OwnedState), OwnedState::cleanup, true);
+  CHECK(memory);
+  auto *anchor = new (memory)
+      OwnedState(OwnedKind::Generator, sizeof(OwnedState), destroyBudgetAnchor, ignoreBudgetAnchor);
+  CHECK(owner.trackResource(anchor));
+  body.bindResourceBudget(owner, anchor);
+  CHECK(body.allocate(4096) && !body.poll());
+  // A fresh outcome ledger can bind after the body already has reservations.
+  outcome.bindResourceBudget(owner, anchor);
+  CHECK(outcome.allocate(8192) && !outcome.poll());
+  auto peak = budget.bytes;
+  body.settle();
+  CHECK(budget.bytes == peak); // ownership scope keeps its existing high-water charge
+  Invocation replacement;
+  replacement.bindResourceBudget(owner, anchor);
+  CHECK(replacement.allocate(4096) && !replacement.poll() && budget.bytes == peak);
+  replacement.settle();
+  Invocation workerA, workerB;
+  workerA.bindResourceBudget(owner, anchor);
+  workerB.bindResourceBudget(owner, anchor);
+  const auto allocate = [](Invocation &ctx) {
+    for (unsigned i = 0; i < 1000; ++i)
+      CHECK(ctx.allocate(64));
+  };
+  std::thread a([&] { allocate(workerA); });
+  std::thread b([&] { allocate(workerB); });
+  a.join();
+  b.join();
+  CHECK(!workerA.poll() && !workerB.poll() && budget.bytes <= budget.maximum);
+  peak = budget.bytes;
+  // Rebinding an existing ledger remains invalid and changes no reservations.
+  workerA.bindResourceBudget(owner, anchor);
+  CHECK(workerA.status() == 3 && budget.bytes == peak);
+  workerA.settle();
+  workerB.settle();
+  CHECK(budget.bytes == peak);
+  outcome.settle();
+  owner.settle();
+  CHECK(budget.bytes == 0 && owner.live() == 0 && outcome.live() == 0);
+}
 void bounded() {
   Budget budget;
   Probe probe;
@@ -784,6 +829,7 @@ void retirementDuringPublication() {
 }
 } // namespace
 int main() {
+  multipleFrameLedgers();
   independent();
   failures();
   bounded();

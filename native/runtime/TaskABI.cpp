@@ -12,6 +12,10 @@ extern "C" {
 bool kalandra_task_cancelled_v1(Task *task) noexcept { return task->cancelled(); }
 void *kalandra_task_frame_v1(Task *task) noexcept { return task->frame(); }
 Invocation *kalandra_task_context_v1(Task *task) noexcept { return &task->context(); }
+bool kalandra_task_owned_scope_leave_v1(Task *task, void *scope,
+                                        const OwnedDescriptor *escaping) noexcept {
+  return task->leaveOwnedScope(static_cast<ResourceControl *>(scope), escaping);
+}
 void kalandra_task_open_v1(Task *task, const GroupHandle *parent, GroupHandle *group) noexcept {
   *group = task->openGroup(parent ? *parent : GroupHandle{});
 }

@@ -140,7 +140,12 @@ public:
   // this Generator resource is destroyed; it never retains a self-reference.
   // Charges follow every surviving owner of the resource, including while the
   // bound context is dormant and another context grows retained backing.
+  // Multiple fresh contained ledgers may share the same aggregate resource;
+  // each must settle before the resource's control header is destroyed.
   void bindResourceBudget(Invocation &owner, void *allocation) noexcept;
+  // Sticky private cleanup proof; ordinary invocations need no scope walk.
+  void markDeferredOwnedResource() noexcept { flags_ |= DeferredOwnedResource; }
+  bool hasDeferredOwnedResource() const noexcept { return flags_ & DeferredOwnedResource; }
   std::uint64_t recursiveBytes() const noexcept;
   void *allocateEnvironment(std::uint64_t bytes, const void *key) noexcept;
   // Borrow capture bytes from an environment already owned by this invocation.
@@ -231,7 +236,8 @@ private:
     NativeInterrupts = 4,
     Materialized = 8,
     ControlReady = 16,
-    DynamicResources = 32
+    DynamicResources = 32,
+    DeferredOwnedResource = 64
   };
   std::uint32_t flags_ = 0;
   // 0 clear, 1 token, 2 observed/faulted/settled, 3 native protected.

@@ -1,10 +1,11 @@
 #include "Tasks.h"
 #include "NativeCancellation.h"
+#include "OwnedResources.h"
 #include <algorithm>
 #include <atomic>
 #include <bit>
-#include <condition_variable>
 #include <chrono>
+#include <condition_variable>
 #ifdef KALANDRA_TASK_PROFILE
 #include <chrono>
 #define TASK_PROBE(field, amount) profile.field += (amount)
@@ -30,6 +31,7 @@ enum class State {
   WaitingGroup,
   WaitingExternal,
   WaitingTimer,
+  WaitingOwned,
   Settling,
   Settled
 };
@@ -76,14 +78,11 @@ struct Record {
   CallFrame *call = nullptr, *returned = nullptr;
   CallFrame *persistent = nullptr;
   bool callPushed = false, callCompleted = false, callTail = false;
+  bool cleanupPending = false;
+  Failure cleanupFailure;
   Failure failure;
   TaskHandle dependency;
   GroupHandle groupDependency;
-};
-struct GroupBinding {
-  std::weak_ptr<void> core;
-  explicit GroupBinding(const std::shared_ptr<void> &core) : core(core) {}
-  static void destroy(void *p) noexcept { static_cast<GroupBinding *>(p)->~GroupBinding(); }
 };
 struct GroupHold {
   Invocation ownership;
@@ -201,7 +200,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
                        Predicate ready, bool controller = false) {
     while (!ready()) {
       if (!stats.timers) {
-        wait(lock, condition, [&] { return ready() || stats.timers; }, controller);
+        wait(
+            lock, condition, [&] { return ready() || stats.timers; }, controller);
         continue;
       }
       const auto deadline = nextTimer();
@@ -227,6 +227,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
   std::uint32_t queueHead = 0, queueCount = 0;
   std::uint32_t pendingHead = UINT32_MAX, pendingTail = UINT32_MAX, pendingCount = 0;
   std::uint64_t attempts = 0, failAt = 0;
+  BorrowedGroupOwner *cleanupHead = nullptr, *cleanupTail = nullptr;
+  std::uint64_t cleanupJobs = 0;
   std::mutex mutex;
   std::condition_variable workerChanged, controllerChanged;
   std::vector<std::jthread> workers;
@@ -280,7 +282,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       interruptChanged.notify_all();
     }
     workers.clear();
-    if (interruptWorker.joinable()) interruptWorker.join();
+    if (interruptWorker.joinable())
+      interruptWorker.join();
   }
   bool start() noexcept {
     try {
@@ -297,7 +300,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
           };
           while (!stopping) {
             interruptChanged.wait(lock, [&] { return stopping || pending(); });
-            if (stopping) break;
+            if (stopping)
+              break;
             // Execution leases and pthread identities remain protected by the
             // core mutex. Late delivery reads the CURRENT boundary/token, never
             // a recycled task slot or a pointer supplied by the cancelling host.
@@ -305,7 +309,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
                  i = unfinishedTasks.next(i + 1))
               if (tasks[i].executing && tasks[i].cancel.load())
                 interruptNativeCancellation(tasks[i].interruptThread);
-            interruptChanged.wait_for(lock, std::chrono::microseconds(100), [&] { return stopping; });
+            interruptChanged.wait_for(lock, std::chrono::microseconds(100),
+                                      [&] { return stopping; });
           }
         });
       if (limits.workers == 1)
@@ -319,7 +324,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
             wait(lock, workerChanged, [&] { return stopping || draining; });
             if (stopping)
               break;
-            if (!remaining || !stats.unfinished) {
+            if (!remaining || !hasWork()) {
               draining = false;
               signal();
               continue;
@@ -400,6 +405,288 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       return record.execution;
     return record.call->borrowed ? *borrowedCall(*record.call).entry->execution
                                  : record.call->execution;
+  }
+  using CleanupPhase = BorrowedGroupOwner::CleanupPhase;
+  bool hasWork() const { return stats.unfinished || cleanupJobs; }
+  void readyCleanup(BorrowedGroupOwner &owner) {
+    auto &job = owner.cleanup_;
+    if (job.queued || job.busy || job.phase == CleanupPhase::Done)
+      return;
+    job.queued = true;
+    job.next = nullptr;
+    if (cleanupTail)
+      cleanupTail->cleanup_.next = &owner;
+    else
+      cleanupHead = &owner;
+    cleanupTail = &owner;
+  }
+  static bool within(const AllocationLease &pin, const void *pointer, std::size_t bytes) {
+    const auto storage = pin.bytes();
+    const auto base = reinterpret_cast<std::uintptr_t>(storage.data());
+    const auto address = reinterpret_cast<std::uintptr_t>(pointer);
+    return address >= base && bytes <= storage.size() && address - base <= storage.size() - bytes;
+  }
+  bool activeOwner(const BorrowedGroupOwner &owner, std::uint32_t settling = UINT32_MAX) const {
+    for (auto i = liveTasks.next(0); i < liveTasks.size(); i = liveTasks.next(i + 1)) {
+      const auto &record = tasks[i];
+      // Failed/completed source frames are quiescent before maintenance starts.
+      // Their own cleanup may settle backing, but another task's lease may not.
+      if (i == settling && record.state == State::Settling && !record.executing)
+        continue;
+      if (persistentOwner(record.returned) == &owner)
+        return true;
+      if (!record.persistent)
+        continue;
+      for (auto *node = record.call; node; node = node->parent)
+        if (persistentOwner(node) == &owner)
+          return true;
+    }
+    return false;
+  }
+  bool queueCleanup(BorrowedGroupOwner &owner, AllocationLease &pin, BorrowedCleanup callbacks,
+                    BorrowedGroupOwner &root, BorrowedGroupOwner *parent) {
+    if (!pin || !callbacks.finish || !within(pin, &owner, sizeof(owner)))
+      return false;
+    if (owner.cleanupDone_.load(std::memory_order_acquire))
+      return true;
+    if (owner.cleanup_.phase != CleanupPhase::Idle ||
+        activeOwner(owner, root.cleanup_.waiter.slot) || !bindOwner(owner))
+      return false;
+    auto &fence = root.cleanup_;
+    if (cleanupJobs == UINT64_MAX || fence.pending == UINT64_MAX ||
+        (parent && parent->cleanup_.children == UINT64_MAX))
+      return false;
+    owner.closing_.store(true, std::memory_order_release);
+    owner.cleanupCore_ = this;
+    auto &job = owner.cleanup_;
+    job.parent = parent;
+    job.root = &root;
+    job.callbacks = callbacks;
+    job.phase = CleanupPhase::Groups;
+    if (&owner == &root)
+      job.anchor = std::move(pin);
+    else
+      job.pin = std::move(pin);
+    ++fence.pending;
+    if (parent)
+      ++parent->cleanup_.children;
+    ++cleanupJobs;
+    readyCleanup(owner);
+    return true;
+  }
+  void finishFence(BorrowedGroupOwner &root, std::unique_lock<std::mutex> &lock) {
+    auto &fence = root.cleanup_;
+    if (fence.pending)
+      return;
+    const auto waiter = fence.waiter;
+    const auto failure = fence.failure;
+    auto anchor = std::move(fence.anchor);
+    root.cleanupCore_ = nullptr;
+    if (auto *record = get(waiter)) {
+      record->cleanupPending = false;
+      record->cleanupFailure = failure;
+      wake(waiter.slot);
+    }
+    lock.unlock();
+    anchor = {};
+    acquire(lock);
+  }
+  void sealCleanup(BorrowedGroupOwner &root, std::unique_lock<std::mutex> &lock) {
+    auto &fence = root.cleanup_;
+    if (fence.sealed)
+      return;
+    fence.sealed = true;
+    --fence.pending;
+    finishFence(root, lock);
+  }
+  void processCleanups(std::unique_lock<std::mutex> &lock) {
+    // Give ordinary runnable tasks a turn between bounded retirement batches.
+    for (unsigned count = 0; cleanupHead && count < 64; ++count) {
+      auto *owner = cleanupHead;
+      auto &job = owner->cleanup_;
+      cleanupHead = job.next;
+      if (!cleanupHead)
+        cleanupTail = nullptr;
+      job.next = nullptr;
+      job.queued = false;
+      job.busy = true;
+      auto &fence = job.root->cleanup_;
+      if (job.phase == CleanupPhase::Groups || job.phase == CleanupPhase::WaitingGroups) {
+        if (job.phase == CleanupPhase::Groups && job.callbacks.failure) {
+          lock.unlock();
+          const auto failure = job.callbacks.failure(job.callbacks.state);
+          acquire(lock);
+          if (failure.kind == TaskFailure::Fault && fence.failure.kind == TaskFailure::None)
+            fence.failure = failure;
+        }
+        bool waiting = false;
+        for (auto i = liveGroups.next(0); owner->groupCount_ && i < liveGroups.size();
+             i = liveGroups.next(i + 1)) {
+          auto &group = groups[i];
+          if (group.persistentOwner != owner)
+            continue;
+          if (!group.settled)
+            failGroup(groupHandle(i), {TaskFailure::Cancelled});
+          waiting |= !group.settled;
+        }
+        if (waiting) {
+          job.phase = CleanupPhase::WaitingGroups;
+          job.busy = false;
+          continue;
+        }
+        for (auto i = liveGroups.next(0); owner->groupCount_ && i < liveGroups.size();
+             i = liveGroups.next(i + 1)) {
+          auto &group = groups[i];
+          if (group.persistentOwner != owner)
+            continue;
+          if (group.failure.kind == TaskFailure::Fault && fence.failure.kind == TaskFailure::None)
+            fence.failure = group.failure;
+          group.observed = true;
+          waiting |= !dispose(groupHandle(i), lock);
+        }
+        if (waiting) {
+          job.phase = CleanupPhase::WaitingGroups;
+          job.busy = false;
+          continue;
+        }
+        job.phase = CleanupPhase::Children;
+        // Keep a sentinel until the callback finishes enqueuing children.
+        ++job.children;
+        if (job.callbacks.children) {
+          lock.unlock();
+          job.callbacks.children(*owner, job.callbacks.state);
+          acquire(lock);
+        }
+        --job.children;
+      }
+      if (job.phase == CleanupPhase::Children && job.children) {
+        job.busy = false;
+        continue;
+      }
+      job.phase = CleanupPhase::Finish;
+      lock.unlock();
+      job.callbacks.finish(job.callbacks.state);
+      acquire(lock);
+      auto *parent = job.parent;
+      auto *root = job.root;
+      auto pin = std::move(job.pin);
+      job.phase = CleanupPhase::Done;
+      job.busy = false;
+      owner->cleanupDone_.store(true, std::memory_order_release);
+      --cleanupJobs;
+      if (owner != root)
+        owner->cleanupCore_ = nullptr;
+      if (parent && !--parent->cleanup_.children && !parent->cleanup_.busy)
+        readyCleanup(*parent);
+      --root->cleanup_.pending;
+      finishFence(*root, lock);
+      lock.unlock();
+      pin = {};
+      acquire(lock);
+    }
+  }
+  CleanupStart prepareScope(std::uint32_t slot, Invocation &ctx, ResourceControl &control,
+                            bool terminal, std::unique_lock<std::mutex> &lock) {
+    auto *scope = control.scope;
+    if (!scope || scope->context != &ctx) {
+      ctx.fault(3);
+      return CleanupStart::Rejected;
+    }
+    if (!scope->hasDeferred.load(std::memory_order_acquire))
+      return CleanupStart::Complete;
+    auto &record = tasks[slot];
+    if (scope->cleanupRoot)
+      return scope->cleanupRoot->cleanup_.pending ? CleanupStart::Pending : CleanupStart::Complete;
+    if ((!terminal && record.state != State::Running) ||
+        (terminal && (record.state != State::Settling || record.executing)) ||
+        record.externalPending || record.cleanupPending) {
+      ctx.fault(3);
+      return CleanupStart::Rejected;
+    }
+    // Admission is transactional: validate the entire sibling batch before
+    // closing any producer. Scope ownership keeps its headers and payloads live.
+    std::lock_guard resources(resourceMutex());
+    if (!scope->active || scope->retiring) {
+      ctx.fault(3);
+      return CleanupStart::Rejected;
+    }
+    std::uint64_t count = 0;
+    for (auto *value = scope->first; value; value = value->next) {
+      auto *owner = value->deferredOwner;
+      if (!owner || owner->cleanupFinished())
+        continue;
+      auto pin = value->pinForRetirement();
+      if (!pin || !value->deferredCleanup || !value->deferredCleanup->finish ||
+          !within(*pin, owner, sizeof(*owner)) ||
+          owner->cleanup_.phase != BorrowedGroupOwner::CleanupPhase::Idle ||
+          activeOwner(*owner, terminal ? slot : UINT32_MAX) || !bindOwner(*owner) ||
+          count == UINT64_MAX - 1 || count == UINT64_MAX - cleanupJobs) {
+        ctx.fault(3);
+        return CleanupStart::Rejected;
+      }
+      ++count;
+    }
+    scope->retiring = true;
+    if (!count)
+      return CleanupStart::Complete;
+    for (auto *value = scope->first; value; value = value->next) {
+      auto *owner = value->deferredOwner;
+      if (!owner || owner->cleanupFinished())
+        continue;
+      auto pin = value->pinForRetirement();
+      if (!scope->cleanupRoot) {
+        scope->cleanupRoot = owner;
+        owner->cleanup_.pending = 1;
+        owner->cleanup_.waiter = handle(slot);
+      }
+      // All failure conditions were checked under the same core/registry locks.
+      const bool queued =
+          queueCleanup(*owner, *pin, *value->deferredCleanup, *scope->cleanupRoot, nullptr);
+      if (!queued)
+        std::abort(); // violated trusted runtime admission invariant
+    }
+    record.cleanupPending = true;
+    record.cleanupFailure = {};
+    if (!terminal) {
+      record.state = State::WaitingOwned;
+      ++stats.maintenanceTasks;
+    }
+    sealCleanup(*scope->cleanupRoot, lock);
+    return CleanupStart::Pending;
+  }
+  bool prepareInvocationScopes(std::uint32_t slot, Invocation &ctx,
+                               std::unique_lock<std::mutex> &lock) {
+    if (!ctx.hasDeferredOwnedResource())
+      return true;
+    auto &record = tasks[slot];
+    for (auto *control = currentScope(ctx); control;) {
+      const auto started = prepareScope(slot, ctx, *control, true, lock);
+      if (started == CleanupStart::Pending)
+        return false;
+      if (started == CleanupStart::Rejected) {
+        // A live foreign mutable lease cannot be retired. Keep the owning
+        // scope intact until it becomes quiescent; never turn a protocol fault
+        // into destruction of storage still used by another worker.
+        if (record.failure.kind != TaskFailure::Fault)
+          record.failure = {TaskFailure::Fault, 3};
+        return false;
+      }
+      if (record.cleanupFailure.kind == TaskFailure::Fault &&
+          record.failure.kind != TaskFailure::Fault)
+        record.failure = record.cleanupFailure;
+      auto *parent = control->scope->parent;
+      control = parent ? parent->control : nullptr;
+    }
+    return true;
+  }
+  bool bindOwner(BorrowedGroupOwner &owner) {
+    if (!owner.bound_.load(std::memory_order_acquire)) {
+      owner.core_ = shared_from_this();
+      owner.bound_.store(true, std::memory_order_release);
+    }
+    // Source continuations belong to one application runtime. Completed or
+    // abandoned runtimes cannot be revived through a stale control identity.
+    return owner.core_.lock().get() == this;
   }
   static CallFrame *persistentCall(Record &record) { return record.persistent; }
   static BorrowedGroupOwner *persistentOwner(CallFrame *node) {
@@ -580,7 +867,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     if (record.externalPending)
       return;
     if (record.state == State::WaitingTask || record.state == State::WaitingGroup ||
-        record.state == State::WaitingExternal || record.state == State::WaitingTimer) {
+        record.state == State::WaitingExternal || record.state == State::WaitingTimer ||
+        record.state == State::WaitingOwned) {
       if (record.state == State::WaitingTimer)
         --stats.timers;
       record.state = State::Runnable;
@@ -649,7 +937,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
             parent->failure.kind != TaskFailure::None && !task.cancel) {
           task.cancel = true;
           if (nativeInterrupts) {
-            if (task.executing) interruptNativeCancellation(task.interruptThread);
+            if (task.executing)
+              interruptNativeCancellation(task.interruptThread);
             interruptChanged.notify_one();
           }
           wake(i);
@@ -786,6 +1075,10 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     const auto copied = layout.copy(destination, output, task->outcome, task->value);
     acquire(lock);
     --task->readers;
+    if (auto *group = get(task->group);
+        group && group->persistentOwner &&
+        group->persistentOwner->cleanup_.phase == CleanupPhase::WaitingGroups)
+      readyCleanup(*group->persistentOwner);
     if (!copied && !destination.poll())
       destination.fault(3);
     return copied;
@@ -818,6 +1111,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       --stats.records;
     }
     auto *hold = std::exchange(group->ownerHold, nullptr);
+    if (group->persistentOwner)
+      --group->persistentOwner->groupCount_;
     const auto generation = group->generation + 1;
     liveGroups.erase(h.slot);
     *group = Group{};
@@ -833,6 +1128,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     return true;
   }
   void maintain(std::unique_lock<std::mutex> &lock) {
+    if (cleanupHead)
+      processCleanups(lock);
     bool changed;
     do {
       changed = false;
@@ -858,6 +1155,9 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
               break;
             }
         group.settled = true;
+        if (group.persistentOwner &&
+            group.persistentOwner->cleanup_.phase == CleanupPhase::WaitingGroups)
+          readyCleanup(*group.persistentOwner);
         changed = true;
       }
       // Runnable, running and prepared records cannot advance maintenance.
@@ -889,7 +1189,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
           }
         }
         if (task.state != State::Settling || task.executing || task.cleaning ||
-            task.externalPending)
+            task.externalPending || task.cleanupPending)
           continue;
         if (task.returned)
           attachGroups(*task.returned, handle(i), true);
@@ -911,6 +1211,25 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
                                                                     : nested.failure;
         }
         if (pending)
+          continue;
+        // Source callbacks have returned and owned children have settled.
+        // Preflight asynchronous lexical resources before any frame, file,
+        // ownership ledger or native borrowed-call lease can be destroyed.
+        if (task.returned) {
+          auto &ctx = task.returned->borrowed ? *borrowedCall(*task.returned).entry->execution
+                                              : task.returned->execution;
+          if (ctx.hasDeferredOwnedResource() && !prepareInvocationScopes(i, ctx, lock))
+            continue;
+        }
+        for (auto *node = task.call; node; node = node->parent) {
+          auto &ctx = node->borrowed ? *borrowedCall(*node).entry->execution : node->execution;
+          if (ctx.hasDeferredOwnedResource() && !prepareInvocationScopes(i, ctx, lock)) {
+            pending = true;
+            break;
+          }
+        }
+        if (pending || (task.execution.hasDeferredOwnedResource() &&
+                        !prepareInvocationScopes(i, task.execution, lock)))
           continue;
         task.cleaning = true;
         lock.unlock();
@@ -974,7 +1293,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       --stats.timers;
     if (task.state != State::Settling && task.state != State::WaitingTask &&
         task.state != State::WaitingGroup && task.state != State::WaitingExternal &&
-        task.state != State::WaitingTimer)
+        task.state != State::WaitingTimer && task.state != State::WaitingOwned)
       ++stats.maintenanceTasks;
     task.state = State::Settling;
     if (failure.kind != TaskFailure::None) {
@@ -1001,8 +1320,10 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     } pump(*this);
     maintain(lock);
     fillReady();
-    if (!queueCount)
-      return false;
+    if (!queueCount) {
+      pump.progressed = cleanupHead != nullptr;
+      return pump.progressed;
+    }
     pump.progressed = true;
     const auto h = queue[queueHead];
     queueHead = (queueHead + 1) % limits.ready;
@@ -1258,7 +1579,7 @@ bool TaskCore::drain(std::size_t steps) noexcept {
       return false;
   impl_->controlling = true;
   impl_->maintain(guard.lock);
-  if (!impl_->stats.unfinished && !impl_->pumping && !impl_->preparing) {
+  if (!impl_->hasWork() && !impl_->pumping && !impl_->preparing) {
     impl_->controlling = false;
     return true;
   }
@@ -1287,7 +1608,7 @@ bool TaskCore::drain(std::size_t steps) noexcept {
         [&] { return !impl_->draining && !impl_->pumping && !impl_->preparing; }, true);
   }
   impl_->controlling = false;
-  return !impl_->stats.unfinished;
+  return !impl_->hasWork();
 }
 TaskStats TaskCore::stats() const noexcept {
   std::lock_guard lock(impl_->mutex);
@@ -1323,20 +1644,7 @@ GroupHandle Task::openGroup(GroupHandle parent) noexcept {
   auto *owner = TaskCore::Impl::persistentOwner(persistent);
   GroupHold *hold = nullptr;
   if (owner) {
-    auto *binding = static_cast<GroupBinding *>(owner->binding_.load(std::memory_order_acquire));
-    if (!binding || binding->core.expired()) {
-      guard.lock.unlock();
-      auto *memory = owner->storage_->allocateResource(sizeof(GroupBinding), GroupBinding::destroy);
-      auto *fresh = memory ? new (memory) GroupBinding(core_.shared_from_this()) : nullptr;
-      core_.acquire(guard.lock);
-      if (!fresh) {
-        context().fault(owner->storage_->status() ? owner->storage_->status() : 2);
-        return {};
-      }
-      owner->binding_.store(fresh, std::memory_order_release);
-      binding = fresh;
-    }
-    if (binding->core.lock().get() != &core_) {
+    if (!core_.bindOwner(*owner)) {
       context().fault(3);
       return {};
     }
@@ -1372,6 +1680,8 @@ GroupHandle Task::openGroup(GroupHandle parent) noexcept {
     auto *created = core_.get(group);
     created->callOwner = record.call;
     created->persistentOwner = owner;
+    if (owner)
+      ++owner->groupCount_;
     created->ownerHold = hold;
   } else if (hold) {
     guard.lock.unlock();
@@ -1533,7 +1843,8 @@ bool Task::callBorrowed(const BorrowedTaskEntry &borrowed, AllocationLease pin, 
     const auto address = reinterpret_cast<std::uintptr_t>(borrowed.groups);
     if (address < base || storage.size() < sizeof(BorrowedGroupOwner) ||
         address - base > storage.size() - sizeof(BorrowedGroupOwner) ||
-        borrowed.groups->storage_ != borrowed.execution) {
+        borrowed.groups->storage_ != borrowed.execution ||
+        borrowed.groups->closing_.load(std::memory_order_acquire)) {
       context().fault(3);
       return false;
     }
@@ -1584,18 +1895,14 @@ bool Task::callBorrowed(const BorrowedTaskEntry &borrowed, AllocationLease pin, 
     return false;
   }
   if (auto *owner = borrowed.groups) {
-    auto *binding = static_cast<GroupBinding *>(owner->binding_.load(std::memory_order_acquire));
-    if (binding) {
-      auto bound = binding->core.lock();
-      if (bound && bound.get() != &core_) {
-        context().fault(3);
-        core_.destroyCall(node, guard.lock);
-        return false;
-      }
+    if (!core_.bindOwner(*owner)) {
+      context().fault(3);
+      core_.destroyCall(node, guard.lock);
+      return false;
     }
     core_.attachGroups(*node, core_.handle(slot_));
   }
-  if (borrowed.execution->poll() || context().poll()) {
+  if (borrowed.execution->poll() || !borrowed.execution->usable() || context().poll()) {
     if (borrowed.execution->status())
       context().fault(borrowed.execution->status(), borrowed.execution->line(),
                       borrowed.execution->column());
@@ -1612,6 +1919,158 @@ bool Task::callBorrowed(const BorrowedTaskEntry &borrowed, AllocationLease pin, 
   record.state = State::Runnable;
   return false;
 }
+bool BorrowedGroupOwner::enqueueCleanupChild(BorrowedGroupOwner &child, AllocationLease pin,
+                                             BorrowedCleanup callbacks) noexcept {
+  auto *core = static_cast<TaskCore::Impl *>(cleanupCore_);
+  if (!core)
+    return false;
+  TaskCore::Impl::Guard guard(*core);
+  if (!cleanup_.busy || cleanup_.phase != CleanupPhase::Children)
+    return false;
+  return core->queueCleanup(child, pin, callbacks, *cleanup_.root, this);
+}
+bool BorrowedGroupOwner::enqueueCleanupSibling(BorrowedGroupOwner &sibling, AllocationLease pin,
+                                               BorrowedCleanup callbacks) noexcept {
+  auto *core = static_cast<TaskCore::Impl *>(cleanupCore_);
+  if (!core)
+    return false;
+  TaskCore::Impl::Guard guard(*core);
+  auto &root = *cleanup_.root;
+  if (root.cleanup_.sealed)
+    return false;
+  return core->queueCleanup(sibling, pin, callbacks, root, nullptr);
+}
+bool BorrowedGroupOwner::enqueueOwnedScopeChildren(Invocation &storage) noexcept {
+  auto *core = static_cast<TaskCore::Impl *>(cleanupCore_);
+  if (!core)
+    return false;
+  TaskCore::Impl::Guard guard(*core);
+  if (!cleanup_.busy || cleanup_.phase != CleanupPhase::Children || storage_ != &storage)
+    return false;
+  std::lock_guard resources(resourceMutex());
+  // Validate every scope before enqueueing anything. Headers have strong scope
+  // owners, so validating and later acquiring the queue pins cannot race a last
+  // value release. No allocation is required even when memory admission failed.
+  std::uint64_t count = 0;
+  for (auto *control = currentScope(storage); control;) {
+    auto *scope = control->scope;
+    if (!scope || scope->context != &storage || !scope->active)
+      return false;
+    for (auto *value = scope->first; value; value = value->next) {
+      auto *owner = value->deferredOwner;
+      if (!owner || owner->cleanupFinished())
+        continue;
+      auto pin = value->pinForRetirement();
+      if (owner == this || !pin || !value->deferredCleanup || !value->deferredCleanup->finish ||
+          !TaskCore::Impl::within(*pin, owner, sizeof(*owner)) ||
+          owner->cleanup_.phase != CleanupPhase::Idle ||
+          core->activeOwner(*owner, cleanup_.root->cleanup_.waiter.slot) ||
+          !core->bindOwner(*owner) || count == UINT64_MAX - core->cleanupJobs ||
+          count == UINT64_MAX - cleanup_.children ||
+          count == UINT64_MAX - cleanup_.root->cleanup_.pending)
+        return false;
+      ++count;
+    }
+    control = scope->parent ? scope->parent->control : nullptr;
+  }
+  for (auto *control = currentScope(storage); control;) {
+    auto *scope = control->scope;
+    scope->retiring = true;
+    for (auto *value = scope->first; value; value = value->next) {
+      auto *owner = value->deferredOwner;
+      if (!owner || owner->cleanupFinished())
+        continue;
+      auto pin = value->pinForRetirement();
+      if (!core->queueCleanup(*owner, *pin, *value->deferredCleanup, *cleanup_.root, this))
+        std::abort();
+    }
+    control = scope->parent ? scope->parent->control : nullptr;
+  }
+  return true;
+}
+void BorrowedGroupOwner::sealCleanup() noexcept {
+  auto *core = static_cast<TaskCore::Impl *>(cleanupCore_);
+  if (!core)
+    return;
+  TaskCore::Impl::Guard guard(*core);
+  core->sealCleanup(*cleanup_.root, guard.lock);
+}
+CleanupStart Task::beginOwnedCleanup(BorrowedGroupOwner &owner, AllocationLease pin,
+                                     BorrowedCleanup callbacks, bool seal) noexcept {
+  TaskCore::Impl::Guard guard(core_);
+  auto &record = core_.tasks[slot_];
+  if (record.state != State::Running || record.externalPending || record.cleanupPending || !pin ||
+      !TaskCore::Impl::within(pin, &owner, sizeof(owner)) || !callbacks.finish) {
+    context().fault(3);
+    return CleanupStart::Rejected;
+  }
+  if (owner.cleanupFinished())
+    return CleanupStart::Complete;
+  // A source-level scope cannot retire an independently active mutable cursor.
+  // Active terminal/failure finalization will be handled by the native bridge.
+  if (core_.activeOwner(owner)) {
+    context().fault(3);
+    return CleanupStart::Rejected;
+  }
+  auto &fence = owner.cleanup_;
+  if (fence.phase != BorrowedGroupOwner::CleanupPhase::Idle) {
+    context().fault(3);
+    return CleanupStart::Rejected;
+  }
+  fence.pending = 1; // batch admission sentinel
+  fence.waiter = core_.handle(slot_);
+  if (!core_.queueCleanup(owner, pin, callbacks, owner, nullptr)) {
+    fence.pending = 0;
+    context().fault(3);
+    return CleanupStart::Rejected;
+  }
+  record.cleanupPending = true;
+  record.cleanupFailure = {};
+  record.state = State::WaitingOwned;
+  ++core_.stats.maintenanceTasks;
+  if (seal)
+    core_.sealCleanup(owner, guard.lock);
+  return CleanupStart::Pending;
+}
+Failure Task::ownedCleanupFailure() const noexcept {
+  std::lock_guard lock(core_.mutex);
+  return core_.tasks[slot_].cleanupFailure;
+}
+CleanupStart Task::prepareOwnedScope(ResourceControl &control) noexcept {
+  TaskCore::Impl::Guard guard(core_);
+  return core_.prepareScope(slot_, context(), control, false, guard.lock);
+}
+bool Task::leaveOwnedScope(ResourceControl *control, const OwnedDescriptor *escaping) noexcept {
+  if (!control)
+    return true;
+  auto &ctx = context();
+  if (!control->scope || control->scope->context != &ctx) {
+    ctx.fault(3);
+    return true;
+  }
+  if (!control->scope->escapePrepared) {
+    if (escaping && !ctx.poll() && ctx.usable()) {
+      auto *value = inspectOwned(ctx, *escaping);
+      if (!value)
+        return true;
+      adopt(ctx, *value, control->scope->parent);
+      if (ctx.status())
+        return true;
+    }
+    control->scope->escapePrepared = true;
+  }
+  const auto started = prepareOwnedScope(*control);
+  if (started == CleanupStart::Pending)
+    return false;
+  if (started == CleanupStart::Rejected)
+    return true; // fault finalization retains/preflights the same control
+  const auto failure = ownedCleanupFailure();
+  if (failure.kind == TaskFailure::Fault)
+    ctx.fault(failure.code, failure.line, failure.column);
+  ctx.releaseControl(control);
+  return true;
+}
+
 bool Task::settleBorrowedGroups() noexcept {
   TaskCore::Impl::Guard guard(core_);
   auto &record = core_.tasks[slot_];
@@ -1764,7 +2223,7 @@ bool Task::canExecuteSynchronously() const noexcept {
   if (!self.executing || self.state != State::Running ||
       self.runner != std::this_thread::get_id() || self.cancel.load() ||
       TaskCore::Impl::execution(self).executionStatus() || core_.running != 1 || core_.preparing ||
-      core_.stats.externalPending || core_.stats.timers || core_.stopping)
+      core_.stats.externalPending || core_.stats.timers || core_.cleanupJobs || core_.stopping)
     return false;
   for (auto i = core_.liveTasks.next(0); i < core_.liveTasks.size();
        i = core_.liveTasks.next(i + 1)) {
@@ -1855,7 +2314,8 @@ void Task::yield() noexcept {
   else
     core_.tasks[slot_].state = State::Runnable;
 }
-void Task::complete(const void *value) noexcept {
+void Task::complete(const void *value) noexcept { completeFrom(context(), value); }
+void Task::completeFrom(const Invocation &source, const void *value) noexcept {
   TaskCore::Impl::Guard guard(core_);
   auto &task = core_.tasks[slot_];
   if (context().status() || task.state != State::Running) {
@@ -1884,7 +2344,7 @@ void Task::complete(const void *value) noexcept {
   bool copied = false;
   if (aligned(value, layout.alignment)) {
     guard.lock.unlock();
-    copied = layout.copy(outcome, output, context(), value);
+    copied = layout.copy(outcome, output, source, value);
     core_.acquire(guard.lock);
   }
   if (!copied) {

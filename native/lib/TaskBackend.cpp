@@ -2383,7 +2383,10 @@ private:
         }
         auto *scope =
             builder.CreateIntToPtr(builder.CreateLoad(i64, payload(instruction.args[0])), pointer);
-        call("kalandra_file_scope_leave_v1", voidType, {ctx, scope, escaping});
+        if (synchronous)
+          call("kalandra_file_scope_leave_v1", voidType, {ctx, scope, escaping});
+        else
+          wait(call("kalandra_task_owned_scope_leave_v1", boolean, {task, scope, escaping}));
         check();
         break;
       }

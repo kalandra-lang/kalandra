@@ -8,6 +8,8 @@ struct OwnedDescriptor {
   CpuTensor<NumericType::UInt8, 1> storage;
 };
 enum class OwnedKind { File, ByteBuffer, Generator };
+class BorrowedGroupOwner;
+struct BorrowedCleanup;
 struct ResourceScope;
 struct OwnedState {
   std::mutex mutex;
@@ -19,6 +21,9 @@ struct OwnedState {
   OwnedState *retirementNext = nullptr;
   OwnedState *previous = nullptr, *next = nullptr;
   std::atomic<bool> retired{false};
+  // Non-null only for resumable producers with asynchronous owned cleanup.
+  BorrowedGroupOwner *deferredOwner = nullptr;
+  const BorrowedCleanup *deferredCleanup = nullptr;
   OwnedKind kind;
   std::uint64_t bytes;
   void (*destroy)(void *) noexcept;
@@ -35,11 +40,18 @@ struct OwnedState {
     s->destroy(p);
   }
 };
+struct ResourceControl;
 struct ResourceScope {
+  Invocation *context = nullptr;
+  ResourceControl *control = nullptr;
+  std::atomic<bool> hasDeferred{false};
+  BorrowedGroupOwner *cleanupRoot = nullptr;
   OwnedState *first = nullptr;
   ResourceScope *parent = nullptr;
   AllocationLease parentOwner;
   bool active = true;
+  bool retiring = false;
+  bool escapePrepared = false;
   static void cleanup(void *p) noexcept { static_cast<ResourceScope *>(p)->~ResourceScope(); }
 };
 struct ResourceControl {
