@@ -1,16 +1,7 @@
 name: Native cross-OS qualification
 on:
   pull_request:
-    paths:
-      [
-        "CMakeLists.txt",
-        "VERSION",
-        "native/**",
-        ".github/workflows/native-*.yml",
-        ".github/scripts/**",
-        ".github/tools/**",
-        "apps/website/src/content/native/cross-compilation.tiramisu",
-      ]
+    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-*.yml", ".github/scripts/**", ".github/tools/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
   push:
     tags: ["v*"]
   workflow_dispatch:

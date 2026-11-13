@@ -299,7 +299,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: '3.14'
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.msvc }}
@@ -352,16 +352,7 @@ jobs:
           if-no-files-found: error
   publish:
     if: startsWith(github.ref, 'refs/tags/')
-    needs:
-      [
-        build,
-        bundle-targets,
-        qualify-standalone,
-        qualify-vulkan,
-        qualify-cuda,
-        qualify-windows-gpu,
-        notarize,
-      ]
+    needs: [build, bundle-targets, qualify-standalone, qualify-vulkan, qualify-cuda, qualify-windows-gpu, notarize]
     runs-on: ubuntu-latest
     permissions:
       contents: write
