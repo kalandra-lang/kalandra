@@ -1,3 +1,4 @@
+#include "../runtime/OwnedResources.h"
 #include "../runtime/String.h"
 #include "../runtime/Tasks.h"
 #include <atomic>
@@ -893,7 +894,337 @@ static void overlappingBorrowedCalls() {
   owner.settle();
   CHECK(probe.destroyed == 1 && !core->stats().retainedBytes && !core->stats().callBytes);
 }
+struct GroupProbe {
+  std::atomic<unsigned> steps{0}, constructed{0}, destroyed{0};
+  bool external = false;
+  ExternalCompletion completion;
+};
+struct GroupChild {
+  GroupProbe *probe;
+};
+static bool constructGroupChild(Invocation &, void *p, const Packet &packet) {
+  auto *probe = *static_cast<GroupProbe *const *>(packet.data);
+  new (p) GroupChild{probe};
+  ++probe->constructed;
+  return true;
+}
+static void destroyGroupChild(void *p) noexcept {
+  auto &f = *static_cast<GroupChild *>(p);
+  ++f.probe->destroyed;
+  f.~GroupChild();
+}
+static void resumeGroupChild(Task &task) {
+  auto &probe = *static_cast<GroupChild *>(task.frame())->probe;
+  ++probe.steps;
+  if (probe.external) {
+    probe.completion = task.suspendExternal();
+    CHECK(probe.completion);
+  } else {
+    task.yield();
+  }
+}
+static const TaskEntry groupChild{1,
+                                  84,
+                                  sizeof(GroupProbe *),
+                                  alignof(GroupProbe *),
+                                  sizeof(GroupChild),
+                                  alignof(GroupChild),
+                                  constructGroupChild,
+                                  destroyGroupChild,
+                                  resumeGroupChild,
+                                  &scalar};
+static void destroyProducer(void *) noexcept;
+struct PersistentProducer : OwnedState {
+  PersistentProducer()
+      : OwnedState(OwnedKind::Generator, sizeof(PersistentProducer), destroyProducer, nothing) {}
+  Invocation execution;
+  BorrowedGroupOwner groups{execution};
+  BorrowedTaskEntry descriptor{};
+  GroupProbe *child;
+  BorrowProbe *probe;
+  GroupHandle group;
+  TaskHandle task;
+  bool active = false, started = false, closed = false;
+};
+static bool enterProducer(void *p, Invocation &caller) noexcept {
+  auto &f = *static_cast<PersistentProducer *>(p);
+  CHECK(!f.active);
+  f.active = true;
+  ++f.probe->entered;
+  f.execution.bindCancellation(InvocationABI::cancellationToken(caller));
+  return true;
+}
+static void leaveProducer(void *p) noexcept {
+  auto &f = *static_cast<PersistentProducer *>(p);
+  CHECK(f.active);
+  f.execution.bindCancellation(nullptr);
+  f.execution.allowNativeInterrupts(false);
+  f.active = false;
+  ++f.probe->left;
+}
+static void destroyProducer(void *p) noexcept {
+  auto &f = *static_cast<PersistentProducer *>(p);
+  CHECK(!f.active && f.child->destroyed == f.child->constructed);
+  ++f.probe->destroyed;
+  f.~PersistentProducer();
+}
+static void resumeProducer(Task &task) {
+  auto &f = *static_cast<PersistentProducer *>(task.frame());
+  if (!f.started) {
+    f.group = task.openGroup();
+    if (!f.group)
+      return;
+    auto *input = f.child;
+    f.task = task.spawn(f.group, groupChild, {84, &input, sizeof(input)});
+    CHECK(f.task);
+    if (f.closed)
+      CHECK(task.close(f.group));
+    f.started = true;
+    const float value = 42;
+    task.complete(&value);
+    return;
+  }
+  if (!task.settleBorrowedGroups())
+    return;
+  const float value = 0;
+  task.complete(&value);
+}
+static const TaskEntry persistentBody{1,
+                                      0,
+                                      0,
+                                      1,
+                                      sizeof(PersistentProducer),
+                                      alignof(PersistentProducer),
+                                      nullptr,
+                                      nullptr,
+                                      resumeProducer,
+                                      &scalar};
+struct ProducerCaller {
+  PersistentProducer *producer;
+  float value = 0;
+};
+static bool constructProducerCaller(Invocation &ctx, void *p, const Packet &packet) {
+  auto input = *static_cast<const ProducerCaller *>(packet.data);
+  if (!packet.source || !ctx.retainFrom(*packet.source, input.producer))
+    return false;
+  new (p) ProducerCaller(input);
+  return true;
+}
+static void resumeProducerCaller(Task &task) {
+  auto &f = *static_cast<ProducerCaller *>(task.frame());
+  auto pin = task.context().lease(f.producer);
+  CHECK(pin);
+  if (!task.callBorrowed(f.producer->descriptor, std::move(*pin), &f.value))
+    return;
+  task.complete(&f.value);
+}
+static const TaskEntry producerCaller{1,
+                                      85,
+                                      sizeof(ProducerCaller),
+                                      alignof(ProducerCaller),
+                                      sizeof(ProducerCaller),
+                                      alignof(ProducerCaller),
+                                      constructProducerCaller,
+                                      nothing,
+                                      resumeProducerCaller,
+                                      &scalar};
+static void persistentGroups() {
+  for (unsigned workers : {1u, 4u})
+    for (unsigned mode = 0; mode < 8; ++mode) {
+      Invocation owner;
+      BorrowProbe probe;
+      GroupProbe child;
+      child.external = mode == 5 || mode == 6;
+      auto *memory = owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+      CHECK(memory);
+      auto *state = new (memory) PersistentProducer;
+      CHECK(owner.trackResource(state));
+      state->execution.bindResourceBudget(owner, state);
+      CHECK(!state->execution.poll());
+      state->child = &child;
+      state->probe = &probe;
+      state->closed = mode != 0;
+      state->descriptor = {&persistentBody, &state->execution, state,         state,
+                           enterProducer,   leaveProducer,     &state->groups};
+      TaskEntry failing = persistentBody;
+      if (mode == 3) {
+        failing.result = &rejectedBorrowValue;
+        state->descriptor.entry = &failing;
+      }
+      TaskLimits limits;
+      limits.workers = workers;
+      limits.records = limits.groups = limits.ready = limits.inFlight = 4;
+      limits.depth = 1;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto root = core->openRoot();
+      ProducerCaller input{state};
+      auto task = core->submit(root, producerCaller, {85, &input, sizeof(input), &owner});
+      CHECK(task);
+      if (mode == 2) {
+        CHECK(core->step() && core->step());
+        // The item is ready, but publication to the caller is still pending.
+        CHECK(state->started && probe.left == 0);
+        CHECK(core->cancel(root));
+        CHECK(core->drainToCompletion() && core->settled(task));
+      } else {
+        for (unsigned i = 0; i < 1000 && !core->settled(task); ++i)
+          core->step();
+        CHECK(core->settled(task));
+      }
+      CHECK(InvocationABI::cancellationToken(state->execution) == nullptr);
+      if (mode == 2 || mode == 3) {
+        CHECK(core->failure(task).kind ==
+              (mode == 2 ? TaskFailure::Cancelled : TaskFailure::Fault));
+        CHECK(child.destroyed == 1 && core->stats().unfinished == 0);
+      } else {
+        Invocation result;
+        float value = 0;
+        CHECK(core->observe(task, scalar, result, &value) && value == 42);
+        CHECK(child.destroyed == 0 && core->stats().unfinished == 1);
+        if (child.external) {
+          CHECK(child.completion && core->stats().externalPending == 1);
+        } else {
+          const auto steps = child.steps.load();
+          CHECK(!core->drain(64) && child.steps > steps);
+        }
+        // Detached groups belong to the producer, never the host's owner0.
+        CHECK(!core->close(state->group) && !core->cancel(state->group) &&
+              !core->release(state->group));
+        Invocation denied;
+        CHECK(!core->observe(state->task, scalar, denied, &value) && denied.status() == 3);
+      }
+      CHECK(core->close(root));
+      for (unsigned i = 0; i < 1000 && !core->settled(root); ++i)
+        core->step();
+      CHECK(core->settled(root) && core->release(root));
+      CHECK(probe.destroyed == 0 && probe.entered == 1 && probe.left == 1);
+      if (mode == 7) {
+        auto other = TaskCore::create();
+        CHECK(other);
+        auto outside = other->openRoot();
+        auto invalid = other->submit(outside, producerCaller, {85, &input, sizeof(input), &owner});
+        CHECK(invalid && other->drainToCompletion() && other->settled(invalid));
+        CHECK(other->failure(invalid).kind == TaskFailure::Fault &&
+              other->failure(invalid).code == 3);
+        CHECK(!state->execution.poll() && child.destroyed == 0);
+        CHECK(other->close(outside) && other->drainToCompletion() && other->release(outside));
+      }
+      if (mode < 2 || mode >= 4) {
+        const auto before = core->stats().recursiveBytes;
+        CHECK(state->execution.allocate(4096));
+        CHECK(core->stats().recursiveBytes >= before + 4096);
+        if (mode == 4)
+          CHECK(!state->execution.allocate(1024 * 1024) && state->execution.status() == 2);
+        auto cleanup = core->openRoot();
+        auto closing = core->submit(cleanup, producerCaller, {85, &input, sizeof(input), &owner});
+        CHECK(closing);
+        if (child.external) {
+          for (unsigned i = 0; i < 32; ++i)
+            core->step();
+          CHECK(!core->settled(closing) && child.destroyed == 0 &&
+                core->stats().externalPending == 1);
+          if (mode == 6) {
+            CHECK(core->cancel(cleanup));
+            for (unsigned i = 0; i < 32; ++i)
+              core->step();
+            CHECK(!core->settled(closing) && child.destroyed == 0);
+          }
+          CHECK(child.completion.signal());
+        }
+        CHECK(core->drainToCompletion() && core->settled(closing));
+        Invocation result;
+        float value = -1;
+        if (mode == 6)
+          CHECK(core->failure(closing).kind == TaskFailure::Cancelled);
+        else if (mode == 4)
+          CHECK(core->failure(closing).kind == TaskFailure::Fault &&
+                core->failure(closing).code == 2);
+        else
+          CHECK(core->observe(closing, scalar, result, &value) && value == 0);
+        CHECK(child.destroyed == 1 && probe.entered == (mode == 7 ? 3 : 2) &&
+              probe.left == probe.entered);
+        CHECK(core->close(cleanup) && core->drainToCompletion() && core->release(cleanup));
+      }
+      owner.settle();
+      CHECK(probe.destroyed == 1 && !core->stats().groups && !core->stats().records &&
+            !core->stats().retainedBytes && !core->stats().callBytes);
+    }
+}
+
+static void persistentGroupAdmission() {
+  for (unsigned mode = 0; mode < 16; ++mode) {
+    Invocation owner;
+    BorrowProbe probe;
+    GroupProbe child;
+    auto *memory = owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+    CHECK(memory);
+    auto *state = new (memory) PersistentProducer;
+    CHECK(owner.trackResource(state));
+    state->execution.bindResourceBudget(owner, state);
+    state->child = &child;
+    state->probe = &probe;
+    state->descriptor = {&persistentBody, &state->execution, state,         state,
+                         enterProducer,   leaveProducer,     &state->groups};
+    TaskLimits limits;
+    limits.records = limits.groups = limits.ready = limits.inFlight = 4;
+    limits.depth = 1;
+    if (mode < 8)
+      limits.bytes = 512 + mode * 512;
+    auto core = TaskCore::create(limits);
+    CHECK(core);
+    if (mode >= 8)
+      core->failAllocationAt(mode - 7);
+    auto root = core->openRoot();
+    ProducerCaller input{state};
+    auto task = core->submit(root, producerCaller, {85, &input, sizeof(input), &owner});
+    CHECK(task);
+    for (unsigned i = 0; i < 1000 && !core->settled(task); ++i)
+      core->step();
+    CHECK(core->settled(task));
+    const bool success = core->failure(task).kind == TaskFailure::None;
+    if (success) {
+      Invocation result;
+      float value = 0;
+      CHECK(core->observe(task, scalar, result, &value) && value == 42);
+    }
+    CHECK(core->close(root));
+    for (unsigned i = 0; i < 1000 && !core->settled(root); ++i)
+      core->step();
+    CHECK(core->settled(root) && core->release(root));
+    core->failAllocationAt(0);
+    if (success) {
+      auto closingRoot = core->openRoot();
+      auto closing = core->submit(closingRoot, producerCaller, {85, &input, sizeof(input), &owner});
+      CHECK(closing);
+      for (unsigned i = 0; i < 1000 && !core->settled(closing); ++i)
+        core->step();
+      CHECK(core->settled(closing));
+      // A very tight limit may reject the additional cleanup call's metadata.
+      // It must nevertheless settle any group it acquired before publication.
+      if (core->failure(closing).kind == TaskFailure::None) {
+        Invocation result;
+        float value = -1;
+        CHECK(core->observe(closing, scalar, result, &value) && value == 0);
+      }
+      CHECK(core->close(closingRoot));
+      for (unsigned i = 0; i < 1000 && !core->settled(closingRoot); ++i)
+        core->step();
+      CHECK(core->settled(closingRoot) && core->release(closingRoot));
+    }
+    CHECK(core->stats().peakBytes <= limits.bytes);
+    // A rejected cleanup call never acquired this externally owned cursor.
+    // Application shutdown still cancels and joins any detached producer work.
+    core.reset();
+    CHECK(child.destroyed == child.constructed);
+    owner.settle();
+    CHECK(probe.destroyed == 1);
+  }
+}
+
 int main() {
+  persistentGroupAdmission();
+  persistentGroups();
   borrowedCalls();
   overlappingBorrowedCalls();
 #ifndef _WIN32

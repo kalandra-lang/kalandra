@@ -326,7 +326,7 @@ endif()
 
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
-    add_executable(kalandra-task-tests-${VARIANT} tests/TaskTests.cpp runtime/Runtime.cpp runtime/Tasks.cpp runtime/String.cpp)
+    add_executable(kalandra-task-tests-${VARIANT} tests/TaskTests.cpp runtime/Runtime.cpp runtime/Tasks.cpp runtime/String.cpp runtime/OwnedResources.cpp)
     target_compile_options(kalandra-task-tests-${VARIANT} PRIVATE -Wall -Wextra -Werror)
     if(VARIANT STREQUAL "sanitized")
       target_compile_options(kalandra-task-tests-${VARIANT} PRIVATE

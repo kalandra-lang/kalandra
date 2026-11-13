@@ -52,19 +52,36 @@ struct TaskEntry {
   void (*resume)(Task &);
   const ValueLayout *result;
 };
+// Stable identity for groups belonging to a persistent producer frame. Only
+// the borrowed frame's exclusive execution lease may bind or advance it.
+// The enclosing backing must remain pinned until all its groups are disposed.
+class BorrowedGroupOwner final {
+public:
+  explicit BorrowedGroupOwner(Invocation &storage) noexcept : storage_(&storage) {}
+  BorrowedGroupOwner(const BorrowedGroupOwner &) = delete;
+  BorrowedGroupOwner &operator=(const BorrowedGroupOwner &) = delete;
+
+private:
+  Invocation *storage_;
+  std::atomic<void *> binding_{nullptr};
+  friend class Task;
+  friend class TaskCore;
+};
 // Private bridge for independently owned continuation storage. The descriptor,
 // context and frame remain valid under `pin` until leave returns. enter acquires
 // exclusive advancement and binds transient cancellation; failed enter must
 // release any partial acquisition itself. leave releases a successful entry only
 // after result publication or call unwinding. Neither callback may drive a core.
-// Open child groups must still settle before completing this call; persistent
-// generator-owned groups require the separate ownership bridge.
+// With a group owner, completing the root call detaches its unfinished groups
+// until a later advance/cleanup call. The source scope/drop cleanup bridge must
+// settle those groups before releasing any retained data loans.
 struct BorrowedTaskEntry {
   const TaskEntry *entry;
   Invocation *execution;
   void *frame, *state;
   bool (*enter)(void *state, Invocation &caller) noexcept;
   void (*leave)(void *state) noexcept;
+  BorrowedGroupOwner *groups = nullptr;
 };
 struct TaskLimits {
   std::uint32_t workers = 1;
@@ -192,6 +209,9 @@ public:
   // the borrowed execution storage, and never replaces it via a tail call.
   bool callBorrowed(const BorrowedTaskEntry &, AllocationLease pin, void *output,
                     GroupHandle lexical = {}) noexcept;
+  // Private cleanup continuation. Cancels and joins the active borrowed
+  // producer's groups without executing its suspended body. Retry after wait.
+  bool settleBorrowedGroups() noexcept;
   bool await(TaskHandle) noexcept;
   bool join(GroupHandle) noexcept;
   bool releaseGroup(GroupHandle) noexcept;

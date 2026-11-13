@@ -45,6 +45,7 @@ struct CallFrame {
 struct BorrowedCall {
   const BorrowedTaskEntry *entry;
   AllocationLease pin;
+  CallFrame *previousPersistent = nullptr;
 };
 constexpr std::size_t callAlignment = alignof(std::max_align_t);
 constexpr std::size_t callPadded(std::size_t n) {
@@ -73,16 +74,28 @@ struct Record {
   std::uintptr_t interruptThread = 0;
   Invocation execution, outcome;
   CallFrame *call = nullptr, *returned = nullptr;
+  CallFrame *persistent = nullptr;
   bool callPushed = false, callCompleted = false, callTail = false;
   Failure failure;
   TaskHandle dependency;
   GroupHandle groupDependency;
+};
+struct GroupBinding {
+  std::weak_ptr<void> core;
+  explicit GroupBinding(const std::shared_ptr<void> &core) : core(core) {}
+  static void destroy(void *p) noexcept { static_cast<GroupBinding *>(p)->~GroupBinding(); }
+};
+struct GroupHold {
+  Invocation ownership;
 };
 struct Group {
   std::uint64_t generation = 1;
   bool used = false, closed = false, settled = false, observed = false, disposing = false;
   TaskHandle owner;
   CallFrame *callOwner = nullptr;
+  BorrowedGroupOwner *persistentOwner = nullptr;
+  GroupHold *ownerHold = nullptr;
+  bool detached = false;
   GroupHandle parent;
   std::uint32_t depth = 0, outstanding = 0;
   Failure failure;
@@ -388,6 +401,40 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     return record.call->borrowed ? *borrowedCall(*record.call).entry->execution
                                  : record.call->execution;
   }
+  static CallFrame *persistentCall(Record &record) { return record.persistent; }
+  static BorrowedGroupOwner *persistentOwner(CallFrame *node) {
+    return node && node->borrowed ? borrowedCall(*node).entry->groups : nullptr;
+  }
+  void attachGroups(CallFrame &node, TaskHandle active, bool cancel = false) {
+    auto *owner = persistentOwner(&node);
+    if (!owner)
+      return;
+    for (auto i = liveGroups.next(0); i < liveGroups.size(); i = liveGroups.next(i + 1)) {
+      auto &group = groups[i];
+      if (group.persistentOwner == owner && group.detached) {
+        group.owner = active;
+        group.callOwner = &node;
+        group.detached = false;
+      }
+      if (cancel && group.persistentOwner == owner && group.owner == active && !group.settled)
+        failGroup(groupHandle(i), {TaskFailure::Cancelled});
+    }
+  }
+  void detachGroups(CallFrame &node, TaskHandle active) {
+    auto *owner = persistentOwner(&node);
+    for (auto i = liveGroups.next(0); i < liveGroups.size(); i = liveGroups.next(i + 1)) {
+      auto &group = groups[i];
+      if (owner && group.persistentOwner == owner && group.owner == active &&
+          group.callOwner == &node) {
+        group.owner = {};
+        group.callOwner = nullptr;
+        group.detached = true;
+        auto *parent = get(group.parent);
+        if (!parent || parent->persistentOwner != owner)
+          group.parent = {};
+      }
+    }
+  }
   static bool reserveCallBytes(void *state, std::uint64_t bytes) noexcept {
     auto &core = *static_cast<Impl *>(state);
     Guard guard(core);
@@ -430,6 +477,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     --stats.callFrames;
   }
   void destroyCalls(Record &record, std::unique_lock<std::mutex> &lock) {
+    record.persistent = nullptr;
     if (record.returned) {
       auto *node = std::exchange(record.returned, nullptr);
       destroyCall(node, lock);
@@ -542,19 +590,21 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     }
     enqueue(index);
   }
-  GroupHandle open(TaskHandle owner, GroupHandle lexical = {}) {
+  GroupHandle open(TaskHandle owner, GroupHandle lexical = {}, bool independent = false) {
     std::uint32_t depth = 0;
     GroupHandle parent;
     if (owner) {
       auto *task = get(owner);
       if (!task || task->state != State::Running)
         return {};
-      parent = lexical ? lexical : task->group;
-      if (!get(parent) || (lexical && get(parent)->owner != owner)) {
+      if (independent && task->cancel.load())
+        return {};
+      parent = lexical ? lexical : independent ? GroupHandle{} : task->group;
+      if ((!independent && !get(parent)) || (lexical && !owned(parent, owner))) {
         execution(*task).fault(3);
         return {};
       }
-      depth = get(parent)->depth + 1;
+      depth = parent ? get(parent)->depth + 1 : 1;
       if (depth > limits.depth) {
         failGroup(task->group, {TaskFailure::AdmissionRejected});
         return {};
@@ -636,7 +686,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
   TaskHandle submit(GroupHandle h, const TaskEntry &entry, Packet packet, TaskHandle owner,
                     std::unique_lock<std::mutex> &lock) {
     auto *group = get(h);
-    if (!group || group->owner != owner || group->settled)
+    if (!group || group->detached || group->owner != owner || group->settled)
       return {};
     if (group->closed || group->failure.kind != TaskFailure::None)
       return rejected(h, group->failure.kind == TaskFailure::None
@@ -711,11 +761,11 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
   }
   bool owned(GroupHandle h, TaskHandle owner) const {
     auto *group = get(h);
-    return group && group->owner == owner;
+    return group && !group->detached && group->owner == owner;
   }
   bool close(GroupHandle h, TaskHandle owner) {
     auto *group = get(h);
-    if (!group || group->owner != owner)
+    if (!group || group->detached || group->owner != owner)
       return false;
     group->closed = true;
     return true;
@@ -767,11 +817,19 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       task.generation = generation;
       --stats.records;
     }
+    auto *hold = std::exchange(group->ownerHold, nullptr);
     const auto generation = group->generation + 1;
     liveGroups.erase(h.slot);
     *group = Group{};
     group->generation = generation;
     --stats.groups;
+    if (hold) {
+      lock.unlock();
+      hold->~GroupHold();
+      acquire(lock);
+      void *memory = hold;
+      freeBytes(memory, sizeof(GroupHold));
+    }
     return true;
   }
   void maintain(std::unique_lock<std::mutex> &lock) {
@@ -833,6 +891,10 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
         if (task.state != State::Settling || task.executing || task.cleaning ||
             task.externalPending)
           continue;
+        if (task.returned)
+          attachGroups(*task.returned, handle(i), true);
+        for (auto *node = task.call; node; node = node->parent)
+          attachGroups(*node, handle(i), true);
         bool pending = false;
         for (auto j = liveGroups.next(0); j < liveGroups.size(); j = liveGroups.next(j + 1)) {
           auto &nested = groups[j];
@@ -993,6 +1055,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       if (record->state == State::Runnable && record->callPushed) {
         auto *previous = record->call;
         record->call = std::exchange(record->returned, nullptr);
+        if (persistentOwner(record->call))
+          record->persistent = record->call;
         record->callPushed = false;
         if (record->callTail) {
           record->callTail = false;
@@ -1004,6 +1068,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
         }
       } else if (record->state == State::Runnable && record->callCompleted) {
         record->returned = record->call;
+        if (persistentOwner(record->call))
+          record->persistent = borrowedCall(*record->call).previousPersistent;
         record->call = record->call->parent;
         record->callCompleted = false;
       }
@@ -1253,9 +1319,67 @@ GroupHandle Task::openGroup(GroupHandle parent) noexcept {
   auto &record = core_.tasks[slot_];
   if (!parent && record.call)
     parent = record.call->lexical;
-  auto group = core_.open(core_.handle(slot_), parent);
-  if (group)
-    core_.get(group)->callOwner = record.call;
+  auto *persistent = TaskCore::Impl::persistentCall(record);
+  auto *owner = TaskCore::Impl::persistentOwner(persistent);
+  GroupHold *hold = nullptr;
+  if (owner) {
+    auto *binding = static_cast<GroupBinding *>(owner->binding_.load(std::memory_order_acquire));
+    if (!binding || binding->core.expired()) {
+      guard.lock.unlock();
+      auto *memory = owner->storage_->allocateResource(sizeof(GroupBinding), GroupBinding::destroy);
+      auto *fresh = memory ? new (memory) GroupBinding(core_.shared_from_this()) : nullptr;
+      core_.acquire(guard.lock);
+      if (!fresh) {
+        context().fault(owner->storage_->status() ? owner->storage_->status() : 2);
+        return {};
+      }
+      owner->binding_.store(fresh, std::memory_order_release);
+      binding = fresh;
+    }
+    if (binding->core.lock().get() != &core_) {
+      context().fault(3);
+      return {};
+    }
+    auto retained = borrowedCall(*persistent).pin.retain();
+    if (!retained) {
+      context().fault(3);
+      return {};
+    }
+    auto *memory = core_.allocate(sizeof(GroupHold));
+    if (!memory) {
+      context().fault(2);
+      return {};
+    }
+    hold = new (memory) GroupHold;
+    guard.lock.unlock();
+    hold->ownership.bindRecursiveBudget(&core_, TaskCore::Impl::reserveRecursiveBytes,
+                                        TaskCore::Impl::releaseRecursiveBytes);
+    const auto copied = hold->ownership.retainLease(*retained);
+    core_.acquire(guard.lock);
+    if (!copied) {
+      context().fault(hold->ownership.status() ? hold->ownership.status() : 2);
+      guard.lock.unlock();
+      hold->~GroupHold();
+      core_.acquire(guard.lock);
+      core_.freeBytes(memory, sizeof(GroupHold));
+      return {};
+    }
+    if (parent && core_.get(parent) && core_.get(parent)->persistentOwner != owner)
+      parent = {};
+  }
+  auto group = core_.open(core_.handle(slot_), parent, owner != nullptr);
+  if (group) {
+    auto *created = core_.get(group);
+    created->callOwner = record.call;
+    created->persistentOwner = owner;
+    created->ownerHold = hold;
+  } else if (hold) {
+    guard.lock.unlock();
+    hold->~GroupHold();
+    core_.acquire(guard.lock);
+    void *memory = hold;
+    core_.freeBytes(memory, sizeof(GroupHold));
+  }
   return group;
 }
 TaskHandle Task::spawn(GroupHandle group, const TaskEntry &entry, Packet packet) noexcept {
@@ -1403,6 +1527,17 @@ bool Task::callBorrowed(const BorrowedTaskEntry &borrowed, AllocationLease pin, 
     context().fault(3);
     return false;
   }
+  if (borrowed.groups) {
+    const auto storage = pin.bytes();
+    const auto base = reinterpret_cast<std::uintptr_t>(storage.data());
+    const auto address = reinterpret_cast<std::uintptr_t>(borrowed.groups);
+    if (address < base || storage.size() < sizeof(BorrowedGroupOwner) ||
+        address - base > storage.size() - sizeof(BorrowedGroupOwner) ||
+        borrowed.groups->storage_ != borrowed.execution) {
+      context().fault(3);
+      return false;
+    }
+  }
   constexpr auto header = callPadded(sizeof(CallFrame));
   constexpr auto leaseBytes = callPadded(sizeof(BorrowedCall));
   if (header > core_.limits.callBytes || leaseBytes > core_.limits.callBytes - header ||
@@ -1429,7 +1564,7 @@ bool Task::callBorrowed(const BorrowedTaskEntry &borrowed, AllocationLease pin, 
   node->frame = borrowed.frame;
   node->value = static_cast<char *>(memory) + header + leaseBytes;
   node->borrowed = true;
-  new (&borrowedCall(*node)) BorrowedCall{&borrowed, std::move(pin)};
+  new (&borrowedCall(*node)) BorrowedCall{&borrowed, std::move(pin), record.persistent};
   node->outcome.bindCancellation(&record.cancel);
   node->outcome.bindRecursiveBudget(&core_, TaskCore::Impl::reserveCallBytes,
                                     TaskCore::Impl::releaseCallBytes);
@@ -1448,13 +1583,27 @@ bool Task::callBorrowed(const BorrowedTaskEntry &borrowed, AllocationLease pin, 
     core_.destroyCall(node, guard.lock);
     return false;
   }
+  if (auto *owner = borrowed.groups) {
+    auto *binding = static_cast<GroupBinding *>(owner->binding_.load(std::memory_order_acquire));
+    if (binding) {
+      auto bound = binding->core.lock();
+      if (bound && bound.get() != &core_) {
+        context().fault(3);
+        core_.destroyCall(node, guard.lock);
+        return false;
+      }
+    }
+    core_.attachGroups(*node, core_.handle(slot_));
+  }
   if (borrowed.execution->poll() || context().poll()) {
     if (borrowed.execution->status())
       context().fault(borrowed.execution->status(), borrowed.execution->line(),
                       borrowed.execution->column());
     else if (!record.cancel.load() && !context().poll())
       context().fault(3);
-    core_.destroyCall(node, guard.lock);
+    // Preserve the borrowed node until the caller's failure barrier has
+    // cancelled and joined its reattached groups. No producer body executes.
+    record.returned = node;
     return false;
   }
   record.returned = node;
@@ -1462,6 +1611,52 @@ bool Task::callBorrowed(const BorrowedTaskEntry &borrowed, AllocationLease pin, 
   record.callTail = false;
   record.state = State::Runnable;
   return false;
+}
+bool Task::settleBorrowedGroups() noexcept {
+  TaskCore::Impl::Guard guard(core_);
+  auto &record = core_.tasks[slot_];
+  auto *owner = TaskCore::Impl::persistentOwner(TaskCore::Impl::persistentCall(record));
+  if (record.state != State::Running || !owner) {
+    context().fault(3);
+    return false;
+  }
+  GroupHandle waiting;
+  for (auto i = core_.liveGroups.next(0); i < core_.liveGroups.size();
+       i = core_.liveGroups.next(i + 1)) {
+    auto &group = core_.groups[i];
+    if (group.persistentOwner != owner)
+      continue;
+    if (group.owner != core_.handle(slot_) || group.detached) {
+      context().fault(3);
+      return false;
+    }
+    if (!group.settled) {
+      core_.failGroup(core_.groupHandle(i), {TaskFailure::Cancelled});
+      waiting = core_.groupHandle(i);
+    }
+  }
+  if (waiting) {
+    record.groupDependency = waiting;
+    record.state = State::WaitingGroup;
+    ++core_.stats.maintenanceTasks;
+    return false;
+  }
+  Failure failure;
+  for (auto i = core_.liveGroups.next(0); i < core_.liveGroups.size();
+       i = core_.liveGroups.next(i + 1)) {
+    auto &group = core_.groups[i];
+    if (group.persistentOwner != owner)
+      continue;
+    if (failure.kind == TaskFailure::None && group.failure.kind == TaskFailure::Fault)
+      failure = group.failure;
+    group.observed = true;
+    core_.dispose(core_.groupHandle(i), guard.lock);
+  }
+  if (failure.kind != TaskFailure::None) {
+    context().fault(failure.code, failure.line, failure.column);
+    return false;
+  }
+  return true;
 }
 bool Task::await(TaskHandle h) noexcept {
   TaskCore::Impl::Guard guard(core_);
@@ -1673,6 +1868,8 @@ void Task::complete(const void *value) noexcept {
     return;
   }
   auto *node = task.call;
+  if (node && TaskCore::Impl::persistentOwner(node))
+    core_.detachGroups(*node, core_.handle(slot_));
   if (node)
     for (auto i = core_.liveGroups.next(0); i < core_.liveGroups.size();
          i = core_.liveGroups.next(i + 1))
