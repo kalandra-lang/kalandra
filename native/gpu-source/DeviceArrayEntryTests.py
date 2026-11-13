@@ -67,8 +67,9 @@ sum_helper = '''fn work(values:[i64])->i64:
   return total
 '''
 cases['empty'] = (sum_helper, '  values:[i64]=[]\n', 'work(values)', 'i64', 0)
-cases['multi-page'] = (sum_helper, '''  values=for i in range(17000):
+cases['multi-page'] = (sum_helper, '''  values=array(for i in range(17000):
     yield i
+  )
 ''', 'work(values)', 'i64', 144491500)
 for name,typ,literal,expected in (
     ('int64-min','i64','-9223372036854775808',-9223372036854775808),

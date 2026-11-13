@@ -124,3 +124,45 @@ representation. Canonical packed backing is retained directly. Offset or strided
 views are copied in logical element order, with checked dimensions, cancellation
 polling and byte-preserving copies for all ten numeric types. This normalization
 does not change floating-point values or copy captured arrays implicitly.
+
+## Performance qualification and remaining specialization
+
+Direct array/range loops keep their existing lowering. General source cursors
+and adapters currently retain a producer-frame boundary on each advancement;
+static trait resolution does not yet imply fusion of a known lazy pipeline.
+Eliminating that boundary for proven nonescaping cursors remains an optimization
+target, not a property to promise to users of this implementation.
+
+The frozen Apple M2 Max/macOS 27.2 qualification compares matching compiler,
+runtime and header installations, validates every invocation, and retains nine
+ABBA/BAAB blocks with three timed rounds and two warmups. Ordinary resumable
+calls remain within 0.6% of baseline in paired/replicated measurements. Existing
+manual cursor cases range from 0.2% to 1.1% slower in the paired comparison and
+0.2% to 0.8% slower in replication. Identical-build controls remain within 0.6%.
+These small unfavorable differences are retained. Cursor `for` takes 6.3–16.4%
+less time than equivalent manual `next`/`close` traversal.
+
+Immediately materialized growing arrays of `i*i%97` retain the former eager
+collector's performance: paired and replicated ratios range from 0.9995 to
+1.0055. This does **not** establish competitive numerical throughput. At 4,096
+items, the current collector takes about 1.26 ms versus 4.26 microseconds for
+the C++ `vector` and Rust `Vec` references. The references grow without reserving
+capacity, retain actual storage with compiler barriers, and validate the same
+scalar result. Kalandra uses O2 and includes its closed invocation/ownership
+lifecycle; C++/Rust use O3 and do not implement Kalandra's cancellation/resource
+contract. The older Kalandra collector has essentially the same cost.
+
+A separate filter-even-indices/map-`i*i%97`/sum comparison exposes the cost of
+general lazy state on deliberately small per-item work:
+
+| Items | Direct range loop | Source generator | `filter` then `map` |
+| --- | ---: | ---: | ---: |
+| 64 | about 0.8 microseconds | about 38 microseconds | about 131 microseconds |
+| 4,096 | about 3 microseconds | about 2.25 ms | about 7.6 ms |
+
+The paired and replicated results preserve this gap. It must not be described
+as zero-cost iteration or extrapolated into a whole-language speed claim.
+`native/benchmarks/fair/iteration.py` builds reproducible direct, source,
+adapter and materialized cases using the common frozen-driver protocol. Use
+its `--baseline-mode` and `--candidate-mode` options to distinguish an
+abstraction comparison from a same-source before/after regression test.

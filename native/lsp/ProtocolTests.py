@@ -197,12 +197,12 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Device-local arrays and ordered collectors share the ordinary array type
     # and access diagnostics. Editor checking never initializes a GPU driver.
-    device_arrays = ('fn work(n:i64)->i64:\n  values=for i in range(n):\n    if i%2==1:\n      yield i\n  snapshot=copy(values)\n  if length(values)>0:\n    values[0]=99\n  return length(snapshot)\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn work(10) on devices.gpu()\n')
+    device_arrays = ('fn work(n:i64)->i64:\n  values=array(for i in range(n):\n    if i%2==1:\n      yield i\n  )\n  snapshot=copy(values)\n  if length(values)>0:\n    values[0]=99\n  return length(snapshot)\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn work(10) on devices.gpu()\n')
     client = Client("--placement")
     client.init()
     client.open(main, device_arrays)
     assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
-    assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "snapshot: [i64]"
+    assert client.hover(main, 5, 4)["result"]["contents"]["value"] == "snapshot: [i64]"
     client.finish()
 
     device_boolean = ('fn predicate(flag:bool)->bool:\n  return flag\nfn main()->bool ! TaskError:\n  return try parallel:\n    result=try await spawn predicate(true) on devices.gpu()\n    result\n')

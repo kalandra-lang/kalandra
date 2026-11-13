@@ -8,10 +8,11 @@ fn prepare(count:i64)->[f32]:
   )
 fn main()->i64 ! TaskError:
   return try parallel:
-    values=array(for row in range(3):
+    values=try array(for row in range(3):
       for index in range(2):
-        child=spawn identity(row*2+index) on devices.cpu()
-        value=try await child
+        value=try parallel:
+          child=spawn identity(row*2+index) on devices.cpu()
+          try await child
         if value%2==0:
           yield f32(value+1)
     )

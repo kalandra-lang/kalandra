@@ -234,6 +234,8 @@ h2 { "Lazy adapters" }
 
 Import map, filter and take from std/iter to transform a cursor without constructing intermediate arrays. These functions consume their input cursor. To adapt an array, Range or another reusable Iterable, first call iter(source). Give the iterator map an import alias when you also use the built-in array map.
 
+Direct loops over arrays and ranges have lower overhead for tight numeric work. Use a lazy sequence when you need to stop early, retain an advancing position or return deferred work from a function. Adapters avoid intermediate arrays, but do not assume that a chain has the same execution cost as one direct loop.
+
 h2 { "map" }
 
 code { "map[T, U, E, F](own values: Iterator[T, E], transform: fn(T) -> U ! F)" }
