@@ -176,6 +176,8 @@ public:
   bool settled(TaskHandle) const noexcept;
   Failure failure(TaskHandle) const noexcept;
   bool observe(TaskHandle, const ValueLayout &, Invocation &, void *output) noexcept;
+  // False while unread owned results are joining asynchronous cleanup. Drive
+  // the core (including external acknowledgements), then retry the same group.
   bool release(GroupHandle) noexcept;
   bool step() noexcept;
   bool drain(std::size_t steps = 100000) noexcept;

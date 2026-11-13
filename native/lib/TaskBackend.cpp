@@ -2979,9 +2979,8 @@ private:
         break;
       }
       case Code::ReleaseGroup:
-        builder.CreateCondBr(
-            call("kalandra_task_release_group_v1", boolean, {task, group(instruction.group)}), next,
-            abort);
+        wait(call("kalandra_task_release_group_v1", boolean, {task, group(instruction.group)}));
+        check();
         break;
       case Code::Copy:
         copyResult(type, slot(instruction.output), plan.slots[instruction.args[0]],

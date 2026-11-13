@@ -227,7 +227,7 @@ bool receiveOwned(Invocation &ctx, OwnedState &file, const Invocation *source) n
   {
     std::lock_guard lock(resourceMutex());
     const bool retired = file.retired.load(std::memory_order_acquire);
-    if (file.deferredOwner && retired) {
+    if (file.deferredOwner && (retired || (file.scope && file.scope->retiring))) {
       ctx.fault(3);
       return false;
     }

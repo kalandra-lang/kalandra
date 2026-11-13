@@ -141,6 +141,23 @@ ownership of captures. Result transfer and outcome disposal must still use their
 own ownership and asynchronous cleanup protocols; root admission alone does not
 implement those operations.
 
+Discarding an unread task result preflights its owned outcome scopes before any
+result value, parent frame, or ownership ledger is destroyed. Generated group
+release instructions park the same task and retry after cleanup; they consume no
+additional scheduler admission slot. Once disposal begins, new result reads and
+ownership transfers are rejected. Existing readers finish before disposal starts.
+A producer cleaning its own groups attaches unread result producers as children
+of the same retirement fence. Readiness checks the scope's direct members rather
+than the global fence count, so the parent does not wait on its own completion.
+
+Host `TaskCore::release` returns false while asynchronous result cleanup is
+pending; the host drives `step`/`drain` and retries release. It must still deliver
+any outstanding external completion acknowledgements. Core destruction keeps
+workers alive while disposing unread outcomes and draining the cleanup those
+outcomes create. It cannot substitute for an external kernel acknowledging its
+completion. Cancellation arriving during frame destruction also preflights a
+previously successful owned outcome before publishing cancellation.
+
 ## Mixed GPU host callables
 
 Metal, Vulkan, and CUDA supervisors use the same call runtime. Resumable host

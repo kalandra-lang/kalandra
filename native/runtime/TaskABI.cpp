@@ -38,10 +38,7 @@ bool kalandra_task_join_v1(Task *task, const GroupHandle *group) noexcept {
   return task->join(*group);
 }
 bool kalandra_task_release_group_v1(Task *task, const GroupHandle *group) noexcept {
-  if (task->releaseGroup(*group))
-    return true;
-  task->context().fault(3);
-  return false;
+  return task->releaseGroup(*group);
 }
 bool kalandra_task_read_v1(Task *task, const TaskHandle *handle, const ValueLayout *layout,
                            void *out) noexcept {
@@ -107,6 +104,11 @@ void kalandra_run_task_v1(const TaskEntry *entry, const Packet *packet, void *ou
   }
   if (failure->kind == TaskFailure::None)
     *failure = core->failure(group);
-  core->release(group);
+  while (!core->release(group))
+    if (!core->drainToCompletion()) {
+      if (failure->kind == TaskFailure::None)
+        *failure = {TaskFailure::Fault, 3};
+      return;
+    }
 }
 }

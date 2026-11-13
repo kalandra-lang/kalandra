@@ -4659,7 +4659,9 @@ class Compiler {
       case Code::SynchronousCall:
         reject(span, "function values require the CPU backend");
       case Code::ReleaseGroup:
-        steps.push_back(check("task.releaseGroup(" + plannedGroups.at(op.group) + ")"));
+        steps.push_back("if(!task.releaseGroup(" + plannedGroups.at(op.group) +
+                        ")){f.pc=@pc" + std::to_string(i) +
+                        "@;return;}if(task.context().status()){hostArrayFailure(task);return;}\n");
         break;
       case Code::Label:
         break;
