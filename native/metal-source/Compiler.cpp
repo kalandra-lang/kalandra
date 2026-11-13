@@ -4021,6 +4021,20 @@ class Compiler {
                         "){hostArrayFailure(task);return;}}\n");
         break;
       }
+      case Code::ResourceAdopt: {
+        const auto value = args[0];
+        std::string valid = "true";
+        if (value.failure) {
+          valid = failureRef(value) + ".kind==TaskFailure::None";
+          if (value.applicationError)
+            valid += " && " + hostErrorTag(applicationError(value)) + "==0";
+        }
+        steps.push_back("if(" + valid +
+                        "){if(!kalandra_owned_adopt_v1(&task.context(),"
+                        "reinterpret_cast<const OwnedDescriptor*>(&" +
+                        ref(value) + "))){hostArrayFailure(task);return;}}\n");
+        break;
+      }
       case Code::ResourceLeave: {
         std::string escaping = "nullptr";
         if (args.size() > 1) {

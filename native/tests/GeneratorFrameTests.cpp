@@ -839,6 +839,7 @@ struct CoordinatingProbe {
   GroupHandle cancelGroup;
   std::atomic<unsigned> copies{0};
   std::atomic<unsigned> items{0};
+  std::atomic<bool> terminalPublished{false};
 };
 struct CoordinatingValue {
   GeneratorStep step = GeneratorStep::Exhausted;
@@ -875,6 +876,8 @@ void destroyCoordinatingChild(void *p) noexcept {
 }
 void resumeCoordinatingChild(Task &task) {
   auto &probe = **static_cast<CoordinatingProbe **>(task.frame());
+  if (probe.mode == 11)
+    task.context().fault(9, 44, 2);
   probe.completion = task.suspendExternal();
   CHECK(probe.completion);
   probe.externalReady.store(true, std::memory_order_release);
@@ -894,7 +897,7 @@ bool constructCoordinatingBody(Invocation &ctx, void *out, const Packet &packet)
   ++probe->constructed;
   if (probe->captureSource) {
     if (probe->mode == 7)
-      ctx.failAllocationAt(ctx.allocations() + 1);
+      ctx.failAllocationAt(InvocationABI::allocationAttempts(ctx) + 1);
     if (!kalandra_owned_copy_v1(&ctx, probe->captureSource, &probe->captured)) {
       auto *owned = inspectOwned(*probe->captureSource, probe->captured);
       CHECK(owned && owned->scope && owned->scope->context == probe->captureSource);
@@ -1017,6 +1020,8 @@ void resumeCoordinatingConsumer(Task &task) {
         task.yield();
         return;
       }
+      if (probe.mode == 11)
+        probe.terminalPublished.store(true, std::memory_order_release);
       CHECK(f.value.step == (probe.mode == 1 ? GeneratorStep::Error : GeneratorStep::Exhausted));
       if (probe.mode == 1)
         CHECK(std::string_view(f.value.text.data, f.value.text.byteLength) == "error");
@@ -1174,7 +1179,7 @@ void boundedCoordinatingStream() {
 }
 void coordinatingGenerators() {
   for (unsigned workers : {1u, 4u})
-    for (unsigned mode : {0u, 1u, 2u, 3u, 4u, 5u, 9u}) {
+    for (unsigned mode : {0u, 1u, 2u, 3u, 4u, 5u, 9u, 11u}) {
       TaskLimits limits;
       limits.workers = workers;
       limits.records = 2; // one consumer and one real child; no cursor task
@@ -1204,7 +1209,12 @@ void coordinatingGenerators() {
       }
       CHECK(core->drainToCompletion() && core->settled(task));
       const auto failure = core->failure(task);
-      if (mode == 4)
+      if (mode == 11) {
+        CHECK(failure.kind == TaskFailure::Fault && failure.code == 9 && failure.line == 44 &&
+              failure.column == 2);
+        CHECK(!probe.terminalPublished.load(std::memory_order_acquire));
+      }
+      else if (mode == 4)
         CHECK(failure.kind == TaskFailure::Fault && failure.code == 8 && failure.line == 37);
       else if (mode == 5)
         CHECK(failure.kind == TaskFailure::Fault && failure.code == 3);

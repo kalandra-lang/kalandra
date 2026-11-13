@@ -293,37 +293,44 @@ extern "C" void *kalandra_file_scope_enter_v1(Invocation *ctx, const OwnedDescri
   if (!memory)
     return nullptr;
   auto *control = new (memory) ResourceControl(*ctx);
-  if (!control->storage.valid())
+  if (!control->storage.valid()) {
+    ctx->releaseControl(control);
     return nullptr;
+  }
   {
     Invocation::OwnershipSelection selected(control->storage);
-    auto *data = ctx->allocateResource(sizeof(ResourceScope), ResourceScope::cleanup);
-    if (!data)
-      return nullptr;
-    control->scope = new (data) ResourceScope;
-    control->scope->context = ctx;
-    control->scope->control = control;
-    if (parent) {
-      control->scope->parent = parent->scope;
-      auto lease = ctx->lease(parent->scope);
-      if (!lease) {
-        ctx->fault(3);
-        return nullptr;
+    if (auto *data = ctx->allocateResource(sizeof(ResourceScope), ResourceScope::cleanup)) {
+      control->scope = new (data) ResourceScope;
+      control->scope->context = ctx;
+      control->scope->control = control;
+      if (parent) {
+        control->scope->parent = parent->scope;
+        if (auto lease = ctx->lease(parent->scope))
+          control->scope->parentOwner = std::move(*lease);
+        else
+          ctx->fault(3);
       }
-      control->scope->parentOwner = std::move(*lease);
-    }
-    for (std::uint64_t n = 0; n < count; ++n) {
-      if (!owned || !owned[n]) {
-        ctx->fault(3);
-        return nullptr;
-      }
-      auto *file = inspectOwned(*ctx, *owned[n]);
-      if (!file)
-        return nullptr;
-      adopt(*ctx, *file, control->scope);
     }
   }
-  return healthy(*ctx) ? control : nullptr;
+  if (!control->scope || !healthy(*ctx)) {
+    // No capture has moved yet. A half-constructed scope must not hide older
+    // asynchronous owners from failure maintenance's lexical-scope traversal.
+    ctx->releaseControl(control);
+    return nullptr;
+  }
+  for (std::uint64_t n = 0; n < count; ++n) {
+    if (!owned || !owned[n]) {
+      ctx->fault(3);
+      return nullptr;
+    }
+    auto *file = inspectOwned(*ctx, *owned[n]);
+    if (!file)
+      return nullptr;
+    adopt(*ctx, *file, control->scope);
+    if (!healthy(*ctx))
+      return nullptr; // keep valid scope and any already-moved captures for cleanup
+  }
+  return control;
 }
 extern "C" void kalandra_file_scope_leave_v1(Invocation *ctx, void *scope,
                                              const OwnedDescriptor *escaping) noexcept {
@@ -344,4 +351,26 @@ extern "C" bool kalandra_file_receive_v1(Invocation *ctx, const OwnedDescriptor 
   // its receiver. This legacy callback has no source identity, so it cannot
   // consume an existing owner through an enclosing result-copy permission.
   return receiveOwned(*ctx, *file, nullptr);
+}
+
+extern "C" bool kalandra_owned_adopt_v1(Invocation *ctx, const OwnedDescriptor *value) noexcept {
+  if (!ctx || !value || !healthy(*ctx))
+    return false;
+  auto *state = inspectOwned(*ctx, *value);
+  auto *control = currentScope(*ctx);
+  bool foreignOwner = false, alreadyLocal = false;
+  if (state) {
+    std::lock_guard lock(resourceMutex());
+    foreignOwner = state->scope && state->scope->context != ctx;
+    alreadyLocal = control && state->scope == control->scope && state->scope &&
+                   state->scope->active && !state->scope->retiring &&
+                   !state->retired.load(std::memory_order_acquire);
+  }
+  if (!state || !control || !control->scope || foreignOwner) {
+    ctx->fault(3);
+    return false;
+  }
+  if (!alreadyLocal)
+    adopt(*ctx, *state, control->scope);
+  return healthy(*ctx);
 }

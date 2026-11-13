@@ -402,8 +402,32 @@ void ownedResultTransfer() {
   CHECK(source.live() == 0 && destination.live() == 0);
   CHECK(budget.bytes == 0);
 }
+void affineBindingAdoption() {
+  Counts counts;
+  Invocation source, snapshot;
+  auto *outer = static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&source, nullptr, 0));
+  CHECK(outer);
+  auto *value = make(source, counts);
+  auto descriptor = ownedDescriptor(value);
+  auto *inner = static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&source, nullptr, 0));
+  CHECK(inner && kalandra_owned_adopt_v1(&source, &descriptor));
+  CHECK(value->scope == inner->scope && counts.retired == 0);
+  kalandra_file_scope_leave_v1(&source, inner, nullptr);
+  CHECK(counts.retired == 1 && !value->scope);
+  auto *remaining = make(source, counts);
+  auto borrowed = ownedDescriptor(remaining);
+  CHECK(snapshot.retainFrom(source, remaining));
+  auto *scope = kalandra_file_scope_enter_v1(&snapshot, nullptr, 0);
+  CHECK(scope && !kalandra_owned_adopt_v1(&snapshot, &borrowed));
+  CHECK(snapshot.status() == 3 && remaining->scope == outer->scope && counts.retired == 1);
+  snapshot.settle();
+  CHECK(counts.retired == 1);
+  source.settle();
+  CHECK(counts.retired == 2 && counts.destroyed == 2);
+}
 } // namespace
 int main() {
+  affineBindingAdoption();
   ownedResultTransfer();
   escapeRoot();
   escapeRootAdmission();

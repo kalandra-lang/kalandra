@@ -121,6 +121,11 @@ struct alignas(std::max_align_t) GeneratorTaskState : OwnedState {
         task.context().fault(3);
         return;
       }
+      const auto failure = task.ownedCleanupFailure();
+      if (failure.kind == TaskFailure::Fault) {
+        task.fail(failure); // a child fault wins before the staged terminal value is observable
+        return;
+      }
       task.completeFrom(s.staged, s.result(), true);
       return;
     }

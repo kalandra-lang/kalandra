@@ -352,6 +352,11 @@ private:
 // The supported 64-bit CPU ABIs share this invocation layout. Keep compiler
 // field access and runtime storage identical even when built on different hosts.
 struct InvocationABI {
+  // Private failure-injection ordinal. Admission attempts include reused and
+  // failed owners, so they are deliberately distinct from allocation counts.
+  static std::uint64_t allocationAttempts(const Invocation &invocation) noexcept {
+    return invocation.flags_ & Invocation::Materialized ? invocation.storage_.value.attempts_ : 0;
+  }
   static std::uint8_t armNativeCancellation(Invocation &invocation) noexcept {
     invocation.initializeControl();
     const auto previous = invocation.pollMode_;

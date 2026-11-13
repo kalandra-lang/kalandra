@@ -106,6 +106,7 @@ class Builder : public ModulePlan {
     ValueId source;
     std::vector<std::size_t> exits;
     std::size_t collectionDepth = 0;
+    std::optional<Slot> resourceScope = {};
   };
   struct Environment {
     std::unordered_map<ValueId, Slot> values;
@@ -128,7 +129,8 @@ public:
   std::optional<FunctionInvocationFlow> invocationFlow;
   std::vector<FunctionId> pending;
   std::vector<bool> scheduled;
-  std::vector<bool> nonCompleting;
+  std::vector<bool> nonCompleting, resourceExpressions, spawnExpressions;
+  std::vector<std::vector<ValueId>> resourceChildren;
   std::vector<std::vector<SymbolId>> localCells;
   explicit Builder(const TypedModule &input, Options options,
                    const RecordStoragePlan &recordStorage)
@@ -139,6 +141,7 @@ public:
                                             : std::vector<bool>(input.functions.size())),
         invocationFlow(functionInvocationFlow(input)) {
     nonCompleting = nonCompletingValues(input);
+    resourceExpressions = ownedCreationExpressions();
     if (options.deviceCallFrames && (!options.entry || !options.deviceValues ||
                                      options.nativeSubgraphs || options.preserveCalls))
       throw std::runtime_error("device call frames require a selected device continuation entry");
@@ -313,13 +316,199 @@ private:
     } else
       env.symbols[symbol] = value;
   }
+  // Propagate creation/move requirements through the expression graph without
+  // recursive walks or repeated scans of deeply nested suites.
+  std::vector<bool> ownedCreationExpressions() {
+    std::vector<bool> needed(input.expressions.size());
+    spawnExpressions.assign(needed.size(), false);
+    resourceChildren.resize(needed.size());
+    std::vector<std::vector<ValueId>> parents(needed.size());
+    std::vector<ValueId> pending;
+    for (ValueId id = 0; id < input.expressions.size(); ++id) {
+      const auto &node = input.expressions[id];
+      if (const auto *task = std::get_if<TaskOperation>(&node.operation))
+        spawnExpressions[id] = task->prefix == TaskPrefix::Spawn;
+      needed[id] = !node.type.task && isOwnedResource(input, node.type) &&
+                   !std::holds_alternative<SymbolRead>(node.operation);
+      const auto child = [&](ValueId value) {
+        parents.at(value).push_back(id);
+        resourceChildren[id].push_back(value);
+      };
+      const auto suite = [&](const std::vector<TypedStatement> &statements) {
+        for (const auto &statement : statements) {
+          child(statement.value);
+          const auto &type = input.expressions[statement.value].type;
+          needed[id] =
+              needed[id] || (statement.binding && !type.task && isOwnedResource(input, type));
+        }
+      };
+      for (auto value : operands(node))
+        child(value);
+      std::visit(
+          [&](const auto &op) {
+            using T = std::decay_t<decltype(op)>;
+            if constexpr (std::is_same_v<T, ParallelOperation> ||
+                          std::is_same_v<T, GuardOperation> || std::is_same_v<T, CatchOperation>) {
+              suite(op.body);
+              child(op.result);
+              if constexpr (std::is_same_v<T, CatchOperation>)
+                child(op.operand);
+              else if constexpr (std::is_same_v<T, GuardOperation>)
+                child(op.condition);
+            } else if constexpr (std::is_same_v<T, ConditionalOperation>) {
+              suite(op.whenTrue);
+              suite(op.whenFalse);
+              child(op.condition);
+              child(op.trueResult);
+              child(op.falseResult);
+            } else if constexpr (std::is_same_v<T, WhileOperation>) {
+              suite(op.initial);
+              suite(op.iteration);
+              suite(op.body);
+              suite(op.whenDone);
+              child(op.condition);
+              if (op.normalResult)
+                child(*op.normalResult);
+            } else if constexpr (std::is_same_v<T, MatchOperation>) {
+              child(op.subject);
+              for (const auto &arm : op.cases) {
+                suite(arm.body);
+                child(arm.result);
+              }
+            } else if constexpr (std::is_same_v<T, YieldOperation>)
+              child(op.operand);
+            else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
+              if (op.value)
+                child(*op.value);
+            } else if constexpr (std::is_same_v<T, TaskOperation>) {
+              child(op.operand);
+              if (op.placement)
+                child(*op.placement);
+            } else if constexpr (std::is_same_v<T, FailOperation>)
+              child(op.error);
+          },
+          node.operation);
+      if (needed[id])
+        pending.push_back(id);
+    }
+    while (!pending.empty()) {
+      const auto value = pending.back();
+      pending.pop_back();
+      for (auto parent : parents[value])
+        if (!needed[parent]) {
+          needed[parent] = true;
+          pending.push_back(parent);
+        }
+    }
+    for (ValueId id = 0; id < spawnExpressions.size(); ++id)
+      if (spawnExpressions[id])
+        pending.push_back(id);
+    while (!pending.empty()) {
+      const auto value = pending.back();
+      pending.pop_back();
+      for (auto parent : parents[value])
+        if (!spawnExpressions[parent]) {
+          spawnExpressions[parent] = true;
+          pending.push_back(parent);
+        }
+    }
+    return needed;
+  }
+  bool statementResources(const TypedStatement &statement) const {
+    const auto &type = input.expressions[statement.value].type;
+    return resourceExpressions[statement.value] ||
+           (statement.binding && !type.task && isOwnedResource(input, type));
+  }
+  bool suiteResources(const std::vector<TypedStatement> &statements) const {
+    return std::ranges::any_of(
+        statements, [&](const auto &statement) { return statementResources(statement); });
+  }
+  std::optional<Slot> enterResources(Plan &plan, bool needed, ValueId source) {
+    if (!needed)
+      return {};
+    ValueType type;
+    type.element = NumericType::UInt64;
+    const auto token = slot(plan, type);
+    plan.code.push_back({Code::ResourceEnter, token, {}, 0, 0, 0, source});
+    return token;
+  }
+  void leaveResources(Plan &plan, std::optional<Slot> token, std::optional<Slot> value,
+                      ValueId source) {
+    if (!token)
+      return;
+    std::vector<Slot> args{*token};
+    if (value && !plan.slots[*value].task && isOwnedResource(input, plan.slots[*value]))
+      args.push_back(*value);
+    plan.code.push_back({Code::ResourceLeave, 0, std::move(args), 0, 0, 0, source});
+  }
+  void bindLocal(Plan &plan, Environment &env, SymbolId symbol, Slot value, ValueId source) {
+    bindScalar(plan, env, symbol, value);
+    const auto &type = plan.slots.at(value);
+    if (!type.task && isOwnedResource(input, type))
+      plan.code.push_back({Code::ResourceAdopt, 0, {value}, 0, 0, 0, source});
+  }
+  bool singleResourceResult(ValueId id) const {
+    if (input.expressions[id].type.task || !isOwnedResource(input, input.expressions[id].type))
+      return false;
+    std::vector<ValueId> pending{id};
+    std::set<ValueId> seen;
+    unsigned creations = 0;
+    while (!pending.empty()) {
+      const auto value = pending.back();
+      pending.pop_back();
+      if (!resourceExpressions[value] || !seen.insert(value).second)
+        continue;
+      const auto &node = input.expressions[value];
+      const auto *task = std::get_if<TaskOperation>(&node.operation);
+      const bool structural = std::holds_alternative<SymbolRead>(node.operation) ||
+                              std::holds_alternative<WhileOperation>(node.operation) ||
+                              std::holds_alternative<ParallelOperation>(node.operation) ||
+                              std::holds_alternative<ConditionalOperation>(node.operation) ||
+                              std::holds_alternative<MatchOperation>(node.operation) ||
+                              std::holds_alternative<CatchOperation>(node.operation) ||
+                              std::holds_alternative<GuardOperation>(node.operation) ||
+                              std::holds_alternative<LoopTransferOperation>(node.operation) ||
+                              (task && task->prefix == TaskPrefix::Try);
+      if (!structural && !node.type.task && isOwnedResource(input, node.type) && ++creations > 1)
+        return false;
+      for (auto child : resourceChildren[value])
+        if (resourceExpressions[child])
+          pending.push_back(child);
+    }
+    return true;
+  }
+  Slot statement(Plan &plan, const TypedStatement &item, Environment &env,
+                 std::set<FunctionId> &stack, std::optional<ValueId> result = {}) {
+    const auto &op = input.expressions[item.value].operation;
+    const bool control = std::holds_alternative<WhileOperation>(op) ||
+                         std::holds_alternative<ParallelOperation>(op) ||
+                         std::holds_alternative<ConditionalOperation>(op) ||
+                         std::holds_alternative<MatchOperation>(op) ||
+                         std::holds_alternative<CatchOperation>(op) ||
+                         std::holds_alternative<GuardOperation>(op) ||
+                         std::holds_alternative<LoopTransferOperation>(op);
+    // Borrowed spawn arguments must survive through their group's join, not
+    // merely packet submission. Branch/iteration checking observes their tasks
+    // before those suites close; group scopes close only after joining.
+    const bool escapes = item.binding || result == item.value;
+    const bool direct = escapes && singleResourceResult(item.value);
+    auto temporary = enterResources(plan,
+                                    resourceExpressions[item.value] && !control && !direct &&
+                                        !spawnExpressions[item.value],
+                                    item.value);
+    const auto value = expression(plan, item.value, env, stack);
+    leaveResources(plan, temporary, escapes ? std::optional(value) : std::nullopt, item.value);
+    if (item.binding)
+      bindLocal(plan, env, *item.binding, value, item.value);
+    return value;
+  }
   bool resourceFunction(FunctionId id) const {
+    // Borrowing a cursor/file/buffer does not give this function an owning
+    // cleanup boundary. Its caller retains that responsibility through the call.
     return std::ranges::any_of(input.functions[id].expressions,
-                               [&](ValueId value) {
-                                 return isOwnedResource(input, input.expressions[value].type);
-                               }) ||
+                              [&](ValueId value) { return resourceExpressions[value]; }) ||
            std::ranges::any_of(input.functions[id].parameters, [&](SymbolId value) {
-             return isOwnedResource(input, input.symbols[value].type);
+             return input.symbols[value].owned;
            });
   }
   Slot function(Plan &plan, FunctionId id, const std::vector<Slot> &args,
@@ -360,11 +549,8 @@ private:
     Boundary boundary{slot(plan, fn.resultType), {}, {}};
     env.boundary = &boundary;
     Slot value = boundary.output;
-    for (const auto &statement : fn.body) {
-      value = expression(plan, statement.value, env, stack);
-      if (statement.binding)
-        bindScalar(plan, env, *statement.binding, value);
-    }
+    for (const auto &item : fn.body)
+      value = statement(plan, item, env, stack, fn.result);
     plan.code.push_back({Code::Copy, boundary.output, {value}});
     const auto exit = plan.code.size();
     plan.code.push_back({Code::Label, 0, {}});
@@ -1190,18 +1376,17 @@ private:
       nested.boundary = &boundary;
       nested.group = group;
       nested.groups.push_back(group);
+      const auto resources = enterResources(plan, suiteResources(block->body), id);
       plan.code.push_back({Code::Open, 0, {}, env.group.value_or(SIZE_MAX), group, 0, id});
       Slot value = output;
-      for (const auto &statement : block->body) {
-        value = expression(plan, statement.value, nested, stack);
-        if (statement.binding)
-          bindScalar(plan, nested, *statement.binding, value);
-      }
+      for (const auto &item : block->body)
+        value = statement(plan, item, nested, stack, block->result);
       const auto exit = plan.code.size();
       plan.code.push_back({Code::Join, output, {value}, 0, group, 0, id});
       plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group, 0, id});
       for (auto jump : boundary.jumps)
         plan.code[jump].jump = exit;
+      leaveResources(plan, resources, output, id);
     } else if (const auto *device = std::get_if<DeviceSelection>(&node.operation)) {
       plan.code.push_back(
           {Code::Device, output, {}, device->device ? *device->device : SIZE_MAX, 0, 0, id});
@@ -1267,7 +1452,10 @@ private:
         }
       }
     } else if (const auto *handler = std::get_if<CatchOperation>(&node.operation)) {
+      const auto operandScope = enterResources(
+          plan, resourceExpressions[handler->operand] && !spawnExpressions[handler->operand], id);
       auto operand = expression(plan, handler->operand, env, stack);
+      leaveResources(plan, operandScope, operand, id);
       const auto error = slot(plan, input.symbols[handler->parameter].type);
       auto nested = env;
       nested.symbols[handler->parameter] = error;
@@ -1276,18 +1464,24 @@ private:
       const auto dispatch = plan.code.size();
       plan.code.push_back({Code::Catch, output, {operand, error}});
       plan.code[dispatch].jump = plan.code.size();
+      const auto resources = enterResources(plan, suiteResources(handler->body), id);
       Slot result = output;
-      for (const auto &statement : handler->body) {
-        result = expression(plan, statement.value, nested, stack);
-        if (statement.binding)
-          bindScalar(plan, nested, *statement.binding, result);
-      }
+      for (const auto &item : handler->body)
+        result = statement(plan, item, nested, stack, handler->result);
       plan.code.push_back({Code::Copy, output, {result}});
+      if (resources) {
+        const auto handlerExit = plan.code.size();
+        plan.code.push_back({Code::Label, 0, {}});
+        for (auto jump : boundary.jumps)
+          plan.code[jump].jump = handlerExit;
+        leaveResources(plan, resources, output, id);
+      }
       const auto exit = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
       plan.code[dispatch].target = exit;
-      for (auto jump : boundary.jumps)
-        plan.code[jump].jump = exit;
+      if (!resources)
+        for (auto jump : boundary.jumps)
+          plan.code[jump].jump = exit;
     } else if (const auto *yield = std::get_if<YieldOperation>(&node.operation)) {
       const auto value = expression(plan, yield->operand, env, stack);
       const auto found = env.collections.find(yield->collection);
@@ -1315,6 +1509,8 @@ private:
         plan.code.push_back({Code::PropagateGroup, 0, {}, 0, group, 0, id});
         plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group, 0, id});
       }
+      leaveResources(plan, loop.resourceScope,
+                     jump->value ? std::optional(loop.output) : std::nullopt, id);
       const auto branch = plan.code.size();
       plan.code.push_back(
           {Code::Jump, 0, {}, 0, 0, jump->continuing ? loop.header : 0, loop.source});
@@ -1329,82 +1525,89 @@ private:
         env.collectionStack.push_back(output);
         plan.code.push_back({Code::CollectInit, output, {}, 0, 0, 0, id});
       }
-      for (const auto &statement : loop->initial) {
-        const auto value = expression(plan, statement.value, env, stack);
-        if (statement.binding)
-          bindScalar(plan, env, *statement.binding, value);
-      }
+      const auto loopScope = enterResources(plan, suiteResources(loop->initial), id);
+      for (const auto &item : loop->initial)
+        statement(plan, item, env, stack);
       const auto header = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
       auto iteration = env;
+      const auto testScope = enterResources(
+          plan, resourceExpressions[loop->condition] && !spawnExpressions[loop->condition], id);
       const auto condition = expression(plan, loop->condition, iteration, stack);
+      leaveResources(plan, testScope, {}, id);
       LoopBoundary boundary{output, condition, header, env.groups.size(), id, {}};
       boundary.collectionDepth = env.collectionStack.size();
       iteration.loops[loop->identity] = &boundary;
       const auto dispatch = plan.code.size();
       plan.code.push_back({Code::Branch, output, {condition}});
-      for (const auto &statement : loop->iteration) {
-        const auto value = expression(plan, statement.value, iteration, stack);
-        if (statement.binding)
-          bindScalar(plan, iteration, *statement.binding, value);
-      }
-      for (const auto &statement : loop->body) {
-        const auto value = expression(plan, statement.value, iteration, stack);
-        if (statement.binding)
-          bindScalar(plan, iteration, *statement.binding, value);
-      }
+      boundary.resourceScope =
+          enterResources(plan,
+                         !loop->functionBoundary &&
+                             (suiteResources(loop->iteration) || suiteResources(loop->body)),
+                         id);
+      for (const auto &item : loop->iteration)
+        statement(plan, item, iteration, stack);
+      for (const auto &item : loop->body)
+        statement(plan, item, iteration, stack);
+      leaveResources(plan, boundary.resourceScope, {}, id);
       plan.code.push_back({Code::Jump, 0, {}, 0, 0, header, id});
       plan.code[dispatch].jump = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
       auto normal = env;
-      for (const auto &statement : loop->whenDone) {
-        const auto value = expression(plan, statement.value, normal, stack);
-        if (statement.binding)
-          bindScalar(plan, normal, *statement.binding, value);
-      }
+      const auto normalScope = enterResources(plan, suiteResources(loop->whenDone), id);
+      for (const auto &item : loop->whenDone)
+        statement(plan, item, normal, stack, loop->normalResult);
       if (loop->normalResult) {
         const auto result = expression(plan, *loop->normalResult, normal, stack);
         if (!nonCompleting[*loop->normalResult])
           plan.code.push_back({Code::Copy, output, {result}});
       }
+      leaveResources(plan, normalScope, loop->normalResult ? std::optional(output) : std::nullopt,
+                     id);
       const auto exit = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
       for (auto branch : boundary.exits)
         plan.code[branch].jump = exit;
+      leaveResources(plan, loopScope, output, id);
       if (loop->collecting) {
         plan.code.push_back({Code::CollectFinish, output, {}, 0, 0, 0, id});
         env.collections.erase(loop->identity);
         env.collectionStack.pop_back();
       }
     } else if (const auto *guard = std::get_if<GuardOperation>(&node.operation)) {
+      const auto subjectScope = enterResources(
+          plan, resourceExpressions[guard->condition] && !spawnExpressions[guard->condition], id);
       auto condition = expression(plan, guard->condition, env, stack);
+      leaveResources(plan, subjectScope, {}, id);
       const auto dispatch = plan.code.size();
       plan.code.push_back({Code::Branch, output, {condition}});
       auto branch = env;
-      for (const auto &statement : guard->body) {
-        auto value = expression(plan, statement.value, branch, stack);
-        if (statement.binding)
-          bindScalar(plan, branch, *statement.binding, value);
-      }
+      const auto resources = enterResources(plan, suiteResources(guard->body), id);
+      for (const auto &item : guard->body)
+        statement(plan, item, branch, stack, guard->result);
+      leaveResources(plan, resources, {}, id);
       plan.code[dispatch].jump = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
     } else if (const auto *choice = std::get_if<ConditionalOperation>(&node.operation)) {
+      const auto subjectScope = enterResources(
+          plan, resourceExpressions[choice->condition] && !spawnExpressions[choice->condition], id);
       auto condition = expression(plan, choice->condition, env, stack);
+      leaveResources(plan, subjectScope, {}, id);
       const auto dispatch = plan.code.size();
       plan.code.push_back({Code::Branch, output, {condition}});
       for (unsigned index = 0; index < 2; ++index) {
         if (index == 1)
           plan.code[dispatch].jump = plan.code.size();
         auto branch = env;
-        for (const auto &statement : index == 0 ? choice->whenTrue : choice->whenFalse) {
-          auto value = expression(plan, statement.value, branch, stack);
-          if (statement.binding)
-            bindScalar(plan, branch, *statement.binding, value);
-        }
-        auto result =
-            expression(plan, index == 0 ? choice->trueResult : choice->falseResult, branch, stack);
-        if (!nonCompleting[index == 0 ? choice->trueResult : choice->falseResult])
+        const auto &body = index == 0 ? choice->whenTrue : choice->whenFalse;
+        const auto selected = index == 0 ? choice->trueResult : choice->falseResult;
+        const auto resources = enterResources(plan, suiteResources(body), id);
+        for (const auto &item : body)
+          statement(plan, item, branch, stack, selected);
+        const auto result = expression(plan, selected, branch, stack);
+        if (!nonCompleting[selected])
           plan.code.push_back({Code::Copy, output, {result}});
+        leaveResources(plan, resources, output, id);
         if (index == 0) {
           plan.code[dispatch].target = plan.code.size();
           plan.code.push_back({Code::Jump, 0, {}});
@@ -1413,7 +1616,10 @@ private:
       plan.code[plan.code[dispatch].target].jump = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
     } else if (const auto *match = std::get_if<MatchOperation>(&node.operation)) {
+      const auto subjectScope = enterResources(
+          plan, resourceExpressions[match->subject] && !spawnExpressions[match->subject], id);
       auto subject = expression(plan, match->subject, env, stack);
+      leaveResources(plan, subjectScope, {}, id);
       std::vector<std::size_t> exits;
       std::optional<std::size_t> previous;
       for (const auto &arm : match->cases) {
@@ -1425,14 +1631,13 @@ private:
           plan.code.push_back({Code::Case, output, {subject}, *arm.tag});
         }
         auto branch = env;
+        const auto resources = enterResources(plan, suiteResources(arm.body), id);
         Slot result = output;
-        for (const auto &statement : arm.body) {
-          result = expression(plan, statement.value, branch, stack);
-          if (statement.binding)
-            bindScalar(plan, branch, *statement.binding, result);
-        }
+        for (const auto &item : arm.body)
+          result = statement(plan, item, branch, stack, arm.result);
         if (!nonCompleting[arm.result])
           plan.code.push_back({Code::Copy, output, {result}});
+        leaveResources(plan, resources, output, id);
         exits.push_back(plan.code.size());
         plan.code.push_back({Code::Jump, 0, {}});
       }
@@ -1805,8 +2010,9 @@ std::string dump(const ModulePlan &module) {
                                           "collect.append",
                                           "collect.finish",
                                           "resource.enter",
-                                          "resource.leave"};
-  static_assert(std::size(names) == static_cast<unsigned>(Code::ResourceLeave) + 1);
+                                          "resource.leave",
+                                          "resource.adopt"};
+  static_assert(std::size(names) == static_cast<unsigned>(Code::ResourceAdopt) + 1);
   std::ostringstream out;
   for (std::size_t f = 0; f < module.plans.size(); ++f) {
     const auto &plan = *module.plans[f];

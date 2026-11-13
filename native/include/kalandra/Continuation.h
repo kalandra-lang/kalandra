@@ -51,7 +51,8 @@ enum class Code {
   CollectAppend,
   CollectFinish,
   ResourceEnter,
-  ResourceLeave
+  ResourceLeave,
+  ResourceAdopt
 };
 struct Instruction {
   Code code;

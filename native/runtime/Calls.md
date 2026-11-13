@@ -158,6 +158,28 @@ outcomes create. It cannot substitute for an external kernel acknowledging its
 completion. Cancellation arriving during frame destruction also preflights a
 previously successful owned outcome before publishing cancellation.
 
+Lexical branch, loop-iteration and temporary scopes have explicit resource tokens.
+A boundary leave can skip inner source leaves on a return or error edge: it
+validates the ancestry, moves an escaping value beyond the whole boundary, and
+retires skipped descendants innermost first. A pending descendant parks the same
+continuation and resumes that leave after its cleanup fence. Structured groups
+join before the resources of their containing parallel scope are released.
+Borrowed spawn arguments remain under their enclosing suite/group scope through
+settlement, rather than being dropped immediately after packet submission.
+
+Functions that only borrow resource parameters need no additional owning scope;
+the caller keeps ownership through the call. Direct bound constructor results
+also use their existing enclosing scope instead of an extra temporary control.
+
+Local affine bindings use `kalandra_owned_adopt_v1`; borrowed copies cannot use it
+to steal an owner in another invocation. The access proof retires a cursor loan
+when its lexical owner disappears and no escaping value retains it. Possible
+moves still reject subsequent source access; only moves proved on every incoming
+path can establish that an old owner is gone. Task read loans remain until their
+settlement edge, independently of cursor scope cleanup. Failed scope admission
+rolls back an incomplete control before capture transfer, keeping older owned
+resources visible to failure preflight.
+
 `GeneratorTaskEntry` supplies a compiler-generated body and its typed next-result
 layout, classification callback and exhausted-value constructor. The native
 factory admits the owning header and escape scope before moving captures, then
@@ -172,7 +194,9 @@ ordinary resumable calls. It stages a terminal Option/error value, retires the
 body and its groups, then publishes from its surviving header. The staged value
 has an item-local ownership store, so subsequent advances release previous staging
 backing. Explicit close and abandonment share the same retirement callbacks;
-expected errors are delivered once, followed by sticky exhaustion. Synchronous
+expected errors are delivered once, followed by sticky exhaustion. A fault
+recorded by the cleanup fence overrides a staged terminal value before the
+consumer can observe it. Synchronous
 and coordinating generator headers validate their distinct cleanup identities
 before interpreting their private storage. Compiler lifting must still provide
 lexical owned scopes and the static capture/write/loan proofs for source loops.

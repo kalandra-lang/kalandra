@@ -66,13 +66,14 @@ struct Environment {
   std::unordered_map<SymbolId, Roots> nextSymbols;
   Roots exhausted;
   bool stopped = false;
-  std::set<SymbolId> moved;
+  std::set<SymbolId> moved, definitelyMoved;
   std::map<std::size_t, LoopFlow *> loops;
   std::map<std::size_t, Roots *> collections;
 };
 struct LoopFlow {
   std::vector<Environment> breaks, continues;
   Roots result;
+  std::set<SymbolId> symbols;
 };
 class AccessProof {
 public:
@@ -663,6 +664,8 @@ private:
     });
     to.exhausted = intersect(to.exhausted, from.exhausted);
     to.moved.insert(from.moved.begin(), from.moved.end());
+    std::erase_if(to.definitelyMoved,
+                  [&](auto symbol) { return !from.definitelyMoved.contains(symbol); });
     for (auto &[symbol, roots] : to.symbols)
       if (auto found = from.symbols.find(symbol); found != from.symbols.end())
         unite(roots, found->second);
@@ -692,10 +695,47 @@ private:
     for (const auto &[symbol, value] : env.symbols)
       if (isOwnedResource(module, module.symbols[symbol].type) &&
           overlap(controls,
-                  isIterator(module, module.symbols[symbol].type) ? cursorControl(value) : value))
+                  isIterator(module, module.symbols[symbol].type) ? cursorControl(value) : value)) {
         env.moved.insert(symbol);
+        env.definitelyMoved.insert(symbol);
+      }
+  }
+  std::set<SymbolId> visibleSymbols(const Environment &env) {
+    spend(env.symbols.size());
+    std::set<SymbolId> result;
+    for (const auto &[symbol, roots] : env.symbols)
+      result.insert(symbol);
+    return result;
+  }
+  void retireCursorLoans(Environment &env, const Roots &escaping = {},
+                         const std::set<SymbolId> *visible = nullptr, bool retireBindings = true) {
+    spend(env.symbols.size() + env.readers.size());
+    auto live = cursorControl(escaping);
+    for (const auto &[symbol, roots] : env.symbols)
+      if ((!visible || visible->contains(symbol)) && !env.definitelyMoved.contains(symbol) &&
+          isIterator(module, module.symbols[symbol].type) && !module.symbols[symbol].type.task)
+        unite(live, cursorControl(roots));
+    std::erase_if(env.readers, [&](const auto &reader) {
+      // Task read loans (no cursor controls) end only at settlement. A union of
+      // possible cursor owners remains live if any owner can still be reached.
+      return !reader.second.controls.empty() &&
+             std::ranges::none_of(reader.second.controls,
+                                  [&](auto root) { return live.contains(root); });
+    });
+    if (visible && retireBindings) {
+      std::erase_if(env.symbols,
+                    [&](const auto &entry) { return !visible->contains(entry.first); });
+      std::erase_if(env.nextSymbols,
+                    [&](const auto &entry) { return !visible->contains(entry.first); });
+    }
+  }
+  Roots escapingCursor(ValueId id, const Roots &roots) const {
+    return !module.expressions[id].type.task && isIterator(module, module.expressions[id].type)
+               ? roots
+               : Roots{};
   }
   Roots body(const std::vector<TypedStatement> &statements, ValueId result, Environment &env) {
+    const auto visible = visibleSymbols(env);
     for (const auto &statement : statements) {
       if (env.stopped)
         return {};
@@ -703,14 +743,17 @@ private:
       if (statement.binding) {
         consume(statement.value, value, env);
         bindWitness(*statement.binding, statement.value, env);
-        env.symbols[*statement.binding] = std::move(value);
+        env.symbols[*statement.binding] = value;
         env.moved.erase(*statement.binding);
+        env.definitelyMoved.erase(*statement.binding);
       }
+      retireCursorLoans(env, statement.value == result ? escapingCursor(result, value) : Roots{});
     }
     if (env.stopped)
       return {};
     auto roots = evaluate(result, env);
     consume(result, roots, env);
+    retireCursorLoans(env, escapingCursor(result, roots), &visible);
     return roots;
   }
   void joinReaders(Environment &into, const Environment &other) {
@@ -991,13 +1034,18 @@ private:
               env.readers = yes.readers;
               joinReaders(env, no);
             }
-            if (yes.stopped && !no.stopped)
+            if (yes.stopped && !no.stopped) {
               env.moved = no.moved;
-            else if (no.stopped && !yes.stopped)
+              env.definitelyMoved = no.definitelyMoved;
+            } else if (no.stopped && !yes.stopped) {
               env.moved = yes.moved;
-            else {
+              env.definitelyMoved = yes.definitelyMoved;
+            } else {
               env.moved = yes.moved;
               env.moved.insert(no.moved.begin(), no.moved.end());
+              env.definitelyMoved = yes.definitelyMoved;
+              std::erase_if(env.definitelyMoved,
+                            [&](auto symbol) { return !no.definitelyMoved.contains(symbol); });
             }
             if (yes.stopped && !no.stopped) {
               env.nextSymbols = no.nextSymbols;
@@ -1026,13 +1074,23 @@ private:
             if (found == env.loops.end())
               throw Exhausted{};
             auto &loop = *found->second;
-            if (op.value)
-              unite(loop.result, input(*op.value));
+            Roots escaped;
+            if (op.value) {
+              auto result = input(*op.value);
+              consume(*op.value, result, env);
+              unite(loop.result, result);
+              escaped = escapingCursor(*op.value, result);
+            }
+            // Keep symbol-table keys for joins with other stopped branches;
+            // the target boundary owns the snapshot's escaped result.
+            retireCursorLoans(env, escaped, &loop.symbols, false);
             (op.continuing ? loop.continues : loop.breaks).push_back(fork(env));
             env.stopped = true;
             return {};
           } else if constexpr (std::is_same_v<T, WhileOperation>) {
-            const auto statements = [&](const auto &items, Environment &path) {
+            const auto beforeLoop = visibleSymbols(env);
+            const auto statements = [&](const auto &items, Environment &path,
+                                        std::optional<ValueId> result = {}) {
               for (const auto &statement : items) {
                 if (path.stopped)
                   break;
@@ -1040,15 +1098,20 @@ private:
                 if (statement.binding) {
                   consume(statement.value, roots, path);
                   bindWitness(*statement.binding, statement.value, path);
-                  path.symbols[*statement.binding] = std::move(roots);
+                  path.symbols[*statement.binding] = roots;
                   path.moved.erase(*statement.binding);
+                  path.definitelyMoved.erase(*statement.binding);
                 }
+                retireCursorLoans(path, result == statement.value
+                                            ? escapingCursor(statement.value, roots)
+                                            : Roots{});
               }
             };
             statements(op.initial, env);
             const auto &sites = allocationSites(id);
             auto head = fork(env);
             LoopFlow paths;
+            paths.symbols = visibleSymbols(env);
             Roots collected;
             if (op.collecting)
               head.collections[op.identity] = &collected;
@@ -1058,6 +1121,7 @@ private:
               const auto previousSymbols = head.symbols;
               const auto previousReaders = head.readers;
               const auto previousMoved = head.moved;
+              const auto previousDefinitelyMoved = head.definitelyMoved;
               const auto previousWitnesses = head.nextSymbols;
               const auto previousExhausted = head.exhausted;
               auto iteration = fork(head);
@@ -1066,9 +1130,11 @@ private:
               iteration.loops[op.identity] = &paths;
               ageLoopStorage(iteration, sites);
               unite(inputs, evaluate(op.condition, iteration));
+              retireCursorLoans(iteration);
               statements(op.iteration, iteration);
               statements(op.body, iteration);
               if (!iteration.stopped) {
+                retireCursorLoans(iteration, {}, &paths.symbols);
                 joinSymbols(head, iteration);
                 joinReaders(head, iteration);
               }
@@ -1078,8 +1144,8 @@ private:
               }
               paths.continues.clear();
               if (head.symbols == previousSymbols && head.readers == previousReaders &&
-                  head.moved == previousMoved && head.nextSymbols == previousWitnesses &&
-                  head.exhausted == previousExhausted)
+                  head.moved == previousMoved && head.definitelyMoved == previousDefinitelyMoved &&
+                  head.nextSymbols == previousWitnesses && head.exhausted == previousExhausted)
                 break;
             }
             auto normal = fork(head);
@@ -1089,7 +1155,7 @@ private:
               normal.stopped = true;
             normal.values.clear();
             normal.inputs.clear();
-            statements(op.whenDone, normal);
+            statements(op.whenDone, normal, op.normalResult);
             Roots value = paths.result;
             if (op.normalResult && !normal.stopped)
               unite(value, evaluate(*op.normalResult, normal));
@@ -1098,6 +1164,7 @@ private:
                 roots = normal.symbols.at(symbol);
               env.readers = normal.readers;
               env.moved = normal.moved;
+              env.definitelyMoved = normal.definitelyMoved;
               env.nextSymbols = normal.nextSymbols;
               env.exhausted = normal.exhausted;
             } else {
@@ -1118,6 +1185,7 @@ private:
               joinReaders(env, path);
             }
             env.stopped = normal.stopped && paths.breaks.empty();
+            retireCursorLoans(env, escapingCursor(id, value), &beforeLoop);
             if (op.collecting) {
               unite(inputs, collected);
               unite(value, fresh(id));
@@ -1163,6 +1231,7 @@ private:
               roots = first.symbols.at(symbol);
             env.readers = first.readers;
             env.moved = first.moved;
+            env.definitelyMoved = first.definitelyMoved;
             env.nextSymbols = first.nextSymbols;
             env.exhausted = first.exhausted;
             for (std::size_t i = 1; i < continuing.size(); ++i) {

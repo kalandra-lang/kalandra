@@ -2360,6 +2360,17 @@ private:
       };
       const auto &type = plan.slots[instruction.output];
       switch (instruction.code) {
+      case Code::ResourceAdopt: {
+        const auto value = instruction.args[0];
+        if (plan.slots[value].fallible) {
+          auto *adopt = Block::Create(context, "resource.adopt", resume);
+          builder.CreateCondBr(hasResultError(plan.slots[value], slot(value)), next, adopt);
+          builder.SetInsertPoint(adopt);
+        }
+        builder.CreateCondBr(call("kalandra_owned_adopt_v1", boolean, {ctx, payload(value)}), next,
+                             abort);
+        break;
+      }
       case Code::ResourceEnter: {
         llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
         auto *arrayType = llvm::ArrayType::get(pointer, instruction.args.size());

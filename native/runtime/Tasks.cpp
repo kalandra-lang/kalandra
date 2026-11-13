@@ -2223,7 +2223,14 @@ bool Task::leaveOwnedScope(ResourceControl *control, const OwnedDescriptor *esca
   if (!control)
     return true;
   auto &ctx = context();
-  if (!control->scope || control->scope->context != &ctx) {
+  // A return/error edge may bypass inner lexical leaves. Validate the target
+  // before transferring a result, then retire descendants innermost first.
+  auto *current = currentScope(ctx);
+  auto *ancestor = current;
+  while (ancestor && ancestor != control)
+    ancestor =
+        ancestor->scope && ancestor->scope->parent ? ancestor->scope->parent->control : nullptr;
+  if (!ancestor || !control->scope || control->scope->context != &ctx) {
     ctx.fault(3);
     return true;
   }
@@ -2232,22 +2239,28 @@ bool Task::leaveOwnedScope(ResourceControl *control, const OwnedDescriptor *esca
       auto *value = inspectOwned(ctx, *escaping);
       if (!value)
         return true;
+      // Escape beyond the whole boundary, including any skipped descendants.
       adopt(ctx, *value, control->scope->parent);
       if (ctx.status())
         return true;
     }
     control->scope->escapePrepared = true;
   }
-  const auto started = prepareOwnedScope(*control);
-  if (started == CleanupStart::Pending)
-    return false;
-  if (started == CleanupStart::Rejected)
-    return true; // fault finalization retains/preflights the same control
-  const auto failure = ownedCleanupFailure();
-  if (failure.kind == TaskFailure::Fault)
-    ctx.fault(failure.code, failure.line, failure.column);
-  ctx.releaseControl(control);
-  return true;
+  for (;;) {
+    const bool last = current == control;
+    const auto started = prepareOwnedScope(*current);
+    if (started == CleanupStart::Pending)
+      return false;
+    if (started == CleanupStart::Rejected)
+      return true; // failure maintenance retains/preflights the same controls
+    const auto failure = ownedCleanupFailure();
+    if (failure.kind == TaskFailure::Fault)
+      ctx.fault(failure.code, failure.line, failure.column);
+    ctx.releaseControl(current);
+    if (last || ctx.status())
+      return true;
+    current = currentScope(ctx);
+  }
 }
 
 bool Task::settleBorrowedGroups() noexcept {

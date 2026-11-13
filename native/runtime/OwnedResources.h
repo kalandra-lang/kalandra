@@ -76,6 +76,7 @@ public:
   OwnedReceiveGuard(const OwnedReceiveGuard &) = delete;
   OwnedReceiveGuard &operator=(const OwnedReceiveGuard &) = delete;
   static bool receives(Invocation &, const Invocation &, const ResourceScope *) noexcept;
+
 private:
   const OwnedReceiveGuard *previous_;
   const Invocation *source_;
@@ -97,3 +98,7 @@ void kalandra_file_scope_leave_v1(kalandra::runtime::Invocation *, void *,
 bool kalandra_file_receive_v1(kalandra::runtime::Invocation *,
                               const kalandra::runtime::OwnedDescriptor *) noexcept;
 }
+
+// An explicit same-invocation affine binding move, not a borrowed value copy.
+extern "C" bool kalandra_owned_adopt_v1(kalandra::runtime::Invocation *,
+                                        const kalandra::runtime::OwnedDescriptor *) noexcept;

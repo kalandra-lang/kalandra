@@ -231,6 +231,8 @@ int main(int argc, char **argv) {
              "close(d)\n  return ()\n",
          }) {
       const auto invalid = checkSource(cursorPrelude + program);
+      if (invalid.ok())
+        std::cerr << "Unexpectedly accepted cursor loan case:\n" << program;
       require(!invalid.ok() && std::ranges::any_of(invalid.diagnostics,
                                                    [](const auto &diagnostic) {
                                                      return diagnostic.code == "S077";

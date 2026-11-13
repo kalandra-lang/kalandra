@@ -1335,6 +1335,8 @@ struct CleanupCaller {
   PersistentProducer *producer;
   bool requested = false;
   bool scoped = false;
+  bool nested = false;
+  bool rejectNested = false;
   unsigned abandon = 0;
   ResourceControl *scope = nullptr;
 };
@@ -1356,6 +1358,18 @@ static void resumeCleanupCaller(Task &task) {
       CHECK(f.scope);
       auto *escape = ensureOwnedEscapeScope(task.context());
       CHECK(escape && f.scope->scope->parent == escape->scope);
+      if (f.nested) {
+        if (f.rejectNested) {
+          task.context().failAllocationAt(InvocationABI::allocationAttempts(task.context()) + 2);
+          CHECK(!kalandra_file_scope_enter_v1(&task.context(), nullptr, 0));
+          CHECK(task.context().status() == 2 && currentScope(task.context()) == f.scope);
+          return;
+        }
+        CHECK(kalandra_file_scope_enter_v1(&task.context(), nullptr, 0));
+        CHECK(kalandra_file_scope_enter_v1(&task.context(), nullptr, 0));
+        CHECK(kalandra_owned_adopt_v1(&task.context(), &descriptor));
+        CHECK(f.producer->scope != f.scope->scope);
+      }
     }
     if (f.abandon) {
       if (f.abandon == 1) {
@@ -1442,6 +1456,7 @@ static void failedAdvanceCleanup() {
     auto root = core->openRoot();
     CleanupCaller input{state};
     input.scoped = true;
+    input.nested = true;
     input.abandon = 4;
     auto task = core->submit(root, cleanupCaller, {94, &input, sizeof(input), &owner});
     CHECK(task);
@@ -1639,11 +1654,11 @@ static void borrowedTerminalCleanup() {
 }
 static void ownedCleanupBatches() {
   for (unsigned workers : {1u, 4u})
-    for (unsigned mode = 0; mode < 15; ++mode) {
+    for (unsigned mode = 0; mode < 16; ++mode) {
       Invocation owner;
       BorrowProbe probe;
       GroupProbe child;
-      child.external = mode % 3 == 1;
+      child.external = mode % 3 == 1 || mode == 15;
       auto *memory = owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
       CHECK(memory);
       auto *state = new (memory) PersistentProducer;
@@ -1680,11 +1695,13 @@ static void ownedCleanupBatches() {
       auto closingRoot = core->openRoot();
       CleanupCaller closingInput{state};
       closingInput.scoped = mode >= 3;
-      closingInput.abandon = mode < 6 ? 0 : mode / 3 - 1;
+      closingInput.nested = mode >= 3;
+      closingInput.rejectNested = mode == 15;
+      closingInput.abandon = mode < 6 || mode == 15 ? 0 : mode / 3 - 1;
       auto closing = core->submit(closingRoot, cleanupCaller,
                                   {94, &closingInput, sizeof(closingInput), &owner});
       CHECK(closing);
-      if (mode >= 12) {
+      if (mode >= 12 && mode < 15) {
         for (unsigned i = 0; i < 64; ++i)
           core->step();
         CHECK(probe.finalized == 0 && !core->settled(closing));
@@ -1701,7 +1718,7 @@ static void ownedCleanupBatches() {
       if (mode >= 9 && mode < 12)
         CHECK(core->failure(closing).kind == TaskFailure::Fault &&
               core->failure(closing).code == 7);
-      else if (mode % 3 == 2)
+      else if (mode % 3 == 2 || mode == 15)
         CHECK(core->failure(closing).kind == TaskFailure::Fault &&
               core->failure(closing).code == 2);
       else if (mode >= 12)
@@ -1754,6 +1771,8 @@ static void resumeReturnedProducer(Task &task) {
     f.scope = static_cast<ResourceControl *>(
         kalandra_file_scope_enter_v1(&task.context(), owned, 1));
     CHECK(f.scope);
+    CHECK(kalandra_file_scope_enter_v1(&task.context(), nullptr, 0));
+    CHECK(kalandra_owned_adopt_v1(&task.context(), &value));
   }
   if (!f.advanced) {
     auto pin = task.context().lease(f.producer);
@@ -1955,6 +1974,7 @@ static void producerOutcomeTransfer() {
         auto closingGroup = core->openRoot();
         CleanupCaller closingInput{state};
         closingInput.scoped = true;
+        closingInput.nested = true;
         auto closing = core->submit(closingGroup, cleanupCaller,
                                     {94, &closingInput, sizeof(closingInput), &receiver});
         CHECK(closing);

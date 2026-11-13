@@ -44,6 +44,8 @@ An Iterator owns a position in a sequence. T is the type of each item; E is the 
 
 Cursors have a single owner. Assigning one to another binding or passing it to an own parameter transfers ownership. A function that advances a borrowed cursor must declare a mut parameter. Pass cursors through explicit function parameters rather than capturing them implicitly in an ordinary function. The cursor's storage is opaque: use the iteration functions rather than constructing or reading its fields.
 
+A cursor closes automatically when its owning block ends. Moving it into an inner block makes that block responsible for closing it; returning it as the block's result transfers responsibility to the receiving block. Closing releases its retained source loan before the following code runs. Temporary cursors that do not escape an expression also close automatically.
+
 h2 { "iter" }
 
 code { "iter[S: Iterable](values: S) -> Iterator[S.Item, S.Error]" }
@@ -73,7 +75,7 @@ fn main() -> unit ! IoError:
 
 This displays 2:9. The cursor also supports strings, booleans, numerical values and records. Items that refer to backing storage keep that storage alive after the cursor closes. Passing a cursor to an own parameter transfers its position and read loan; a spawned consumer retains the loan until its task has settled.
 
-Exhausting the cursor also releases its source read loan. A loop that stops only at Option.None can then change the source, even before closing the exhausted cursor. An early break after an item keeps the loan active; close the cursor before changing its source in that case.
+Exhausting the cursor also releases its source read loan. A loop that stops only at Option.None can then change the source, even before closing the exhausted cursor. An early break keeps the loan active when the cursor is owned outside the loop; close that cursor before changing its source. A cursor created inside an iteration closes when that iteration ends, including on break or continue.
 
 codeblock { language = kalandra, """from "std/iter" import iter, next, close
 from "std/option" import Option

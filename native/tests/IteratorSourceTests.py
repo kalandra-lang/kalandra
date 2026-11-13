@@ -285,6 +285,55 @@ fn main()->unit ! (IoError | TaskError):
 ''' + gpu_pause + '''  try println(format("{}:{}:{}",total,values[0],checked))
   return ()
 ''', '6:9:42\n')
+run('cursor-array-return-both-branches', array_imports + '''fn choose(flag:bool)->Iterator[i64,never]:
+  values=[3,1,2]
+  cursor=iter(values)
+  if flag:
+    return cursor
+  else:
+    return cursor
+fn main()->unit ! (IoError | TaskError):
+  left=choose(true)
+  right=choose(false)
+  a=first(left,-1)
+  b=first(right,-1)
+  close(left)
+  close(right)
+''' + gpu_pause + '''  try println(format("{}:{}:{}",a,b,checked))
+  return ()
+''', '3:3:42\n')
+run('cursor-array-binding-move-drop', array_imports + '''fn moveThenDrop(mut values:[i64],flag:bool)->i64:
+  cursor=iter(values)
+  if flag:
+    inside=cursor
+    unused=first(inside,-1)
+    ()
+  else:
+    close(cursor)
+  values[0]=9
+  return values[0]
+fn main()->unit ! (IoError | TaskError):
+  a=[3,1,2]
+  b=[4,2,1]
+  left=moveThenDrop(a,true)
+  right=moveThenDrop(b,false)
+''' + gpu_pause + '''  try println(format("{}:{}:{}",left,right,checked))
+  return ()
+''', '9:9:42\n')
+run('cursor-array-loop-exit-drop', array_imports + '''fn main()->unit ! (IoError | TaskError):
+  values=[3,1,2]
+  total=0
+  for index in range(5):
+    cursor=iter(values)
+    total=total+first(cursor,0)
+    if index==0:
+      continue
+    if index==2:
+      break
+  values[0]=9
+''' + gpu_pause + '''  try println(format("{}:{}:{}",total,values[0],checked))
+  return ()
+''', '9:9:42\n')
 run('cursor-array-loop-lifetimes', array_imports + '''fn main()->unit ! (IoError | TaskError):
   values=[0]
   total=0
