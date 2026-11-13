@@ -30,10 +30,11 @@ fn probe(n: i64, faultAt: i64) -> LoopResult ! TaskError:
       try await old
     outcome=parallel:
       checkedValue=try checked(1)
-      jobs=array(for item in range(9):
+      jobs=try array(for item in range(9):
         if item==8:
-          child=spawn divide(0)
-          ignored=try await child
+          ignored=try parallel:
+            child=spawn divide(0)
+            try await child
         yield make(item)
       )
       length(jobs)

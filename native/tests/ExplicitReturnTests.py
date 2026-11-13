@@ -464,7 +464,7 @@ for optimization in ('-O0', '-O2'):
 
 rejected = {
     'handler-break-boundary': 'error E:\n  Bad\nfn failer()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  for i in range(1):\n    value=failer() catch fn(error):\n      break\n    value\n  return 42\n',
-    'handler-yield-boundary': 'error E:\n  Bad\nfn failer()->i64 ! E:\n  fail E.Bad\nfn main()->[i64]:\n  return for i in range(1):\n    value=failer() catch fn(error):\n      yield 1\n      return 0\n    yield value\n',
+    'handler-yield-boundary': 'error E:\n  Bad\nfn failer()->i64 ! E:\n  fail E.Bad\nfn main()->[i64]:\n  return array(for i in range(1):\n    value=failer() catch fn(error):\n      yield 1\n      return 0\n    yield value\n  )\n',
     'constant-zero': 'fn main() -> i64:\n  zero = 0\n  return 1 / zero\n',
     'missing-return': 'fn main() -> i64:\n  42\n',
     'partial-return': 'fn main() -> i64:\n  if true:\n    return 42\n',
