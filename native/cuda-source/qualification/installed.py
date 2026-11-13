@@ -97,6 +97,13 @@ time_suite = [sys.executable, repo/'native/tests/TimeSourceTests.py',
 if not a.execute:
     time_suite.append('--compile-only')
 subprocess.run(time_suite, check=True, timeout=900)
+generators = [sys.executable, repo/'native/tests/GeneratorGpuSourceTests.py',
+              '--compiler', compiler, '--target', 'cuda', '--variant', 'optimized',
+              '--output', a.root/'source-generators']
+if not a.execute:
+    generators.append('--compile-only')
+subprocess.run(generators, check=True, timeout=1200)
+
 
 subprocess.run([sys.executable,Path(__file__).with_name('applications.py'),
     '--build',a.root,'--compiler',compiler,'--output',a.root/'applications',

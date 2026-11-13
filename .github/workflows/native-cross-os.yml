@@ -1,7 +1,16 @@
 name: Native cross-OS qualification
 on:
   pull_request:
-    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-*.yml", ".github/scripts/**", ".github/tools/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
+    paths:
+      [
+        "CMakeLists.txt",
+        "VERSION",
+        "native/**",
+        ".github/workflows/native-*.yml",
+        ".github/scripts/**",
+        ".github/tools/**",
+        "apps/website/src/content/native/cross-compilation.tiramisu",
+      ]
   push:
     tags: ["v*"]
   workflow_dispatch:
@@ -88,6 +97,11 @@ jobs:
         run: >-
           ctest --test-dir build/macos --output-on-failure
           -R '^native-explicit-returns$'
+      - name: Qualify iterator contracts and source generators
+        run: |
+          cmake --build build/macos --target native-iterator-qualification -j2
+          ctest --test-dir build/macos --output-on-failure -j2 \
+            -R '^(frontend-iterator-contracts-|native-(iterators|generator)-source-)'
       - name: Qualify scoped ownership and compiler value layouts
         run: |
           cmake --build build/macos --target kalandra-ownership-scope-optimized kalandra-value-scope-optimized -j2
