@@ -858,6 +858,24 @@ void *Invocation::allocateControl(std::uint64_t bytes, void (*cleanup)(void *) n
   ++state.allocations_;
   return control + 1;
 }
+bool Invocation::moveNewestControlToRoot(void *address) noexcept {
+  if (!(flags_ & Materialized) || !storage_.value.controls_ ||
+      storage_.value.controls_ + 1 != address) {
+    fault(3);
+    return false;
+  }
+  auto &head = storage_.value.controls_;
+  auto *control = head;
+  if (!control->next)
+    return true;
+  head = control->next;
+  auto *tail = head;
+  while (tail->next)
+    tail = tail->next;
+  tail->next = control;
+  control->next = nullptr;
+  return true;
+}
 void Invocation::clearControl() noexcept {
   auto &state = storage_.value;
   auto *control = state.controls_;

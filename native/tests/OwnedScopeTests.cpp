@@ -197,8 +197,97 @@ void rejectedAdoption(bool closedResource) {
   ctx.settle();
   CHECK(counts.retired == 2 && counts.destroyed == 2);
 }
+struct ControlProbe {
+  unsigned *order;
+  unsigned digit;
+  static void cleanup(void *p) noexcept {
+    const auto &probe = *static_cast<ControlProbe *>(p);
+    *probe.order = *probe.order * 10 + probe.digit;
+  }
+};
+void escapeRoot() {
+  Counts counts;
+  Invocation ctx;
+  unsigned order = 0;
+  auto *early = ctx.allocateControl(sizeof(ControlProbe), ControlProbe::cleanup);
+  CHECK(early);
+  new (early) ControlProbe{&order, 1};
+  auto *outer = static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&ctx, nullptr, 0));
+  auto *inner = static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&ctx, nullptr, 0));
+  CHECK(outer && inner);
+  auto *value = make(ctx, counts);
+  auto descriptor = ownedDescriptor(value);
+  auto *late = ctx.allocateControl(sizeof(ControlProbe), ControlProbe::cleanup);
+  CHECK(late);
+  new (late) ControlProbe{&order, 2};
+  Invocation::OwnershipScope temporary(ctx);
+  ResourceControl *root;
+  {
+    Invocation::OwnershipSelection selected(temporary);
+    root = ensureOwnedEscapeScope(ctx);
+    CHECK(root && root->scope->escapeRoot);
+    CHECK(ctx.allocate(32)); // the caller's active value store was restored
+  }
+  CHECK(currentScope(ctx) == inner && inner->scope->parent == outer->scope);
+  CHECK(outer->scope->parent == root->scope && !root->scope->parent);
+  const auto allocations = ctx.allocations();
+  CHECK(ensureOwnedEscapeScope(ctx) == root && ctx.allocations() == allocations);
+  kalandra_file_scope_leave_v1(&ctx, inner, &descriptor);
+  CHECK(order == 2 && value->scope == outer->scope && counts.retired == 0);
+  kalandra_file_scope_leave_v1(&ctx, outer, &descriptor);
+  CHECK(currentScope(ctx) == root && value->scope == root->scope && counts.retired == 0);
+  ctx.releaseControl(early);
+  CHECK(order == 21 && currentScope(ctx) == root);
+  Invocation destination;
+  destination.failAllocationAt(1);
+  CHECK(!destination.retainFrom(ctx, value) && destination.status() == 2);
+  CHECK(value->scope == root->scope && !value->retired.load());
+  temporary.reset();
+  CHECK(counts.retired == 0);
+  ctx.settle();
+  CHECK(counts.retired == 1 && counts.destroyed == 1 && ctx.live() == 0);
+}
+void escapeRootAdmission() {
+  unsigned rejected = 0, succeeded = 0;
+  for (unsigned failure = 1; failure < 14; ++failure) {
+    Counts counts;
+    Invocation ctx;
+    ctx.failAllocationAt(failure);
+    auto *scope = static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&ctx, nullptr, 0));
+    if (!scope) {
+      CHECK(ctx.status() == 2);
+      ctx.settle();
+      CHECK(ctx.live() == 0);
+      continue;
+    }
+    auto *memory = ctx.allocateResource(sizeof(NestedState), OwnedState::cleanup);
+    if (!memory) {
+      CHECK(ctx.status() == 2);
+      ctx.settle();
+      CHECK(ctx.live() == 0);
+      continue;
+    }
+    auto *value = new (memory) NestedState(counts);
+    adopt(ctx, *value, scope->scope);
+    CHECK(!ctx.status());
+    auto *root = ensureOwnedEscapeScope(ctx);
+    if (!root) {
+      ++rejected;
+      CHECK(ctx.status() == 2 && currentScope(ctx) == scope && !scope->scope->parent);
+      CHECK(value->scope == scope->scope && !value->retired.load() && counts.retired == 0);
+    } else {
+      ++succeeded;
+      CHECK(!ctx.status() && scope->scope->parent == root->scope);
+    }
+    ctx.settle();
+    CHECK(counts.retired == 1 && counts.destroyed == 1 && ctx.live() == 0);
+  }
+  CHECK(rejected && succeeded);
+}
 } // namespace
 int main() {
+  escapeRoot();
+  escapeRootAdmission();
   for (unsigned stop = 0; stop != 3; ++stop)
     nested(12000, stop);
   handoff();

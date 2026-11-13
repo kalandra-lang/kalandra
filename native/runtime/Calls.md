@@ -129,6 +129,18 @@ typed-result protocol, preserve its native header during payload retirement, and
 arrange cleanup before exposing a returned or abandoned owned result. Destroying
 a standalone foreign `Invocation` is not an asynchronous scheduler barrier.
 
+`ensureOwnedEscapeScope` admits a root logical owner beneath existing function
+and value controls. It reparents the outermost resource scope without changing
+which function scope is current or destroying existing controls. Returning an
+owned value can then move it into this root instead of leaving it unowned before
+result-copy admission. If destination admission fails, the source still has an
+owner available for failure cleanup. Root admission rolls back while its control
+is still newest; only a fully constructed root is moved below existing controls.
+An asynchronous producer factory must admit this prerequisite before taking
+ownership of captures. Result transfer and outcome disposal must still use their
+own ownership and asynchronous cleanup protocols; root admission alone does not
+implement those operations.
+
 ## Mixed GPU host callables
 
 Metal, Vulkan, and CUDA supervisors use the same call runtime. Resumable host

@@ -84,6 +84,55 @@ ResourceControl::~ResourceControl() {
 ResourceControl *currentScope(Invocation &ctx) noexcept {
   return static_cast<ResourceControl *>(ctx.latestControl(ResourceControl::cleanup));
 }
+ResourceControl *ensureOwnedEscapeScope(Invocation &ctx) noexcept {
+  if (ctx.poll() || !ctx.usable())
+    return nullptr;
+  auto *oldest = currentScope(ctx);
+  if (oldest) {
+    while (oldest->scope->parent)
+      oldest = oldest->scope->parent->control;
+    if (!oldest->scope->active || oldest->scope->retiring || oldest->scope->context != &ctx) {
+      ctx.fault(3);
+      return nullptr;
+    }
+    if (oldest->scope->escapeRoot)
+      return oldest;
+  }
+  auto *memory = ctx.allocateControl(sizeof(ResourceControl), ResourceControl::cleanup);
+  if (!memory)
+    return nullptr;
+  auto *root = new (memory) ResourceControl(ctx);
+  if (!root->storage.valid()) {
+    ctx.releaseControl(root);
+    return nullptr;
+  }
+  {
+    Invocation::OwnershipSelection selected(root->storage);
+    auto *data = ctx.allocateResource(sizeof(ResourceScope), ResourceScope::cleanup);
+    if (data) {
+      root->scope = new (data) ResourceScope;
+      root->scope->context = &ctx;
+      root->scope->control = root;
+      root->scope->escapeRoot = true;
+    }
+  }
+  if (!root->scope || ctx.poll() || !ctx.usable()) {
+    // Still the newest control: rollback cannot retire existing user scopes.
+    ctx.releaseControl(root);
+    return nullptr;
+  }
+  auto parent = ctx.lease(root->scope);
+  if (!parent || !ctx.moveNewestControlToRoot(root)) {
+    ctx.fault(3);
+    ctx.releaseControl(root);
+    return nullptr;
+  }
+  if (oldest) {
+    oldest->scope->parent = root->scope;
+    oldest->scope->parentOwner = std::move(*parent);
+  }
+  return root;
+}
 void adopt(Invocation &ctx, OwnedState &file, ResourceScope *scope) noexcept {
   auto owner = scope ? ctx.lease(scope) : std::optional<AllocationLease>{};
   auto pin = scope ? ctx.lease(&file) : std::optional<AllocationLease>{};

@@ -52,6 +52,7 @@ struct ResourceScope {
   bool active = true;
   bool retiring = false;
   bool escapePrepared = false;
+  bool escapeRoot = false;
   static void cleanup(void *p) noexcept { static_cast<ResourceScope *>(p)->~ResourceScope(); }
 };
 struct ResourceControl {
@@ -63,6 +64,9 @@ struct ResourceControl {
 };
 std::mutex &resourceMutex();
 ResourceControl *currentScope(Invocation &) noexcept;
+// Private factory prerequisite. Admit before constructing asynchronous owned
+// captures; failed result publication leaves their source escape owner intact.
+ResourceControl *ensureOwnedEscapeScope(Invocation &) noexcept;
 void adopt(Invocation &, OwnedState &, ResourceScope *) noexcept;
 OwnedDescriptor ownedDescriptor(OwnedState *) noexcept;
 OwnedState *inspectOwned(Invocation &, const OwnedDescriptor &) noexcept;

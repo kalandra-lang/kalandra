@@ -98,6 +98,9 @@ public:
   // caller completes infallible construction before returning to source code.
   // Cleanup does not enter source code; descendants retire before their parent.
   void *allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept;
+  // Reorder a fully constructed newest control into a surviving root escrow.
+  // Admission/rollback finishes first; no existing control is destroyed/moved.
+  bool moveNewestControlToRoot(void *) noexcept;
   void releaseControl(void *) noexcept;
   void *latestControl(void (*cleanup)(void *) noexcept) noexcept;
   // Field backing remains invocation-owned across inline aggregate copies.

@@ -1532,6 +1532,8 @@ static void resumeTerminalCaller(Task &task) {
     f.scope = static_cast<ResourceControl *>(
         kalandra_file_scope_enter_v1(&task.context(), owned, 1));
     CHECK(f.scope);
+    auto *escape = ensureOwnedEscapeScope(task.context());
+    CHECK(escape && escape->scope->escapeRoot && f.scope->scope->parent == escape->scope);
   }
   auto pin = task.context().lease(f.producer);
   CHECK(pin);
