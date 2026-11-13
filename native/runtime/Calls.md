@@ -103,6 +103,18 @@ fault and cancellation also preflight execution scopes before frame destruction
 or public completion. A quiescent settling task may retire its own borrowed
 payload; an independently active mutable lease cannot be retired.
 
+Native producer wrappers can provide a `stageCompletion` hook on their borrowed
+entry. A generated body's completion then retains its typed result without
+publishing it or detaching groups. The wrapper distinguishes an item from a
+terminal result and publishes explicitly through `completeFrom(..., true)`.
+Only an entry with the `terminalCleanupAllowed` proof can use that publication
+or begin self-retirement. Its control header must survive payload destruction.
+`beginBorrowedCleanup` first waits for the current resume execution lease to end,
+including the scheduler's status check, before destroying the producer body.
+After retirement the native wrapper may publish its independently retained
+result; it must not re-enter the destroyed source payload. Cancellation and
+faults while waiting settle the same cleanup fence before task publication.
+
 Owned asynchronous captures must be retained directly in their logical scope's
 ownership store. Retaining the same dynamic resource first in a temporary store
 and then in its logical store creates two conservative accounting paths. Repeating

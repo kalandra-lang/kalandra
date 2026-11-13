@@ -85,7 +85,7 @@ private:
   // control header, whose lifetime extends beyond settled producer locals.
   std::weak_ptr<void> core_;
   std::atomic<bool> bound_{false};
-  enum class CleanupPhase { Idle, Groups, WaitingGroups, Children, Finish, Done };
+  enum class CleanupPhase { Idle, Groups, WaitingLease, WaitingGroups, Children, Finish, Done };
   struct Cleanup {
     BorrowedGroupOwner *next = nullptr, *parent = nullptr, *root = nullptr;
     AllocationLease pin, anchor;
@@ -94,7 +94,7 @@ private:
     std::uint64_t children = 0, pending = 0;
     Failure failure;
     CleanupPhase phase = CleanupPhase::Idle;
-    bool queued = false, busy = false, sealed = false;
+    bool queued = false, busy = false, sealed = false, terminal = false;
   } cleanup_;
   void *cleanupCore_ = nullptr; // present only while retirement is queued
   std::atomic<bool> cleanupDone_{false};
@@ -118,6 +118,12 @@ struct BorrowedTaskEntry {
   bool (*enter)(void *state, Invocation &caller) noexcept;
   void (*leave)(void *state) noexcept;
   BorrowedGroupOwner *groups = nullptr;
+  // Only native wrappers that can resume from their surviving control header
+  // after the producer payload/ledger has been destroyed may set this proof.
+  bool terminalCleanupAllowed = false;
+  // Optional native-wrapper staging hook. It retains a generated body's result
+  // without publishing or detaching groups; the wrapper decides item/terminal.
+  void (*stageCompletion)(Task &, void *, const Invocation &, const void *) noexcept = nullptr;
 };
 struct TaskLimits {
   std::uint32_t workers = 1;
@@ -254,6 +260,10 @@ public:
   CleanupStart beginOwnedCleanup(BorrowedGroupOwner &, AllocationLease, BorrowedCleanup,
                                  bool seal = true) noexcept;
   Failure ownedCleanupFailure() const noexcept;
+  void *borrowedState() noexcept;
+  // Native wrapper only: stage its terminal result first, then retry/publish
+  // after the current source lease and asynchronous cleanup have both ended.
+  CleanupStart beginBorrowedCleanup(BorrowedCleanup) noexcept;
   // Private lexical-scope barrier. The caller keeps the control alive, retries
   // after Pending, and releases it only after Complete. No source body runs.
   CleanupStart prepareOwnedScope(ResourceControl &) noexcept;
@@ -283,7 +293,8 @@ public:
   // Trusted terminal publication from an independently retained outcome ledger,
   // after persistent producer locals have been cleaned. Source remains exclusively
   // readable for this execution lease; normal completion uses context().
-  void completeFrom(const Invocation &source, const void *value) noexcept;
+  void completeFrom(const Invocation &source, const void *value,
+                    bool publishBorrowed = false) noexcept;
   // Propagate a settled child/group error without converting its variant to Fault.
   // An existing invocation fault or cancellation still takes precedence.
   void fail(Failure) noexcept;

@@ -426,12 +426,17 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     const auto address = reinterpret_cast<std::uintptr_t>(pointer);
     return address >= base && bytes <= storage.size() && address - base <= storage.size() - bytes;
   }
-  bool activeOwner(const BorrowedGroupOwner &owner, std::uint32_t settling = UINT32_MAX) const {
+  bool activeOwner(const BorrowedGroupOwner &owner, std::uint32_t settling = UINT32_MAX,
+                   bool terminalAdmission = false) const {
     for (auto i = liveTasks.next(0); i < liveTasks.size(); i = liveTasks.next(i + 1)) {
       const auto &record = tasks[i];
       // Failed/completed source frames are quiescent before maintenance starts.
       // Their own cleanup may settle backing, but another task's lease may not.
       if (i == settling && record.state == State::Settling && !record.executing)
+        continue;
+      if (i == settling && persistentOwner(record.call) == &owner &&
+          ((terminalAdmission && record.state == State::Running) ||
+           (owner.cleanup_.terminal && record.state == State::WaitingOwned && !record.executing)))
         continue;
       if (persistentOwner(record.returned) == &owner)
         return true;
@@ -444,13 +449,13 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     return false;
   }
   bool queueCleanup(BorrowedGroupOwner &owner, AllocationLease &pin, BorrowedCleanup callbacks,
-                    BorrowedGroupOwner &root, BorrowedGroupOwner *parent) {
+                    BorrowedGroupOwner &root, BorrowedGroupOwner *parent, bool terminal = false) {
     if (!pin || !callbacks.finish || !within(pin, &owner, sizeof(owner)))
       return false;
     if (owner.cleanupDone_.load(std::memory_order_acquire))
       return true;
     if (owner.cleanup_.phase != CleanupPhase::Idle ||
-        activeOwner(owner, root.cleanup_.waiter.slot) || !bindOwner(owner))
+        activeOwner(owner, root.cleanup_.waiter.slot, terminal) || !bindOwner(owner))
       return false;
     auto &fence = root.cleanup_;
     if (cleanupJobs == UINT64_MAX || fence.pending == UINT64_MAX ||
@@ -462,6 +467,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     job.parent = parent;
     job.root = &root;
     job.callbacks = callbacks;
+    job.terminal = terminal;
     job.phase = CleanupPhase::Groups;
     if (&owner == &root)
       job.anchor = std::move(pin);
@@ -511,6 +517,15 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       job.queued = false;
       job.busy = true;
       auto &fence = job.root->cleanup_;
+      if (job.terminal &&
+          (job.phase == CleanupPhase::Groups || job.phase == CleanupPhase::WaitingLease)) {
+        if (activeOwner(*owner, fence.waiter.slot)) {
+          job.phase = CleanupPhase::WaitingLease;
+          job.busy = false;
+          continue;
+        }
+        job.phase = CleanupPhase::Groups;
+      }
       if (job.phase == CleanupPhase::Groups || job.phase == CleanupPhase::WaitingGroups) {
         if (job.phase == CleanupPhase::Groups && job.callbacks.failure) {
           lock.unlock();
@@ -1396,6 +1411,10 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       }
       // Yield/dependency wakeups observed during a live callback cannot queue
       // its frame until this execution lease has actually returned.
+      if (cleanupJobs)
+        if (auto *owner = persistentOwner(record->call);
+            owner && owner->cleanup_.phase == CleanupPhase::WaitingLease)
+          readyCleanup(*owner);
       enqueue(h.slot);
     }
     maintain(lock);
@@ -2036,6 +2055,52 @@ Failure Task::ownedCleanupFailure() const noexcept {
   std::lock_guard lock(core_.mutex);
   return core_.tasks[slot_].cleanupFailure;
 }
+void *Task::borrowedState() noexcept {
+  TaskCore::Impl::Guard guard(core_);
+  auto *node = core_.tasks[slot_].call;
+  if (!node || !node->borrowed) {
+    context().fault(3);
+    return nullptr;
+  }
+  return borrowedCall(*node).entry->state;
+}
+CleanupStart Task::beginBorrowedCleanup(BorrowedCleanup callbacks) noexcept {
+  TaskCore::Impl::Guard guard(core_);
+  auto &record = core_.tasks[slot_];
+  auto *node = record.call;
+  const auto *entry = node && node->borrowed ? borrowedCall(*node).entry : nullptr;
+  auto *owner = entry ? entry->groups : nullptr;
+  if (record.state != State::Running || record.externalPending || record.cleanupPending ||
+      !entry || !entry->terminalCleanupAllowed || !owner || !callbacks.finish) {
+    context().fault(3);
+    return CleanupStart::Rejected;
+  }
+  if (owner->cleanupFinished())
+    return CleanupStart::Complete;
+  if (owner->cleanup_.phase != BorrowedGroupOwner::CleanupPhase::Idle) {
+    context().fault(3);
+    return CleanupStart::Rejected;
+  }
+  auto pin = borrowedCall(*node).pin.retain();
+  if (!pin) {
+    context().fault(3);
+    return CleanupStart::Rejected;
+  }
+  auto &fence = owner->cleanup_;
+  fence.pending = 1;
+  fence.waiter = core_.handle(slot_);
+  if (!core_.queueCleanup(*owner, *pin, callbacks, *owner, nullptr, true)) {
+    fence.pending = 0;
+    context().fault(3);
+    return CleanupStart::Rejected;
+  }
+  record.cleanupPending = true;
+  record.cleanupFailure = {};
+  record.state = State::WaitingOwned;
+  ++core_.stats.maintenanceTasks;
+  core_.sealCleanup(*owner, guard.lock);
+  return CleanupStart::Pending;
+}
 CleanupStart Task::prepareOwnedScope(ResourceControl &control) noexcept {
   TaskCore::Impl::Guard guard(core_);
   return core_.prepareScope(slot_, context(), control, false, guard.lock);
@@ -2315,7 +2380,7 @@ void Task::yield() noexcept {
     core_.tasks[slot_].state = State::Runnable;
 }
 void Task::complete(const void *value) noexcept { completeFrom(context(), value); }
-void Task::completeFrom(const Invocation &source, const void *value) noexcept {
+void Task::completeFrom(const Invocation &source, const void *value, bool publishBorrowed) noexcept {
   TaskCore::Impl::Guard guard(core_);
   auto &task = core_.tasks[slot_];
   if (context().status() || task.state != State::Running) {
@@ -2328,6 +2393,26 @@ void Task::completeFrom(const Invocation &source, const void *value) noexcept {
     return;
   }
   auto *node = task.call;
+  if (publishBorrowed && (!node || !node->borrowed ||
+                          !borrowedCall(*node).entry->terminalCleanupAllowed)) {
+    context().fault(3);
+    core_.finish(slot_, invocationFailure(context()));
+    return;
+  }
+  if (!publishBorrowed && node && node->borrowed) {
+    const auto &borrow = *borrowedCall(*node).entry;
+    if (borrow.stageCompletion) {
+      if (!borrow.terminalCleanupAllowed || !borrow.groups ||
+          !aligned(value, node->entry->result->alignment)) {
+        context().fault(3);
+        core_.finish(slot_, invocationFailure(context()));
+        return;
+      }
+      guard.lock.unlock();
+      borrow.stageCompletion(*this, borrow.state, source, value);
+      return;
+    }
+  }
   if (node && TaskCore::Impl::persistentOwner(node))
     core_.detachGroups(*node, core_.handle(slot_));
   if (node)
