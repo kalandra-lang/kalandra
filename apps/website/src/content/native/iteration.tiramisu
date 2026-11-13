@@ -234,13 +234,19 @@ h2 { "Lazy adapters" }
 
 Import map, filter and take from std/iter to transform a cursor without constructing intermediate arrays. These functions consume their input cursor. To adapt an array, Range or another reusable Iterable, first call iter(source). Give the iterator map an import alias when you also use the built-in array map.
 
+h2 { "map" }
+
 code { "map[T, U, E, F](own values: Iterator[T, E], transform: fn(T) -> U ! F)" }
 
 Return a cursor of U items. The callback runs once for each requested input item. Its expected errors combine with the source's E channel; either ends the sequence. An infallible callback has F equal to never.
 
+h2 { "filter" }
+
 code { "filter[T, E, F](own values: Iterator[T, E], predicate: fn(T) -> bool ! F)" }
 
 Return a cursor of T items for which predicate is true, preserving source order. Requesting one output may advance through several rejected input items. Source and predicate errors combine in the returned cursor's error channel.
+
+h2 { "take" }
 
 code { "take[T, E](own values: Iterator[T, E], count: i64) -> Iterator[T, E]" }
 

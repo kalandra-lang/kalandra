@@ -138,7 +138,7 @@ test("standard-module callables have individual public reference entries", async
       expect(reference).toContain(`code { "${fn[1]}${fn[2] ?? ""}(`);
     }
   }
-  expect(count).toBe(59);
+  expect(count).toBe(62);
   const options = await readFile(new URL("options.tiramisu", content), "utf8");
   expect(options).toContain('h2 { "Option[T]" }');
   expect(options).toContain('from "std/option" import Option');
