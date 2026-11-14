@@ -1,0 +1,173 @@
+foreach(target IN ITEMS kalandra-native-runtime kalandra-native-runtime-sanitized
+    kalandra-native-runtime-thread-sanitized kalandra-task-core-optimized)
+  target_sources(${target} PRIVATE runtime/GeneratorFrame.cpp runtime/GeneratorTasks.cpp)
+endforeach()
+if(BUILD_TESTING)
+  foreach(variant IN ITEMS debug sanitized)
+    add_executable(kalandra-iterator-contract-tests-${variant} tests/IteratorContractsTests.cpp)
+    set(semantics kalandra-semantics)
+    if(variant STREQUAL "sanitized")
+      set(semantics kalandra-semantics-sanitized)
+      target_compile_options(kalandra-iterator-contract-tests-${variant} PRIVATE
+        -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      target_link_options(kalandra-iterator-contract-tests-${variant} PRIVATE
+        -fsanitize=address,undefined -fno-sanitize-recover=all)
+    endif()
+    target_link_libraries(kalandra-iterator-contract-tests-${variant} PRIVATE ${semantics})
+    target_compile_options(kalandra-iterator-contract-tests-${variant} PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME frontend-iterator-contracts-${variant}
+      COMMAND kalandra-iterator-contract-tests-${variant}
+        "${CMAKE_CURRENT_BINARY_DIR}/iterator-contracts-${variant}")
+    set_tests_properties(frontend-iterator-contracts-${variant} PROPERTIES TIMEOUT 120
+      LABELS "feature-frontend;feature-control")
+    add_executable(kalandra-iterator-fusion-tests-${variant} tests/IteratorFusionTests.cpp)
+    target_link_libraries(kalandra-iterator-fusion-tests-${variant} PRIVATE ${semantics})
+    target_compile_options(kalandra-iterator-fusion-tests-${variant} PRIVATE -Wall -Wextra -Werror)
+    if(variant STREQUAL "sanitized")
+      target_compile_options(kalandra-iterator-fusion-tests-${variant} PRIVATE
+        -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      target_link_options(kalandra-iterator-fusion-tests-${variant} PRIVATE
+        -fsanitize=address,undefined -fno-sanitize-recover=all)
+    endif()
+    add_test(NAME frontend-iterator-fusion-${variant}
+      COMMAND kalandra-iterator-fusion-tests-${variant}
+        "${CMAKE_CURRENT_BINARY_DIR}/iterator-fusion-${variant}")
+    set_tests_properties(frontend-iterator-fusion-${variant} PROPERTIES TIMEOUT 120
+      LABELS "feature-frontend;feature-control")
+  endforeach()
+  add_custom_target(native-iterator-qualification DEPENDS kalandra
+    kalandra-task-core-optimized
+    kalandra-iterator-contract-tests-debug kalandra-iterator-contract-tests-sanitized)
+  add_dependencies(native-iterator-qualification kalandra-iterator-fusion-tests-debug
+    kalandra-iterator-fusion-tests-sanitized)
+  add_test(NAME native-iterator-fusion-faults
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorFusionFaultTests.py"
+      --compiler "$<TARGET_FILE:kalandra>"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-fusion-faults")
+  set_tests_properties(native-iterator-fusion-faults PROPERTIES TIMEOUT 180
+    LABELS "feature-frontend;feature-control")
+  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+    if(WIN32 AND variant STREQUAL "thread-sanitized")
+      continue()
+    endif()
+    set(runtime kalandra-native-runtime)
+    if(variant STREQUAL "sanitized")
+      set(runtime kalandra-native-runtime-sanitized)
+    elseif(variant STREQUAL "thread-sanitized")
+      set(runtime kalandra-native-runtime-thread-sanitized)
+    endif()
+    add_test(NAME native-generator-source-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/GeneratorSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>"
+        --clang "${CMAKE_CXX_COMPILER}" --runtime "$<TARGET_FILE:${runtime}>"
+        --variant "${variant}" --output "${CMAKE_CURRENT_BINARY_DIR}/generator-source-${variant}")
+    set_tests_properties(native-generator-source-${variant} PROPERTIES TIMEOUT 600
+      LABELS "feature-frontend;feature-control")
+    add_test(NAME native-iterator-fusion-cancellation-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorFusionCancellationTests.py"
+        --compiler "$<TARGET_FILE:kalandra>"
+        --clang "${CMAKE_CXX_COMPILER}" --runtime "$<TARGET_FILE:${runtime}>"
+        --variant "${variant}" --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-fusion-cancellation-${variant}")
+    set_tests_properties(native-iterator-fusion-cancellation-${variant} PROPERTIES TIMEOUT 180
+      LABELS "feature-frontend;feature-control")
+    add_executable(kalandra-owned-scope-tests-${variant} tests/OwnedScopeTests.cpp)
+    target_link_libraries(kalandra-owned-scope-tests-${variant} PRIVATE ${runtime})
+    target_compile_options(kalandra-owned-scope-tests-${variant} PRIVATE -Wall -Wextra -Werror)
+    if(variant STREQUAL "optimized")
+      target_compile_options(kalandra-owned-scope-tests-${variant} PRIVATE -O2)
+    elseif(variant STREQUAL "sanitized")
+      target_compile_options(kalandra-owned-scope-tests-${variant} PRIVATE
+        -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      target_link_options(kalandra-owned-scope-tests-${variant} PRIVATE
+        -fsanitize=address,undefined -fno-sanitize-recover=all)
+    elseif(variant STREQUAL "thread-sanitized")
+      target_compile_options(kalandra-owned-scope-tests-${variant} PRIVATE -O1 -g -fsanitize=thread)
+      target_link_options(kalandra-owned-scope-tests-${variant} PRIVATE -fsanitize=thread)
+    endif()
+    add_test(NAME native-owned-scopes-${variant} COMMAND kalandra-owned-scope-tests-${variant})
+    set_tests_properties(native-owned-scopes-${variant} PROPERTIES TIMEOUT 120
+      LABELS "feature-control;feature-io")
+    add_dependencies(native-iterator-qualification kalandra-owned-scope-tests-${variant})
+    add_executable(kalandra-generator-frame-tests-${variant} tests/GeneratorFrameTests.cpp)
+    target_link_libraries(kalandra-generator-frame-tests-${variant} PRIVATE ${runtime})
+    get_target_property(options kalandra-owned-scope-tests-${variant} COMPILE_OPTIONS)
+    target_compile_options(kalandra-generator-frame-tests-${variant} PRIVATE ${options})
+    if(variant STREQUAL "debug")
+      target_compile_options(kalandra-generator-frame-tests-${variant} PRIVATE -O0)
+    endif()
+    get_target_property(options kalandra-owned-scope-tests-${variant} LINK_OPTIONS)
+    if(options)
+      target_link_options(kalandra-generator-frame-tests-${variant} PRIVATE ${options})
+    endif()
+    add_test(NAME native-generator-frames-${variant} COMMAND kalandra-generator-frame-tests-${variant})
+    set_tests_properties(native-generator-frames-${variant} PROPERTIES TIMEOUT 120
+      LABELS "feature-control;feature-io")
+    add_dependencies(native-iterator-qualification kalandra-generator-frame-tests-${variant})
+    if(TARGET native-io-qualification)
+      # Both suites carry feature-io: the existing I/O workflow must build the
+      # executables before selecting that label, including on fresh CI hosts.
+      add_dependencies(native-io-qualification kalandra-owned-scope-tests-${variant}
+        kalandra-generator-frame-tests-${variant})
+    endif()
+    add_test(NAME native-iterators-source-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}"
+        --output "${CMAKE_CURRENT_BINARY_DIR}/iterators-source-${variant}")
+    set_tests_properties(native-iterators-source-${variant} PROPERTIES TIMEOUT 600
+      LABELS "feature-frontend;feature-control")
+    add_test(NAME native-iterator-task-dispatch-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorTaskDispatchTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --runtime "$<TARGET_FILE:${runtime}>" --variant "${variant}"
+        --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-task-dispatch-${variant}")
+    set_tests_properties(native-iterator-task-dispatch-${variant} PROPERTIES TIMEOUT 240
+      LABELS "feature-frontend;feature-control")
+    foreach(mode IN ITEMS for-loop fallible propagate nonlocal-return collecting collect-return task-error statement)
+      add_test(NAME native-iterator-${mode}-${variant}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorTaskDispatchTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+          --runtime "$<TARGET_FILE:${runtime}>" --variant "${variant}" "--${mode}"
+          --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-${mode}-${variant}")
+      set_tests_properties(native-iterator-${mode}-${variant} PROPERTIES TIMEOUT 240
+        LABELS "feature-frontend;feature-control")
+    endforeach()
+    foreach(backend IN ITEMS metal vulkan cuda)
+      if(NOT ((backend STREQUAL "metal" AND KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
+         OR (backend STREQUAL "vulkan" AND KALANDRA_BUILD_VULKAN_RUNTIME)
+         OR (backend STREQUAL "cuda" AND KALANDRA_BUILD_CUDA_SOURCE AND KALANDRA_BUILD_CUDA_RUNTIME)))
+        continue()
+      endif()
+      if(NOT backend STREQUAL "metal" AND variant STREQUAL "thread-sanitized")
+        continue()
+      endif()
+      if(backend STREQUAL "cuda" AND variant STREQUAL "sanitized")
+        continue()
+      endif()
+      if(backend STREQUAL "vulkan" AND variant STREQUAL "sanitized" AND NOT TARGET kalandra-vulkan-language-sanitized)
+        continue()
+      endif()
+      set(execution)
+      if(WIN32)
+        set(execution --compile-only)
+      endif()
+      add_test(NAME native-${backend}-iterators-source-${variant}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorSourceTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}" --target "${backend}"
+          --output "${CMAKE_CURRENT_BINARY_DIR}/${backend}-iterators-source-${variant}" ${execution})
+      set_tests_properties(native-${backend}-iterators-source-${variant} PROPERTIES TIMEOUT 600
+        LABELS "feature-frontend;feature-control;feature-gpu" RESOURCE_LOCK "${backend}-gpu")
+      add_test(NAME native-${backend}-generator-source-${variant}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/GeneratorGpuSourceTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}" --target "${backend}"
+          --output "${CMAKE_CURRENT_BINARY_DIR}/${backend}-generator-source-${variant}" ${execution})
+      set_tests_properties(native-${backend}-generator-source-${variant} PROPERTIES TIMEOUT 900
+        LABELS "feature-frontend;feature-control;feature-gpu" RESOURCE_LOCK "${backend}-gpu")
+      if(backend STREQUAL "metal")
+        set_tests_properties(native-${backend}-iterators-source-${variant} PROPERTIES
+          RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+        set_tests_properties(native-${backend}-generator-source-${variant} PROPERTIES
+          RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+      endif()
+    endforeach()
+  endforeach()
+endif()

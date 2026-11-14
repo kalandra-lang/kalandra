@@ -2919,6 +2919,7 @@ private:
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, ConsoleOperation> ||
                                std::is_same_v<T, BufferOperation> ||
+                               std::is_same_v<T, IteratorOperation> ||
                                std::is_same_v<T, FileOperation> ||
                                std::is_same_v<T, ParseOperation> ||
                                std::is_same_v<T, EnvironmentLookup>) {
@@ -3790,7 +3791,8 @@ private:
                                std::is_same_v<T, FailOperation> ||
                                std::is_same_v<T, GuardOperation> ||
                                std::is_same_v<T, LoopTransferOperation> ||
-                               std::is_same_v<T, YieldOperation>) {
+                               std::is_same_v<T, YieldOperation> ||
+                               std::is_same_v<T, GeneratorCreate>) {
             throw LoweringFailure{"task operation requires continuation lowering"};
           } else if constexpr (std::is_same_v<T, ShapeCheck>) {
             auto input = expression(frame, operation.input);
@@ -4188,6 +4190,7 @@ lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
   if (std::ranges::any_of(input.functions, [](const auto &f) { return f.resultType.fallible; }) ||
       std::ranges::any_of(input.expressions, [recursive](const auto &e) {
         return std::holds_alternative<TaskOperation>(e.operation) ||
+               std::holds_alternative<IteratorOperation>(e.operation) ||
                std::holds_alternative<ParallelOperation>(e.operation) ||
                std::holds_alternative<CatchOperation>(e.operation) ||
                std::holds_alternative<LoopTransferOperation>(e.operation) ||

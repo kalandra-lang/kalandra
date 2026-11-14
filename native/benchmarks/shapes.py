@@ -61,7 +61,7 @@ def main():
     clang = pathlib.Path(lock['defaultLlvmRoot']) / 'bin/clang++'
     sources = ['native/benchmarks/ShapeScaling.cpp', 'native/benchmarks/shapes.py',
                'native/tests/fixtures/dynamic-projection.k', 'native/runtime/Runtime.cpp',
-               'native/runtime/Runtime.h', 'native/runtime/Tasks.cpp', 'native/runtime/Tasks.h',
+               'native/runtime/Runtime.h', 'native/runtime/Tasks.cpp', 'native/runtime/Tasks.h', 'native/runtime/OwnedResources.cpp', 'native/runtime/OwnedResources.h',
                'native/lib/Backend.cpp', 'native/lib/CheckedABI.cpp']
     hashes = {p: digest(ROOT / p) for p in sources}
     commands = []
@@ -81,7 +81,7 @@ def main():
                  *(['-DKALANDRA_BLOCKING_SHAPES'] if args.suite == 'blocking' else []),
                  ROOT / 'native/benchmarks/ShapeScaling.cpp',
                  BUILD / (name + '.ll'), ROOT / 'native/runtime/Runtime.cpp',
-                 ROOT / 'native/runtime/Tasks.cpp', '-o', BUILD / name])
+                 ROOT / 'native/runtime/Tasks.cpp', ROOT / 'native/runtime/OwnedResources.cpp', '-o', BUILD / name])
 
     generate('current', ['-O2'])
     for name in ('baseline', 'current'):

@@ -41,12 +41,14 @@ class Checker {
     std::size_t identity;
     std::optional<ValueType> element;
     std::vector<ValueId> values;
+    bool lazy = false;
   };
   struct Frame;
   struct ClosureScope {
     Frame *parent;
     std::unordered_map<std::string, SymbolId> captures;
     std::vector<SymbolId> origins;
+    bool generator = false;
   };
   struct Frame {
     FunctionId function;
@@ -226,15 +228,19 @@ public:
         for (const auto &field : record.fields)
           if (isOwnedResource(output_, field.type))
             error("S081",
-                  isByteBuffer(output_, field.type)
+                  isIterator(output_, field.type)
+                      ? "owned Iterator requires standalone ownership, not aggregate fields"
+                  : isByteBuffer(output_, field.type)
                       ? "owned ByteBuffer requires standalone ownership, not aggregate fields"
                       : "owned file handles require standalone ownership, not aggregate fields",
                   field.declaration);
       for (const auto &value : output_.expressions)
         if (isOwnedResource(output_, value.type) && value.type.array)
           error("S081",
-                isByteBuffer(output_, value.type) ? "owned ByteBuffer cannot be stored in arrays"
-                                                  : "owned file handles cannot be stored in arrays",
+                isIterator(output_, value.type) ? "owned Iterator cannot be stored in arrays"
+                : isByteBuffer(output_, value.type)
+                    ? "owned ByteBuffer cannot be stored in arrays"
+                    : "owned file handles cannot be stored in arrays",
                 value.span);
     }
     if (!syntax_.editorOnly && diagnostics_.empty())
@@ -506,7 +512,7 @@ private:
     for (const auto &numeric : numericTypes)
       names.emplace_back(numeric.sourceName);
     if (!syntax.tensor) {
-      names.insert(names.end(), {"bool", "unit", "String"});
+      names.insert(names.end(), {"bool", "unit", "never", "String"});
       if (!syntax.array)
         names.insert(names.end(), {"TaskError", "Tensor"});
       const auto prefix = functionKey(syntax_.source->partIndex(site->begin), "");
@@ -611,6 +617,7 @@ private:
         result->fallible = true;
         result->errorRecord = normalizedError(*family);
       }
+      *result = eraseNeverError(std::move(*result));
       auto callable =
           callableType(std::move(parameters), *result, syntax.span,
                        syntax.function->mutableParameters, syntax.function->ownedParameters);
@@ -619,6 +626,14 @@ private:
         callable->shape = {dynamic()};
       }
       return callable;
+    }
+    if (!syntax.tensor && name(syntax.name) == "never") {
+      auto result = recordType(neverFamily());
+      if (syntax.array) {
+        result.tensor = result.array = true;
+        result.shape = {dynamic()};
+      }
+      return result;
     }
     if (!syntax.tensor && !syntax.array && name(syntax.name) == "TaskError") {
       ValueType result;
@@ -724,8 +739,9 @@ private:
     return result;
   }
   bool mutableParameterType(const ValueType &value) const {
-    return mutableArrayType(value) || (isByteBuffer(output_, value) && !value.task &&
-                                       !value.fallible && !value.device && !value.array);
+    return mutableArrayType(value) ||
+           ((isByteBuffer(output_, value) || isIterator(output_, value)) && !value.task &&
+            !value.fallible && !value.device && !value.array);
   }
   static bool mutableArrayType(const ValueType &value) {
     return value.array && !value.task && !value.fallible && !value.device &&
@@ -734,9 +750,12 @@ private:
   std::optional<ValueType> callableType(std::vector<ValueType> parameters, ValueType result,
                                         SourceSpan span, std::vector<bool> mutations = {},
                                         std::vector<bool> ownership = {}) {
+    result = eraseNeverError(std::move(result));
     for (std::size_t i = 0; i < mutations.size(); ++i)
       if (mutations[i] && (i >= parameters.size() || !mutableParameterType(parameters[i]))) {
-        error("S076", "mut parameters require flat numeric/bool array storage or ByteBuffer", span);
+        error("S076",
+              "mut parameters require flat numeric/bool array storage, ByteBuffer or Iterator",
+              span);
         return {};
       }
     for (std::size_t i = 0; i < ownership.size(); ++i)
@@ -911,7 +930,7 @@ private:
     std::ranges::sort(flattened);
     flattened.erase(std::unique(flattened.begin(), flattened.end()), flattened.end());
     if (flattened.empty())
-      return {};
+      return neverFamily();
     if (flattened.size() == 1)
       return flattened.front();
     for (std::size_t i = 0; i < output_.records.size(); ++i)
@@ -994,7 +1013,7 @@ private:
   void completeErrorTypes(SourceSpan site, const std::unordered_set<std::size_t> &active) {
     if (!completing(site))
       return;
-    std::vector<std::string> names{"TaskError"};
+    std::vector<std::string> names{"TaskError", "never"};
     const auto prefix = functionKey(syntax_.source->partIndex(site.begin), "");
     for (const auto &[key, id] : records_)
       if (key.starts_with(prefix) && output_.records[id].error)
@@ -1012,6 +1031,11 @@ private:
   std::optional<std::size_t> resolveError(SourceSpan member,
                                           std::unordered_set<std::size_t> &active) {
     completeErrorTypes(member, active);
+    if (qualifiedErrorName(member) == "never") {
+      auto id = neverFamily();
+      rememberTypeUse(member, recordType(id));
+      return id;
+    }
     if (genericBindings_)
       if (auto found = genericBindings_->find(qualifiedErrorName(member));
           found != genericBindings_->end()) {
@@ -1061,8 +1085,8 @@ private:
         continue;
       const auto label = name(record.name);
       if (reservedControl(label) || resolveNumeric(label) || label == "bool" || label == "unit" ||
-          label == "Tensor" || label == "TaskError" || label == "FaultKind" || label == "String" ||
-          label == "Device") {
+          label == "never" || label == "Tensor" || label == "TaskError" || label == "FaultKind" ||
+          label == "String" || label == "Device") {
         error("S068", "reserved record type name '" + label + "'", record.name);
         continue;
       }
@@ -1096,6 +1120,8 @@ private:
           header.standard = StandardRecord::Line;
         if (syntax_.standardModules[origin] == StandardModule::Parse && label == "ParseError")
           header.standard = StandardRecord::ParseError;
+        if (syntax_.standardModules[origin] == StandardModule::Iteration && label == "Range")
+          header.standard = StandardRecord::Range;
         if (syntax_.standardModules[origin] == StandardModule::Time) {
           if (label == "Instant")
             header.standard = StandardRecord::Instant;
@@ -1146,7 +1172,7 @@ private:
         const auto binding = imported.alias.value_or(imported.name);
         const auto label = name(binding);
         if (reservedControl(label) || resolveNumeric(label) || label == "bool" || label == "unit" ||
-            label == "Tensor" || label == "TaskError" || label == "FaultKind" ||
+            label == "never" || label == "Tensor" || label == "TaskError" || label == "FaultKind" ||
             label == "String" || label == "Device") {
           error("S067", "reserved import alias '" + label + "'", binding);
           continue;
@@ -1284,7 +1310,7 @@ private:
     for (FunctionId id = start; id < end; ++id) {
       if (output_.functions[id].anonymous)
         continue;
-      const auto function = syntax_.functions[id];
+      auto function = syntax_.functions[id];
       GenericScope scope(*this, functionBindings_.contains(id) ? functionBindings_.at(id) : nullptr,
                          proofOwnerForFunction(id));
       output_.functions[id].name = functionName(function);
@@ -1302,7 +1328,8 @@ private:
           traitNames_.contains(declarationKey))
         error("S068", "function conflicts with nominal type or trait name", function.name);
       if (output_.functions[id].name == "bool" || output_.functions[id].name == "unit" ||
-          output_.functions[id].name == "String" || reservedControl(output_.functions[id].name))
+          output_.functions[id].name == "never" || output_.functions[id].name == "String" ||
+          reservedControl(output_.functions[id].name))
         error("S056", "reserved builtin/control-flow name", function.name);
       if (resolveNumeric(output_.functions[id].name)) {
         error("S055", "numeric type names are reserved conversion functions", function.name);
@@ -1349,7 +1376,8 @@ private:
           continue;
         }
         if (parameter.mutableAccess && !mutableParameterType(*parameterType)) {
-          error("S076", "mut parameters require flat numeric/bool array storage or ByteBuffer",
+          error("S076",
+                "mut parameters require flat numeric/bool array storage, ByteBuffer or Iterator",
                 parameter.name);
           signatures_[id] = false;
         }
@@ -1378,9 +1406,14 @@ private:
             signatures_[id] = false;
         }
         if (signatures_[id]) {
-          if (auto family = combineErrors(std::move(families), *function.errorType))
+          if (auto family = combineErrors(std::move(families), *function.errorType)) {
             errorFamilies_[id] = normalizedError(*family);
-          else
+            if (isNeverFamily(*family)) {
+              neverErrorFunctions_.insert(id);
+              function.taskError = false;
+              syntax_.functions[id].taskError = false;
+            }
+          } else
             signatures_[id] = false;
         }
       }
@@ -1390,7 +1423,10 @@ private:
           signatures_[id] = false;
         else {
           output_.functions[id].declaredResult->fallible = function.taskError;
-          output_.functions[id].declaredResult->errorRecord = errorFamilies_[id];
+          output_.functions[id].declaredResult->errorRecord =
+              function.taskError ? errorFamilies_[id] : std::nullopt;
+          output_.functions[id].declaredResult->emptyErrorChannel =
+              neverErrorFunctions_.contains(id);
           if (genericOrigins_.contains(id))
             genericReturnTerms_[id] =
                 instantiateGenericTerm(*function.result, *output_.functions[id].declaredResult,
@@ -1418,8 +1454,8 @@ private:
           error("S068", "import conflicts with record type name", binding);
           continue;
         }
-        if (local == "bool" || local == "unit" || local == "String" || reservedControl(local) ||
-            resolveNumeric(local)) {
+        if (local == "bool" || local == "unit" || local == "never" || local == "String" ||
+            reservedControl(local) || resolveNumeric(local)) {
           error("S067", "reserved import alias '" + local + "'", binding);
           continue;
         }
@@ -1435,7 +1471,7 @@ private:
   }
   static bool localBinding(const ValueType &type) {
     return !type.task && !type.fallible && !type.device &&
-           (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type)) &&
+           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool) &&
            ((!type.tensor && !type.array) || (type.tensor && type.array && type.shape.size() == 1));
   }
   ValueType bindingType(ValueType type) {
@@ -2117,10 +2153,16 @@ private:
     for (auto parameter : output_.functions[id].parameters)
       parameters.insert(output_.symbols[parameter].name);
     output_.functions[id].compileTimeOnly = standardFormat(id);
-    auto result = standardFormat(id)   ? add(frame, *output_.functions[id].declaredResult,
-                                             syntax_.functions[id].span, StringLiteral{std::string{}})
-                  : standardBuffer(id) ? bufferBody(frame, id, *standardBuffer(id))
-                  : standardTime(id)   ? timeBody(frame, id, *standardTime(id))
+    output_.functions[id].standardIteratorTake =
+        syntax_.functions[id].moduleIndex < syntax_.standardModules.size() &&
+        syntax_.standardModules[syntax_.functions[id].moduleIndex] == StandardModule::Iteration &&
+        name(syntax_.functions[id].name) == "take";
+    auto result = standardFormat(id)     ? add(frame, *output_.functions[id].declaredResult,
+                                               syntax_.functions[id].span, StringLiteral{std::string{}})
+                  : standardIterator(id) ? iteratorBody(frame, id, *standardIterator(id))
+                  : standardRange(id)    ? rangeBody(frame, id)
+                  : standardBuffer(id)   ? bufferBody(frame, id, *standardBuffer(id))
+                  : standardTime(id)     ? timeBody(frame, id, *standardTime(id))
                   : standardEnvironmentLookup(id) ? environmentBody(frame, id)
                   : standardPath(id)              ? pathBody(frame, id, *standardPath(id))
                   : standardParse(id)             ? parseBody(frame, id, *standardParse(id))
@@ -2131,7 +2173,7 @@ private:
                                       syntax_.functions[id].span, parameters);
     if ((standardFormat(id) || standardConsole(id) || standardFile(id) || standardParse(id) ||
          standardPath(id) || standardEnvironmentLookup(id) || standardTime(id) ||
-         standardBuffer(id)) &&
+         standardIterator(id) || standardRange(id) || standardBuffer(id)) &&
         result)
       statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);
@@ -2156,6 +2198,9 @@ private:
       output_.functions[id].resultType.fallible = true;
       output_.functions[id].resultType.errorRecord = errorFamilies_[id];
     }
+    output_.functions[id].resultType = eraseNeverError(output_.functions[id].resultType);
+    if (neverErrorFunctions_.contains(id))
+      output_.functions[id].resultType.emptyErrorChannel = true;
     for (auto pending : frame.tasks->pending)
       if (!frame.tasks->handled.contains(pending))
         error("S036",
@@ -2174,6 +2219,7 @@ private:
   std::unordered_map<SymbolId, std::uint64_t> stringBindings_;
   template <class Operation>
   std::optional<ValueId> add(Frame &frame, ValueType type, SourceSpan span, Operation operation) {
+    type = eraseNeverError(std::move(type));
     if (output_.expressions.size() >= limits_.maxValues) {
       error("S009", "typed value limit exceeded", span);
       return {};
@@ -2520,23 +2566,27 @@ private:
     if (!origin)
       return {};
     const auto capture = output_.symbols[*origin];
-    if (isOwnedResource(output_, capture.type)) {
+    if (isOwnedResource(output_, capture.type) && !frame.closure->generator) {
       error(
           "S081",
-          isByteBuffer(output_, capture.type)
+          isIterator(output_, capture.type)
+              ? "Iterator requires explicit function parameters, not implicit closure captures"
+          : isByteBuffer(output_, capture.type)
               ? "ByteBuffer requires explicit function parameters, not implicit closure captures"
               : "file handles require explicit function parameters, not implicit closure captures",
           span);
       return {};
     }
     auto type = capture.type;
-    const bool privateCopy = mayReassign(frame, identifier) && localBinding(type);
+    const bool privateCopy = mayReassign(frame, identifier) && localBinding(type) &&
+                             !(frame.closure->generator && type.array);
     if (privateCopy)
       type = bindingType(type);
     if (type.task || type.fallible || type.device ||
         (type.builtin != BuiltinValue::Numeric && !isBooleanStorage(type) &&
          type.builtin != BuiltinValue::Record && type.builtin != BuiltinValue::String &&
-         type.builtin != BuiltinValue::Function)) {
+         type.builtin != BuiltinValue::Function &&
+         !(frame.closure->generator && type.builtin == BuiltinValue::TaskError))) {
       error("S060",
             "anonymous callbacks capture only completed CPU numbers, collections, bool, records or "
             "Strings",
@@ -2547,6 +2597,8 @@ private:
     output_.symbols.push_back({identifier, type, span, frame.function, true,
                                capture.definition.value_or(capture.declaration)});
     output_.symbols.back().reassignable = privateCopy;
+    output_.symbols.back().owned =
+        frame.closure->generator && isOwnedResource(output_, capture.type);
     if (auto provenance = genericSymbolTerms_.find(*origin);
         provenance != genericSymbolTerms_.end())
       genericSymbolTerms_[symbol] = provenance->second;
@@ -2814,7 +2866,8 @@ private:
         return {};
       }
       if (parameter.mutableAccess && !mutableParameterType(*resolved)) {
-        error("S076", "mut parameters require flat numeric/bool array storage or ByteBuffer",
+        error("S076",
+              "mut parameters require flat numeric/bool array storage, ByteBuffer or Iterator",
               parameter.name);
         return {};
       }
@@ -2901,6 +2954,7 @@ private:
       declaredResult.fallible = true;
       declaredResult.errorRecord = declaredError;
     }
+    declaredResult = eraseNeverError(std::move(declaredResult));
     if (declaredResult.fallible && resultType.fallible &&
         !errorSubset(output_, resultType.errorRecord, declaredResult.errorRecord)) {
       error("S072", "anonymous function return channel does not cover every error family", span);
@@ -2924,6 +2978,8 @@ private:
       output_.functions[id].resultType.fallible = true;
       output_.functions[id].resultType.errorRecord = declaredResult.errorRecord;
     }
+    output_.functions[id].resultType = eraseNeverError(output_.functions[id].resultType);
+    output_.functions[id].resultType.emptyErrorChannel |= declaredResult.emptyErrorChannel;
     if (resultType.fallible)
       nested.tasks->handled.insert(resultType.identity);
     for (auto pending : nested.tasks->pending)
@@ -3926,6 +3982,8 @@ private:
       result.identity = 0;
       return add(frame, result, span, TaskOperation{operation.prefix, *value});
     }
+    if (!result.task && !result.fallible && result.emptyErrorChannel)
+      return value;
     if (result.task || !result.fallible) {
       error("S036", "try requires an expected-error result", span);
       return {};
@@ -4053,7 +4111,11 @@ private:
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ReturnExpr &exit,
                                const std::optional<ValueType> &) {
     if (!frame.returns) {
-      error("S079", "return requires an enclosing function", span);
+      error("S079",
+            frame.collection && frame.collection->lazy
+                ? "return cannot leave a yielding loop; use break to finish the generator"
+                : "return requires an enclosing function",
+            span);
       return {};
     }
     std::optional<GenericTerm> returnTerm;
@@ -4230,8 +4292,8 @@ private:
     if (!value)
       return {};
     const auto type = node(*value).type;
-    if (type.task || type.fallible || type.tensor || type.array || type.device ||
-        type.builtin == BuiltinValue::Device) {
+    if (type.task || type.fallible || ((!collection.lazy) && (type.tensor || type.array)) ||
+        type.device || type.builtin == BuiltinValue::Device || isOwnedResource(output_, type)) {
       error("S076", "yield requires a completed CPU array element; handle errors before yielding",
             span);
       return {};
@@ -4290,6 +4352,8 @@ private:
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const WhileExpr &loop,
                                const std::optional<ValueType> &expected) {
+    if (loop.collecting)
+      return generatorLoop(frame, span, loop, expected);
     auto condition = expression(frame, loop.condition);
     if (!condition)
       return {};
@@ -4298,7 +4362,9 @@ private:
   std::optional<ValueId> checkLoop(Frame &frame, SourceSpan span, const WhileExpr &loop,
                                    const std::optional<ValueType> &expected, ValueId condition,
                                    Frame nested, std::vector<TypedStatement> initial = {},
-                                   std::vector<TypedStatement> iteration = {}) {
+                                   std::vector<TypedStatement> iteration = {},
+                                   std::optional<ValueType> traversalError = {},
+                                   std::optional<ValueId> traversalValue = {}) {
     const auto test = node(condition).type;
     if (test.builtin != BuiltinValue::Bool || test.tensor || test.array || test.task ||
         test.fallible || test.device) {
@@ -4393,17 +4459,29 @@ private:
       }
       resultType.identity = 0;
     }
+    if (traversalError) {
+      if (!joinErrors(resultType, *traversalError, span))
+        return {};
+      resultType.emptyErrorChannel |= traversalError->emptyErrorChannel && !resultType.fallible;
+    }
     const auto *literal = std::get_if<BoolLiteral>(&node(condition).operation);
-    if (!scope->breaks && ((literal && literal->value) || normal.stopped))
+    if (!(traversalError && traversalError->fallible) && !scope->breaks &&
+        ((literal && literal->value) || normal.stopped))
       frame.stopped = true;
-    return add(frame, resultType, span,
-               WhileOperation{condition, std::move(body), std::move(whenDone),
-                              loop.statementOnly ? std::optional<ValueId>{} : normalResult,
-                              scope->identity, scope->transfers, std::move(initial),
-                              std::move(iteration), scope->results, loop.collecting});
+    auto result = add(frame, resultType, span,
+                      WhileOperation{condition, std::move(body), std::move(whenDone),
+                                     loop.statementOnly ? std::optional<ValueId>{} : normalResult,
+                                     scope->identity, scope->transfers, std::move(initial),
+                                     std::move(iteration), scope->results, loop.collecting, false,
+                                     traversalError && traversalError->fallible});
+    if (result && traversalValue)
+      traversalGenericError(frame, *result, *traversalValue);
+    return result;
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ForExpr &loop,
                                const std::optional<ValueType> &expected) {
+    if (loop.collecting)
+      return generatorLoop(frame, span, loop, expected);
     if (reservedControl(name(loop.binding))) {
       error("S076", "invalid for iteration binding", loop.binding);
       return {};
@@ -4435,37 +4513,8 @@ private:
     const auto read = [&](SymbolId symbol) {
       return add(frame, output_.symbols[symbol].type, span, SymbolRead{symbol});
     };
-    ValueId condition;
-    const auto *call = std::get_if<CallExpr>(&syntax_.expressions[loop.input].value);
-    const auto *callee =
-        call ? std::get_if<NameExpr>(&syntax_.expressions[call->callee].value) : nullptr;
-    if (callee && name(callee->name) == "range") {
-      if (call->arguments.empty() || call->arguments.size() > 3) {
-        error("S076", "range expects stop, start/stop, or start/stop/step",
-              syntax_.expressions[loop.input].span);
-        return {};
-      }
-      std::vector<ValueId> arguments;
-      for (auto argument : call->arguments) {
-        auto value = expression(frame, argument, integer);
-        if (!value)
-          return {};
-        if (!sameFunctionValueType(node(*value).type, integer)) {
-          error("S076", "range arguments require completed int scalars", node(*value).span);
-          return {};
-        }
-        auto symbol = bind(*value, false, initial);
-        auto pinned = read(symbol);
-        if (!pinned)
-          return {};
-        arguments.push_back(*pinned);
-      }
-      auto zero = literal(0), one = literal(1);
-      if (!zero || !one)
-        return {};
-      const auto start = arguments.size() == 1 ? *zero : arguments[0];
-      const auto stop = arguments.size() == 1 ? arguments[0] : arguments[1];
-      const auto step = arguments.size() == 3 ? arguments[2] : *one;
+    const auto rangeCondition = [&](ValueId start, ValueId stop, ValueId step)
+        -> std::optional<ValueId> {
       auto checked =
           add(frame, integer, span,
               IntegerRangeOperation{IntegerRangeOperation::Kind::Validate, start, stop, step});
@@ -4480,7 +4529,6 @@ private:
               IntegerRangeOperation{IntegerRangeOperation::Kind::Test, *position, stop, step});
       if (!test)
         return {};
-      condition = *test;
       // Capture the iteration value before advancement. Continue therefore
       // reaches the next value, while body writes cannot alter the range.
       auto item = read(current);
@@ -4493,13 +4541,154 @@ private:
       if (!advance)
         return {};
       iteration.push_back({span, current, *advance});
+      return *test;
+    };
+    ValueId condition;
+    ValueType infallibleTraversal;
+    infallibleTraversal.emptyErrorChannel = true;
+    const auto *call = std::get_if<CallExpr>(&syntax_.expressions[loop.input].value);
+    const auto *callee =
+        call ? std::get_if<NameExpr>(&syntax_.expressions[call->callee].value) : nullptr;
+    const auto rangeTarget = functions_.find(functionKey(frame, "range"));
+    if (callee && name(callee->name) == "range" && !lookupSymbol(frame, callee->name) &&
+        (rangeTarget == functions_.end() || standardRange(rangeTarget->second))) {
+      if (call->arguments.empty() || call->arguments.size() > 3) {
+        error("S076", "range expects stop, start/stop, or start/stop/step",
+              syntax_.expressions[loop.input].span);
+        return {};
+      }
+      std::vector<ValueId> arguments;
+      for (auto argument : call->arguments) {
+        auto value = expression(frame, argument, integer);
+        if (!value)
+          return {};
+        if (!sameFunctionValueType(node(*value).type, integer)) {
+          error("S076", "range arguments require completed i64 scalars", node(*value).span);
+          return {};
+        }
+        auto symbol = bind(*value, false, initial);
+        auto pinned = read(symbol);
+        if (!pinned)
+          return {};
+        arguments.push_back(*pinned);
+      }
+      auto zero = literal(0), one = literal(1);
+      if (!zero || !one)
+        return {};
+      const auto start = arguments.size() == 1 ? *zero : arguments[0];
+      const auto stop = arguments.size() == 1 ? arguments[0] : arguments[1];
+      const auto step = arguments.size() == 3 ? arguments[2] : *one;
+      auto ranged = rangeCondition(start, stop, step);
+      if (!ranged)
+        return {};
+      condition = *ranged;
     } else {
       auto input = expression(frame, loop.input);
       if (!input)
         return {};
-      const auto type = node(*input).type;
+      auto type = node(*input).type;
+      if (genericContext(frame) && !genericTerm(*input).variables.empty() &&
+          (type.array ||
+           (type.record && output_.records[*type.record].standard == StandardRecord::Range)) &&
+          !iterableCursor(frame, *input, node(*input).span, false))
+        return {};
+      if (!type.tensor && !type.array && !type.task && !type.fallible && !type.device &&
+          type.record && output_.records[*type.record].standard == StandardRecord::Range) {
+        const auto source = bind(*input, false, initial);
+        auto values = read(source);
+        if (!values)
+          return {};
+        std::vector<ValueId> fields;
+        for (std::size_t field = 0; field < 3; ++field) {
+          auto value = add(frame, integer, span, RecordFieldRead{*values, field});
+          if (!value)
+            return {};
+          const auto pinned = bind(*value, false, initial);
+          auto saved = read(pinned);
+          if (!saved)
+            return {};
+          fields.push_back(*saved);
+        }
+        auto ranged = rangeCondition(fields[0], fields[1], fields[2]);
+        if (!ranged)
+          return {};
+        return checkLoop(
+            frame, span,
+            WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting}, expected,
+            *ranged, std::move(nested), std::move(initial), std::move(iteration),
+            infallibleTraversal);
+      }
+      if (!type.array && !type.task && !type.fallible && !type.device &&
+          !isIterator(output_, type)) {
+        input = iterableCursor(frame, *input, node(*input).span);
+        if (!input)
+          return {};
+        type = node(*input).type;
+      }
+      if (!type.task && !type.fallible && !type.device && isIterator(output_, type)) {
+        if (genericContext(frame) && !genericTerm(*input).variables.empty()) {
+          error("S083",
+                "cursor traversal requires an explicit Iterator[T, E] parameter; use an Iterable "
+                "bound for an abstract reusable source",
+                node(*input).span);
+          return {};
+        }
+        const auto arguments = output_.records[*type.record].typeArguments;
+        const auto option = iteratorOption(arguments[0], span);
+        if (!option)
+          return {};
+        auto result = recordType(*option);
+        const auto failure = arguments[1];
+        const bool fallible = !failure.record || !output_.records[*failure.record].uninhabited;
+        if (fallible) {
+          result.fallible = true;
+          result.errorRecord = failure.record;
+          if (failure.builtin == BuiltinValue::TaskError ||
+              (failure.record && output_.records[*failure.record].taskErrorFamily))
+            result.errorRecord.reset();
+        }
+        result.emptyErrorChannel = !fallible;
+        const auto source = bind(*input, false, initial);
+        const auto cursor = read(source);
+        if (!cursor)
+          return {};
+        auto advanced =
+            add(frame, result, span, IteratorOperation{IteratorAction::Next, {*cursor}, span});
+        if (!advanced)
+          return {};
+        const auto traversalError = result;
+        const auto traversalValue = *advanced;
+        if (fallible) {
+          frame.tasks->handled.insert(node(*advanced).type.identity);
+          auto completed = result;
+          completed.fallible = false;
+          completed.errorRecord.reset();
+          completed.identity = 0;
+          advanced = add(frame, completed, span, TaskOperation{TaskPrefix::Try, *advanced});
+          if (!advanced)
+            return {};
+        }
+        auto no = add(frame, boolean, span, BoolLiteral{false});
+        auto yes = add(frame, boolean, span, BoolLiteral{true});
+        if (!no || !yes)
+          return {};
+        auto test =
+            add(frame, boolean, span,
+                MatchOperation{*advanced,
+                               {{1, {{span, {}, *no}}, *no}, {2, {{span, {}, *yes}}, *yes}}});
+        auto item = add(frame, arguments[0], span,
+                        RecordFieldRead{*advanced, output_.records[*option].variants[1].fields[0]});
+        if (!test || !item)
+          return {};
+        bind(*item, localBinding(arguments[0]), iteration, loop.binding);
+        return checkLoop(
+            frame, span,
+            WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting}, expected,
+            *test, std::move(nested), std::move(initial), std::move(iteration), traversalError,
+            traversalValue);
+      }
       if (!type.array || type.task || type.fallible || type.device) {
-        error("S076", "for expects a completed CPU array or range(...) iterable",
+        error("S076", "for expects a completed CPU array, Range, Iterator or range(...) iterable",
               node(*input).span);
         return {};
       }
@@ -4529,9 +4718,10 @@ private:
         return {};
       iteration.push_back({span, counter, *advance});
     }
-    return checkLoop(
-        frame, span, WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting},
-        expected, condition, std::move(nested), std::move(initial), std::move(iteration));
+    return checkLoop(frame, span,
+                     WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting},
+                     expected, condition, std::move(nested), std::move(initial),
+                     std::move(iteration), infallibleTraversal);
   }
   std::optional<ValueId> statementValue(Frame &frame, const Statement &statement,
                                         const std::optional<ValueType> &expected, bool last) {
@@ -6382,17 +6572,52 @@ private:
         return conversion(frame, span, *numeric, arguments);
       if (callee == "array") {
         if (arguments.size() != 1) {
-          error("S027", "array expects exactly one tensor argument", span);
+          error("S027", "array expects exactly one tensor or iterable argument", span);
           return {};
         }
         if (expected && !expected->array) {
           error("S026", "array construction requires an array result context", span);
           return {};
         }
-        auto input = expression(frame, arguments[0]);
+        std::optional<ValueId> input;
+        if (expected && expected->array) {
+          auto item = bindingType(*expected);
+          item.array = item.tensor = false;
+          item.shape.clear();
+          item.fallible = false;
+          item.errorRecord.reset();
+          item.emptyErrorChannel = false;
+          item.identity = 0;
+          const auto &argument = syntax_.expressions.at(arguments[0]);
+          if (const auto *loop = std::get_if<ForExpr>(&argument.value); loop && loop->collecting)
+            input = generatorLoop(frame, argument.span, *loop, {}, item);
+          else if (const auto *loop = std::get_if<WhileExpr>(&argument.value);
+                   loop && loop->collecting)
+            input = generatorLoop(frame, argument.span, *loop, {}, item);
+          else
+            input = expression(frame, arguments[0]);
+        } else
+          input = expression(frame, arguments[0]);
         if (!input)
           return {};
+        if (std::holds_alternative<GeneratorCreate>(node(*input).operation))
+          return materializeFreshGenerator(frame, *input, span);
         auto output = node(*input).type;
+        if (!output.task && !output.fallible && !output.device && output.array) {
+          if (genericContext(frame) && !genericTerm(*input).variables.empty())
+            return materializeIterator(frame, span, *input);
+          ValueType integer;
+          integer.element = NumericType::Int64;
+          const auto start = add(frame, integer, span, Int64Literal{0});
+          const auto end =
+              add(frame, integer, span, CollectionQuery{CollectionQueryKind::Length, *input});
+          if (!start || !end)
+            return {};
+          output.emptyErrorChannel = true;
+          return add(frame, output, span, ArraySlice{*input, *start, *end});
+        }
+        if (!output.tensor && !output.task && !output.fallible && !output.device && output.record)
+          return materializeIterator(frame, span, *input);
         if (!output.tensor || output.array || output.task || output.fallible || output.device ||
             output.builtin != BuiltinValue::Numeric) {
           error("S026", "array construction requires a completed CPU numeric tensor", span);
@@ -6497,6 +6722,13 @@ private:
     if (!signatures_[id])
       return {};
     const bool signatureQuery = queryingSignature(span);
+    if (standardRange(id) && signatureQuery)
+      return rangeSignature(frame, id, span, arguments);
+    if (standardRange(id) && !concreteArguments && !signatureQuery && !completingArgument(arguments)) {
+      concreteArguments = rangeArguments(frame, span, arguments);
+      if (!concreteArguments)
+        return {};
+    }
     const auto slot = signatureQuery ? options_.signature->argumentIndex : std::nullopt;
     const bool projected = slot && *slot < arguments.size() &&
                            *slot < output_.functions[id].parameters.size() &&
@@ -6526,7 +6758,8 @@ private:
         }
       }
     }
-    if (arguments.size() != output_.functions[id].parameters.size()) {
+    if ((concreteArguments ? concreteArguments->size() : arguments.size()) !=
+        output_.functions[id].parameters.size()) {
       error("S027", "wrong argument count for '" + callee + "'", span);
       return {};
     }
@@ -6547,7 +6780,8 @@ private:
       for (std::size_t i = 0; i < operands.size(); ++i) {
         auto value =
             conform(frame, operands[i], output_.symbols[output_.functions[id].parameters[i]].type,
-                    syntax_.expressions[arguments[i]].span, options_.placement && spawned);
+                    i < arguments.size() ? syntax_.expressions[arguments[i]].span : span,
+                    options_.placement && spawned);
         if (!value)
           return {};
         operands[i] = *value;
@@ -6623,12 +6857,15 @@ private:
     resultType.fallible = syntax_.functions[id].taskError;
     if (resultType.fallible)
       resultType.errorRecord = errorFamilies_[id];
+    resultType.emptyErrorChannel |= neverErrorFunctions_.contains(id);
     resultType.identity = 0;
     if (!validSize(resultType, span))
       return {};
     return add(frame, std::move(resultType), span, FunctionCall{id, std::move(operands)});
   }
 #include "GenericChecking.h"
+#include "NeverChecking.h"
+#include "IterationChecking.h"
   std::size_t nextLoop_ = 1;
   Module syntax_;
   SemanticLimits limits_;

@@ -97,6 +97,11 @@ jobs:
         run: >-
           ctest --test-dir build/linux --output-on-failure
           -R '^native-explicit-returns$'
+      - name: Qualify iterator contracts and source execution
+        run: |
+          cmake --build build/linux --target native-iterator-qualification -j2
+          ctest --test-dir build/linux --output-on-failure -j2 \
+            -R '^(frontend-iterator-(contracts|fusion)-|native-((iterators|generator)-source-|iterator-fusion-))'
       - name: Qualify checked recursive calls and signed remainder
         run: |
           cmake --build build/linux --target kalandra-checked-inlining-tests kalandra-cross-target-tests -j2

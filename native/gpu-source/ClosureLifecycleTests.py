@@ -51,7 +51,7 @@ executable = root / 'lifecycle'
 flags = ['-std=c++23', '-O1', '-g', '-fsanitize=address,undefined',
          '-fno-sanitize-recover=all', '-fno-omit-frame-pointer', '-ffp-contract=off',
          '-Wall', '-Wextra', '-Werror', '-Wno-override-module']
-# Standalone runtime targets provide Runtime.cpp and Tasks.cpp. Include the
+# Standalone runtime targets provide Runtime.cpp, Tasks.cpp and OwnedResources.cpp. Include the
 # remaining native bridge definitions exactly once, with the same sanitizers.
 extra = [native / 'runtime' / name for name in ('ValueScopes.cpp', 'TaskABI.cpp')]
 run([cxx, *flags, '-I' + str(native / a.backend), '-I' + str(native / 'include'),

@@ -40,6 +40,14 @@ def collect(runtime_archive, destination, architecture, rehearsal=False):
                     elif path.name == 'qualification.json' and path.parent.name in ('installed-cuda', 'installed-vulkan'):
                         output = path.parent.name+'.json'
                         maximum = 65536
+                    elif (path.parts[0] in ('installed-cuda', 'installed-vulkan') and
+                          ((len(path.parts) == 2 and path.name == 'compile-jobs.json') or
+                           (len(path.parts) == 3 and path.parts[1] == 'compile-logs' and path.suffix == '.log'))):
+                        # Hosted qualification retains diagnostics alongside the
+                        # packages. They are evidence only, never release inputs.
+                        if member.file_size > 64 * 1024**2:
+                            raise RuntimeError('Oversized Windows GPU diagnostic member')
+                        continue
                     else:
                         raise RuntimeError('Unexpected Windows GPU artifact member')
                     if output in seen or member.file_size > maximum:

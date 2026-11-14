@@ -51,7 +51,10 @@ enum class Code {
   CollectAppend,
   CollectFinish,
   ResourceEnter,
-  ResourceLeave
+  ResourceLeave,
+  ResourceAdopt,
+  GeneratorCreate,
+  GeneratorYield
 };
 struct Instruction {
   Code code;

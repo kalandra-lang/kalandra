@@ -1,0 +1,37 @@
+meta { title = "Optional values", description = "Represent a present or absent value with std/option.Option[T].", order = 10, group = "Library reference" }
+
+Import Option from std/option when an operation can legitimately have no value. Absence is a normal result, rather than an expected error or a special numeric or String value.
+
+h2 { "Option[T]" }
+
+Option[T] is a generic enum with two alternatives: None, with no payload, and Some, with one value of type T. Type arguments are part of its identity. Option[i64] and Option[String] are different types.
+
+codeblock { language = kalandra, """from "std/option" import Option
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn orDefault[T](option: Option[T], fallback: T) -> T:
+  return match option:
+    Option.None: fallback
+    Option.Some {value}: value
+
+fn main() -> unit ! IoError:
+  present = Option.Some {value: 42}
+  absent: Option[i64] = Option.None
+  try println(format("{}:{}", orDefault(present, 0), orDefault(absent, 7)))
+  return ()
+""" }
+
+This displays 42:7. Some can infer T from its value. None has no payload from which to infer a type, so supply an expected type or write Option[i64].None explicitly. A match must cover both alternatives, or use a fallback arm.
+
+Option follows ordinary enum storage and access rules. It does not grant mutation rights, copy owned resources or permit owned file/buffer handles inside an aggregate. Importing Option under another name preserves its identity.
+
+h2 { "Absence and failure" }
+
+Use None when there is simply no value. Use an expected-error channel such as ! InputError when the operation failed and the caller needs a recovery policy. An optional result can also have an expected-error channel; the two concepts stay separate.
+
+list {
+  link { url = "/docs/generics-traits", "Generic types and explicit capability contracts" },
+  link { url = "/docs/records-enums", "Enum alternatives and exhaustive matching" },
+  link { url = "/docs/errors", "Expected errors and recovery" }
+}

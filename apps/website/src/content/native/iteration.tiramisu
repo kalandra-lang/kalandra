@@ -1,0 +1,278 @@
+meta { title = "Iteration", description = "Reusable ranges, array sources and owned iteration cursors.", order = 11, group = "Library reference" }
+
+Import range from std/iter when you want to store an integer sequence, pass it to a function or traverse it more than once. A Range stores its start, exclusive stop and step. It does not allocate an array or store a current iteration position.
+
+h2 { "range" }
+
+code { "range(stop: i64) -> Range" }
+code { "range(start: i64, stop: i64) -> Range" }
+code { "range(start: i64, stop: i64, step: i64) -> Range" }
+
+The default start is zero and the default step is one. A negative step counts downward. The stop is excluded, and a step pointing away from the stop produces an empty sequence. Arguments are evaluated once, from left to right, when the Range is created. Traversal does not repeat their effects.
+
+codeblock { language = kalandra, """from "std/iter" import Range, range
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn sum(values: Range) -> i64:
+  total = 0
+  for value in values:
+    total = total + value
+  return total
+
+fn main() -> unit ! IoError:
+  evens = range(0, 7, 2)
+  try println(format("{}", sum(evens) + sum(evens)))
+  return ()
+""" }
+
+This displays 24. Each call to sum traverses 0, 2, 4 and 6 independently. Sharing a Range does not share an advancing cursor. Its three i64 fields are immutable values, so ranges can also be captured by functions or passed to supported GPU functions.
+
+A zero step causes a checked arithmetic fault, even when start equals stop. Advancing past the i64 limits ends traversal without wrapping around. This is a runtime fault, rather than an expected-error channel to handle with try.
+
+When used as a function value, range has its full three-argument signature. For example, a callback expecting fn(i64, i64, i64) -> Range can receive range directly.
+
+h2 { "Range" }
+
+Range is an immutable record with i64 fields start, stop and step. Reading its fields does not consume it. If you construct the record directly, for validates its step before traversal begins. The range function performs that validation at construction.
+
+The allocation-free syntax for value in range(...) is also available without an import. Import std/iter.range to use the factory outside that loop syntax, or give the import an alias such as steps. Both traversal forms use the same exclusive stop and overflow rules.
+
+h2 { "Iterator[T, E]" }
+
+An Iterator owns a position in a sequence. T is the type of each item; E is the expected error that advancing the cursor can produce. Iterator[i64, never] produces i64 values without expected errors. Exhaustion is represented by Option.None, separately from the error channel.
+
+Cursors have a single owner. Assigning one to another binding or passing it to an own parameter transfers ownership. A function that advances a borrowed cursor must declare a mut parameter. Pass cursors through explicit function parameters rather than capturing them implicitly in an ordinary function. The cursor's storage is opaque: use the iteration functions rather than constructing or reading its fields.
+
+A cursor closes automatically when its owning block ends. Moving it into an inner block makes that block responsible for closing it; returning it as the block's result transfers responsibility to the receiving block. Closing releases its retained source loan before the following code runs. Temporary cursors that do not escape an expression also close automatically.
+
+h2 { "iter" }
+
+code { "iter[S: Iterable](values: S) -> Iterator[S.Item, S.Error]" }
+
+Create a cursor at the beginning of a range or array. Each call creates an independent position. Creating a range cursor does not traverse the sequence or allocate an array proportional to its length. Use a for loop over the Range itself when you do not need to retain an advancing cursor.
+
+h3 { "Array sources" }
+
+An array cursor retains its source backing without copying the elements. While the cursor holds that read loan, you cannot mutate the source through another binding, a function parameter or a task. This includes mutable arrays reachable through record elements. Close the cursor before changing that storage, or use copy to create an independent array. Reassigning a binding to a different array does not change the cursor's source.
+
+codeblock { language = kalandra, """from "std/iter" import iter, next, close
+from "std/option" import Option
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  values = [2, 4, 6]
+  cursor = iter(values)
+  first = match next(cursor):
+    Option.None: 0
+    Option.Some {value}: value
+  close(cursor)
+  values[0] = 9
+  try println(format("{}:{}", first, values[0]))
+  return ()
+""" }
+
+This displays 2:9. The cursor also supports strings, booleans, numerical values and records. Record and function array cursors require a CPU-only program; mixed GPU host continuations accept numeric, bool and String arrays. Items that refer to backing storage keep that storage alive after the cursor closes. Passing a cursor to an own parameter transfers its position and read loan; a spawned consumer retains the loan until its task has settled.
+
+Exhausting the cursor also releases its source read loan. A loop that stops only at Option.None can then change the source, even before closing the exhausted cursor. An early break keeps the loan active when the cursor is owned outside the loop; close that cursor before changing its source. A cursor created inside an iteration closes when that iteration ends, including on break or continue.
+
+codeblock { language = kalandra, """from "std/iter" import iter, next, close
+from "std/option" import Option
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  values = [2, 4, 6]
+  cursor = iter(values)
+  total = 0
+  while true:
+    match next(cursor):
+      Option.None: break
+      Option.Some {value}:
+        total = total + value
+        ()
+  values[0] = 9
+  close(cursor)
+  try println(format("{}:{}", total, values[0]))
+  return ()
+""" }
+
+This displays 12:9. Further next calls on the exhausted cursor return Option.None without reading the source.
+
+h2 { "for over a cursor" }
+
+A for loop consumes an Iterator. It advances once for each item and closes the cursor before the loop finishes, including on break, an expected error or an early return. Continue advances to the next item. The original cursor binding has moved and cannot be advanced or closed afterward. Traversing an array or Range directly keeps that reusable source available.
+
+codeblock { language = kalandra, """from "std/iter" import iter
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  values = [2, 4, 6]
+  cursor = iter(values)
+  total = 0
+  for value in cursor:
+    total = total + value
+    if total == 6:
+      break
+  values[0] = 9
+  try println(format("{}:{}", total, values[0]))
+  return ()
+""" }
+
+This displays 6:9. The loop closes its partially consumed cursor, so the source can be changed immediately afterward. Use manual next calls when you want to keep the cursor's position after stopping.
+
+Traversing Iterator[T, E] makes the loop's result fallible with E. Use try to propagate that result or catch to handle it. Body expressions still use their own explicit error handling. Generic traversal also accepts E equal to never; its empty error channel is removed during compilation.
+
+codeblock { language = kalandra, """from "std/iter" import Iterator, iter
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn sum[E](own cursor: Iterator[i64, E]) -> i64 ! E:
+  total = 0
+  return try for value in cursor:
+    total = total + value
+  else: total
+
+fn main() -> unit ! IoError:
+  result = try sum(iter([2, 4, 6]))
+  try println(format("{}", result))
+  return ()
+""" }
+
+This displays 12. The else value is returned on exhaustion; break value can provide an earlier result. Closing the cursor does not invalidate an item that retains its own backing storage.
+
+h2 { "array" }
+
+code { "array(source: Iterator[T, E]) -> [T] ! E" }
+
+Consume the remaining items into an array and close the cursor before returning. A range or another Iterable source can also be passed directly. Materialization happens immediately. Handle E with try or catch; with E equal to never, the call is infallible. A traversal error discards the partial array and closes the source before the error is delivered.
+
+codeblock { language = kalandra, """from "std/iter" import range, iter
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  cursor = iter(range(4))
+  values = array(cursor)
+  values[0] = 9
+  try println(format("{}:{}", length(values), values[0]))
+  return ()
+""" }
+
+This displays 4:9. Materializing an existing array creates new outer element storage; references stored inside its elements retain their ordinary sharing rules. Array and tensor items cannot be nested in another array by this operation: wrap each such item in a record. To convert a numeric tensor into a flat array, use array(tensor).
+
+h2 { "Iterable" }
+
+code { "Iterable.iterator(values: Self) -> Iterator[Self.Item, Self.Error]" }
+
+Iterable describes a reusable source. Its associated Item type specifies each item, and Error specifies failures while advancing the returned cursor. Its iterator function creates an owned Iterator[Self.Item, Self.Error]. Range implements this trait with Item equal to i64 and Error equal to never. An array [T] implements it with Item equal to T and Error equal to never. A generic function can accept S: Iterable and call iter(values) or use a for loop without knowing the source's concrete representation. A for loop over a user-defined Iterable creates one cursor, traverses it and closes it. Constructing the source is evaluated once. Trait dispatch is resolved during compilation; direct array and Range loops keep their allocation-free traversal.
+
+h2 { "next" }
+
+code { "next[T, E](mut cursor: Iterator[T, E]) -> Option[T] ! E" }
+
+Advance the cursor once. Option.Some contains an item; Option.None means that no items remain. Further calls after exhaustion also return Option.None. With E equal to never, next is infallible and needs no try. For a fallible cursor, handle its expected errors independently of matching the Option.
+
+codeblock { language = kalandra, """from "std/iter" import range, iter, next, close
+from "std/option" import Option
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  cursor = iter(range(2, 7, 2))
+  while true:
+    match next(cursor):
+      Option.None: break
+      Option.Some {value}:
+        try println(format("{}", value))
+  close(cursor)
+  return ()
+""" }
+
+This displays 2, 4 and 6 on separate lines. The cursor advances only when next is called.
+
+h2 { "close" }
+
+code { "close[T, E](own cursor: Iterator[T, E]) -> unit" }
+
+Stop iteration and release the cursor's suspended state. Closing consumes ownership, so the binding cannot be used afterward. Close a partially consumed cursor when you have finished with it. Leaving its owning scope also cleans it up, including on faults and cancellation.
+
+
+h2 { "Lazy generators" }
+
+A for or while expression with yield creates an Iterator. Creating it captures its inputs without running its body. The loop source expression and bounds are evaluated when iteration begins, using the captured bindings. Each next call runs until one item is yielded, the body finishes or an expected error occurs. A consuming for loop advances it automatically. Use array(generator) when you want all remaining items stored immediately.
+
+codeblock { language = kalandra, """from "std/iter" import Iterator
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn squares(start: i64) -> Iterator[i64, never]:
+  return for value in range(start, start + 3):
+    yield value * value
+
+fn main() -> unit ! IoError:
+  total = 0
+  for value in squares(4):
+    total = total + value
+  try println(format("{}", total))
+  return ()
+""" }
+
+This displays 77. The cursor produces 16, 25 and 36 one at a time. A bare break ends a yielding loop; continue skips to its next iteration. Nested statement loops yield into the enclosing sequence. An independently bound yielding expression owns a separate sequence. Use break rather than return to end a generator body; return still ends the function that creates or consumes it.
+
+Scalar bindings are captured by value. Reassigning a captured scalar inside the generator changes its private binding, and reassigning the enclosing binding does not change the cursor. Captured arrays retain their backing with a read loan, rather than copying their elements. Mutation through another alias is rejected while that loan is active. Use copy explicitly for independent backing. Values already yielded must remain safe for the consumer: the producer cannot subsequently mutate their shared backing. Owned resources captured by a generator move into it and close when it finishes or is closed.
+
+Expected errors in the body belong to the cursor's E channel. Construction is infallible with respect to E; handle errors when advancing or materializing the cursor. Once exhausted, the cursor stays exhausted. An error ends the sequence and closes its state; subsequent advancement returns Option.None. Dropping or explicitly closing a paused cursor also releases its state.
+
+A generator can await tasks between items. Children spawned inside a parallel block continue while it is paused; consuming the next item may resume that block. Closing, dropping or exhausting the generator cancels unfinished children and joins them before releasing captures and read loans. Child faults retain their precedence over an expected terminal error. Long-lived paused cursors therefore retain their live resources until consumption or closure.
+
+Generators run on the CPU host. In a mixed GPU program, their bodies can submit kernels and await completed CPU results before yielding. A generator cursor itself cannot be transferred to or advanced inside a GPU kernel. This does not change the device support of ordinary array and range loops.
+
+h2 { "Lazy adapters" }
+
+Import map, filter and take from std/iter to transform a cursor without constructing intermediate arrays. These functions consume their input cursor. To adapt an array, Range or another reusable Iterable, first call iter(source). Give the iterator map an import alias when you also use the built-in array map.
+
+The CPU compiler can combine a statically known local sequence and its consuming for loop into one native loop. This includes pure scalar map and filter callbacks, take, nested producers, and read-only array traversal. Captures still take their values at construction, and work still stops at break or the take limit. Cancellation and arithmetic checks remain active.
+
+A cursor that escapes, is advanced manually, produces managed values, awaits tasks or performs I/O can retain its independently owned frame. Such cursors provide deferred, resumable work rather than a guarantee of direct-loop performance. Adapters avoid intermediate arrays; array(sequence) explicitly allocates storage for all produced items.
+
+h2 { "map" }
+
+code { "map[T, U, E, F](own values: Iterator[T, E], transform: fn(T) -> U ! F)" }
+
+Return a cursor of U items. The callback runs once for each requested input item. Its expected errors combine with the source's E channel; either ends the sequence. An infallible callback has F equal to never.
+
+h2 { "filter" }
+
+code { "filter[T, E, F](own values: Iterator[T, E], predicate: fn(T) -> bool ! F)" }
+
+Return a cursor of T items for which predicate is true, preserving source order. Requesting one output may advance through several rejected input items. Source and predicate errors combine in the returned cursor's error channel.
+
+h2 { "take" }
+
+code { "take[T, E](own values: Iterator[T, E], count: i64) -> Iterator[T, E]" }
+
+Return at most count items. A zero or negative count produces no items and does not advance the source. Exhausting or closing the adapter closes its input, including its pending child tasks. To release a partially consumed adapter immediately, close it or leave its owning scope.
+
+codeblock { language = kalandra, """from "std/iter" import iter, map as mapItems, filter, take
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  doubled = mapItems(iter([1, 2, 3, 4, 5, 6]),
+    fn(value: i64) -> i64: return value * 2)
+  selected = filter(doubled, fn(value: i64) -> bool: return value % 3 != 0)
+  values = array(take(selected, 2))
+  try println(format("{}:{}", values[0], values[1]))
+  return ()
+""" }
+
+This displays 2:4. The adapters stop after two accepted items, and array stores only those items. Calling an adapter does not advance its source or invoke its callback.
+
+list {
+  link { url = "/docs/control-flow#iterate-over-an-integer-range", "Range loops, break and continue" },
+  link { url = "/docs/options", "Represent a present or absent value" },
+  link { url = "/docs/parallelism", "Structured tasks and expected execution failures" }
+}

@@ -12,6 +12,10 @@ extern "C" {
 bool kalandra_task_cancelled_v1(Task *task) noexcept { return task->cancelled(); }
 void *kalandra_task_frame_v1(Task *task) noexcept { return task->frame(); }
 Invocation *kalandra_task_context_v1(Task *task) noexcept { return &task->context(); }
+bool kalandra_task_owned_scope_leave_v1(Task *task, void *scope,
+                                        const OwnedDescriptor *escaping) noexcept {
+  return task->leaveOwnedScope(static_cast<ResourceControl *>(scope), escaping);
+}
 void kalandra_task_open_v1(Task *task, const GroupHandle *parent, GroupHandle *group) noexcept {
   *group = task->openGroup(parent ? *parent : GroupHandle{});
 }
@@ -34,10 +38,7 @@ bool kalandra_task_join_v1(Task *task, const GroupHandle *group) noexcept {
   return task->join(*group);
 }
 bool kalandra_task_release_group_v1(Task *task, const GroupHandle *group) noexcept {
-  if (task->releaseGroup(*group))
-    return true;
-  task->context().fault(3);
-  return false;
+  return task->releaseGroup(*group);
 }
 bool kalandra_task_read_v1(Task *task, const TaskHandle *handle, const ValueLayout *layout,
                            void *out) noexcept {
@@ -103,6 +104,11 @@ void kalandra_run_task_v1(const TaskEntry *entry, const Packet *packet, void *ou
   }
   if (failure->kind == TaskFailure::None)
     *failure = core->failure(group);
-  core->release(group);
+  while (!core->release(group))
+    if (!core->drainToCompletion()) {
+      if (failure->kind == TaskFailure::None)
+        *failure = {TaskFailure::Fault, 3};
+      return;
+    }
 }
 }

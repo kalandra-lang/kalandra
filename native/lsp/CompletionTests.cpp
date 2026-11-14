@@ -240,9 +240,9 @@ int main() {
                 info.names[0].kind == ScopeNameKind::Type,
             "declared function error channel");
     info = query(errors + "fn inspect()->i64 ! |:\n  return 0\nfn main():\n  return 0\n");
-    require(info.names.size() == 4 && has(info, "ParseError") && has(info, "ReadError") &&
-                has(info, "Problem") && has(info, "TaskError") && !has(info, "Plain") &&
-                !has(info, "i64"),
+    require(info.names.size() == 5 && has(info, "never") && has(info, "ParseError") &&
+                has(info, "ReadError") && has(info, "Problem") && has(info, "TaskError") &&
+                !has(info, "Plain") && !has(info, "i64"),
             "error channel offers only error families and aliases");
     info = query(errors +
                  "fn inspect()->i64 ! (ParseError | Re|):\n  return 0\nfn main():\n  return 0\n");
@@ -500,12 +500,13 @@ int main() {
         {(pathRoot / "main.k").string(), ""},
         {(pathRoot / "foreign" / "hidden.k").string(), ""}};
     info = pathQuery("from \"std/|\" import println\nfn main():\n  return ()\n", {});
-    require(info.names.size() == 8 && has(info, "std/time") && has(info, "std/env") &&
-                has(info, "std/path") && has(info, "std/parse") && has(info, "std/fs") &&
-                has(info, "std/io") && has(info, "std/fmt") && has(info, "std/process"),
+    require(info.names.size() == 11 && has(info, "std/buffer") && has(info, "std/iter") && has(info, "std/option") &&
+                has(info, "std/time") && has(info, "std/env") && has(info, "std/path") &&
+                has(info, "std/parse") && has(info, "std/fs") && has(info, "std/io") &&
+                has(info, "std/fmt") && has(info, "std/process"),
             "standard modules complete without installed files or workspace overlays");
     info = pathQuery("from \"std/i|Suffix\" import println\nfn main():\n  return ()\n", {});
-    require(info.names.size() == 1 && has(info, "std/io") &&
+    require(info.names.size() == 2 && has(info, "std/io") && has(info, "std/iter") &&
                 info.replacement.end - info.replacement.begin == 11,
             "standard module completion replaces the entire specifier");
     require(pathQuery("fn main():\n  return \"std/|\"\n", {}).names.empty(),

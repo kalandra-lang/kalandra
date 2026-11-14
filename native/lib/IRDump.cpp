@@ -2,6 +2,7 @@
 #include "EnvironmentCapabilities.h"
 #include "ErrorFamilies.h"
 #include "FileCapabilities.h"
+#include "IteratorCapabilities.h"
 #include "NonCompleting.h"
 #include "ParseCapabilities.h"
 #include "PathCapabilities.h"
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
+#include <unordered_set>
 
 namespace kalandra {
 bool hasOrdinaryStrings(const TypedModule &module) {
@@ -141,6 +143,10 @@ std::string describeType(const ValueType &type) {
 std::optional<std::string> numericCapabilityError(const TypedModule &module, NumericTarget target,
                                                   bool mixedPlacement) {
   const auto nonCompleting = nonCompletingValues(module);
+  std::unordered_set<std::size_t> generatorCollections;
+  for (const auto &function : module.functions)
+    if (function.generator)
+      generatorCollections.insert(function.generator->collection);
   if (mixedPlacement && target != NumericTarget::Cpu)
     return "mixed placement validation requires CPU host types";
   if (auto error = recursiveProgramError(module, mixedPlacement))
@@ -301,8 +307,10 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           expression.type.fallible)
         return "invalid yield operation";
       const auto &element = module.expressions[yield->operand].type;
-      if (element.array || element.tensor || element.task || element.fallible || element.device ||
-          element.builtin == BuiltinValue::Device)
+      if ((!generatorCollections.contains(yield->collection) &&
+           (element.array || element.tensor)) ||
+          element.task || element.fallible || element.device ||
+          element.builtin == BuiltinValue::Device || isOwnedResource(module, element))
         return "yield requires a completed CPU array element";
     }
     if (const auto *jump = std::get_if<LoopTransferOperation>(&expression.operation)) {
@@ -323,8 +331,10 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           (!loop->normalResult && !loop->collecting && !loop->functionBoundary &&
            !nonCompleting[&expression - module.expressions.data()] &&
            (expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
-            expression.type.task || expression.type.fallible)))
+            expression.type.task || (expression.type.fallible && !loop->traversalErrorBoundary))))
         return "while requires a completed CPU Bool condition and a valid result";
+      if (loop->traversalErrorBoundary && !expression.type.fallible)
+        return "cursor traversal error boundary requires a fallible loop result";
       if (loop->functionBoundary) {
         const auto *literal =
             std::get_if<BoolLiteral>(&module.expressions[loop->condition].operation);
@@ -339,8 +349,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
             return "while references an invalid statement";
       if (loop->collecting) {
         if (!expression.type.array || expression.type.shape.size() != 1 || expression.type.task ||
-            expression.type.fallible || expression.type.device || loop->normalResult ||
-            !loop->whenDone.empty() || loop->exitValues.empty())
+            (expression.type.fallible && !loop->traversalErrorBoundary) || expression.type.device ||
+            loop->normalResult || !loop->whenDone.empty() || loop->exitValues.empty())
           return "invalid collecting loop result";
         for (auto yielded : loop->exitValues)
           if (yielded >= module.expressions.size() ||
@@ -718,6 +728,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
     if (auto invalid = parseCapabilityError(module, expression, target))
       return invalid;
     if (auto invalid = bufferCapabilityError(module, expression, target))
+      return invalid;
+    if (auto invalid = iteratorCapabilityError(module, expression, target))
       return invalid;
     if (auto invalid = fileCapabilityError(module, expression, target))
       return invalid;
@@ -1186,6 +1198,18 @@ std::string dumpTypedIR(const TypedModule &module) {
                   << operation.input;
             else if constexpr (std::is_same_v<T, ApplicationArguments>) {
               out << "application.arguments";
+            } else if constexpr (std::is_same_v<T, IteratorOperation>) {
+              out << "iterator." << unsigned(operation.action);
+              for (auto arg : operation.arguments) {
+                out << " ";
+                value(arg);
+              }
+            } else if constexpr (std::is_same_v<T, GeneratorCreate>) {
+              out << "generator.create @" << operation.function;
+              for (auto capture : operation.captures) {
+                out << " ";
+                value(capture);
+              }
             } else if constexpr (std::is_same_v<T, BufferOperation>) {
               out << "buffer." << unsigned(operation.action);
               for (auto arg : operation.arguments) {
@@ -1258,6 +1282,8 @@ std::string dumpTypedIR(const TypedModule &module) {
                       : operation.normalResult ? "while.expression "
                                                : "while.statement ");
               value(operation.condition);
+              if (operation.traversalErrorBoundary)
+                out << " traversal.errors";
               out << " {";
               for (const auto &statement : operation.body) {
                 out << " ";

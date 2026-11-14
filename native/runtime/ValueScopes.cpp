@@ -230,16 +230,15 @@ bool ValueScopes::collectFinish(std::size_t slot, void *output) noexcept {
       collection->array.copy(context_, output, context_, &descriptor) && !context_.poll();
   if (!ok && !context_.poll())
     context_.fault(3);
-  context_.releaseControl(collection);
-  return ok;
+  const auto released = context_.releaseIndependentControl(collection, Collection::cleanup);
+  return ok && released;
 }
 bool ValueScopes::collectDiscard(std::size_t slot) noexcept {
   if (slot >= layouts_.size() || !collections_[slot]) {
     context_.fault(3);
     return false;
   }
-  context_.releaseControl(collections_[slot]);
-  return true;
+  return context_.releaseIndependentControl(collections_[slot], Collection::cleanup);
 }
 bool ValueScopes::discard(std::size_t slot) noexcept {
   if (!selection_)

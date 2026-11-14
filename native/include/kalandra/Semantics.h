@@ -2,6 +2,7 @@
 #include "kalandra/BufferOperations.h"
 #include "kalandra/FileOperations.h"
 #include "kalandra/FormatTemplate.h"
+#include "kalandra/IteratorOperations.h"
 #include "kalandra/NumericType.h"
 #include "kalandra/ParseABI.h"
 #include "kalandra/PathOperations.h"
@@ -51,6 +52,8 @@ struct ValueType {
       {};                      // Expected application-error family; null means TaskError.
   std::string recordName = {}; // User-facing spelling; identity is the table index above.
   std::shared_ptr<const FunctionSignature> callable = {};
+  // Checking provenance only: an explicit/generic error channel normalized to never.
+  bool emptyErrorChannel = false;
 };
 // unit uses a canonical zero bit in physical value layouts. Its semantic
 // identity remains distinct from bool, including in callable signatures.
@@ -218,6 +221,15 @@ struct BufferOperation {
   std::vector<ValueId> arguments;
   SourceSpan source = {};
 };
+struct IteratorOperation {
+  IteratorAction action;
+  std::vector<ValueId> arguments;
+  SourceSpan source;
+};
+struct GeneratorCreate {
+  FunctionId function;
+  std::vector<ValueId> captures;
+};
 
 struct TimeOperation {
   TimeAction action;
@@ -383,6 +395,7 @@ struct WhileOperation {
   std::vector<ValueId> exitValues = {};
   bool collecting = false;
   bool functionBoundary = false;
+  bool traversalErrorBoundary = false; // Cursor-next errors belong to this loop result.
 };
 struct YieldOperation {
   std::size_t collection;
@@ -467,7 +480,10 @@ enum class StandardRecord {
   EnvValue,
   Instant,
   Duration,
-  TimeError
+  TimeError,
+  Range,
+  Iterator,
+  Option
 };
 struct TypedRecord {
   std::string name;
@@ -481,23 +497,27 @@ struct TypedRecord {
   std::vector<std::pair<std::size_t, std::size_t>> errorOrigins =
       {};                                      // Original family/variant per case.
   std::optional<StandardRecord> standard = {}; // Loader-proven nominal standard type.
+  bool uninhabited = false; // The compiler-owned empty type has no constructors/variants.
+  // Phantom arguments still determine identity and intrinsic signatures even
+  // when they do not contribute fields to an opaque runtime representation.
+  std::vector<ValueType> typeArguments = {};
 };
 struct TypedExpr {
   SourceSpan span;
   ValueType type; // Concrete scalar/tensor numeric identity; builtins retain explicit tags.
   std::variant<Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal,
                UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
-               FormatOperation, ConsoleOperation, FileOperation, BufferOperation, ParseOperation,
-               PathOperation, EnvironmentLookup, TimeOperation, ApplicationArguments, BoolLiteral,
-               ScalarCompare, SymbolRead, ScalarUnary, TensorUnary, ScalarBinary, TensorBinary,
-               TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum, TensorTransform,
-               ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat, ArraySlice,
-               ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection, Transfer,
-               TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
-               LoopTransferOperation, IntegerRangeOperation, YieldOperation, CatchOperation,
-               MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue,
-               RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke, ArrayBoundsCheck,
-               ArrayStore, ArraySort>
+               FormatOperation, ConsoleOperation, FileOperation, BufferOperation, IteratorOperation,
+               ParseOperation, PathOperation, EnvironmentLookup, TimeOperation,
+               ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary,
+               TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall,
+               Matmul, ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape,
+               TensorToArray, ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery,
+               ShapeCheck, DeviceSelection, Transfer, TaskOperation, ParallelOperation,
+               ConditionalOperation, WhileOperation, LoopTransferOperation, IntegerRangeOperation,
+               YieldOperation, CatchOperation, MatchOperation, ErrorFieldRead, FailOperation,
+               GuardOperation, RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference,
+               FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort, GeneratorCreate>
       operation;
 };
 struct ShapeEquality {
@@ -529,6 +549,15 @@ struct TypedFunction {
   // Checked compiler adapter: parameter target flow comes from this original
   // entry. Symbols and runtime arguments remain distinct; signatures must match.
   std::optional<FunctionId> parameterOrigin = {};
+  struct Generator {
+    ValueType item;
+    std::size_t collection;
+  };
+  std::optional<Generator> generator = {};
+  // Retain the publication proof when direct materialization removes a cursor.
+  std::optional<std::size_t> publicationCollection = {};
+  // Loader-proven std/iter identity, never inferred from a user's function name.
+  bool standardIteratorTake = false;
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.
@@ -575,7 +604,13 @@ inline bool isFileResource(const TypedModule &module, const ValueType &type) {
          standard == StandardRecord::BufferedWriter;
 }
 inline bool isOwnedResource(const TypedModule &module, const ValueType &type) {
-  return isFileResource(module, type) || isByteBuffer(module, type);
+  return isFileResource(module, type) || isByteBuffer(module, type) ||
+         (type.record && *type.record < module.records.size() &&
+          module.records[*type.record].standard == StandardRecord::Iterator);
+}
+inline bool isIterator(const TypedModule &module, const ValueType &type) {
+  return type.record && *type.record < module.records.size() &&
+         module.records[*type.record].standard == StandardRecord::Iterator;
 }
 
 struct SemanticLimits {

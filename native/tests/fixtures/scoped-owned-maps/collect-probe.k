@@ -19,8 +19,9 @@ fn probe(n: i64, faultAt: i64) -> LoopResult ! TaskError:
       a = if index % 2 == 0: [1, 2, 3]
       else: [4]
       try await old
-    jobs = for value in range(9):
+    jobs = array(for value in range(9):
       yield make(value)
+    )
     total = total + value
     cell = 0
     while cell < length(jobs):

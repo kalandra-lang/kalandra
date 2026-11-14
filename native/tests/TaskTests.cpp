@@ -1,3 +1,4 @@
+#include "../runtime/OwnedResources.h"
 #include "../runtime/String.h"
 #include "../runtime/Tasks.h"
 #include <atomic>
@@ -5,7 +6,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <new>
+#include <string_view>
 #include <thread>
+#include <vector>
 #ifndef _WIN32
 #include <pthread.h>
 #endif
@@ -650,7 +653,1796 @@ static void callStacks() {
     CHECK(core->stats().retainedBytes == 0);
   }
 }
+// Independently owned frames resume on the caller's heap call stack. A borrowed
+// root cannot be tail-replaced, and neither return nor cancellation settles it.
+struct BorrowProbe {
+  std::atomic<unsigned> entered{0}, left{0}, destroyed{0};
+  unsigned ordinaryDestroyed = 0;
+  std::atomic<unsigned> finalized{0};
+};
+struct BorrowState {
+  Invocation execution;
+  BorrowProbe *probe;
+  BorrowedTaskEntry descriptor{};
+  BorrowState *nested = nullptr;
+  unsigned value = 0;
+  float child = 0;
+  std::atomic<bool> active{false};
+  bool waiting = false, fault = false, dropCaller = false;
+};
+static bool enterBorrow(void *p, Invocation &caller) noexcept {
+  auto &state = *static_cast<BorrowState *>(p);
+  if (state.active.exchange(true, std::memory_order_acquire))
+    return false;
+  ++state.probe->entered;
+  state.execution.bindCancellation(InvocationABI::cancellationToken(caller));
+  if (state.dropCaller)
+    caller.release(p);
+  return true;
+}
+static void leaveBorrow(void *p) noexcept {
+  auto &state = *static_cast<BorrowState *>(p);
+  CHECK(state.active);
+  state.execution.bindCancellation(nullptr);
+  state.execution.allowNativeInterrupts(false);
+  state.active.store(false, std::memory_order_release);
+  ++state.probe->left;
+}
+static void destroyBorrow(void *p) noexcept {
+  auto &state = *static_cast<BorrowState *>(p);
+  CHECK(!state.active);
+  ++state.probe->destroyed;
+  state.~BorrowState();
+}
+static void resumeBorrow(Task &task) {
+  auto &state = *static_cast<BorrowState *>(task.frame());
+  CHECK(&task.context() == &state.execution && state.active);
+  if (state.waiting) {
+    task.yield();
+    return;
+  }
+  if (state.nested) {
+    auto pin = state.execution.lease(state.nested);
+    CHECK(pin);
+    if (!task.callBorrowed(state.nested->descriptor, std::move(*pin), &state.child))
+      return;
+    const float result = state.child + 1;
+    task.complete(&result);
+    return;
+  }
+  // Asking for tail lowering must preserve the borrowed root and its private
+  // context even though this child's result has the same layout.
+  CallInput input{8, &state.probe->ordinaryDestroyed, state.fault, true};
+  if (!task.call(recursiveEntry(), {40, &input, sizeof(input), &state.execution}, &state.child, {},
+                 true))
+    return;
+  const float result = float(++state.value) + state.child;
+  task.complete(&result);
+}
+static const TaskEntry borrowedBody{
+    1, 0, 0, 1, sizeof(BorrowState), alignof(BorrowState), nullptr, nullptr, resumeBorrow, &scalar};
+struct BorrowCaller {
+  BorrowState *state;
+  unsigned count, done = 0;
+  float item = 0, sum = 0;
+};
+static bool constructBorrowCaller(Invocation &ctx, void *p, const Packet &packet) {
+  auto input = *static_cast<const BorrowCaller *>(packet.data);
+  if (!packet.source || !ctx.retainFrom(*packet.source, input.state))
+    return false;
+  new (p) BorrowCaller(input);
+  return true;
+}
+static void resumeBorrowCaller(Task &task) {
+  auto &f = *static_cast<BorrowCaller *>(task.frame());
+  while (f.done < f.count) {
+    auto pin = task.context().lease(f.state);
+    if (!task.callBorrowed(f.state->descriptor, pin ? std::move(*pin) : AllocationLease{}, &f.item))
+      return;
+    ++f.done;
+    f.sum += f.item;
+  }
+  task.complete(&f.sum);
+}
+static const TaskEntry borrowCaller{1,
+                                    70,
+                                    sizeof(BorrowCaller),
+                                    alignof(BorrowCaller),
+                                    sizeof(BorrowCaller),
+                                    alignof(BorrowCaller),
+                                    constructBorrowCaller,
+                                    nothing,
+                                    resumeBorrowCaller,
+                                    &scalar};
+static bool rejectBorrowCopy(Invocation &, void *, const Invocation &, const void *) noexcept {
+  return false;
+}
+static const ValueLayout rejectedBorrowValue{81, sizeof(float), alignof(float), rejectBorrowCopy,
+                                             nothing};
+static void borrowedCalls() {
+  for (unsigned workers : {1u, 4u})
+    for (unsigned mode = 0; mode < 8; ++mode) {
+      BorrowProbe probe;
+      Invocation owner;
+      auto *memory = owner.allocateResource(sizeof(BorrowState), destroyBorrow);
+      CHECK(memory);
+      auto *state = new (memory) BorrowState;
+      state->probe = &probe;
+      state->descriptor = {&borrowedBody, &state->execution, state,
+                           state,         enterBorrow,       leaveBorrow};
+      TaskEntry invalid = borrowedBody;
+      if (mode == 5)
+        invalid.frameAlignment = 0;
+      if (mode == 7)
+        invalid.result = &rejectedBorrowValue;
+      if (mode == 5 || mode == 7)
+        state->descriptor.entry = &invalid;
+      state->waiting = mode == 1;
+      state->fault = mode == 2;
+      state->dropCaller = mode == 3;
+      TaskLimits limits;
+      limits.workers = workers;
+      limits.records = limits.groups = limits.inFlight = limits.ready = 1;
+      limits.depth = 0;
+      if (mode == 6)
+        limits.callBytes = 1;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto group = core->openRoot();
+      BorrowCaller input{state, mode == 0 ? 3u : 1u};
+      auto task = core->submit(group, borrowCaller, {70, &input, sizeof(input), &owner});
+      CHECK(task);
+      if (mode == 0 || mode == 3)
+        owner.settle();
+      if (mode == 4)
+        core->failAllocationAt(1);
+      if (mode == 1) {
+        CHECK(core->step() && core->step());
+        CHECK(probe.entered == 1 && probe.left == 0);
+        CHECK(core->cancel(group));
+      }
+      CHECK(core->drainToCompletion() && core->settled(task));
+      CHECK(core->stats().callFrames == 0 && core->stats().callBytes == 0);
+      if (mode == 0 || mode == 3) {
+        Invocation receiver;
+        float result = 0;
+        CHECK(core->observe(task, scalar, receiver, &result));
+        CHECK(result == (mode == 0 ? 6 : 1));
+        CHECK(probe.entered == input.count && probe.left == input.count);
+        CHECK(probe.ordinaryDestroyed == 9 * input.count);
+        CHECK(mode != 3 || probe.destroyed == 1); // advancing pin was the final owner
+      } else {
+        auto failure = core->failure(task);
+        CHECK(failure.kind == (mode == 1 ? TaskFailure::Cancelled : TaskFailure::Fault));
+        if (mode != 1)
+          CHECK(failure.code == (mode == 2 ? 1 : mode == 4 || mode == 6 ? 2 : 3));
+        CHECK(probe.entered == (mode == 4 || mode == 5 || mode == 6 ? 0 : 1) &&
+              probe.left == probe.entered);
+        CHECK(probe.destroyed == 0 && !state->active);
+        CHECK(InvocationABI::cancellationToken(state->execution) == nullptr);
+        CHECK(mode == 2 || mode == 7 || state->execution.usable());
+        if (mode == 7)
+          CHECK(state->execution.status() == 3);
+      }
+      CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+      owner.settle();
+      CHECK(probe.destroyed == 1 && !core->stats().retainedBytes && !core->stats().callBytes);
+    }
+}
+
+static void deepBorrowedCalls() {
+  constexpr unsigned depth = 10000;
+  Invocation owner;
+  BorrowProbe probe;
+  std::vector<BorrowState *> states;
+  for (unsigned i = 0; i <= depth; ++i) {
+    auto *memory = owner.allocateResource(sizeof(BorrowState), destroyBorrow);
+    CHECK(memory);
+    auto *state = new (memory) BorrowState;
+    state->probe = &probe;
+    state->descriptor = {&borrowedBody, &state->execution, state, state, enterBorrow, leaveBorrow};
+    if (!states.empty()) {
+      state->nested = states.back();
+      CHECK(state->execution.retainFrom(owner, state->nested));
+    }
+    states.push_back(state);
+  }
+  TaskLimits limits;
+  limits.records = limits.groups = limits.ready = limits.inFlight = 1;
+  limits.depth = 0;
+  auto core = TaskCore::create(limits);
+  CHECK(core);
+  auto group = core->openRoot();
+  BorrowCaller input{states.back(), 1};
+  auto task = core->submit(group, borrowCaller, {70, &input, sizeof(input), &owner});
+  CHECK(task && core->drainToCompletion() && core->settled(task));
+  Invocation result;
+  float value = 0;
+  CHECK(core->observe(task, scalar, result, &value) && value == depth + 1);
+  CHECK(probe.entered == depth + 1 && probe.left == depth + 1 && probe.destroyed == 0);
+  CHECK(core->stats().peakCallFrames == depth + 3 && core->stats().callFrames == 0);
+  CHECK(core->stats().callBytes == 0 && core->stats().records == 1 && core->stats().groups == 1);
+  CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+  // Keep anchor storage alive while explicitly settling the independent ledgers.
+  for (auto *state : states)
+    state->execution.settle();
+  owner.settle();
+  CHECK(probe.destroyed == depth + 1);
+}
+static void overlappingBorrowedCalls() {
+  Invocation owner;
+  BorrowProbe probe;
+  auto *state = new (owner.allocateResource(sizeof(BorrowState), destroyBorrow)) BorrowState;
+  state->probe = &probe;
+  state->descriptor = {&borrowedBody, &state->execution, state, state, enterBorrow, leaveBorrow};
+  state->waiting = true;
+  auto core = TaskCore::create();
+  CHECK(core);
+  auto first = core->openRoot(), second = core->openRoot();
+  BorrowCaller input{state, 1};
+  auto a = core->submit(first, borrowCaller, {70, &input, sizeof(input), &owner});
+  CHECK(a && core->step() && core->step() && probe.entered == 1);
+  auto b = core->submit(second, borrowCaller, {70, &input, sizeof(input), &owner});
+  CHECK(b);
+  for (unsigned i = 0; i < 1000 && !core->settled(b); ++i)
+    core->step();
+  CHECK(core->settled(b) && core->failure(b).kind == TaskFailure::Fault &&
+        core->failure(b).code == 3);
+  CHECK(probe.entered == 1 && probe.left == 0 && !state->execution.poll());
+  CHECK(core->cancel(first) && core->drainToCompletion());
+  CHECK(core->failure(a).kind == TaskFailure::Cancelled && probe.left == 1);
+  CHECK(core->close(first) && core->close(second) && core->drainToCompletion());
+  CHECK(core->release(first) && core->release(second));
+  owner.settle();
+  CHECK(probe.destroyed == 1 && !core->stats().retainedBytes && !core->stats().callBytes);
+}
+struct GroupProbe {
+  std::atomic<unsigned> steps{0}, constructed{0}, destroyed{0};
+  bool external = false;
+  ExternalCompletion completion;
+};
+struct GroupChild {
+  GroupProbe *probe;
+};
+static bool constructGroupChild(Invocation &, void *p, const Packet &packet) {
+  auto *probe = *static_cast<GroupProbe *const *>(packet.data);
+  new (p) GroupChild{probe};
+  ++probe->constructed;
+  return true;
+}
+static void destroyGroupChild(void *p) noexcept {
+  auto &f = *static_cast<GroupChild *>(p);
+  ++f.probe->destroyed;
+  f.~GroupChild();
+}
+static void resumeGroupChild(Task &task) {
+  auto &probe = *static_cast<GroupChild *>(task.frame())->probe;
+  ++probe.steps;
+  if (probe.external) {
+    probe.completion = task.suspendExternal();
+    CHECK(probe.completion);
+  } else {
+    task.yield();
+  }
+}
+static const TaskEntry groupChild{1,
+                                  84,
+                                  sizeof(GroupProbe *),
+                                  alignof(GroupProbe *),
+                                  sizeof(GroupChild),
+                                  alignof(GroupChild),
+                                  constructGroupChild,
+                                  destroyGroupChild,
+                                  resumeGroupChild,
+                                  &scalar};
+static void destroyProducer(void *) noexcept;
+struct PersistentProducer : OwnedState {
+  PersistentProducer()
+      : OwnedState(OwnedKind::Generator, sizeof(PersistentProducer), destroyProducer, nothing) {}
+  Invocation execution;
+  BorrowedGroupOwner groups{execution};
+  Invocation staged;
+  StringDescriptor stagedValue;
+  std::atomic<bool> terminalParked{false}, releaseTerminalLease{true};
+  bool terminalRequested = false;
+  bool completionStaged = false;
+  bool cancelDuringStage = false;
+  TaskCore *stageCore = nullptr;
+  GroupHandle stageGroup;
+  std::uint64_t terminalPayload = 0;
+  BorrowedCleanup retirement{};
+  BorrowedTaskEntry descriptor{};
+  GroupProbe *child;
+  BorrowProbe *probe;
+  PersistentProducer *nested = nullptr;
+  GroupHandle group;
+  TaskHandle task;
+  bool active = false, started = false, closed = false, failDuringAdvance = false;
+};
+static bool enterProducer(void *p, Invocation &caller) noexcept {
+  auto &f = *static_cast<PersistentProducer *>(p);
+  CHECK(!f.active);
+  f.active = true;
+  ++f.probe->entered;
+  f.execution.bindCancellation(InvocationABI::cancellationToken(caller));
+  f.staged.bindCancellation(InvocationABI::cancellationToken(caller));
+  return true;
+}
+static void leaveProducer(void *p) noexcept {
+  auto &f = *static_cast<PersistentProducer *>(p);
+  CHECK(f.active);
+  f.execution.bindCancellation(nullptr);
+  f.staged.bindCancellation(nullptr);
+  f.execution.allowNativeInterrupts(false);
+  f.active = false;
+  ++f.probe->left;
+}
+static void destroyProducer(void *p) noexcept {
+  auto &f = *static_cast<PersistentProducer *>(p);
+  CHECK(!f.active && f.child->destroyed == f.child->constructed);
+  ++f.probe->destroyed;
+  f.~PersistentProducer();
+}
+static void resumeProducer(Task &task) {
+  auto &f = *static_cast<PersistentProducer *>(task.frame());
+  if (!f.started) {
+    f.group = task.openGroup();
+    if (!f.group)
+      return;
+    auto *input = f.child;
+    f.task = task.spawn(f.group, groupChild, {84, &input, sizeof(input)});
+    CHECK(f.task);
+    if (f.closed)
+      CHECK(task.close(f.group));
+    f.started = true;
+    if (f.failDuringAdvance) {
+      task.yield();
+      return;
+    }
+    const float value = 42;
+    task.complete(&value);
+    return;
+  }
+  if (f.failDuringAdvance) {
+    task.fault(2, 15, 6);
+    return;
+  }
+  if (!task.settleBorrowedGroups())
+    return;
+  const float value = 0;
+  task.complete(&value);
+}
+static const TaskEntry persistentBody{1,
+                                      0,
+                                      0,
+                                      1,
+                                      sizeof(PersistentProducer),
+                                      alignof(PersistentProducer),
+                                      nullptr,
+                                      nullptr,
+                                      resumeProducer,
+                                      &scalar};
+struct ProducerCaller {
+  PersistentProducer *producer;
+  float value = 0;
+};
+static bool constructProducerCaller(Invocation &ctx, void *p, const Packet &packet) {
+  auto input = *static_cast<const ProducerCaller *>(packet.data);
+  if (!packet.source || !ctx.retainFrom(*packet.source, input.producer))
+    return false;
+  new (p) ProducerCaller(input);
+  return true;
+}
+static void resumeProducerCaller(Task &task) {
+  auto &f = *static_cast<ProducerCaller *>(task.frame());
+  auto pin = task.context().lease(f.producer);
+  CHECK(pin);
+  if (!task.callBorrowed(f.producer->descriptor, std::move(*pin), &f.value))
+    return;
+  task.complete(&f.value);
+}
+static const TaskEntry producerCaller{1,
+                                      85,
+                                      sizeof(ProducerCaller),
+                                      alignof(ProducerCaller),
+                                      sizeof(ProducerCaller),
+                                      alignof(ProducerCaller),
+                                      constructProducerCaller,
+                                      nothing,
+                                      resumeProducerCaller,
+                                      &scalar};
+static void persistentGroups() {
+  for (unsigned workers : {1u, 4u})
+    for (unsigned mode = 0; mode < 9; ++mode) {
+      Invocation owner;
+      BorrowProbe probe;
+      GroupProbe child;
+      child.external = mode == 5 || mode == 6;
+      auto *memory = owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+      CHECK(memory);
+      auto *state = new (memory) PersistentProducer;
+      CHECK(owner.trackResource(state));
+      state->execution.bindResourceBudget(owner, state);
+      CHECK(!state->execution.poll());
+      state->child = &child;
+      state->probe = &probe;
+      state->closed = mode != 0;
+      state->descriptor = {&persistentBody, &state->execution, state,         state,
+                           enterProducer,   leaveProducer,     &state->groups};
+      TaskEntry failing = persistentBody;
+      if (mode == 3) {
+        failing.result = &rejectedBorrowValue;
+        state->descriptor.entry = &failing;
+      }
+      TaskLimits limits;
+      limits.workers = workers;
+      limits.records = limits.groups = limits.ready = limits.inFlight = 4;
+      limits.depth = 1;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto root = core->openRoot();
+      ProducerCaller input{state};
+      auto task = core->submit(root, producerCaller, {85, &input, sizeof(input), &owner});
+      CHECK(task);
+      if (mode == 2) {
+        CHECK(core->step() && core->step());
+        // The item is ready, but publication to the caller is still pending.
+        CHECK(state->started && probe.left == 0);
+        CHECK(core->cancel(root));
+        CHECK(core->drainToCompletion() && core->settled(task));
+      } else {
+        for (unsigned i = 0; i < 1000 && !core->settled(task); ++i)
+          core->step();
+        CHECK(core->settled(task));
+      }
+      CHECK(InvocationABI::cancellationToken(state->execution) == nullptr);
+      if (mode == 2 || mode == 3) {
+        CHECK(core->failure(task).kind ==
+              (mode == 2 ? TaskFailure::Cancelled : TaskFailure::Fault));
+        CHECK(child.destroyed == 1 && core->stats().unfinished == 0);
+      } else {
+        Invocation result;
+        float value = 0;
+        CHECK(core->observe(task, scalar, result, &value) && value == 42);
+        CHECK(child.destroyed == 0 && core->stats().unfinished == 1);
+        if (child.external) {
+          CHECK(child.completion && core->stats().externalPending == 1);
+        } else {
+          const auto steps = child.steps.load();
+          CHECK(!core->drain(64) && child.steps > steps);
+        }
+        // Detached groups belong to the producer, never the host's owner0.
+        CHECK(!core->close(state->group) && !core->cancel(state->group) &&
+              !core->release(state->group));
+        Invocation denied;
+        CHECK(!core->observe(state->task, scalar, denied, &value) && denied.status() == 3);
+      }
+      CHECK(core->close(root));
+      for (unsigned i = 0; i < 1000 && !core->settled(root); ++i)
+        core->step();
+      CHECK(core->settled(root) && core->release(root));
+      CHECK(probe.destroyed == 0 && probe.entered == 1 && probe.left == 1);
+      if (mode == 7) {
+        auto other = TaskCore::create();
+        CHECK(other);
+        auto outside = other->openRoot();
+        auto invalid = other->submit(outside, producerCaller, {85, &input, sizeof(input), &owner});
+        CHECK(invalid && other->drainToCompletion() && other->settled(invalid));
+        CHECK(other->failure(invalid).kind == TaskFailure::Fault &&
+              other->failure(invalid).code == 3);
+        CHECK(!state->execution.poll() && child.destroyed == 0);
+        CHECK(other->close(outside) && other->drainToCompletion() && other->release(outside));
+      }
+      if (mode < 2 || mode >= 4) {
+        const auto before = core->stats().recursiveBytes;
+        CHECK(state->execution.allocate(4096));
+        CHECK(core->stats().recursiveBytes >= before + 4096);
+        if (mode == 4)
+          CHECK(!state->execution.allocate(1024 * 1024) && state->execution.status() == 2);
+        auto cleanup = core->openRoot();
+        auto closing = core->submit(cleanup, producerCaller, {85, &input, sizeof(input), &owner});
+        CHECK(closing);
+        if (child.external) {
+          for (unsigned i = 0; i < 32; ++i)
+            core->step();
+          CHECK(!core->settled(closing) && child.destroyed == 0 &&
+                core->stats().externalPending == 1);
+          if (mode == 6) {
+            CHECK(core->cancel(cleanup));
+            for (unsigned i = 0; i < 32; ++i)
+              core->step();
+            CHECK(!core->settled(closing) && child.destroyed == 0);
+          }
+          CHECK(child.completion.signal());
+        }
+        CHECK(core->drainToCompletion() && core->settled(closing));
+        Invocation result;
+        float value = -1;
+        if (mode == 6)
+          CHECK(core->failure(closing).kind == TaskFailure::Cancelled);
+        else if (mode == 4)
+          CHECK(core->failure(closing).kind == TaskFailure::Fault &&
+                core->failure(closing).code == 2);
+        else
+          CHECK(core->observe(closing, scalar, result, &value) && value == 0);
+        CHECK(child.destroyed == 1 && probe.entered == (mode == 7 ? 3 : 2) &&
+              probe.left == probe.entered);
+        CHECK(core->close(cleanup) && core->drainToCompletion() && core->release(cleanup));
+      }
+      if (mode == 8) {
+        // Header metadata outlives settled producer locals. Reject another
+        // advance without reading a binding freed with the body ledger.
+        state->execution.settle();
+        auto rejectedRoot = core->openRoot();
+        auto rejected =
+            core->submit(rejectedRoot, producerCaller, {85, &input, sizeof(input), &owner});
+        CHECK(rejected && core->drainToCompletion() && core->settled(rejected));
+        CHECK(core->failure(rejected).kind == TaskFailure::Fault &&
+              core->failure(rejected).code == 3);
+        CHECK(core->close(rejectedRoot) && core->drainToCompletion() &&
+              core->release(rejectedRoot));
+        CHECK(probe.entered == 3 && probe.left == 3);
+      }
+      owner.settle();
+      CHECK(probe.destroyed == 1 && !core->stats().groups && !core->stats().records &&
+            !core->stats().retainedBytes && !core->stats().callBytes);
+    }
+}
+
+static void persistentGroupAdmission() {
+  for (unsigned mode = 0; mode < 16; ++mode) {
+    Invocation owner;
+    BorrowProbe probe;
+    GroupProbe child;
+    auto *memory = owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+    CHECK(memory);
+    auto *state = new (memory) PersistentProducer;
+    CHECK(owner.trackResource(state));
+    state->execution.bindResourceBudget(owner, state);
+    state->child = &child;
+    state->probe = &probe;
+    state->descriptor = {&persistentBody, &state->execution, state,         state,
+                         enterProducer,   leaveProducer,     &state->groups};
+    TaskLimits limits;
+    limits.records = limits.groups = limits.ready = limits.inFlight = 4;
+    limits.depth = 1;
+    if (mode < 8)
+      limits.bytes = 512 + mode * 512;
+    auto core = TaskCore::create(limits);
+    CHECK(core);
+    if (mode >= 8)
+      core->failAllocationAt(mode - 7);
+    auto root = core->openRoot();
+    ProducerCaller input{state};
+    auto task = core->submit(root, producerCaller, {85, &input, sizeof(input), &owner});
+    CHECK(task);
+    for (unsigned i = 0; i < 1000 && !core->settled(task); ++i)
+      core->step();
+    CHECK(core->settled(task));
+    const bool success = core->failure(task).kind == TaskFailure::None;
+    if (success) {
+      Invocation result;
+      float value = 0;
+      CHECK(core->observe(task, scalar, result, &value) && value == 42);
+    }
+    CHECK(core->close(root));
+    for (unsigned i = 0; i < 1000 && !core->settled(root); ++i)
+      core->step();
+    CHECK(core->settled(root) && core->release(root));
+    core->failAllocationAt(0);
+    if (success) {
+      auto closingRoot = core->openRoot();
+      auto closing = core->submit(closingRoot, producerCaller, {85, &input, sizeof(input), &owner});
+      CHECK(closing);
+      for (unsigned i = 0; i < 1000 && !core->settled(closing); ++i)
+        core->step();
+      CHECK(core->settled(closing));
+      // A very tight limit may reject the additional cleanup call's metadata.
+      // It must nevertheless settle any group it acquired before publication.
+      if (core->failure(closing).kind == TaskFailure::None) {
+        Invocation result;
+        float value = -1;
+        CHECK(core->observe(closing, scalar, result, &value) && value == 0);
+      }
+      CHECK(core->close(closingRoot));
+      for (unsigned i = 0; i < 1000 && !core->settled(closingRoot); ++i)
+        core->step();
+      CHECK(core->settled(closingRoot) && core->release(closingRoot));
+    }
+    CHECK(core->stats().peakBytes <= limits.bytes);
+    // A rejected cleanup call never acquired this externally owned cursor.
+    // Application shutdown still cancels and joins any detached producer work.
+    core.reset();
+    CHECK(child.destroyed == child.constructed);
+    owner.settle();
+    CHECK(probe.destroyed == 1);
+  }
+}
+
+static bool copyIndependentString(Invocation &to, void *out, const Invocation &from,
+                                  const void *in) noexcept {
+  const auto &value = *static_cast<const StringDescriptor *>(in);
+  if (!kalandra_string_retain_v1(&to, &from, &value))
+    return false;
+  *static_cast<StringDescriptor *>(out) = value;
+  return true;
+}
+static const ValueLayout independentString{93, sizeof(StringDescriptor), alignof(StringDescriptor),
+                                           copyIndependentString, nothing};
+struct IndependentOutcome {
+  Invocation *source;
+  StringDescriptor text;
+};
+static bool constructIndependentOutcome(Invocation &, void *out, const Packet &packet) {
+  new (out) IndependentOutcome(*static_cast<const IndependentOutcome *>(packet.data));
+  return true;
+}
+static void resumeIndependentOutcome(Task &task) {
+  auto &f = *static_cast<IndependentOutcome *>(task.frame());
+  // The body ledger can be settled before its saved, managed terminal result
+  // is copied to the task outcome. The result's own ledger remains readable.
+  task.context().settle();
+  task.completeFrom(*f.source, &f.text);
+}
+static const TaskEntry independentOutcome{1,
+                                          93,
+                                          sizeof(IndependentOutcome),
+                                          alignof(IndependentOutcome),
+                                          sizeof(IndependentOutcome),
+                                          alignof(IndependentOutcome),
+                                          constructIndependentOutcome,
+                                          nothing,
+                                          resumeIndependentOutcome,
+                                          &independentString};
+static void independentOutcomes() {
+  for (unsigned workers : {1u, 4u}) {
+    Invocation source;
+    StringDescriptor text;
+    kalandra_string_literal_v1(&source, &text, "terminal", 8);
+    CHECK(!source.poll() && text.allocated);
+    TaskLimits limits;
+    limits.workers = workers;
+    auto core = TaskCore::create(limits);
+    CHECK(core);
+    auto group = core->openRoot();
+    IndependentOutcome input{&source, text};
+    auto task = core->submit(group, independentOutcome, {93, &input, sizeof(input)});
+    CHECK(task && core->drainToCompletion() && core->settled(task));
+    source.settle();
+    Invocation receiver;
+    StringDescriptor result;
+    CHECK(core->observe(task, independentString, receiver, &result));
+    CHECK(result.byteLength == 8 && std::string_view(result.data, 8) == "terminal");
+    CHECK(receiver.lease(result.allocated));
+    CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+    CHECK(core->stats().retainedBytes == 0 && core->stats().retainedOwners == 0);
+  }
+}
+
+static Failure producerCleanupFailure(void *p) noexcept {
+  auto &f = *static_cast<PersistentProducer *>(p);
+  return f.execution.status() ? Failure{TaskFailure::Fault, f.execution.status(),
+                                        f.execution.line(), f.execution.column()}
+                              : Failure{};
+}
+static void finishProducerCleanup(void *p) noexcept {
+  auto &f = *static_cast<PersistentProducer *>(p);
+  CHECK(f.child->destroyed == f.child->constructed);
+  f.execution.settle();
+  ++f.probe->finalized;
+}
+struct CleanupCaller {
+  PersistentProducer *producer;
+  bool requested = false;
+  bool scoped = false;
+  bool nested = false;
+  bool rejectNested = false;
+  unsigned abandon = 0;
+  ResourceControl *scope = nullptr;
+};
+static bool constructCleanupCaller(Invocation &ctx, void *p, const Packet &packet) {
+  auto input = *static_cast<const CleanupCaller *>(packet.data);
+  if (!packet.source || !ctx.retainFrom(*packet.source, input.producer))
+    return false;
+  new (p) CleanupCaller(input);
+  return true;
+}
+static void resumeCleanupCaller(Task &task) {
+  auto &f = *static_cast<CleanupCaller *>(task.frame());
+  if (f.scoped) {
+    if (!f.scope) {
+      auto descriptor = ownedDescriptor(f.producer);
+      const OwnedDescriptor *values[] = {&descriptor};
+      f.scope =
+          static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&task.context(), values, 1));
+      CHECK(f.scope);
+      auto *escape = ensureOwnedEscapeScope(task.context());
+      CHECK(escape && f.scope->scope->parent == escape->scope);
+      if (f.nested) {
+        if (f.rejectNested) {
+          task.context().failAllocationAt(InvocationABI::allocationAttempts(task.context()) + 2);
+          CHECK(!kalandra_file_scope_enter_v1(&task.context(), nullptr, 0));
+          CHECK(task.context().status() == 2 && currentScope(task.context()) == f.scope);
+          return;
+        }
+        CHECK(kalandra_file_scope_enter_v1(&task.context(), nullptr, 0));
+        CHECK(kalandra_file_scope_enter_v1(&task.context(), nullptr, 0));
+        CHECK(kalandra_owned_adopt_v1(&task.context(), &descriptor));
+        CHECK(f.producer->scope != f.scope->scope);
+      }
+    }
+    if (f.abandon) {
+      if (f.abandon == 1) {
+        const float value = 0;
+        task.complete(&value);
+      } else if (f.abandon == 2)
+        task.fault(7, 9, 4);
+      else if (f.abandon == 3)
+        task.suspendUntil(std::chrono::steady_clock::now() + std::chrono::hours(1));
+      else {
+        float value = 0;
+        auto pin = task.context().lease(f.producer);
+        CHECK(pin);
+        if (!task.callBorrowed(f.producer->descriptor, std::move(*pin), &value))
+          return;
+        CHECK(false); // the borrowed body deliberately fails before an item
+      }
+      return;
+    }
+    if (!task.leaveOwnedScope(f.scope))
+      return;
+    CHECK(f.producer->groups.cleanupFinished());
+    f.scope = nullptr;
+    if (auto failure = task.ownedCleanupFailure(); failure.kind != TaskFailure::None) {
+      task.fail(failure);
+      return;
+    }
+    const float value = 0;
+    task.complete(&value);
+    return;
+  }
+  if (!f.requested) {
+    auto pin = task.context().lease(f.producer);
+    CHECK(pin);
+    f.requested = true;
+    auto started = task.beginOwnedCleanup(
+        f.producer->groups, std::move(*pin),
+        {f.producer, nullptr, finishProducerCleanup, producerCleanupFailure});
+    if (started != CleanupStart::Complete)
+      return;
+  }
+  CHECK(f.producer->groups.cleanupFinished());
+  if (auto failure = task.ownedCleanupFailure(); failure.kind != TaskFailure::None) {
+    task.fail(failure);
+    return;
+  }
+  const float value = 0;
+  task.complete(&value);
+}
+
+static const TaskEntry cleanupCaller{1,
+                                     94,
+                                     sizeof(CleanupCaller),
+                                     alignof(CleanupCaller),
+                                     sizeof(CleanupCaller),
+                                     alignof(CleanupCaller),
+                                     constructCleanupCaller,
+                                     nothing,
+                                     resumeCleanupCaller,
+                                     &scalar};
+static void failedAdvanceCleanup() {
+  for (unsigned workers : {1u, 4u}) {
+    Invocation owner;
+    BorrowProbe probe;
+    GroupProbe child;
+    child.external = true;
+    auto *memory = owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+    CHECK(memory);
+    auto *state = new (memory) PersistentProducer;
+    CHECK(owner.trackResource(state));
+    state->execution.bindResourceBudget(owner, state);
+    state->child = &child;
+    state->probe = &probe;
+    state->failDuringAdvance = true;
+    state->retirement = {state, nullptr, finishProducerCleanup, producerCleanupFailure};
+    state->deferredOwner = &state->groups;
+    state->deferredCleanup = &state->retirement;
+    state->descriptor = {&persistentBody, &state->execution, state,         state,
+                         enterProducer,   leaveProducer,     &state->groups};
+    TaskLimits limits;
+    limits.workers = workers;
+    auto core = TaskCore::create(limits);
+    CHECK(core);
+    auto root = core->openRoot();
+    CleanupCaller input{state};
+    input.scoped = true;
+    input.nested = true;
+    input.abandon = 4;
+    auto task = core->submit(root, cleanupCaller, {94, &input, sizeof(input), &owner});
+    CHECK(task);
+    for (unsigned i = 0; i < 64; ++i)
+      core->step();
+    CHECK(!core->settled(task) && probe.finalized == 0 && state->active);
+    CHECK(child.completion.signal());
+    CHECK(core->drainToCompletion() && core->settled(task));
+    CHECK(probe.finalized == 1 && probe.entered == probe.left && !state->active);
+    const auto failure = core->failure(task);
+    CHECK(failure.kind == TaskFailure::Fault && failure.code == 2 && failure.line == 15 &&
+          failure.column == 6);
+    CHECK(core->close(root) && core->drainToCompletion() && core->release(root));
+    owner.settle();
+    CHECK(probe.destroyed == 1 && core->stats().retainedBytes == 0);
+  }
+}
+static void stageTerminalCompletion(Task &task, void *state, const Invocation &source,
+                                     const void *value) noexcept {
+  auto &f = *static_cast<PersistentProducer *>(state);
+  if (f.cancelDuringStage)
+    CHECK(f.stageCore && f.stageCore->cancel(f.stageGroup));
+  if (!copyIndependentString(f.staged, &f.stagedValue, source, value)) {
+    if (f.staged.status())
+      task.context().fault(f.staged.status(), f.staged.line(), f.staged.column());
+    else if (!task.cancelled())
+      task.context().fault(3);
+    return;
+  }
+  f.completionStaged = true;
+}
+static void resumeTerminalProducer(Task &task) {
+  auto &f = *static_cast<PersistentProducer *>(task.borrowedState());
+  if (!f.terminalRequested) {
+    CHECK(task.frame() == &f.terminalPayload);
+    StringDescriptor value;
+    kalandra_string_literal_v1(&task.context(), &value, "terminal", 8);
+    task.complete(&value); // generated body completion is staged by the native wrapper
+    if (!f.completionStaged) {
+      CHECK(task.cancelled() || task.context().status());
+      f.terminalParked.store(true, std::memory_order_release);
+      return;
+    }
+    CHECK(!f.staged.status());
+    f.terminalRequested = true;
+    if (f.failDuringAdvance)
+      task.context().fault(2, 19, 5);
+    CHECK(task.beginBorrowedCleanup({&f, nullptr, finishProducerCleanup,
+                                    producerCleanupFailure}) == CleanupStart::Pending);
+    f.terminalParked.store(true, std::memory_order_release);
+    // Another worker pumps maintenance while this native resume still owns
+    // the execution lease. It must not settle the body Invocation yet.
+    while (!f.releaseTerminalLease.load(std::memory_order_acquire))
+      std::this_thread::yield();
+    CHECK(f.probe->finalized == 0 && f.execution.live() != 0);
+    return;
+  }
+  CHECK(f.groups.cleanupFinished() && !f.execution.usable());
+  task.completeFrom(f.staged, &f.stagedValue, true);
+}
+static const TaskEntry terminalProducer{1, 0, 0, 1, sizeof(std::uint64_t),
+                                         alignof(std::uint64_t), nullptr, nullptr,
+                                         resumeTerminalProducer, &independentString};
+static void resumeDeniedTerminal(Task &task) {
+  auto &f = *static_cast<PersistentProducer *>(task.borrowedState());
+  CHECK(task.beginBorrowedCleanup({&f, nullptr, finishProducerCleanup,
+                                  producerCleanupFailure}) == CleanupStart::Rejected);
+  CHECK(f.probe->finalized == 0);
+  f.terminalParked.store(true, std::memory_order_release);
+}
+static const TaskEntry deniedTerminalProducer{1, 0, 0, 1, sizeof(std::uint64_t),
+                                               alignof(std::uint64_t), nullptr, nullptr,
+                                               resumeDeniedTerminal, &independentString};
+struct TerminalCaller {
+  PersistentProducer *producer;
+  StringDescriptor value;
+  ResourceControl *scope = nullptr;
+};
+static bool constructTerminalCaller(Invocation &ctx, void *out, const Packet &packet) {
+  const auto input = *static_cast<const TerminalCaller *>(packet.data);
+  const auto descriptor = ownedDescriptor(input.producer);
+  if (!packet.source || !kalandra_owned_copy_v1(&ctx, packet.source, &descriptor))
+    return false;
+  new (out) TerminalCaller(input);
+  return true;
+}
+static void resumeTerminalCaller(Task &task) {
+  auto &f = *static_cast<TerminalCaller *>(task.frame());
+  if (!f.scope) {
+    auto descriptor = ownedDescriptor(f.producer);
+    const OwnedDescriptor *owned[] = {&descriptor};
+    f.scope = static_cast<ResourceControl *>(
+        kalandra_file_scope_enter_v1(&task.context(), owned, 1));
+    CHECK(f.scope);
+    auto *escape = ensureOwnedEscapeScope(task.context());
+    CHECK(escape && escape->scope->escapeRoot && f.scope->scope->parent == escape->scope);
+  }
+  auto pin = task.context().lease(f.producer);
+  CHECK(pin);
+  if (!task.callBorrowed(f.producer->descriptor, std::move(*pin), &f.value))
+    return;
+  task.complete(&f.value);
+}
+static const TaskEntry terminalCaller{1, 98, sizeof(TerminalCaller), alignof(TerminalCaller),
+                                       sizeof(TerminalCaller), alignof(TerminalCaller),
+                                       constructTerminalCaller, nothing, resumeTerminalCaller,
+                                       &independentString};
+static void borrowedTerminalCleanup() {
+  for (unsigned variant = 0; variant < 10; ++variant) {
+    const unsigned mode = variant % 5;
+    const unsigned workers = variant < 5 ? 4 : 1;
+    const bool cancel = mode == 1;
+    Invocation owner;
+    BorrowProbe probe;
+    GroupProbe child;
+    child.external = true;
+    auto *memory = owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+    CHECK(memory);
+    auto *state = new (memory) PersistentProducer;
+    CHECK(owner.trackResource(state));
+    state->execution.bindResourceBudget(owner, state);
+    CHECK(state->execution.allocate(64));
+    state->staged.bindResourceBudget(owner, state);
+    state->child = &child;
+    state->probe = &probe;
+    state->descriptor = {&persistentBody, &state->execution, state, state,
+                         enterProducer, leaveProducer, &state->groups};
+    TaskLimits limits;
+    limits.workers = workers;
+    auto core = TaskCore::create(limits);
+    CHECK(core);
+    auto creatorGroup = core->openRoot();
+    ProducerCaller input{state};
+    auto created = core->submit(creatorGroup, producerCaller, {85, &input, sizeof(input), &owner});
+    for (unsigned i = 0; i < 1000 && !core->settled(created); ++i)
+      core->step();
+    CHECK(core->settled(created));
+    Invocation receiver;
+    float item = 0;
+    CHECK(core->observe(created, scalar, receiver, &item) && item == 42);
+    CHECK(core->close(creatorGroup));
+    for (unsigned i = 0; i < 1000 && !core->settled(creatorGroup); ++i)
+      core->step();
+    CHECK(core->settled(creatorGroup) && core->release(creatorGroup));
+    state->descriptor.entry = mode == 3 ? &deniedTerminalProducer : &terminalProducer;
+    state->descriptor.frame = &state->terminalPayload;
+    state->failDuringAdvance = mode == 2;
+    state->descriptor.terminalCleanupAllowed = mode != 3;
+    state->descriptor.stageCompletion = mode == 3 ? nullptr : stageTerminalCompletion;
+    state->retirement = {state, nullptr, finishProducerCleanup, producerCleanupFailure};
+    state->deferredOwner = &state->groups;
+    state->deferredCleanup = &state->retirement;
+    state->cancelDuringStage = mode == 4;
+    state->releaseTerminalLease.store(workers == 1);
+    auto root = core->openRoot();
+    state->stageCore = core.get();
+    state->stageGroup = root;
+    TerminalCaller terminal{state, {}};
+    auto task = core->submit(root, terminalCaller, {98, &terminal, sizeof(terminal), &owner});
+    CHECK(task && core->step()); // select independently owned borrowed frame
+    std::thread worker([&] { CHECK(core->step()); });
+    while (!state->terminalParked.load(std::memory_order_acquire))
+      std::this_thread::yield();
+    for (unsigned i = 0; i < 64; ++i)
+      core->step();
+    CHECK(probe.finalized == 0 && state->execution.live() != 0 && !core->settled(task));
+    if (cancel)
+      CHECK(core->cancel(root));
+    state->releaseTerminalLease.store(true, std::memory_order_release);
+    worker.join();
+    for (unsigned i = 0; i < 64; ++i)
+      core->step();
+    CHECK(probe.finalized == 0 && !core->settled(task));
+    CHECK(child.completion.signal());
+    CHECK(core->drainToCompletion() && core->settled(task));
+    CHECK(probe.finalized == 1 && probe.entered == probe.left && !state->active);
+    StringDescriptor result;
+    if (cancel || mode == 4)
+      CHECK(core->failure(task).kind == TaskFailure::Cancelled);
+    else if (mode >= 2) {
+      const auto failure = core->failure(task);
+      CHECK(failure.kind == TaskFailure::Fault && failure.code == (mode == 2 ? 2 : 3));
+      if (mode == 2)
+        CHECK(failure.line == 19 && failure.column == 5);
+    }
+    else
+      CHECK(core->observe(task, independentString, receiver, &result));
+    CHECK(core->close(root) && core->drainToCompletion() && core->release(root));
+    owner.settle();
+    if (mode == 0)
+      CHECK(result.byteLength == 8 && std::string_view(result.data, 8) == "terminal");
+    CHECK(probe.destroyed == 1 && core->stats().callFrames == 0 &&
+          core->stats().retainedBytes == 0);
+  }
+}
+static void ownedCleanupBatches() {
+  for (unsigned workers : {1u, 4u})
+    for (unsigned mode = 0; mode < 16; ++mode) {
+      Invocation owner;
+      BorrowProbe probe;
+      GroupProbe child;
+      child.external = mode % 3 == 1 || mode == 15;
+      auto *memory = owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+      CHECK(memory);
+      auto *state = new (memory) PersistentProducer;
+      CHECK(owner.trackResource(state));
+      state->execution.bindResourceBudget(owner, state);
+      state->child = &child;
+      state->probe = &probe;
+      if (mode >= 3) {
+        state->retirement = {state, nullptr, finishProducerCleanup, producerCleanupFailure};
+        state->deferredOwner = &state->groups;
+        state->deferredCleanup = &state->retirement;
+      }
+      state->descriptor = {&persistentBody, &state->execution, state,         state,
+                           enterProducer,   leaveProducer,     &state->groups};
+      TaskLimits limits;
+      limits.workers = workers;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto root = core->openRoot();
+      ProducerCaller input{state};
+      auto created = core->submit(root, producerCaller, {85, &input, sizeof(input), &owner});
+      for (unsigned i = 0; i < 1000 && !core->settled(created); ++i)
+        core->step();
+      CHECK(core->settled(created));
+      Invocation receiver;
+      float value = 0;
+      CHECK(core->observe(created, scalar, receiver, &value) && value == 42);
+      CHECK(core->close(root));
+      for (unsigned i = 0; i < 1000 && !core->settled(root); ++i)
+        core->step();
+      CHECK(core->release(root) && probe.finalized == 0 && child.destroyed == 0);
+      if (mode % 3 == 2)
+        state->execution.fault(2, 12, 8);
+      auto closingRoot = core->openRoot();
+      CleanupCaller closingInput{state};
+      closingInput.scoped = mode >= 3;
+      closingInput.nested = mode >= 3;
+      closingInput.rejectNested = mode == 15;
+      closingInput.abandon = mode < 6 || mode == 15 ? 0 : mode / 3 - 1;
+      auto closing = core->submit(closingRoot, cleanupCaller,
+                                  {94, &closingInput, sizeof(closingInput), &owner});
+      CHECK(closing);
+      if (mode >= 12 && mode < 15) {
+        for (unsigned i = 0; i < 64; ++i)
+          core->step();
+        CHECK(probe.finalized == 0 && !core->settled(closing));
+        CHECK(core->cancel(closingRoot));
+      }
+      if (child.external) {
+        for (unsigned i = 0; i < 64; ++i)
+          core->step();
+        CHECK(!core->settled(closing) && probe.finalized == 0 && child.destroyed == 0);
+        CHECK(child.completion.signal());
+      }
+      CHECK(core->drainToCompletion() && core->settled(closing));
+      CHECK(probe.finalized == 1 && child.destroyed == 1 && state->execution.live() == 0);
+      if (mode >= 9 && mode < 12)
+        CHECK(core->failure(closing).kind == TaskFailure::Fault &&
+              core->failure(closing).code == 7);
+      else if (mode % 3 == 2 || mode == 15)
+        CHECK(core->failure(closing).kind == TaskFailure::Fault &&
+              core->failure(closing).code == 2);
+      else if (mode >= 12)
+        CHECK(core->failure(closing).kind == TaskFailure::Cancelled);
+      else
+        CHECK(core->observe(closing, scalar, receiver, &value) && value == 0);
+      CHECK(core->close(closingRoot) && core->drainToCompletion() && core->release(closingRoot));
+      owner.settle();
+      CHECK(probe.destroyed == 1 && core->stats().retainedBytes == 0 &&
+            core->stats().records == 0 && core->stats().groups == 0);
+    }
+}
+
+static bool copyProducerResult(Invocation &to, void *out, const Invocation &from,
+                                 const void *input) noexcept {
+  const auto &value = *static_cast<const OwnedDescriptor *>(input);
+  if (!kalandra_owned_copy_v1(&to, &from, &value))
+    return false;
+  *static_cast<OwnedDescriptor *>(out) = value;
+  return true;
+}
+static bool rejectProducerResult(Invocation &to, void *out, const Invocation &from,
+                                   const void *input) noexcept {
+  to.failAllocationAt(1); // reject outcome admission before logical owner transfer
+  return copyProducerResult(to, out, from, input);
+}
+static const ValueLayout producerResult{99, sizeof(OwnedDescriptor), alignof(OwnedDescriptor),
+                                         copyProducerResult, nothing};
+static const ValueLayout rejectedProducerResult{100, sizeof(OwnedDescriptor), alignof(OwnedDescriptor),
+                                                 rejectProducerResult, nothing};
+struct ReturnedProducer {
+  PersistentProducer *producer;
+  ResourceControl *scope = nullptr;
+  bool advanced = false;
+  float item = 0;
+};
+static bool constructReturnedProducer(Invocation &ctx, void *out, const Packet &packet) {
+  const auto input = *static_cast<const ReturnedProducer *>(packet.data);
+  const auto descriptor = ownedDescriptor(input.producer);
+  if (!packet.source || !kalandra_owned_copy_v1(&ctx, packet.source, &descriptor))
+    return false;
+  new (out) ReturnedProducer(input);
+  return true;
+}
+static void resumeReturnedProducer(Task &task) {
+  auto &f = *static_cast<ReturnedProducer *>(task.frame());
+  if (!f.advanced && !f.scope) {
+    auto value = ownedDescriptor(f.producer);
+    const OwnedDescriptor *owned[] = {&value};
+    f.scope = static_cast<ResourceControl *>(
+        kalandra_file_scope_enter_v1(&task.context(), owned, 1));
+    CHECK(f.scope);
+    CHECK(kalandra_file_scope_enter_v1(&task.context(), nullptr, 0));
+    CHECK(kalandra_owned_adopt_v1(&task.context(), &value));
+  }
+  if (!f.advanced) {
+    auto pin = task.context().lease(f.producer);
+    CHECK(pin);
+    if (!task.callBorrowed(f.producer->descriptor, std::move(*pin), &f.item))
+      return;
+    CHECK(f.item == 42);
+    f.advanced = true;
+  }
+  auto result = ownedDescriptor(f.producer);
+  if (f.scope) {
+    if (!task.leaveOwnedScope(f.scope, &result))
+      return;
+    f.scope = nullptr;
+  }
+  task.complete(&result);
+}
+static const TaskEntry returnedProducer{1,
+                                        99,
+                                        sizeof(ReturnedProducer),
+                                        alignof(ReturnedProducer),
+                                        sizeof(ReturnedProducer),
+                                        alignof(ReturnedProducer),
+                                        constructReturnedProducer,
+                                        nothing,
+                                        resumeReturnedProducer,
+                                        &producerResult};
+static void resumeNestedProducer(Task &task) {
+  auto &f = *static_cast<PersistentProducer *>(task.frame());
+  if (!f.started) {
+    f.group = task.openGroup();
+    CHECK(f.group);
+    ReturnedProducer input{f.nested};
+    f.task = task.spawn(f.group, returnedProducer, {99, &input, sizeof(input), &f.execution});
+    CHECK(f.task && task.close(f.group));
+    f.started = true;
+  }
+  if (!task.join(f.group))
+    return;
+  const float value = 42;
+  task.complete(&value);
+}
+static const TaskEntry nestedProducerBody{1,
+                                          0,
+                                          0,
+                                          1,
+                                          sizeof(PersistentProducer),
+                                          alignof(PersistentProducer),
+                                          nullptr,
+                                          nullptr,
+                                          resumeNestedProducer,
+                                          &scalar};
+static void nestedProducerOutcomeDiscard() {
+  for (unsigned workers : {1u, 4u}) {
+    Invocation owner;
+    BorrowProbe outerProbe, innerProbe;
+    GroupProbe outerChild, innerChild;
+    innerChild.external = true;
+    auto make = [](Invocation &ctx, BorrowProbe &probe, GroupProbe &child) {
+      auto *escape = ensureOwnedEscapeScope(ctx);
+      CHECK(escape);
+      Invocation::OwnershipSelection selected(escape->storage);
+      auto *memory = ctx.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+      CHECK(memory);
+      auto *state = new (memory) PersistentProducer;
+      state->child = &child;
+      state->probe = &probe;
+      state->retirement = {state, nullptr, finishProducerCleanup, producerCleanupFailure};
+      state->deferredOwner = &state->groups;
+      state->deferredCleanup = &state->retirement;
+      CHECK(ctx.trackResource(state));
+      adopt(ctx, *state, escape->scope);
+      state->execution.bindResourceBudget(ctx, state);
+      state->descriptor = {&persistentBody, &state->execution, state,         state,
+                           enterProducer,   leaveProducer,     &state->groups};
+      return state;
+    };
+    auto *outer = make(owner, outerProbe, outerChild);
+    outer->nested = make(outer->execution, innerProbe, innerChild);
+    outer->descriptor.entry = &nestedProducerBody;
+    TaskLimits limits;
+    limits.workers = workers;
+    auto core = TaskCore::create(limits);
+    CHECK(core);
+    auto group = core->openRoot();
+    ReturnedProducer input{outer};
+    auto task = core->submit(group, returnedProducer, {99, &input, sizeof(input), &owner});
+    CHECK(task && core->close(group));
+    for (unsigned i = 0; i < 256; ++i)
+      core->step();
+    CHECK(core->settled(task) && core->settled(group));
+    CHECK(!core->release(group));
+    for (unsigned i = 0; i < 256; ++i)
+      core->step();
+    CHECK(outerProbe.finalized == 0 && innerProbe.finalized == 0 && innerChild.destroyed == 0);
+    CHECK(innerChild.completion.signal());
+    CHECK(core->drainToCompletion() && core->release(group));
+    CHECK(outerProbe.finalized == 1 && innerProbe.finalized == 1);
+    owner.settle();
+    CHECK(outerProbe.destroyed == 1 && innerProbe.destroyed == 1 &&
+          core->stats().retainedBytes == 0 && core->stats().records == 0);
+  }
+}
+static void cancelDuringProducerFrameDestruction(void *p) noexcept {
+  auto &f = *static_cast<ReturnedProducer *>(p);
+  CHECK(f.producer->stageCore->cancel(f.producer->stageGroup));
+}
+static void producerOutcomeTransfer() {
+  for (unsigned workers : {1u, 4u})
+    for (unsigned mode : {0u, 1u, 2u, 3u, 4u}) {
+      const bool reject = mode == 1;
+      Invocation owner;
+      BorrowProbe probe;
+      GroupProbe child;
+      child.external = true;
+      auto *escape = ensureOwnedEscapeScope(owner);
+      CHECK(escape);
+      PersistentProducer *state;
+      {
+        Invocation::OwnershipSelection selected(escape->storage);
+        auto *memory = owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+        CHECK(memory);
+        state = new (memory) PersistentProducer;
+        state->child = &child;
+        state->probe = &probe;
+        state->retirement = {state, nullptr, finishProducerCleanup, producerCleanupFailure};
+        state->deferredOwner = &state->groups;
+        state->deferredCleanup = &state->retirement;
+        CHECK(owner.trackResource(state));
+        adopt(owner, *state, escape->scope);
+        state->execution.bindResourceBudget(owner, state);
+        CHECK(state->execution.allocate(64));
+      }
+      state->descriptor = {&persistentBody, &state->execution, state, state,
+                           enterProducer, leaveProducer, &state->groups};
+      TaskLimits limits;
+      limits.workers = workers;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto group = core->openRoot();
+      ReturnedProducer input{state};
+      auto entry = returnedProducer;
+      if (reject)
+        entry.result = &rejectedProducerResult;
+      if (mode == 4) {
+        state->stageCore = core.get();
+        state->stageGroup = group;
+        entry.destroy = cancelDuringProducerFrameDestruction;
+      }
+      auto created = core->submit(group, entry, {99, &input, sizeof(input), &owner});
+      CHECK(created);
+      for (unsigned i = 0; i < 128; ++i)
+        core->step();
+      CHECK(probe.finalized == 0 && child.destroyed == 0);
+      if (reject || mode == 4) {
+        CHECK(!core->settled(created));
+        CHECK(child.completion.signal());
+        CHECK(core->drainToCompletion() && core->settled(created));
+        const auto failure = core->failure(created);
+        if (reject)
+          CHECK(failure.kind == TaskFailure::Fault && failure.code == 2);
+        else
+          CHECK(failure.kind == TaskFailure::Cancelled);
+        CHECK(probe.finalized == 1);
+        CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+      } else if (mode >= 2) {
+        CHECK(core->settled(created));
+        CHECK(core->close(group));
+        for (unsigned i = 0; i < 128 && !core->settled(group); ++i)
+          core->step();
+        CHECK(core->settled(group));
+        if (mode == 2) {
+          CHECK(!core->release(group)); // pending, never destroy an unread live producer
+          CHECK(probe.finalized == 0 && child.destroyed == 0);
+          Invocation receiver;
+          OwnedDescriptor result;
+          CHECK(!core->observe(created, producerResult, receiver, &result));
+          CHECK(receiver.status() == 3); // disposal excludes new result readers
+          CHECK(child.completion.signal());
+          CHECK(core->drainToCompletion() && core->release(group));
+        } else {
+          // Shutdown must drain jobs created by disposal, not stop workers first.
+          CHECK(child.completion.signal());
+          core.reset();
+        }
+        CHECK(probe.finalized == 1);
+      } else {
+        CHECK(core->settled(created));
+        Invocation receiver;
+        OwnedDescriptor result;
+        CHECK(core->observe(created, producerResult, receiver, &result));
+        CHECK(result.storage.allocated == reinterpret_cast<std::uint8_t *>(state));
+        CHECK(state->scope && state->scope->context == &receiver);
+        CHECK(core->close(group));
+        for (unsigned i = 0; i < 128 && !core->settled(group); ++i)
+          core->step();
+        CHECK(core->settled(group) && core->release(group));
+        CHECK(probe.finalized == 0 && state->execution.live() != 0);
+        auto closingGroup = core->openRoot();
+        CleanupCaller closingInput{state};
+        closingInput.scoped = true;
+        closingInput.nested = true;
+        auto closing = core->submit(closingGroup, cleanupCaller,
+                                    {94, &closingInput, sizeof(closingInput), &receiver});
+        CHECK(closing);
+        for (unsigned i = 0; i < 128; ++i)
+          core->step();
+        CHECK(!core->settled(closing) && probe.finalized == 0);
+        CHECK(child.completion.signal());
+        CHECK(core->drainToCompletion() && core->settled(closing));
+        float resultValue = -1;
+        CHECK(core->observe(closing, scalar, receiver, &resultValue) && resultValue == 0);
+        CHECK(core->close(closingGroup) && core->drainToCompletion() && core->release(closingGroup));
+        receiver.settle();
+        CHECK(probe.finalized == 1);
+      }
+      owner.settle();
+      CHECK(probe.destroyed == 1);
+      if (core)
+        CHECK(core->stats().retainedBytes == 0 && core->stats().callFrames == 0 &&
+              core->stats().records == 0);
+    }
+}
+// A source task discards a child result without ever reading the producer.
+struct DiscardedProducer {
+  PersistentProducer *producer;
+  Invocation *source;
+  unsigned mode = 0;
+  GroupHandle group;
+  std::atomic<unsigned> *destroyed;
+};
+static bool constructDiscardedProducer(Invocation &ctx, void *out, const Packet &packet) {
+  auto input = *static_cast<const DiscardedProducer *>(packet.data);
+  if (!ctx.retainFrom(*input.source, input.producer))
+    return false;
+  new (out) DiscardedProducer(input);
+  return true;
+}
+static void destroyDiscardedProducer(void *p) noexcept {
+  auto &f = *static_cast<DiscardedProducer *>(p);
+  CHECK(f.producer->probe->finalized == 1);
+  ++*f.destroyed;
+}
+static void resumeDiscardedProducer(Task &task) {
+  auto &f = *static_cast<DiscardedProducer *>(task.frame());
+  if (!f.group) {
+    f.group = task.openGroup();
+    CHECK(f.group);
+    ReturnedProducer input{f.producer};
+    CHECK(task.spawn(f.group, returnedProducer, {99, &input, sizeof(input), f.source}));
+    CHECK(task.close(f.group));
+  }
+  if (!task.join(f.group))
+    return;
+  if (f.mode == 1) {
+    task.fault(7, 29, 4);
+    return;
+  }
+  if (f.mode == 2) {
+    task.suspendUntil(std::chrono::steady_clock::now() + std::chrono::hours(1));
+    return;
+  }
+  if (!task.releaseGroup(f.group))
+    return;
+  const float result = 0;
+  task.complete(&result);
+}
+static const TaskEntry discardedProducer{1,
+                                         102,
+                                         sizeof(DiscardedProducer),
+                                         alignof(DiscardedProducer),
+                                         sizeof(DiscardedProducer),
+                                         alignof(DiscardedProducer),
+                                         constructDiscardedProducer,
+                                         destroyDiscardedProducer,
+                                         resumeDiscardedProducer,
+                                         &scalar};
+static void producerOutcomeDiscard() {
+  for (unsigned workers : {1u, 4u})
+    for (unsigned mode : {0u, 1u, 2u}) {
+      Invocation owner;
+      BorrowProbe probe;
+      GroupProbe child;
+      child.external = true;
+      auto *escape = ensureOwnedEscapeScope(owner);
+      CHECK(escape);
+      PersistentProducer *state;
+      {
+        Invocation::OwnershipSelection selected(escape->storage);
+        auto *memory =
+            owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+        CHECK(memory);
+        state = new (memory) PersistentProducer;
+        state->child = &child;
+        state->probe = &probe;
+        state->retirement = {state, nullptr, finishProducerCleanup, producerCleanupFailure};
+        state->deferredOwner = &state->groups;
+        state->deferredCleanup = &state->retirement;
+        CHECK(owner.trackResource(state));
+        adopt(owner, *state, escape->scope);
+        state->execution.bindResourceBudget(owner, state);
+      }
+      state->descriptor = {&persistentBody, &state->execution, state,         state,
+                           enterProducer,   leaveProducer,     &state->groups};
+      TaskLimits limits;
+      limits.workers = workers;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto group = core->openRoot();
+      std::atomic<unsigned> destroyed{0};
+      DiscardedProducer input{state, &owner, mode, {}, &destroyed};
+      auto task = core->submit(group, discardedProducer, {102, &input, sizeof(input), &owner});
+      CHECK(task);
+      for (unsigned i = 0; i < 256; ++i)
+        core->step();
+      if (mode == 2)
+        CHECK(core->cancel(group));
+      for (unsigned i = 0; i < 128; ++i)
+        core->step();
+      CHECK(!core->settled(task) && probe.finalized == 0 && destroyed == 0);
+      CHECK(child.completion.signal());
+      CHECK(core->drainToCompletion() && core->settled(task));
+      CHECK(probe.finalized == 1 && destroyed == 1);
+      const auto failure = core->failure(task);
+      if (mode == 1)
+        CHECK(failure.kind == TaskFailure::Fault && failure.code == 7 && failure.line == 29);
+      else if (mode == 2)
+        CHECK(failure.kind == TaskFailure::Cancelled);
+      else {
+        CHECK(failure.kind == TaskFailure::None);
+        Invocation receiver;
+        float value = -1;
+        CHECK(core->observe(task, scalar, receiver, &value) && value == 0);
+      }
+      CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+      owner.settle();
+      CHECK(probe.destroyed == 1 && core->stats().retainedBytes == 0);
+    }
+}
+struct CalledProducer {
+  PersistentProducer *producer;
+  Invocation *source;
+  std::atomic<bool> *received;
+  bool reject = false, started = false;
+  OwnedDescriptor value;
+};
+static bool constructCalledProducer(Invocation &, void *out, const Packet &packet) {
+  // The fixture explicitly keeps this source Invocation alive through the call.
+  new (out) CalledProducer(*static_cast<const CalledProducer *>(packet.data));
+  return true;
+}
+static void resumeCalledProducer(Task &task) {
+  auto &f = *static_cast<CalledProducer *>(task.frame());
+  if (f.started && f.reject)
+    task.context().failAllocationAt(1);
+  f.started = true;
+  ReturnedProducer input{f.producer};
+  if (!task.call(returnedProducer, {99, &input, sizeof(input), f.source}, &f.value))
+    return;
+  CHECK(f.producer->scope && f.producer->scope->context == &task.context());
+  f.received->store(true, std::memory_order_release);
+  const float value = 0;
+  task.complete(&value); // automatic caller-scope abandonment must join producer children
+}
+static const TaskEntry calledProducer{1, 101, sizeof(CalledProducer), alignof(CalledProducer),
+                                       sizeof(CalledProducer), alignof(CalledProducer),
+                                       constructCalledProducer, nothing, resumeCalledProducer, &scalar};
+static void producerCallOutcomeTransfer() {
+  for (unsigned workers : {1u, 4u})
+    for (bool reject : {false, true}) {
+      Invocation owner;
+      BorrowProbe probe;
+      GroupProbe child;
+      child.external = true;
+      auto *escape = ensureOwnedEscapeScope(owner);
+      CHECK(escape);
+      PersistentProducer *state;
+      {
+        Invocation::OwnershipSelection selected(escape->storage);
+        auto *memory = owner.allocateResource(sizeof(PersistentProducer), OwnedState::cleanup, true);
+        CHECK(memory);
+        state = new (memory) PersistentProducer;
+        state->child = &child;
+        state->probe = &probe;
+        state->retirement = {state, nullptr, finishProducerCleanup, producerCleanupFailure};
+        state->deferredOwner = &state->groups;
+        state->deferredCleanup = &state->retirement;
+        CHECK(owner.trackResource(state));
+        adopt(owner, *state, escape->scope);
+        state->execution.bindResourceBudget(owner, state);
+      }
+      state->descriptor = {&persistentBody, &state->execution, state, state,
+                           enterProducer, leaveProducer, &state->groups};
+      TaskLimits limits;
+      limits.workers = workers;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto group = core->openRoot();
+      std::atomic<bool> received{false};
+      CalledProducer input{state, &owner, &received, reject, false, {}};
+      auto task = core->submit(group, calledProducer, {101, &input, sizeof(input), &owner});
+      CHECK(task);
+      for (unsigned i = 0; i < 128; ++i)
+        core->step();
+      CHECK(!core->settled(task) && probe.finalized == 0 && received.load() == !reject);
+      CHECK(child.completion.signal());
+      CHECK(core->drainToCompletion() && core->settled(task));
+      CHECK(probe.finalized == 1);
+      if (reject) {
+        const auto failure = core->failure(task);
+        CHECK(failure.kind == TaskFailure::Fault && failure.code == 2);
+      } else {
+        Invocation receiver;
+        float value = -1;
+        CHECK(core->observe(task, scalar, receiver, &value) && value == 0);
+      }
+      CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+      owner.settle();
+      CHECK(probe.destroyed == 1 && core->stats().retainedBytes == 0 &&
+            core->stats().callBytes == 0 && core->stats().callFrames == 0);
+    }
+}
+struct CleanupTreeProbe {
+  std::atomic<unsigned> finished{0}, destroyed{0};
+};
+static void destroyCleanupTree(void *) noexcept;
+struct CleanupTree : OwnedState {
+  CleanupTree()
+      : OwnedState(OwnedKind::Generator, sizeof(CleanupTree), destroyCleanupTree, nothing) {}
+  Invocation storage;
+  BorrowedGroupOwner owner{storage};
+  BorrowedCleanup retirement{};
+  CleanupTree *child = nullptr;
+  CleanupTreeProbe *probe = nullptr;
+  bool finished = false, scopedChildren = false;
+};
+static void destroyCleanupTree(void *p) noexcept {
+  auto &node = *static_cast<CleanupTree *>(p);
+  CHECK(node.finished);
+  ++node.probe->destroyed;
+  node.~CleanupTree();
+}
+static void finishCleanupTree(void *p) noexcept {
+  auto &node = *static_cast<CleanupTree *>(p);
+  CHECK(!node.finished && (!node.child || node.child->finished));
+  node.storage.settle();
+  node.finished = true;
+  ++node.probe->finished;
+}
+static void childrenCleanupTree(BorrowedGroupOwner &owner, void *p) noexcept {
+  auto &node = *static_cast<CleanupTree *>(p);
+  if (node.scopedChildren) {
+    CHECK(owner.enqueueOwnedScopeChildren(node.storage));
+    return;
+  }
+  if (node.child) {
+    auto pin = node.storage.lease(node.child);
+    CHECK(pin);
+    CHECK(owner.enqueueCleanupChild(node.child->owner, std::move(*pin),
+                                    {node.child, childrenCleanupTree, finishCleanupTree, nullptr}));
+  }
+}
+struct CleanupTreeCaller {
+  CleanupTree *tree;
+  bool requested = false;
+};
+static bool constructCleanupTreeCaller(Invocation &ctx, void *out, const Packet &packet) {
+  const auto input = *static_cast<const CleanupTreeCaller *>(packet.data);
+  if (!packet.source || !ctx.retainFrom(*packet.source, input.tree))
+    return false;
+  new (out) CleanupTreeCaller(input);
+  return true;
+}
+static void resumeCleanupTreeCaller(Task &task) {
+  auto &f = *static_cast<CleanupTreeCaller *>(task.frame());
+  if (!f.requested) {
+    f.requested = true;
+    auto pin = task.context().lease(f.tree);
+    CHECK(pin);
+    auto started = task.beginOwnedCleanup(
+        f.tree->owner, std::move(*pin), {f.tree, childrenCleanupTree, finishCleanupTree, nullptr});
+    CHECK(started != CleanupStart::Rejected);
+    if (started == CleanupStart::Pending)
+      return;
+  }
+  CHECK(f.tree->finished);
+  const float value = 42;
+  task.complete(&value);
+}
+static const TaskEntry cleanupTreeCaller{1,
+                                         96,
+                                         sizeof(CleanupTreeCaller),
+                                         alignof(CleanupTreeCaller),
+                                         sizeof(CleanupTreeCaller),
+                                         alignof(CleanupTreeCaller),
+                                         constructCleanupTreeCaller,
+                                         nothing,
+                                         resumeCleanupTreeCaller,
+                                         &scalar};
+struct ScopeBatchCaller {
+  CleanupTree *nodes[3];
+  bool escape = false;
+  unsigned phase = 0;
+  ResourceControl *outer = nullptr, *inner = nullptr;
+};
+static bool constructScopeBatch(Invocation &ctx, void *out, const Packet &packet) {
+  const auto input = *static_cast<const ScopeBatchCaller *>(packet.data);
+  for (auto *node : input.nodes)
+    if (!packet.source || !ctx.retainFrom(*packet.source, node))
+      return false;
+  new (out) ScopeBatchCaller(input);
+  return true;
+}
+static void resumeScopeBatch(Task &task) {
+  auto &f = *static_cast<ScopeBatchCaller *>(task.frame());
+  if (!f.phase) {
+    f.outer =
+        static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&task.context(), nullptr, 0));
+    CHECK(f.outer);
+    OwnedDescriptor values[3];
+    const OwnedDescriptor *pointers[3];
+    for (unsigned i = 0; i < 3; ++i) {
+      values[i] = ownedDescriptor(f.nodes[i]);
+      pointers[i] = &values[i];
+    }
+    f.inner =
+        static_cast<ResourceControl *>(kalandra_file_scope_enter_v1(&task.context(), pointers, 3));
+    CHECK(f.inner);
+    f.phase = 1;
+  }
+  if (f.phase == 1) {
+    auto escaping = ownedDescriptor(f.nodes[2]);
+    if (!task.leaveOwnedScope(f.inner, f.escape ? &escaping : nullptr))
+      return;
+    CHECK(f.nodes[0]->finished && f.nodes[1]->finished);
+    CHECK(f.nodes[2]->finished == !f.escape);
+    f.inner = nullptr;
+    f.phase = 2;
+  }
+  if (!task.leaveOwnedScope(f.outer))
+    return;
+  for (auto *node : f.nodes)
+    CHECK(node->finished);
+  f.outer = nullptr;
+  CHECK(task.ownedCleanupFailure().kind == TaskFailure::None);
+  const float value = 42;
+  task.complete(&value);
+}
+static const TaskEntry scopeBatchCaller{1,
+                                        97,
+                                        sizeof(ScopeBatchCaller),
+                                        alignof(ScopeBatchCaller),
+                                        sizeof(ScopeBatchCaller),
+                                        alignof(ScopeBatchCaller),
+                                        constructScopeBatch,
+                                        nothing,
+                                        resumeScopeBatch,
+                                        &scalar};
+static void scopedOwnedCleanup() {
+  for (unsigned workers : {1u, 4u})
+    for (bool escape : {false, true}) {
+      Invocation source;
+      CleanupTreeProbe probe;
+      ScopeBatchCaller input{};
+      input.escape = escape;
+      for (auto *&node : input.nodes) {
+        auto *memory = source.allocateResource(sizeof(CleanupTree), OwnedState::cleanup, true);
+        CHECK(memory);
+        node = new (memory) CleanupTree;
+        node->probe = &probe;
+        CHECK(source.trackResource(node));
+        node->storage.bindResourceBudget(source, node);
+        node->retirement = {node, childrenCleanupTree, finishCleanupTree, nullptr};
+        node->deferredOwner = &node->owner;
+        node->deferredCleanup = &node->retirement;
+      }
+      TaskLimits limits;
+      limits.workers = workers;
+      limits.records = limits.groups = limits.ready = limits.inFlight = 1;
+      limits.depth = 0;
+      limits.callBytes = 1;
+      auto core = TaskCore::create(limits);
+      CHECK(core);
+      auto group = core->openRoot();
+      auto task = core->submit(group, scopeBatchCaller, {97, &input, sizeof(input), &source});
+      CHECK(task && core->drainToCompletion() && core->settled(task));
+      CHECK(probe.finished == 3 && core->stats().peakCallFrames == 0);
+      Invocation receiver;
+      float value = 0;
+      CHECK(core->observe(task, scalar, receiver, &value) && value == 42);
+      CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+      source.settle();
+      CHECK(probe.destroyed == 3 && core->stats().retainedBytes == 0);
+    }
+}
+static void deepOwnedCleanup() {
+  for (unsigned mode = 0; mode < 4; ++mode) {
+    const unsigned workers = mode % 2 ? 4 : 1;
+    const bool scoped = mode >= 2;
+    constexpr unsigned depth = 10000;
+    Invocation source;
+    CleanupTreeProbe probe;
+    std::vector<CleanupTree *> nodes;
+    for (unsigned i = 0; i <= depth; ++i) {
+      auto *memory = source.allocateResource(sizeof(CleanupTree), OwnedState::cleanup, true);
+      CHECK(memory);
+      auto *node = new (memory) CleanupTree;
+      node->probe = &probe;
+      node->scopedChildren = scoped;
+      CHECK(source.trackResource(node));
+      node->storage.bindResourceBudget(source, node);
+      node->retirement = {node, childrenCleanupTree, finishCleanupTree, nullptr};
+      node->deferredOwner = &node->owner;
+      node->deferredCleanup = &node->retirement;
+      if (!nodes.empty()) {
+        node->child = nodes.back();
+        if (scoped) {
+          auto *control = static_cast<ResourceControl *>(
+              kalandra_file_scope_enter_v1(&node->storage, nullptr, 0));
+          CHECK(control);
+          // Owned captures are retained directly in their logical store. An
+          // additional temporary-store observer would conservatively bill the
+          // same dynamic child through two paths at every nesting level.
+          Invocation::OwnershipSelection selected(control->storage);
+          CHECK(node->storage.retainFrom(source, node->child));
+          adopt(node->storage, *node->child, control->scope);
+          CHECK(!node->storage.status());
+        } else
+          CHECK(node->storage.retainFrom(source, node->child));
+      }
+      nodes.push_back(node);
+    }
+    TaskLimits limits;
+    limits.workers = workers;
+    limits.records = limits.groups = limits.ready = limits.inFlight = 1;
+    limits.depth = 0;
+    limits.callBytes = 1; // retirement must not allocate ordinary call frames
+    limits.bytes = 128 * 1024 * 1024;
+    auto core = TaskCore::create(limits);
+    CHECK(core);
+    auto group = core->openRoot();
+    CleanupTreeCaller input{nodes.back()};
+    auto task = core->submit(group, cleanupTreeCaller, {96, &input, sizeof(input), &source});
+    CHECK(task && core->drainToCompletion() && core->settled(task));
+    CHECK(probe.finished == depth + 1 && core->stats().callFrames == 0 &&
+          core->stats().peakCallFrames == 0 && core->stats().records == 1 &&
+          core->stats().groups == 1);
+    Invocation receiver;
+    float value = 0;
+    CHECK(core->observe(task, scalar, receiver, &value) && value == 42);
+    CHECK(core->close(group) && core->drainToCompletion() && core->release(group));
+    source.settle();
+    CHECK(probe.destroyed == depth + 1 && core->stats().retainedBytes == 0);
+  }
+}
+
 int main() {
+  producerCallOutcomeTransfer();
+  producerOutcomeTransfer();
+  producerOutcomeDiscard();
+  nestedProducerOutcomeDiscard();
+  borrowedTerminalCleanup();
+  failedAdvanceCleanup();
+  scopedOwnedCleanup();
+  ownedCleanupBatches();
+  independentOutcomes();
+  persistentGroupAdmission();
+  persistentGroups();
+  borrowedCalls();
+  overlappingBorrowedCalls();
 #ifndef _WIN32
   pthread_attr_t attributes;
   CHECK(pthread_attr_init(&attributes) == 0);
@@ -660,6 +2452,8 @@ int main() {
             &smallStack, &attributes,
             +[](void *) -> void * {
               callStacks();
+              deepBorrowedCalls();
+              deepOwnedCleanup();
               return nullptr;
             },
             nullptr) == 0);
@@ -667,6 +2461,8 @@ int main() {
   CHECK(pthread_join(smallStack, nullptr) == 0);
 #else
   callStacks();
+  deepBorrowedCalls();
+  deepOwnedCleanup();
 #endif
   cancelledConstruction();
   allocatedBufferBudgets();

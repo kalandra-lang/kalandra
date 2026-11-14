@@ -36,8 +36,10 @@ inline std::optional<Diagnostic> recordFieldError(const TypedModule &module) {
   const auto fail = [](std::string message, SourceSpan span) {
     return std::optional<Diagnostic>{{"S068", std::move(message), span}};
   };
-  bool sawTaskError = false;
+  bool sawTaskError = false, sawNever = false;
   for (const auto &record : module.records) {
+    if (record.name == "never" && !record.uninhabited)
+      return fail("reserved never identity requires an uninhabited type", record.declaration);
     if (record.name == "TaskError" && !record.taskErrorFamily)
       return fail("reserved TaskError identity requires its canonical family metadata",
                   record.declaration);
@@ -65,7 +67,7 @@ inline std::optional<Diagnostic> recordFieldError(const TypedModule &module) {
       std::size_t count = 0;
       for (auto member : record.errorMembers) {
         if (member >= module.records.size() || !module.records[member].error ||
-            !module.records[member].errorMembers.empty())
+            !module.records[member].errorMembers.empty() || module.records[member].uninhabited)
           return fail("invalid error-union member", record.declaration);
         const auto &original = module.records[member];
         for (std::size_t variant = 0; variant < original.variants.size(); ++variant, ++count) {
@@ -97,7 +99,68 @@ inline std::optional<Diagnostic> recordFieldError(const TypedModule &module) {
       return fail("non-union type carries error origins", record.declaration);
     if (record.fields.empty())
       return fail("record declarations require fields", record.declaration);
-    if (record.error && record.variants.empty())
+    if (record.standard == StandardRecord::Iterator) {
+      if (record.error || record.uninhabited || !record.variants.empty() ||
+          record.fields.size() != 1 || record.fields[0].name != "__storage" ||
+          record.typeArguments.size() != 2)
+        return fail("invalid standard Iterator layout", record.declaration);
+      const auto &storage = record.fields[0].type;
+      if (!storage.array || !storage.tensor || storage.shape.size() != 1 ||
+          storage.builtin != BuiltinValue::Numeric || storage.element != NumericType::UInt8 ||
+          storage.task || storage.fallible || storage.errorRecord || storage.record ||
+          storage.device)
+        return fail("Iterator storage requires its private byte descriptor", record.declaration);
+      const auto &item = record.typeArguments[0], &error = record.typeArguments[1];
+      if (item.task || item.fallible || item.errorRecord || item.device ||
+          (item.builtin != BuiltinValue::Numeric && !isBooleanStorage(item) &&
+           item.builtin != BuiltinValue::String && item.builtin != BuiltinValue::Function &&
+           item.builtin != BuiltinValue::Record) ||
+          isOwnedResource(module, item))
+        return fail("Iterator items require completed storable values without owned resources",
+                    record.declaration);
+      if (error.array || error.tensor || error.task || error.fallible || error.errorRecord ||
+          error.device ||
+          (error.builtin != BuiltinValue::TaskError &&
+           (!error.record || *error.record >= module.records.size() ||
+            !module.records[*error.record].error)))
+        return fail("Iterator consumption errors require an error family or never",
+                    record.declaration);
+    }
+    if (record.standard == StandardRecord::Option) {
+      if (record.error || record.uninhabited || record.typeArguments.size() != 1 ||
+          record.fields.size() != 2 || record.fields[0].name != "$tag" ||
+          record.fields[1].name != "value" || record.variants.size() != 2 ||
+          record.variants[0].name != "None" || !record.variants[0].fields.empty() ||
+          record.variants[1].name != "Some" ||
+          record.variants[1].fields != std::vector<std::size_t>{1} ||
+          !sameFunctionValueType(record.fields[1].type, record.typeArguments[0]))
+        return fail("invalid standard Option layout", record.declaration);
+    }
+    if (record.standard == StandardRecord::Range) {
+      if (record.error || record.uninhabited || !record.variants.empty() || record.fields.size() != 3)
+        return fail("invalid standard Range layout", record.declaration);
+      const std::string_view names[]{"start", "stop", "step"};
+      for (std::size_t i = 0; i < 3; ++i) {
+        const auto &field = record.fields[i];
+        const auto &type = field.type;
+        if (field.name != names[i] || type.builtin != BuiltinValue::Numeric ||
+            type.element != NumericType::Int64 || type.tensor || type.array || type.task ||
+            type.fallible || type.device || type.record)
+          return fail("standard Range fields require start/stop/step i64 scalars", field.declaration);
+      }
+    }
+    if (record.uninhabited) {
+      const auto &tag = record.fields.front().type;
+      if (sawNever || record.name != "never" || !record.error || record.taskErrorFamily ||
+          !record.variants.empty() || !record.errorMembers.empty() ||
+          !record.errorOrigins.empty() || record.fields.size() != 1 ||
+          record.fields.front().name != "$tag" || tag.builtin != BuiltinValue::Numeric ||
+          tag.element != NumericType::Int64 || tag.tensor || tag.array || tag.task ||
+          tag.fallible || tag.device || tag.record)
+        return fail("invalid uninhabited type layout", record.declaration);
+      sawNever = true;
+    }
+    if (record.error && record.variants.empty() && !record.uninhabited)
       return fail("error declarations require variants", record.declaration);
     if (!record.variants.empty()) {
       const auto &tag = record.fields.front().type;

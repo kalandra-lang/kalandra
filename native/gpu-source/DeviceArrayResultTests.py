@@ -48,17 +48,19 @@ for name, typ, value, expected in (
     cases[name] = (f'fn work(values:[{typ}])->[{typ}]:\n  return copy(values)\n',
                    f'  values:[{typ}]=[{value}]\n', 'work(values)', '    result[0]\n', typ, expected)
 cases['zero-input-filter-generator'] = ('''fn work(n:i64)->[i64]:
-  return for i in range(n):
+  return array(for i in range(n):
     if i%2==0:
       yield i*3
+  )
 ''', '', 'work(10)', '    result[0]+result[1]+result[2]+result[3]+result[4]\n', 'i64', 60)
 cases['multi-page-generator'] = ('''fn work(n:i64)->[i64]:
-  return for i in range(n):
+  return array(for i in range(n):
     yield i*2+1
+  )
 ''', '', 'work(17000)', '    result[0]+result[8191]+result[8192]+result[16999]\n', 'i64', 66768)
 cases['multi-page-capture-copy'] = ('''fn work(values:[i64])->[i64]:
   return copy(values)
-''', '  values=for i in range(17000):\n    yield i\n', 'work(values)',
+''', '  values=array(for i in range(17000):\n    yield i\n  )\n', 'work(values)',
     '    result[0]+result[8191]+result[8192]+result[16999]\n', 'i64', 33382)
 for alias in (False, True):
     cases['conditional-' + ('alias' if alias else 'copy')] = ('''fn work(values:[i64],flag:bool)->[i64]:

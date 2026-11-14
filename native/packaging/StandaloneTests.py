@@ -117,9 +117,12 @@ def qualify_prefix(prefix, kind, runtime, build=None, metal_execute=False):
                   ("bool", "true", "true"), ("String", '"bundled"', "bundled"),
                   ("[i64]", "[1, 2]", "[1, 2]"), ("[String]", '["bundled"]', '["bundled"]')]
         for mode in ([], ["--sanitize"], ["--thread-sanitize"]):
+            source.write_text('fn main() -> unit:\n  return ()\n')
+            execute([link, source, "-o", executable, "-O2", *mode])
+            assert execute([executable]).stdout == ""
             for returned, body, expected in cases:
                 source.write_text(f'fn main() -> {returned}:\n  return {body}\n')
-                execute([link, source, "-o", executable, "-O2", *mode])
+                execute([link, "--test-entry", "main", source, "-o", executable, "-O2", *mode])
                 assert execute([executable]).stdout.strip() == expected
             source.write_text('fn double(value:i64)->i64:\n  return value*2\nfn main()->i64 ! TaskError:\n  values=try parallelMap([21],double)\n  return values[0]\n')
             execute([compiler, "--test-entry", "main", source, "-o", executable, *mode])

@@ -2,8 +2,24 @@
 #include <optional>
 #include <string_view>
 namespace kalandra {
-enum class StandardModule { Io, Format, Process, Filesystem, Buffer, Parse, Path, Env, Time };
+enum class StandardModule {
+  Io,
+  Format,
+  Process,
+  Filesystem,
+  Buffer,
+  Parse,
+  Path,
+  Env,
+  Time,
+  Option,
+  Iteration
+};
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/iter")
+    return StandardModule::Iteration;
+  if (name == "std/option")
+    return StandardModule::Option;
   if (name == "std/buffer")
     return StandardModule::Buffer;
   if (name == "std/time")
@@ -26,6 +42,10 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Iteration:
+    return "kalandra-stdlib:std/iter.k";
+  case StandardModule::Option:
+    return "kalandra-stdlib:std/option.k";
   case StandardModule::Buffer:
     return "kalandra-stdlib:std/buffer.k";
   case StandardModule::Time:
@@ -48,6 +68,10 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Iteration))
+    return StandardModule::Iteration;
+  if (path == standardModulePath(StandardModule::Option))
+    return StandardModule::Option;
   if (path == standardModulePath(StandardModule::Buffer))
     return StandardModule::Buffer;
   if (path == standardModulePath(StandardModule::Time))
@@ -73,6 +97,60 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Iteration:
+    return R"k(from "std/option" import Option
+export type Range:
+  start: i64
+  stop: i64
+  step: i64
+export fn range(start: i64, stop: i64, step: i64) -> Range:
+  return __kalandra_range(start, stop, step)
+export type Iterator[T, E]:
+  __storage: [u8]
+export trait Iterable:
+  type Item
+  type Error
+  fn iterator(values: Self) -> Iterator[Self.Item, Self.Error]
+impl Iterable for Range:
+  type Item = i64
+  type Error = never
+  fn iterator(values: Self) -> Iterator[i64, never]:
+    return __kalandra_iterator_range(values)
+impl[T] Iterable for [T]:
+  type Item = T
+  type Error = never
+  fn iterator(values: Self) -> Iterator[T, never]:
+    return __kalandra_iterator_array(values)
+export fn iter[S: Iterable](values: S) -> Iterator[S.Item, S.Error]:
+  return Iterable.iterator(values)
+export fn next[T, E](mut cursor: Iterator[T, E]) -> Option[T] ! E:
+  return __kalandra_iterator_next(cursor)
+export fn close[T, E](own cursor: Iterator[T, E]) -> unit:
+  return __kalandra_iterator_close(cursor)
+export fn map[T, U, E, F](own values: Iterator[T, E], transform: fn(T) -> U ! F):
+  return for value in values:
+    yield try transform(value)
+export fn filter[T, E, F](own values: Iterator[T, E], predicate: fn(T) -> bool ! F):
+  return for value in values:
+    if try predicate(value):
+      yield value
+export fn take[T, E](own values: Iterator[T, E], count: i64) -> Iterator[T, E]:
+  return while count > 0:
+    item = try next(values)
+    match item:
+      Option.None: break
+      Option.Some {value}:
+        count = count - 1
+        yield value
+        ()
+    ()
+)k";
+  case StandardModule::Option:
+    return R"k(export enum Option[T]:
+  None
+  Some:
+    value: T
+)k";
   case StandardModule::Buffer:
     return R"k(export type ByteBuffer:
   __storage: [u8]

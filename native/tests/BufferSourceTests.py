@@ -178,6 +178,15 @@ bufferFactory='''fn makeBuffer()->ByteBuffer ! BufferError:
   try append(b,[40,2])
   return b
 '''
+run('temporary-task-borrow',bufferFactory+'''fn inspectTemporary(b:ByteBuffer)->i64 ! TimeError:
+  try sleep(try milliseconds(1))
+  return length(b)+i64(b[0])
+'''+main+'''  value=try parallel:
+    pending=spawn inspectTemporary(try makeBuffer())
+    try await pending
+  try println(format("{}",value))
+  return ()
+''','42\n')
 run('owned-result-task',bufferFactory+main+'''  b=try parallel:
     task=spawn makeBuffer()
     try await task

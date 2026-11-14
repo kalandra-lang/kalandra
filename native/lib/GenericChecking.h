@@ -113,13 +113,14 @@ bool inferGenericType(const TypeSyntax &pattern, ValueType actual,
     result.errorRecord.reset();
     if (!inferGenericType(pattern.function->result, result, parameters, bindings, site))
       return false;
-    if (pattern.function->errorTypes.size() == 1 && actual.callable->result.fallible) {
+    if (pattern.function->errorTypes.size() == 1) {
       const auto familyName = qualifiedErrorName(pattern.function->errorTypes[0]);
       if (genericParameterNamed(parameters, familyName)) {
-        auto family = actual.callable->result.errorRecord
+        auto family = !actual.callable->result.fallible ? recordType(neverFamily())
+                      : actual.callable->result.errorRecord
                           ? recordType(*actual.callable->result.errorRecord)
                           : ValueType{};
-        if (!actual.callable->result.errorRecord)
+        if (actual.callable->result.fallible && !actual.callable->result.errorRecord)
           family.builtin = BuiltinValue::TaskError;
         TypeSyntax channel;
         channel.name = channel.span = pattern.function->errorTypes[0];

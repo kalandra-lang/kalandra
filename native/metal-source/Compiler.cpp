@@ -13,6 +13,7 @@
 #include "../gpu-source/PointerBridge.h"
 #include "../gpu-source/Supervisor.h"
 #include "../gpu-source/TimeHostBridge.h"
+#include "../lib/IteratorHostBridge.h"
 #include "../lib/NativeLayout.h"
 #include "../lib/TaskValueCopy.h"
 #include "../metal/ElementwiseLayout.h"
@@ -115,6 +116,8 @@ class Compiler {
     ValueType result;
   };
   std::vector<BufferBridgeRequest> bufferBridges;
+  std::vector<IteratorBridgeRequest> iteratorBridges;
+  std::vector<GeneratorBridgeRequest> generatorBridges;
   std::vector<FileBridgeRequest> fileBridges;
   struct ParseBridgeRequest {
     std::string name;
@@ -1443,9 +1446,9 @@ class Compiler {
       for (const auto &name : sharedNominalKeys)
         linked->getNamedGlobal(name)->setLinkage(llvm::GlobalValue::InternalLinkage);
     if (!aggregateTypes.empty() || !callableTypes.empty() || hostText || hostTextArray ||
-        !consoleBridges.empty() || !bufferBridges.empty() || !fileBridges.empty() ||
-        !parseBridges.empty() || !pathBridges.empty() || !environmentBridges.empty() ||
-        !timeBridges.empty()) {
+        !consoleBridges.empty() || !bufferBridges.empty() || !iteratorBridges.empty() ||
+        !generatorBridges.empty() || !fileBridges.empty() || !parseBridges.empty() ||
+        !pathBridges.empty() || !environmentBridges.empty() || !timeBridges.empty()) {
       if (!linked) {
         linked = std::make_unique<llvm::Module>("gpu-host-layouts", context);
         linked->setDataLayout(nativeCpuDataLayout);
@@ -1512,6 +1515,12 @@ class Compiler {
         emitParseHostBridge(placement, *linked, request.operation, request.result, request.name);
       for (const auto &request : bufferBridges)
         emitBufferHostBridge(placement, *linked, request.operation, request.result, request.name);
+      emitIteratorHostBridges(
+          placement, *linked, iteratorBridges, generatorBridges,
+          continuationCpu ? *continuationCpu : cpu,
+          std::vector<FunctionId>(hostResumableTargets.begin(), hostResumableTargets.end()),
+          std::vector<std::pair<FunctionId, FunctionId>>(continuationImports.begin(),
+                                                         continuationImports.end()));
       for (const auto &request : fileBridges)
         emitFileHostBridge(placement, *linked, request.operation, request.result, request.name);
       for (const auto &request : consoleBridges)
@@ -3925,7 +3934,8 @@ class Compiler {
       plannedParameters.push_back(parameter);
       const auto &type = placement.symbols.at(fn.parameters[n]).type;
       for (std::size_t axis = 0; axis < type.shape.size(); ++axis) {
-        const auto actual = ref(parameter) + ".shape()[" + std::to_string(axis) + "]";
+        const auto actual =
+            ref(parameter) + (type.array ? ".sizes[" : ".shape()[") + std::to_string(axis) + "]";
         if (type.shape[axis].constant)
           guards +=
               "if(" + actual + "!=" + std::to_string(*type.shape[axis].constant) + ")" + fault;
@@ -3958,6 +3968,14 @@ class Compiler {
         args.push_back(get(slot));
       switch (op.code) {
       case Code::Literal: {
+        if (const auto *record = std::get_if<RecordValue>(&node(op.source).operation)) {
+          const auto output = get(op.output);
+          steps.push_back(ref(output) +
+                          "={};{const std::int64_t tag=" + std::to_string(*record->variant + 1) +
+                          ";std::memcpy(" + nativeField(output, 0) + ",&tag,sizeof(tag));}\n" +
+                          commitOutcome(output));
+          break;
+        }
         if (const auto *literal = std::get_if<BoolLiteral>(&node(op.source).operation)) {
           field("bool");
           Value value{Value::Boolean, next - 1};
@@ -4018,6 +4036,20 @@ class Compiler {
                         "){hostArrayFailure(task);return;}}\n");
         break;
       }
+      case Code::ResourceAdopt: {
+        const auto value = args[0];
+        std::string valid = "true";
+        if (value.failure) {
+          valid = failureRef(value) + ".kind==TaskFailure::None";
+          if (value.applicationError)
+            valid += " && " + hostErrorTag(applicationError(value)) + "==0";
+        }
+        steps.push_back("if(" + valid +
+                        "){if(!kalandra_owned_adopt_v1(&task.context(),"
+                        "reinterpret_cast<const OwnedDescriptor*>(&" +
+                        ref(value) + "))){hostArrayFailure(task);return;}}\n");
+        break;
+      }
       case Code::ResourceLeave: {
         std::string escaping = "nullptr";
         if (args.size() > 1) {
@@ -4031,13 +4063,29 @@ class Compiler {
           }
         }
         steps.push_back(
-            "kalandra_file_scope_leave_v1(&task.context(),reinterpret_cast<void*>(std::uintptr_t(" +
-            ref(args[0]) + "))," + escaping +
-            ");if(task.context().status()){hostArrayFailure(task);return;}\n");
+            "if(!task.leaveOwnedScope(reinterpret_cast<ResourceControl*>(std::uintptr_t(" +
+            ref(args[0]) + "))," + escaping + ")){f.pc=@pc" + std::to_string(i) +
+            "@;return;}if(task.context().status()){hostArrayFailure(task);return;}\n");
         break;
       }
       case Code::Kernel:
-        if (const auto *buffer = std::get_if<BufferOperation>(&node(op.source).operation)) {
+        if (const auto *iterator = std::get_if<IteratorOperation>(&node(op.source).operation)) {
+          const auto output = get(op.output);
+          const auto bridge = "kalandra_gpu_iterator_" + std::to_string(iteratorBridges.size());
+          iteratorBridges.push_back({bridge, *iterator, plan.slots.at(op.output)});
+          declarations += "extern \"C\" bool " + bridge +
+                          "(Invocation*,const void*const*,void*,void*,void*,Task*);\n";
+          const auto failure = output.failure ? "&" + failureRef(output) : "nullptr";
+          const auto error =
+              output.applicationError ? "&" + ref(applicationError(output)) : "nullptr";
+          steps.push_back("{const void *iterator_arguments[]={&" + ref(args.at(0)) + "};\n" +
+                          "if(!" + bridge + "(&task.context(),iterator_arguments,&" + ref(output) +
+                          "," + failure + "," + error + ",&task)){f.pc=@pc" + std::to_string(i) +
+                          "@;if(task.context().status())hostArrayFailure(task);return;}"
+                          "if(task.context().status()){hostArrayFailure(task);return;}"
+                          "if(task.cancelled())return;\n" +
+                          commitOutcome(output) + "}\n");
+        } else if (const auto *buffer = std::get_if<BufferOperation>(&node(op.source).operation)) {
           const auto output = get(op.output);
           const auto bridge = "kalandra_gpu_buffer_" + std::to_string(bufferBridges.size());
           bufferBridges.push_back({bridge, *buffer, plan.slots.at(op.output)});
@@ -4615,12 +4663,14 @@ class Compiler {
           reject(span, "missing collection ownership slot");
         const auto index = std::to_string(std::distance(arrayFields.begin(), found));
         std::string call;
-        if (op.code == Code::CollectInit)
-          call = "f.arrayScopes.collectBegin(" + index + ",hostScalarLayout<" +
-                 elementName(output.element) + "," + (output.booleanArray ? "true" : "false") +
-                 ">()," + arrayLayout(output) + "," + (output.booleanArray ? "true" : "false") +
-                 ")";
-        else if (op.code == Code::CollectAppend)
+        if (op.code == Code::CollectInit) {
+          const bool strings = output.kind == Value::TextArray;
+          const auto element = strings ? "kalandra_gpu_string_layout"
+                                       : "hostScalarLayout<" + elementName(output.element) + "," +
+                                             (output.booleanArray ? "true" : "false") + ">()";
+          call = "f.arrayScopes.collectBegin(" + index + "," + element + "," + arrayLayout(output) +
+                 "," + (strings || output.booleanArray ? "true" : "false") + ")";
+        } else if (op.code == Code::CollectAppend)
           call = "f.arrayScopes.collectAppend(" + index + ",&" + ref(args.at(0)) + ")";
         else
           call = "f.arrayScopes.collectFinish(" + index + ",&" + ref(output) + ")";
@@ -4640,13 +4690,64 @@ class Compiler {
       case Code::FunctionInvoke:
       case Code::SynchronousCall:
         reject(span, "function values require the CPU backend");
+      case Code::GeneratorCreate: {
+        const auto output = get(op.output);
+        const auto name = helperName(op.target);
+        std::string captures = "f.runtime,f.directory.c_str()";
+        for (const auto &input : args) {
+          completed(input, span);
+          if (input.gpu || input.kind == Value::Task)
+            reject(span, "generator captures require completed host values");
+          captures += "," + ref(input);
+        }
+        steps.push_back("{" + name + "::PacketData packet{" + captures + "};Packet envelope{" +
+                        name +
+                        "::entry.packetLayout,&packet,sizeof(packet),"
+                        "&task.context()};kalandra_generator_task_create_v1(&task,reinterpret_cast<"
+                        "GeneratorDescriptor*>(&" +
+                        ref(output) + "),&" + name +
+                        "::generator,&envelope);if(task.context().status()){hostArrayFailure(task);"
+                        "return;}if(task.cancelled())return;\n" +
+                        commitArray(output) + "}\n");
+        break;
+      }
+      case Code::GeneratorYield: {
+        if (!fn.generator)
+          reject(span, "generator yield requires a checked producer");
+        auto input = "&" + ref(args.at(0));
+        std::string prepare;
+        if (args[0].kind == Value::Tensor) {
+          if (args[0].gpu)
+            reject(span, "yield a CPU tensor after an explicit transfer to devices.cpu()");
+          prepare = "auto yielded=r.toCpuTyped<" + elementName(args[0].element) + "," +
+                    std::to_string(args[0].rank) + ">(task.context()," + ref(args[0]) +
+                    ");if(!yielded){" + error("yielded.error()") + "}\n";
+          input = "&*yielded";
+        }
+        steps.push_back("{" + prepare + "f.pc=@pc" + std::to_string(i + 1) +
+                        "@;kalandra_gpu_generator_" + std::to_string(entryId) +
+                        "_complete(&task.context(),&task," + input +
+                        ",nullptr,nullptr,true);return;}\n");
+        break;
+      }
       case Code::ReleaseGroup:
-        steps.push_back(check("task.releaseGroup(" + plannedGroups.at(op.group) + ")"));
+        steps.push_back("if(!task.releaseGroup(" + plannedGroups.at(op.group) +
+                        ")){f.pc=@pc" + std::to_string(i) +
+                        "@;return;}if(task.context().status()){hostArrayFailure(task);return;}\n");
         break;
       case Code::Label:
         break;
       case Code::Return: {
         auto result = args.at(0);
+        if (fn.generator) {
+          const auto failure = result.failure ? "&" + failureRef(result) : "nullptr";
+          const auto error =
+              result.applicationError ? "&" + ref(applicationError(result)) : "nullptr";
+          steps.push_back("kalandra_gpu_generator_" + std::to_string(entryId) +
+                          "_complete(&task.context(),&task,&" + ref(result) + "," + failure + "," +
+                          error + ",false);return;\n");
+          break;
+        }
         if (!publishApplicationOutcome && fn.resultType.fallible) {
           const auto error = result.applicationError
                                  ? std::optional<Value>{applicationError(result)}
@@ -4766,6 +4867,8 @@ class Compiler {
            destroy + "}value.~Outcome();}};\n";
   }
   std::string hostCaptureType(const ValueType &type) {
+    if (type.builtin == BuiltinValue::TaskError)
+      return "Failure";
     if (type.builtin == BuiltinValue::Function)
       return callableName(callableType(type));
     if (type.builtin == BuiltinValue::String)
@@ -4784,7 +4887,8 @@ class Compiler {
     for (std::size_t n = 0; n < fn.parameters.size(); ++n) {
       const auto &type = placement.symbols.at(fn.parameters[n]).type;
       code +=
-          (type.builtin == BuiltinValue::String
+          (type.builtin == BuiltinValue::TaskError ? std::string("Failure")
+           : type.builtin == BuiltinValue::String
                ? std::string(isStringArray(type) ? "StringArrayDescriptor" : "StringDescriptor")
            : type.builtin == BuiltinValue::Function ? callableName(callableType(type))
            : type.record                            ? recordName(*type.record)
@@ -4795,6 +4899,25 @@ class Compiler {
           " arg" + std::to_string(n) + ";";
     }
     code += "}; extern const TaskEntry entry;\n";
+    if (fn.generator) {
+      code += "extern const GeneratorTaskEntry generator;\n";
+      const auto bridge = "kalandra_gpu_generator_" + std::to_string(id);
+      if (generatorBridges.empty())
+        declarations += "extern \"C\" void kalandra_gpu_generator_publish_v1(Task *task,"
+                        "const void *value) noexcept {task->complete(value);}\n";
+      generatorBridges.push_back({bridge, id});
+      declarations += "extern \"C\" const ValueLayout *" + bridge +
+                      "_layout();\n"
+                      "extern \"C\" GeneratorStep " +
+                      bridge +
+                      "_classify(const void*) noexcept;\n"
+                      "extern \"C\" void " +
+                      bridge +
+                      "_exhausted(void*) noexcept;\n"
+                      "extern \"C\" void " +
+                      bridge +
+                      "_complete(Invocation*,Task*,const void*,const void*,const void*,bool);\n";
+    }
     if (hostResumableTargets.contains(id)) {
       code += "struct Captures {";
       for (auto n = fn.parameters.size() - fn.captureCount; n < fn.parameters.size(); ++n)
@@ -4811,7 +4934,7 @@ class Compiler {
         declarations += "extern \"C\" const void *kalandra_gpu_resumable_environment_" +
                         std::to_string(id) + "(Invocation*,const void*);\n";
     }
-    if (fn.resultType.fallible) {
+    if (fn.resultType.fallible && !fn.generator) {
       const auto &type = fn.resultType;
       const auto family = type.errorRecord;
       const auto payload =
@@ -4892,8 +5015,14 @@ class Compiler {
         << 0x4b414c52534d0000ULL + id
         << "ull,sizeof(PacketData),alignof(PacketData),"
            "sizeof(Frame),alignof(Frame),construct,destroy,resume,"
-        << (fn.resultType.fallible ? "&outcomeLayout" : "&" + helperSuccessLayout(fn.resultType))
+        << (fn.generator             ? "kalandra_gpu_generator_" + std::to_string(id) + "_layout()"
+            : fn.resultType.fallible ? "&outcomeLayout"
+                                     : "&" + helperSuccessLayout(fn.resultType))
         << "};\n}\n";
+    if (fn.generator)
+      out << "namespace " << helperName(id) << " { const GeneratorTaskEntry generator{1,&entry,"
+          << "kalandra_gpu_generator_" << id << "_classify,kalandra_gpu_generator_" << id
+          << "_exhausted};}\n";
     if (hostResumableTargets.contains(id))
       out << "extern \"C\" const void *kalandra_gpu_resumable_code_" << id << "(){return &"
           << helperName(id) << "::entry;}\n";
@@ -5824,6 +5953,7 @@ public:
 #include "../runtime/Application.h"
 #include "../runtime/Environment.h"
 #include "../runtime/Time.h"
+#include "../runtime/GeneratorTasks.h"
 #include "../runtime/DeviceArrayInputJob.h"
 #include "../runtime/DeviceGraphCapture.h"
 #include <array>
@@ -5903,7 +6033,7 @@ struct Frame { m::Runtime *runtime; std::string directory; unsigned pc=1;
          << "> gpuAwaitSites{{";
     for (auto site : gpuAwaitSites)
       host << "{" << plannedPC.at(site.instruction) << "," << site.group << "},";
-    host << "}};\ninline GroupHandle continuationGroup(const Frame "
+    host << "}};\ninline GroupHandle continuationGroup([[maybe_unused]] const Frame "
             "&f,std::size_t id){switch(id){\n";
     for (std::size_t i = 0; i < plannedGroups.size(); ++i)
       host << "case " << i << ":return " << plannedGroups[i] << ";\n";
