@@ -5,11 +5,17 @@
 #include <map>
 #include <set>
 #include <stdexcept>
+#include <utility>
 #include <variant>
 
 namespace kalandra {
 namespace {
 struct NotFusible {};
+struct ProofDepth {
+  unsigned &value;
+  explicit ProofDepth(unsigned &value) : value(value) { ++value; }
+  ~ProofDepth() { --value; }
+};
 struct Producer;
 using Binding = std::variant<ValueId, std::shared_ptr<Producer>, FunctionReference>;
 struct Environment {
@@ -39,6 +45,7 @@ class Fusion {
   const TypedModule source;
   FunctionId owner = 0;
   std::size_t identity = 1, work = 0, expansionLimit;
+  unsigned producerDepth = 0, cloneDepth = 0;
   std::vector<ValueId> emitted;
   std::vector<TypedStatement> captures;
   std::set<FunctionId> resolving;
@@ -224,6 +231,10 @@ class Fusion {
     return result;
   }
   ValueId expand(const Producer &p, std::function<ValueId(ValueId)> sink, SourceSpan span) {
+    const ProofDepth depth(producerDepth);
+    // This bounds compiler inlining, not source recursion or runtime calls.
+    // Recursive producers and unusually deep finite graphs retain their frames.
+    require(producerDepth <= 64);
     if (p.limited) {
       require(p.limit.has_value());
       const auto remaining = local(integer, span, true);
@@ -336,7 +347,9 @@ class Fusion {
       const auto *item =
           std::get_if<RecordFieldRead>(&source.expressions[op.iteration[0].value].operation);
       require(item && item->input == test->subject);
+      require(captures.empty());
       auto sourceProducer = producer(op.initial[0].value, env);
+      auto construction = std::exchange(captures, {});
       const bool plain = !op.transfers && op.whenDone.empty() && !op.normalResult;
       const auto exit = identity++;
       const auto produced = expand(
@@ -372,6 +385,15 @@ class Fusion {
                                       true});
           },
           node.span);
+      if (!construction.empty()) {
+        // A cursor created in the for header captures its arguments here, not
+        // at function entry or once per yielded item. Keep the construction
+        // before the producer's initial state, including when take(0) skips
+        // its body. Nested traversals therefore capture once per outer item.
+        auto *loop = std::get_if<WhileOperation>(&out.expressions[produced].operation);
+        require(loop != nullptr);
+        loop->initial.insert(loop->initial.begin(), construction.begin(), construction.end());
+      }
       // A synthetic one-shot break would unnecessarily send ordinary complete
       // traversal through continuation kernels instead of a native subgraph.
       if (plain)
@@ -442,6 +464,8 @@ class Fusion {
         ConditionalOperation{add(boolean, span, BoolLiteral{true}), body, body, value, value});
   }
   ValueId clone(ValueId id, Environment &env) {
+    const ProofDepth depth(cloneDepth);
+    require(cloneDepth <= 256);
     if (auto found = env.values.find(id); found != env.values.end())
       return found->second;
     auto node = source.expressions[id];
@@ -573,6 +597,7 @@ public:
       captures.clear();
       resolving.clear();
       work = 0;
+      producerDepth = cloneDepth = 0;
       try {
         // Any cursor read outside one canonical consuming loop/producer edge
         // rejects the entire transaction. This excludes manual partial reads,

@@ -77,12 +77,26 @@ def programs():
         + consume.replace("return total", "return total+seed"),
         expected + 3,
     )
+    fixtures["factory-arguments"] = (
+        ordinary,
+        "  total=0\n  for value in valuesWithCount(4096):\n    total=total+value\n  return total\n",
+        expected,
+    )
+    fixtures["direct-adapters"] = (
+        fixtures["callback"][0],
+        "  factor=3\n  transform=fn(i:i64)->i64:return i*factor%97\n"
+        "  total=0\n  for value in mapped(iter(steps(4096)),transform):\n"
+        "    total=total+value\n  return total\n",
+        fixtures["callback"][2],
+    )
     result = {}
     for name, (direct, lazy, answer) in fixtures.items():
         prefix = (
             IMPORT
             + "fn prefix()->i64:\n  a=1\n  return a+2\nfn values()->Iterator[i64,never]:\n  return for i in range(4096):\n    yield i*i%97\n"
         )
+        if name == "factory-arguments":
+            prefix += "fn valuesWithCount(count:i64)->Iterator[i64,never]:\n  return for i in range(count):\n    yield i*i%97\n"
         result[name] = (
             {
                 "direct": prefix + "fn run()->i64:\n" + direct,
@@ -104,9 +118,17 @@ def main():
     parser.add_argument("--baseline-mode", choices=("direct", "lazy"), default="direct")
     parser.add_argument("--candidate-mode", choices=("direct", "lazy"), default="lazy")
     parser.add_argument("--max-iterations", type=int, default=1000000)
+    parser.add_argument("--pattern", action="append", dest="selected")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     fixtures = programs()
+    unknown = set(args.selected or ()) - fixtures.keys()
+    if unknown:
+        parser.error("unknown patterns: " + ", ".join(sorted(unknown)))
+    if args.selected:
+        fixtures = {
+            name: value for name, value in fixtures.items() if name in args.selected
+        }
     if args.build_only:
         if not all((args.compiler, args.headers, args.build_dir)):
             parser.error("building requires compiler, headers and build directory")

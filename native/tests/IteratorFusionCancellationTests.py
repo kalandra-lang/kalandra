@@ -34,6 +34,7 @@ for mode, creation in {
     "adapters": "mapped(filter(iter(steps(9223372036854775807)),fn(x:i64)->bool:return x%2==0),fn(x:i64)->i64:return x%97)\n",
     "region": "for i in range(9223372036854775807):\n    yield i%97\n",
     "control-source": "while true:\n    yield 1\n",
+    "direct-factory": "",
 }.items():
     directory = args.output / mode
     directory.mkdir(exist_ok=True)
@@ -45,15 +46,24 @@ for mode, creation in {
     region_prefix = (
         "fn before()->i64:\n  value=0\n  return value\n" if mode == "region" else ""
     )
+    if mode == "direct-factory":
+        region_prefix = "fn stream(value:i64)->Iterator[i64,never]:\n  return while true:\n    yield value\n"
+    traversal = (
+        "  total=0\n  for value in stream(1):\n"
+        if mode == "direct-factory"
+        else "  values=" + creation + "  total=0\n  for value in values:\n"
+    )
     source.write_text(
-        'from "std/iter" import iter,range as steps,map as mapped,filter\n'
+        'from "std/iter" import Iterator,iter,range as steps,map as mapped,filter\n'
         + region_prefix
         + "fn run()->i64:\n"
         + ("  ignored=before()\n" if mode == "region" else "")
-        + "  values="
-        + creation
-        + "  total=0\n  for value in values:\n"
-        + ("    if total<0:\n      break\n" if mode == "control-source" else "")
+        + traversal
+        + (
+            "    if total<0:\n      break\n"
+            if mode in ("control-source", "direct-factory")
+            else ""
+        )
         + "    total=(total+value)%97\n  return total\n"
         "fn main()->i64:\n  return run()\n"
     )
@@ -105,4 +115,8 @@ for mode, creation in {
             result.stdout,
             result.stderr,
         )
+        if index == 0:
+            from IteratorFusionCodegen import assert_fused_entry
+
+            assert_fused_entry(ir.read_text(), mode)
     print("PASS", mode, args.variant)

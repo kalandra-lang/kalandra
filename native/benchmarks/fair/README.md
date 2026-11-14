@@ -38,13 +38,15 @@ and `--candidate` to select their build directories. Matching modes compare the
 same source before/after a compiler change. Different modes measure abstraction
 costs rather than interchangeable storage or suspension contracts.
 
-`iteration_patterns.py` adds eight direct/lazy pairs: generator factories, `take`, consumer
+`iteration_patterns.py` adds ten direct/lazy pairs: generator factories, `take`, consumer
 `break`/`continue`, a `while` producer, read-only arrays, captured callbacks,
-nested producers and an outlined local traversal. It uses the same frozen-driver
+nested producers, an outlined local traversal, parameterized factories and
+adapters constructed directly in a `for` header. It uses the same frozen-driver
 protocol and exact per-invocation checks. Select `--baseline-mode direct` and
 `--candidate-mode lazy` for abstraction costs, or `lazy` for both to measure a
 compiler change. The manifest protects every executable, source, compiler,
-runtime, driver and header used by a comparison.
+runtime, driver and header used by a comparison. Repeat `--pattern NAME` to build
+or measure only the affected patterns without repeating the entire corpus.
 
 Run identical-build controls and independent paired/replicated comparisons
 sequentially, without concurrent tests, builds, profiling or other CPU/GPU work.

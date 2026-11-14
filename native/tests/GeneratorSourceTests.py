@@ -80,6 +80,9 @@ for name, (source, expected, output) in cases.items():
 
         assert_fused_entry(text, name)
     coordinating = name in (
+        "fusion-direct-range-adapters",
+        "fusion-direct-callback-capture",
+        "fusion-direct-take-zero-bound",
         "fusion-static-callback-array-capture",
         "fusion-region-multiple-scalar-updates",
         "fusion-f32-rounding-take",

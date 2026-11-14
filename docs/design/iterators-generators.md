@@ -141,6 +141,13 @@ the current yield; consumer `break` abandons it before post-yield work. Flat
 array captures must name existing non-reassigned backing; temporary arrays fall
 back so eliminating a cursor cannot extend their allocation lifetime.
 
+For `for value in factory(arguments)`, constructor snapshots belong to the
+expanded loop's initial suite. A nested traversal therefore snapshots once per
+outer item, and eager range validation still runs before a `take(0)` condition.
+Compiler proof nesting is bounded; recursive or unusually deep producer graphs
+fall back transactionally. These inlining budgets impose no source-level call
+or recursion limit.
+
 Scalar control transfers are normalized into structured native loops with
 private pending-transfer and result cells. An assignment whose RHS transfers
 control publishes no placeholder value. Loop exhaustion, valued breaks,

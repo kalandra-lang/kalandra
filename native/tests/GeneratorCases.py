@@ -1,6 +1,87 @@
 """Shared source-level lazy generator correctness fixtures."""
 prefix = 'from "std/iter" import Iterator,next,close\nfrom "std/option" import Option\n'
 cases = {
+    "fusion-direct-range-adapters": (
+        """from "std/iter" import iter,range as steps,map as mapped,filter
+fn main()->i64:
+  total=0
+  for value in mapped(filter(iter(steps(5)),fn(x:i64)->bool:return x%2==0),fn(x:i64)->i64:return x*x):
+    total=total+value
+  return total
+""",
+        20,
+        "",
+    ),
+    "fusion-direct-factory-arguments": (
+        """fn values(start:i64,count:i64)->Iterator[i64,never]:
+  return for i in range(count):
+    yield start+i
+fn main()->i64:
+  count=5
+  total=0
+  for value in values(2,count):
+    count=1
+    total=total+value
+  return total*10+count
+""",
+        201,
+        "",
+    ),
+    "fusion-direct-callback-capture": (
+        """from "std/iter" import iter,map as mapped
+fn main()->i64:
+  data=[1,2,3]
+  factor=3
+  total=0
+  for value in mapped(iter(data),fn(x:i64)->i64:return x*factor):
+    factor=99
+    total=total+value
+  return total+factor
+""",
+        117,
+        "",
+    ),
+    "fusion-direct-take-zero-bound": (
+        """from "std/iter" import take
+fn values(count:i64)->Iterator[i64,never]:
+  return for i in range(1/count):
+    yield i
+fn main()->i64:
+  total=0
+  for value in take(values(0),0):
+    total=total+value
+  return total
+""",
+        0,
+        "",
+    ),
+    "fusion-direct-nested-construction": (
+        """fn values(offset:i64)->Iterator[i64,never]:
+  return for i in range(2):
+    yield offset+i
+fn main()->i64:
+  total=0
+  for offset in range(3):
+    for value in values(offset):
+      total=total+value
+  return total
+""",
+        9,
+        "",
+    ),
+    "fusion-direct-valued-break": (
+        """fn values(count:i64)->Iterator[i64,never]:
+  return for i in range(count):
+    yield i
+fn main()->i64:
+  return for value in values(3):
+    if value==2:
+      break 42
+  else:0
+""",
+        42,
+        "",
+    ),
     "fusion-array-loan-released-before-write": (
         """fn main()->i64:
   data=[1,2,3]

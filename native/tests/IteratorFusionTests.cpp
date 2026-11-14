@@ -60,6 +60,12 @@ int main(int argc, char **argv) {
            "fn main()->i64:\n  total=0\n  for value in values():\n"
            "    total=total+value\n  return total\n",
            true, true);
+    verify("from \"std/iter\" import Iterator\n"
+           "fn values(count:i64)->Iterator[i64,never]:\n"
+           "  return for i in range(count):\n    yield i\n"
+           "fn main()->i64:\n  total=0\n  for value in values(10):\n"
+           "    total=total+value\n  return total\n",
+           true, true);
     verify("fn main()->i64:\n  values=for i in range(10):\n    yield i\n"
            "  total=0\n  for value in values:\n    if value==5:\n      break\n"
            "    if value==2:\n      continue\n    total=total+value\n  return total\n",
@@ -95,6 +101,13 @@ int main(int argc, char **argv) {
            "  values=for i in range(10):\n"
            "    ignored=println(\"advance\") catch fn(error):return ()\n    yield i\n"
            "  total=0\n  for value in values:\n    total=total+value\n  return total\n",
+           false);
+    verify("from \"std/iter\" import Iterator\n"
+           "fn values(count:i64)->Iterator[i64,never]:\n"
+           "  return for i in range(count):\n    yield i\n    if count>1:\n"
+           "      for child in values(count-1):\n        yield child\n"
+           "fn main()->i64:\n  cursor=values(3)\n  total=0\n"
+           "  for value in cursor:\n    total=total+value\n  return total\n",
            false);
     std::cout << "PASS: local fusion and conservative fallback admission\n";
     return 0;
