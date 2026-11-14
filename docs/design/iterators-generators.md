@@ -209,3 +209,71 @@ as zero-cost iteration or extrapolated into a whole-language speed claim.
 adapter and materialized cases using the common frozen-driver protocol. Use
 its `--baseline-mode` and `--candidate-mode` options to distinguish an
 abstraction comparison from a same-source before/after regression test.
+
+### Accepted local-fusion measurements
+
+Compiler commit `06cd7a1a0dc96b3cb946f942ef5f88d7605ccdde` removes the
+frame boundary for the proven local cases. The frozen Apple M2 Max/macOS 27.2
+comparison uses Clang 23.1.3 and O2, including the closed invocation, ownership
+and cancellation lifecycle. Every warmup and measured invocation checks its
+exact result, and manifests protect the compiler, runtime, headers, source and
+executables.
+
+| Items | Form | Before fusion | After fusion |
+| --- | --- | ---: | ---: |
+| 64 | Source generator | 37.86 microseconds | 0.793 microseconds |
+| 64 | `filter` then `map` | 131.76 microseconds | 0.788 microseconds |
+| 4,096 | Source generator | 2.248 ms | 2.973 microseconds |
+| 4,096 | `filter` then `map` | 7.796 ms | 2.962 microseconds |
+
+Independent replication measures 2.966 microseconds for the 4,096-item source
+and 2.965 microseconds for the adapters, against 2.243 ms and 7.559 ms before
+fusion. Direct-versus-lazy pairs and replications measure at most 3.3% additional
+time across the two sizes. The largest identical-build control deviation across
+the complete main/extended qualification is 4.83%; small apparent wins and losses
+should therefore be treated as measurement noise. The ordinary direct-loop
+before/after comparison remains within 3%, including unfavorable differences.
+
+`iteration_patterns.py` adds eight 4,096-item direct/lazy pairs. The accepted
+paired and independent replication ratios (lazy time divided by direct time)
+are:
+
+| Pattern | Paired | Replication |
+| --- | ---: | ---: |
+| Generator factory consumed directly by `for` | 0.988 | 0.976 |
+| `take` | 1.007 | 1.005 |
+| `while` producer | 0.991 | 1.030 |
+| Read-only array traversal | 1.015 | 0.990 |
+| Captured callback | 0.999 | 1.005 |
+| Nested producer loops | 0.983 | 0.986 |
+| Outlined local region | 0.987 | 0.996 |
+| Consumer `break`/`continue` | 0.038 | 0.038 |
+
+The last row exposes an existing direct-control lowering cost: the direct loop
+still executes checked continuation steps, while fusion's scalar-control
+normalization admits one native loop. It is a lowering difference, not evidence
+that generators intrinsically accelerate arithmetic. Generalizing native
+structured-control admission to ordinary loops remains separate work.
+
+The protocol retains nine ABBA/BAAB blocks, three timed rounds and two warmups,
+with sequential identical controls, same-source pairs, independent replications
+and direct/lazy comparisons. Before/after comparisons cap batches at 16 complete
+invocations because the old implementation is orders of magnitude slower.
+Extended replication uses four complete invocations per batch, bracketed by
+fresh identical controls and an additional direct/lazy confirmation; each
+invocation still processes all 4,096 items. Direct/lazy and identical comparisons
+retain adaptive 1 ms batches. Artifact hashes and exact output checks remain
+active throughout.
+
+All load-rejected attempts are retained, including Codex renderer, Arbiter,
+Chrome and system-service CPU spikes. Retries depend only on competing load;
+an unfavorable performance result or failed identical control is not discarded.
+An earlier wrapper-based prototype retained per-operation continuation overhead
+and was replaced rather than presented as the completed optimization.
+
+Growing-array materialization remains about 1.18 ms at 4,096 items, with
+before/after ratios from 0.9993 to 1.0019. Its historical C++/Rust gap above is
+not fixed by local cursor fusion. Escaping, effectful, managed-item and
+task-suspending cursors also retain the general-frame implementation. These
+measurements establish local numeric traversal costs on this host, not universal
+zero-cost iteration or whole-language parity with another compiler.
