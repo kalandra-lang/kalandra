@@ -1,8 +1,350 @@
 """Shared source-level lazy generator correctness fixtures."""
 prefix = 'from "std/iter" import Iterator,next,close\nfrom "std/option" import Option\n'
 cases = {
+    "fusion-array-loan-released-before-write": (
+        """fn main()->i64:
+  data=[1,2,3]
+  values=for i in range(3):
+    yield data[i]
+  total=0
+  for value in values:
+    total=total+value
+  data[0]=9
+  return total+data[0]
+""",
+        15,
+        "",
+    ),
+    "fusion-static-callback-array-capture": (
+        """from "std/iter" import iter,range,map as mapped
+fn main()->i64:
+  data=[3,5,7]
+  transform=fn(i:i64)->i64:return data[i]
+  values=mapped(iter(range(3)),transform)
+  total=0
+  for value in values:
+    total=total+value
+  return total
+""",
+        15,
+        "",
+    ),
+    "fusion-control-assignment-break": (
+        """fn main()->i64:
+  values=for i in range(5):
+    yield i
+  total=10
+  for value in values:
+    total=if value==2:
+      break
+    else: total+value
+  return total
+""",
+        11,
+        "",
+    ),
+    "fusion-control-assignment-continue": (
+        """fn main()->i64:
+  values=for i in range(5):
+    yield i
+  total=10
+  for value in values:
+    total=if value==2:
+      continue
+    else: total+value
+  return total
+""",
+        18,
+        "",
+    ),
+    "fusion-control-transfer-in-break-value": (
+        """fn main()->i64:
+  values=for i in range(5):
+    yield i
+  found=for value in values:
+    break if value<2:
+      continue
+    else: value
+  else: 17
+  return found
+""",
+        2,
+        "",
+    ),
+    "fusion-control-transfer-in-condition": (
+        """fn main()->i64:
+  values=for i in range(5):
+    while (if i==2:
+      break
+    else: true
+    ):
+      yield i
+      break
+  total=0
+  for value in values:
+    total=total+value
+  return total
+""",
+        1,
+        "",
+    ),
+    "fusion-region-around-io": (
+        """from "std/io" import println
+from "std/fmt" import format
+fn emit(text:String)->unit:
+  done=println(text) catch fn(error):return ()
+  return ()
+fn main()->i64:
+  emit("before")
+  seed=3
+  values=for i in range(3):
+    yield seed+i
+  seed=100
+  total=0
+  for value in values:
+    total=total+value
+  emit(format("{}:{}",total,seed))
+  return total+seed
+""",
+        112,
+        "before\n12:100\n",
+    ),
+    "fusion-region-multiple-scalar-updates": (
+        """from "std/io" import println
+from "std/iter" import take
+from "std/fmt" import format
+fn emit(text:String)->unit:
+  done=println(text) catch fn(error):return ()
+  return ()
+fn main()->i64:
+  left=10
+  right=20
+  values=for i in range(30):
+    yield i
+  limited=take(values,3)
+  for value in limited:
+    left=left+value
+    right=right-value
+  emit(format("{}:{}",left,right))
+  return left+right
+""",
+        30,
+        "13:17\n",
+    ),
+    "fusion-multiple-regions": (
+        """from "std/io" import println
+fn emit()->unit:
+  done=println("between") catch fn(error):return ()
+  return ()
+fn main()->i64:
+  first=for i in range(3):
+    yield i
+  total=0
+  for value in first:
+    total=total+value
+  emit()
+  second=for i in range(4):
+    yield i*2
+  for value in second:
+    total=total+value
+  return total
+""",
+        15,
+        "between\n",
+    ),
+    "fusion-readonly-array-source": (
+        """fn main()->i64:
+  data=[1,2,3,4,5,6]
+  values=for i in range(length(data)):
+    yield data[i]*2
+  total=0
+  for value in values:
+    total=total+value
+  return total
+""",
+        42,
+        "",
+    ),
+    "fusion-readonly-array-adapters": (
+        """from "std/iter" import iter,map as mapped,filter
+fn main()->i64:
+  data=[1,2,3,4,5,6]
+  values=mapped(filter(iter(data),fn(x:i64)->bool:return x%2==0),
+    fn(x:i64)->i64:return x*x)
+  total=0
+  for value in values:
+    total=total+value
+  return total
+""",
+        56,
+        "",
+    ),
+    "fusion-f32-rounding": (
+        """fn main()->i64:
+  a:f32=1.00000011920928955078125
+  b:f32=0.99999988079071044921875
+  c:f32=-1
+  values=for i in range(3):
+    yield a*b+c
+  total=0
+  for value in values:
+    if value==0:
+      total=total+1
+  return total
+""",
+        3,
+        "",
+    ),
+    "fusion-f64-rounding": (
+        """fn main()->i64:
+  a:f64=1.0000000000000002
+  b:f64=0.9999999999999998
+  c:f64=-1
+  values=for i in range(3):
+    yield a*b+c
+  total=0
+  for value in values:
+    if value==0:
+      total=total+1
+  return total
+""",
+        3,
+        "",
+    ),
+    "fusion-valued-empty-exhaustion": (
+        """fn main()->i64:
+  values=for i in range(0):
+    yield i
+  found=for value in values:
+    break value
+  else: 17
+  return found
+""",
+        17,
+        "",
+    ),
+    "fusion-private-scalar-capture": (
+        """fn main()->i64:
+  seed=3
+  values=for i in range(4):
+    seed=seed+1
+    yield seed+i
+  seed=100
+  total=0
+  for value in values:
+    total=total+value
+  return total+seed
+""",
+        128,
+        "",
+    ),
+    "fusion-continue-resumes-after-yield": (
+        """fn main()->i64:
+  current=0
+  values=while current<4:
+    yield current
+    current=current+1
+  total=0
+  for value in values:
+    if value==2:
+      continue
+    total=total+value
+  return total
+""",
+        4,
+        "",
+    ),
+    "fusion-break-does-not-resume": (
+        """fn main()->i64:
+  zero=0
+  values=for i in range(3):
+    yield i+7
+    bad=10/zero
+  total=0
+  for value in values:
+    total=value
+    break
+  return total
+""",
+        7,
+        "",
+    ),
+    "fusion-nested-yields": (
+        """fn main()->i64:
+  values=for i in range(3):
+    for j in range(4):
+      if j%2==0:
+        yield i*10+j
+    yield i
+  total=0
+  for value in values:
+    total=total+value
+  return total
+""",
+        69,
+        "",
+    ),
+    "fusion-range-adapters": (
+        """from "std/iter" import iter,range,map as mapped,filter
+fn main()->i64:
+  offset=3
+  values=mapped(filter(iter(range(10)),fn(x:i64)->bool:return x%2==0),
+    fn(x:i64)->i64:return x*x+offset)
+  offset=100
+  total=0
+  for value in values:
+    total=total+value
+  return total
+""",
+        135,
+        "",
+    ),
+    "fusion-take-stops-before-next": (
+        """from "std/iter" import take
+fn main()->i64:
+  zero=0
+  values=for i in range(3):
+    yield i+7
+    bad=10/zero
+  limited=take(values,1)
+  total=0
+  for value in limited:
+    total=total+value
+  return total
+""",
+        7,
+        "",
+    ),
+    "fusion-take-zero-defers-bounds": (
+        """from "std/iter" import take
+fn main()->i64:
+  zero=0
+  values=for i in range(10/zero):
+    yield i
+  limited=take(values,0)
+  total=0
+  for value in limited:
+    total=total+value
+  return total
+""",
+        0,
+        "",
+    ),
+    "fusion-valued-exhaustion": (
+        """fn main()->i64:
+  values=for i in range(3):
+    yield i
+  found=for value in values:
+    if value==1:
+      break 42
+  else: 7
+  return found
+""",
+        42,
+        "",
+    ),
     "deferred-source-expression": (
-        '''from "std/io" import println
+        """from "std/io" import println
 fn emit(text:String)->unit:
   done=println(text) catch fn(error):return ()
   return ()
@@ -18,7 +360,7 @@ fn main()->i64:
   for value in cursor:
     break
   return 0
-''',
+""",
         0,
         "created\nbounds\n",
     ),
@@ -477,7 +819,8 @@ fn main()->i64:
 source, result, output = cases["generic-materialize-error"]
 cases["generic-fresh-materialize-error"] = (
     source.replace(
-        "  return try array(cursor)", "  return try array(for item in cursor:\n    yield item\n  )"
+        "  return try array(cursor)",
+        "  return try array(for item in cursor:\n    yield item\n  )",
     ),
     result,
     output,
@@ -495,11 +838,14 @@ fn emit()->unit:
     "step\n",
 )
 
-prefetch_source, prefetch_result, prefetch_output = cases["prefetch-close-cancels-timer"]
+prefetch_source, prefetch_result, prefetch_output = cases[
+    "prefetch-close-cancels-timer"
+]
 cases["adapter-prefetch-close"] = (
     'from "std/iter" import map as mapItems\n'
     + prefetch_source.replace(
-        "  cursor=values()", "  cursor=mapItems(values(),fn(value:i64)->i64:return value)"
+        "  cursor=values()",
+        "  cursor=mapItems(values(),fn(value:i64)->i64:return value)",
     ),
     prefetch_result,
     prefetch_output,
@@ -554,4 +900,16 @@ fn main()->i64:
 """,
         3,
         "step\n" * 3 if coordinating else "",
+    )
+
+for bits in (32, 64):
+    source, expected, output = cases[f"fusion-f{bits}-rounding"]
+    cases[f"fusion-f{bits}-rounding-take"] = (
+        'from "std/iter" import take\n'
+        + source.replace(
+            "  total=0\n  for value in values:",
+            "  limited=take(values,3)\n  total=0\n  for value in limited:",
+        ),
+        expected,
+        output,
     )

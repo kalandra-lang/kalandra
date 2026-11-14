@@ -29,6 +29,29 @@ These suites compare equivalent algorithms; they do not compare Kalandra's nativ
 matrix primitive against handwritten loops and call that language parity. Source
 recursion has no supported GPU implementation, so no fictitious GPU entry is shown.
 
+## Iterator abstraction costs
+
+`iteration.py` compares direct loops, lazy sources, filter/map adapters and
+explicit growing-array materialization at 64 and 4,096 items. Build two frozen
+compiler/runtime/header installations with `--build-only`, then use `--baseline`
+and `--candidate` to select their build directories. Matching modes compare the
+same source before/after a compiler change. Different modes measure abstraction
+costs rather than interchangeable storage or suspension contracts.
+
+`iteration_patterns.py` adds eight direct/lazy pairs: generator factories, `take`, consumer
+`break`/`continue`, a `while` producer, read-only arrays, captured callbacks,
+nested producers and an outlined local traversal. It uses the same frozen-driver
+protocol and exact per-invocation checks. Select `--baseline-mode direct` and
+`--candidate-mode lazy` for abstraction costs, or `lazy` for both to measure a
+compiler change. The manifest protects every executable, source, compiler,
+runtime, driver and header used by a comparison.
+
+Run identical-build controls and independent paired/replicated comparisons
+sequentially, without concurrent tests, builds, profiling or other CPU/GPU work.
+`--max-iterations` bounds adaptive batches when an older producer is much slower.
+Keep failed controls and unfavorable results. These numeric traversals do not
+establish the performance of escaping, effectful or task-suspending cursors.
+
 ## Numerical operations and full models
 
 `libraries_run.py` compares dot, AXPY and matrix operations against optimized

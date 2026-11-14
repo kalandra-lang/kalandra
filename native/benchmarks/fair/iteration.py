@@ -64,8 +64,16 @@ def main():
     parser.add_argument("--baseline-mode", choices=MODES, default="direct")
     parser.add_argument("--candidate-mode", choices=MODES, default="direct")
     parser.add_argument("--target-ms", type=float, default=1)
+    parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=1000000,
+        help="Bound adaptive batches for very different producer costs",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.max_iterations <= 0:
+        parser.error("--max-iterations must be positive")
     if args.build_only:
         if not all((args.compiler, args.headers, args.build_dir)):
             parser.error("building requires --compiler, --headers and --build-dir")
@@ -184,7 +192,7 @@ def main():
         rounds=3,
         target_ms=args.target_ms,
         adaptive=True,
-        max_iterations=1000000,
+        max_iterations=args.max_iterations,
     )
     verify()
     result.update(

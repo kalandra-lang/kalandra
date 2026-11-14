@@ -106,7 +106,7 @@ jobs:
         run: |
           cmake --build build/native --target native-iterator-qualification -j2
           ctest --test-dir build/native --output-on-failure -j2 \
-            -R '^(frontend-iterator-contracts-|native-(iterators|generator)-source-)'
+            -R '^(frontend-iterator-(contracts|fusion)-|native-((iterators|generator)-source-|iterator-fusion-))'
       - name: Qualify checked recursive calls and signed remainder
         run: |
           cmake --build build/native --target kalandra-checked-inlining-tests -j2

@@ -102,7 +102,7 @@ if(BUILD_TESTING)
       -P "${PROJECT_SOURCE_DIR}/native/cmake/VerifySyntaxRejected.cmake")
 endif()
 
-set(KALANDRA_SEMANTIC_SOURCES lib/Semantics.cpp lib/IRDump.cpp lib/Continuation.cpp lib/FunctionValues.cpp lib/ArrayAccess.cpp)
+set(KALANDRA_SEMANTIC_SOURCES lib/Semantics.cpp lib/IRDump.cpp lib/Continuation.cpp lib/FunctionValues.cpp lib/ArrayAccess.cpp lib/IteratorFusion.cpp lib/IterationRegions.cpp lib/ScalarControl.cpp)
 add_library(kalandra-semantics STATIC ${KALANDRA_SEMANTIC_SOURCES})
 target_include_directories(kalandra-semantics SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_link_libraries(kalandra-semantics PUBLIC kalandra-syntax PRIVATE LLVM)

@@ -125,13 +125,56 @@ views are copied in logical element order, with checked dimensions, cancellation
 polling and byte-preserving copies for all ten numeric types. This normalization
 does not change floating-point values or copy captured arrays implicitly.
 
+## Local producer/consumer fusion
+
+The CPU task backend copies fully checked IR before optimizing it. Local
+single-pass scalar producers and statically known pure callbacks can be pushed
+into their consuming `for`, eliminating the per-item generator/iterator bridge.
+This is a compiler optimization of the existing ownership and evaluation rules,
+not a new source-level iterator contract. Source loan checks run first.
+
+Construction captures are evaluated once, in source argument order, even when
+the inlined body does not use an argument. Producer bounds and bodies remain
+deferred. `take(0)` does not evaluate a deferred producer bound; `take(n)` stops
+without requesting item `n+1`. Consumer `continue` resumes the producer after
+the current yield; consumer `break` abandons it before post-yield work. Flat
+array captures must name existing non-reassigned backing; temporary arrays fall
+back so eliminating a cursor cannot extend their allocation lifetime.
+
+Scalar control transfers are normalized into structured native loops with
+private pending-transfer and result cells. An assignment whose RHS transfers
+control publishes no placeholder value. Loop exhaustion, valued breaks,
+continues in break values and nested transfers retain their distinct paths.
+The resulting native loops use the existing checked arithmetic and cancellation
+lowering. No runtime polling, scheduler, resource limit or fault precedence
+contract is changed. Both the function result metadata and final statement must
+identify the returned value, as required by native and continuation lowering.
+
+Pure traversal regions in larger functions can be outlined into private bulk
+helpers. Inputs are scalar/POD values and read-only backing; outputs are the
+private scalar bindings used afterward. A fault or cancellation aborts the
+containing function before publishing those outputs. Regions containing effects,
+array writes or owned-resource transitions cannot use this transformation.
+
+Each proof and rewrite is transactional and has a code-growth bound. Partial
+manual advancement, unknown callbacks, managed yielded items, producer effects,
+expected errors and task suspension retain the ordinary frame implementation.
+If native physical-frame admission fails, the backend replans the original
+checked module using budgeted continuation storage. Mixed GPU-host lowering
+retains its ordinary generator frames; this pass does not fuse GPU kernels.
+
+Qualification checks both values and reachable emitted code: selected local
+traversals must actually eliminate generator/iterator ABI calls. Exact fault
+locations and left-to-right argument evaluation are checked separately. Infinite
+source, adapter and outlined/control traversals test cancellation and deadlines
+under all four instrumentation variants, with one and four workers.
+
 ## Performance qualification and remaining specialization
 
-Direct array/range loops keep their existing lowering. General source cursors
-and adapters currently retain a producer-frame boundary on each advancement;
-static trait resolution does not yet imply fusion of a known lazy pipeline.
-Eliminating that boundary for proven nonescaping cursors remains an optimization
-target, not a property to promise to users of this implementation.
+Direct array/range loops keep their existing lowering. General escaping or
+effectful cursors retain a producer-frame boundary on each advancement. The
+following measurements record the pre-fusion implementation; final fusion
+acceptance is recorded separately below rather than replacing that evidence.
 
 The frozen Apple M2 Max/macOS 27.2 qualification compares matching compiler,
 runtime and header installations, validates every invocation, and retains nine

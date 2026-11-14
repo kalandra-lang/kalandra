@@ -2153,6 +2153,10 @@ private:
     for (auto parameter : output_.functions[id].parameters)
       parameters.insert(output_.symbols[parameter].name);
     output_.functions[id].compileTimeOnly = standardFormat(id);
+    output_.functions[id].standardIteratorTake =
+        syntax_.functions[id].moduleIndex < syntax_.standardModules.size() &&
+        syntax_.standardModules[syntax_.functions[id].moduleIndex] == StandardModule::Iteration &&
+        name(syntax_.functions[id].name) == "take";
     auto result = standardFormat(id)     ? add(frame, *output_.functions[id].declaredResult,
                                                syntax_.functions[id].span, StringLiteral{std::string{}})
                   : standardIterator(id) ? iteratorBody(frame, id, *standardIterator(id))

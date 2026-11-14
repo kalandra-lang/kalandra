@@ -58,7 +58,7 @@ for name, (source, expected, output) in gpu_cases.items():
         prefix
         + source
         + """\nfrom "std/io" import println as report,IoError as ReportError
-from "std/fmt" import format
+from "std/fmt" import format as formatGeneratorReport
 fn marker()->i64:
   return 41
 fn main()->unit ! (ReportError | TaskError):
@@ -66,7 +66,7 @@ fn main()->unit ! (ReportError | TaskError):
     gpu=devices.gpu()
     try await spawn marker() on gpu
   value=answer()
-  try report(format("{}:{}",ready,value))
+  try report(formatGeneratorReport("{}:{}",ready,value))
   return ()
 """
     )

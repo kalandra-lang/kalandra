@@ -132,6 +132,8 @@ jobs:
             if ($variant -eq 'sanitized') { $runtime = 'build/windows/native/kalandra-native-runtime-sanitized.lib' }
             python native/tests/GeneratorSourceTests.py --compiler build/windows/native/kalandra.exe --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" --runtime $runtime --variant $variant --output "build/windows/io/generators-$variant"
             if ($LASTEXITCODE -ne 0) { throw "Source generators $variant failed" }
+            python native/tests/IteratorFusionCancellationTests.py --compiler build/windows/native/kalandra.exe --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" --runtime $runtime --variant $variant --output "build/windows/io/iterator-fusion-cancellation-$variant"
+            if ($LASTEXITCODE -ne 0) { throw "Iterator fusion cancellation $variant failed" }
           }
           & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/EnvironmentRuntimeTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/environment-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Environment runtime compilation failed' }
@@ -143,6 +145,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Language server protocol qualification failed' }
           python native/lsp/StandardLibraryProtocolTests.py build/windows/native/kalandra-lsp.exe build/windows/io/lsp-standard-library
           if ($LASTEXITCODE -ne 0) { throw 'Standard library editor qualification failed' }
+      - name: Qualify iterator fusion argument evaluation and fault sites
+        run: |
+          python native/tests/IteratorFusionFaultTests.py --compiler build/windows/native/kalandra.exe --output build/windows/iterator-fusion-faults
+          if ($LASTEXITCODE -ne 0) { throw "Iterator fusion fault-site qualification failed" }
       - name: Qualify explicit returns and primitive types
         run: |
           python native/tests/ExplicitReturnTests.py --compiler build/windows/native/kalandra-test-observer.exe --checker build/windows/native/kalandra-check.exe --output build/windows/explicit-returns

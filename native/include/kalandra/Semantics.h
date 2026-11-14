@@ -556,6 +556,8 @@ struct TypedFunction {
   std::optional<Generator> generator = {};
   // Retain the publication proof when direct materialization removes a cursor.
   std::optional<std::size_t> publicationCollection = {};
+  // Loader-proven std/iter identity, never inferred from a user's function name.
+  bool standardIteratorTake = false;
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.

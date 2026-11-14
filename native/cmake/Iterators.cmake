@@ -20,10 +20,32 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_BINARY_DIR}/iterator-contracts-${variant}")
     set_tests_properties(frontend-iterator-contracts-${variant} PROPERTIES TIMEOUT 120
       LABELS "feature-frontend;feature-control")
+    add_executable(kalandra-iterator-fusion-tests-${variant} tests/IteratorFusionTests.cpp)
+    target_link_libraries(kalandra-iterator-fusion-tests-${variant} PRIVATE ${semantics})
+    target_compile_options(kalandra-iterator-fusion-tests-${variant} PRIVATE -Wall -Wextra -Werror)
+    if(variant STREQUAL "sanitized")
+      target_compile_options(kalandra-iterator-fusion-tests-${variant} PRIVATE
+        -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      target_link_options(kalandra-iterator-fusion-tests-${variant} PRIVATE
+        -fsanitize=address,undefined -fno-sanitize-recover=all)
+    endif()
+    add_test(NAME frontend-iterator-fusion-${variant}
+      COMMAND kalandra-iterator-fusion-tests-${variant}
+        "${CMAKE_CURRENT_BINARY_DIR}/iterator-fusion-${variant}")
+    set_tests_properties(frontend-iterator-fusion-${variant} PROPERTIES TIMEOUT 120
+      LABELS "feature-frontend;feature-control")
   endforeach()
   add_custom_target(native-iterator-qualification DEPENDS kalandra
     kalandra-task-core-optimized
     kalandra-iterator-contract-tests-debug kalandra-iterator-contract-tests-sanitized)
+  add_dependencies(native-iterator-qualification kalandra-iterator-fusion-tests-debug
+    kalandra-iterator-fusion-tests-sanitized)
+  add_test(NAME native-iterator-fusion-faults
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorFusionFaultTests.py"
+      --compiler "$<TARGET_FILE:kalandra>"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-fusion-faults")
+  set_tests_properties(native-iterator-fusion-faults PROPERTIES TIMEOUT 180
+    LABELS "feature-frontend;feature-control")
   foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
     if(WIN32 AND variant STREQUAL "thread-sanitized")
       continue()
@@ -40,6 +62,13 @@ if(BUILD_TESTING)
         --clang "${CMAKE_CXX_COMPILER}" --runtime "$<TARGET_FILE:${runtime}>"
         --variant "${variant}" --output "${CMAKE_CURRENT_BINARY_DIR}/generator-source-${variant}")
     set_tests_properties(native-generator-source-${variant} PROPERTIES TIMEOUT 600
+      LABELS "feature-frontend;feature-control")
+    add_test(NAME native-iterator-fusion-cancellation-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorFusionCancellationTests.py"
+        --compiler "$<TARGET_FILE:kalandra>"
+        --clang "${CMAKE_CXX_COMPILER}" --runtime "$<TARGET_FILE:${runtime}>"
+        --variant "${variant}" --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-fusion-cancellation-${variant}")
+    set_tests_properties(native-iterator-fusion-cancellation-${variant} PROPERTIES TIMEOUT 180
       LABELS "feature-frontend;feature-control")
     add_executable(kalandra-owned-scope-tests-${variant} tests/OwnedScopeTests.cpp)
     target_link_libraries(kalandra-owned-scope-tests-${variant} PRIVATE ${runtime})

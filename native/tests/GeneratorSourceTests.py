@@ -10,7 +10,9 @@ p.add_argument("--clang", type=Path, required=True)
 p.add_argument("--runtime", type=Path, required=True)
 p.add_argument("--output", type=Path, required=True)
 p.add_argument(
-    "--variant", choices=("debug", "optimized", "sanitized", "thread-sanitized"), required=True
+    "--variant",
+    choices=("debug", "optimized", "sanitized", "thread-sanitized"),
+    required=True,
 )
 p.add_argument("--case", action="append", dest="selected")
 args = p.parse_args()
@@ -34,7 +36,12 @@ def run(command, directory, name, timeout=180):
         list(map(str, command)), capture_output=True, timeout=timeout, env=environment
     )
     (directory / (name + ".log")).write_bytes(result.stdout + result.stderr)
-    assert result.returncode == 0, (name, result.returncode, result.stdout, result.stderr)
+    assert result.returncode == 0, (
+        name,
+        result.returncode,
+        result.stdout,
+        result.stderr,
+    )
     return result
 
 
@@ -68,7 +75,19 @@ for name, (source, expected, output) in cases.items():
         "compile",
     )
     text = ir.read_text()
+    if name.startswith(("fusion-", "numeric-items-")):
+        from IteratorFusionCodegen import assert_fused_entry
+
+        assert_fused_entry(text, name)
     coordinating = name in (
+        "fusion-static-callback-array-capture",
+        "fusion-region-multiple-scalar-updates",
+        "fusion-f32-rounding-take",
+        "fusion-f64-rounding-take",
+        "fusion-readonly-array-adapters",
+        "fusion-range-adapters",
+        "fusion-take-stops-before-next",
+        "fusion-take-zero-defers-bounds",
         "deferred-source-expression",
         "tensor-item-coordinating",
         "deep-adapter-chain",
@@ -84,21 +103,41 @@ for name, (source, expected, output) in cases.items():
         "recursive-items-coordinating",
     )
     factory = (
-        "kalandra_generator_task_create_v1" if coordinating else "kalandra_generator_create_v1"
+        "kalandra_generator_task_create_v1"
+        if coordinating
+        else "kalandra_generator_create_v1"
     )
     if name == "immediate-materialization":
         assert "call void @kalandra_generator_create_v1(" not in text, name
         assert "call void @kalandra_generator_task_create_v1(" not in text, name
         assert "kalandra_collect_append_v1" in text, name
     else:
-        assert "call void @" + factory + "(" in text, ("incorrect producer factory", name)
+        factories = (
+            "kalandra_generator_create_v1",
+            "kalandra_generator_task_create_v1",
+        )
+        if any("call void @" + entry + "(" in text for entry in factories):
+            assert "call void @" + factory + "(" in text, (
+                "incorrect producer factory",
+                name,
+            )
+        else:
+            # A fully fused local producer needs neither a frame nor dynamic
+            # advancement. Escaping/manual/suspending fixtures still verify
+            # their original frame factory and runtime cleanup below.
+            assert "call i32 @kalandra_generator_next" not in text, name
     if not coordinating:
         assert "call void @kalandra_generator_task_create_v1(" not in text, name
     binary = directory / ("program.exe" if os.name == "nt" else "program")
     native = {
         "debug": ["-O0"],
         "optimized": ["-O2"],
-        "sanitized": ["-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"],
+        "sanitized": [
+            "-O1",
+            "-g",
+            "-fsanitize=address,undefined",
+            "-fno-sanitize-recover=all",
+        ],
         "thread-sanitized": ["-O1", "-g", "-fsanitize=thread"],
     }[args.variant]
     run(

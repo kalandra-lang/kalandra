@@ -5,6 +5,7 @@
 #include "ErrorFamilies.h"
 #include "FileLowering.h"
 #include "IteratorHostBridge.h"
+#include "IteratorFusion.h"
 #include "../runtime/GeneratorFrame.h"
 #include "NativeCallFoundation.h"
 #include "NativeLayout.h"
@@ -3827,9 +3828,12 @@ void emitIteratorHostBridges(const TypedModule &input, llvm::Module &module,
     emitter.emitGeneratorBridge(request);
 }
 static std::expected<BackendOutput, std::string>
-lowerTaskNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
+lowerTaskNativeImpl(const TypedModule &checked, std::optional<std::string> testEntry,
                     ArithmeticMode arithmetic, const CpuTarget &target,
                     const std::vector<std::string> &exports) {
+  auto optimized = checked;
+  fuseLocalIterators(optimized);
+  const auto &input = optimized;
   if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
     return std::unexpected(*error);
   if (hasPlacement(input))
@@ -3845,7 +3849,10 @@ lowerTaskNativeImpl(const TypedModule &input, std::optional<std::string> testEnt
       // Native subgraphs are an optimization, not a new source admission
       // requirement. A large synchronous body can still use budgeted checked
       // continuation storage when the native physical frame would be too big.
-      auto legacy = continuation::plan(input, {.nativeSubgraphs = false, .valueScopes = true});
+      // Deoptimize from the original checked graph. Outlined helper functions
+      // and scalar-control normalization belong to native-subgraph admission,
+      // not to the conservative large-frame fallback.
+      auto legacy = continuation::plan(checked, {.nativeSubgraphs = false, .valueScopes = true});
       if (!legacy)
         return std::unexpected(legacy.error());
       fallback.emplace(std::move(*legacy));

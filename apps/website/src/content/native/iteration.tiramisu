@@ -234,7 +234,9 @@ h2 { "Lazy adapters" }
 
 Import map, filter and take from std/iter to transform a cursor without constructing intermediate arrays. These functions consume their input cursor. To adapt an array, Range or another reusable Iterable, first call iter(source). Give the iterator map an import alias when you also use the built-in array map.
 
-Direct loops over arrays and ranges have lower overhead for tight numeric work. Use a lazy sequence when you need to stop early, retain an advancing position or return deferred work from a function. Adapters avoid intermediate arrays, but do not assume that a chain has the same execution cost as one direct loop.
+The CPU compiler can combine a statically known local sequence and its consuming for loop into one native loop. This includes pure scalar map and filter callbacks, take, nested producers, and read-only array traversal. Captures still take their values at construction, and work still stops at break or the take limit. Cancellation and arithmetic checks remain active.
+
+A cursor that escapes, is advanced manually, produces managed values, awaits tasks or performs I/O can retain its independently owned frame. Such cursors provide deferred, resumable work rather than a guarantee of direct-loop performance. Adapters avoid intermediate arrays; array(sequence) explicitly allocates storage for all produced items.
 
 h2 { "map" }
 
