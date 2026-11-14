@@ -1,6 +1,34 @@
 """Shared source-level lazy generator correctness fixtures."""
 prefix = 'from "std/iter" import Iterator,next,close\nfrom "std/option" import Option\n'
 cases = {
+    "fusion-returned-loop-once": (
+        """fn values(count:i64)->Iterator[i64,never]:
+  return for i in range(count):
+    yield i
+fn main()->i64:
+  total=0
+  return for value in values(4):
+    total=total+1
+  else:total
+""",
+        4,
+        "",
+    ),
+    "fusion-conditional-loop-once": (
+        """fn values(count:i64)->Iterator[i64,never]:
+  return for i in range(count):
+    yield i
+fn main()->i64:
+  total=0
+  return if true:
+    for value in values(4):
+      total=total+1
+    else:total
+  else:-1
+""",
+        4,
+        "",
+    ),
     "fusion-direct-range-adapters": (
         """from "std/iter" import iter,range as steps,map as mapped,filter
 fn main()->i64:

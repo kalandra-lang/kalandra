@@ -89,13 +89,19 @@ def programs():
         "    total=total+value\n  return total\n",
         fixtures["callback"][2],
     )
+    fixtures["returned-loop"] = (
+        ordinary,
+        "  total=0\n  return for value in valuesWithCount(4096):\n"
+        "    total=total+value\n  else:total\n",
+        expected,
+    )
     result = {}
     for name, (direct, lazy, answer) in fixtures.items():
         prefix = (
             IMPORT
             + "fn prefix()->i64:\n  a=1\n  return a+2\nfn values()->Iterator[i64,never]:\n  return for i in range(4096):\n    yield i*i%97\n"
         )
-        if name == "factory-arguments":
+        if name in ("factory-arguments", "returned-loop"):
             prefix += "fn valuesWithCount(count:i64)->Iterator[i64,never]:\n  return for i in range(count):\n    yield i*i%97\n"
         result[name] = (
             {

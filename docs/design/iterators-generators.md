@@ -156,6 +156,9 @@ The resulting native loops use the existing checked arithmetic and cancellation
 lowering. No runtime polling, scheduler, resource limit or fault precedence
 contract is changed. Both the function result metadata and final statement must
 identify the returned value, as required by native and continuation lowering.
+Loop and yield results are memoized within their cloning environment: references
+from function or branch result metadata reuse the original evaluation instead
+of executing an effectful traversal a second time.
 
 Pure traversal regions in larger functions can be outlined into private bulk
 helpers. Inputs are scalar/POD values and read-only backing; outputs are the

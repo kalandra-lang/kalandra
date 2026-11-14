@@ -470,11 +470,16 @@ class Fusion {
       return found->second;
     auto node = source.expressions[id];
     require(scalar(node.type) || plainRecord(node.type) || flatArray(node.type));
-    if (auto *op = std::get_if<WhileOperation>(&node.operation))
-      return loop(id, *op, env);
+    if (auto *op = std::get_if<WhileOperation>(&node.operation)) {
+      const auto result = loop(id, *op, env);
+      env.values[id] = result;
+      return result;
+    }
     if (const auto *op = std::get_if<YieldOperation>(&node.operation)) {
       require(bool(env.yield));
-      return env.yield(clone(op->operand, env));
+      const auto result = env.yield(clone(op->operand, env));
+      env.values[id] = result;
+      return result;
     }
     if (const auto *op = std::get_if<SymbolRead>(&node.operation)) {
       auto bound = binding(op->symbol, env, node.span);
