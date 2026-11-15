@@ -13,9 +13,12 @@ enum class StandardModule {
   Env,
   Time,
   Option,
-  Iteration
+  Iteration,
+  Comparison
 };
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/cmp")
+    return StandardModule::Comparison;
   if (name == "std/iter")
     return StandardModule::Iteration;
   if (name == "std/option")
@@ -42,6 +45,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Comparison:
+    return "kalandra-stdlib:std/cmp.k";
   case StandardModule::Iteration:
     return "kalandra-stdlib:std/iter.k";
   case StandardModule::Option:
@@ -68,6 +73,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Comparison))
+    return StandardModule::Comparison;
   if (path == standardModulePath(StandardModule::Iteration))
     return StandardModule::Iteration;
   if (path == standardModulePath(StandardModule::Option))
@@ -97,12 +104,67 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Comparison:
+    return R"k(export trait Equal:
+  fn equal(left: Self, right: Self) -> bool
+impl Equal for String:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for bool:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for unit:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for i8:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for i16:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for i32:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for i64:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for u8:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for u16:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for u32:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for u64:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for f32:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl Equal for f64:
+  fn equal(left: Self, right: Self) -> bool:
+    return left == right
+impl[T: Equal] Equal for [T]:
+  fn equal(left: Self, right: Self) -> bool:
+    if length(left) != length(right):
+      return false
+    for index in range(length(left)):
+      if left[index] != right[index]:
+        return false
+    return true
+)k";
   case StandardModule::Iteration:
     return R"k(from "std/option" import Option
+from "std/cmp" import Equal
 export type Range:
   start: i64
   stop: i64
   step: i64
+impl Equal for Range:
+  fn equal(left: Self, right: Self) -> bool:
+    return left.start == right.start and left.stop == right.stop and left.step == right.step
 export fn range(start: i64, stop: i64, step: i64) -> Range:
   return __kalandra_range(start, stop, step)
 export type Iterator[T, E]:
@@ -146,10 +208,22 @@ export fn take[T, E](own values: Iterator[T, E], count: i64) -> Iterator[T, E]:
     ()
 )k";
   case StandardModule::Option:
-    return R"k(export enum Option[T]:
+    return R"k(from "std/cmp" import Equal
+export enum Option[T]:
   None
   Some:
     value: T
+impl[T: Equal] Equal for Option[T]:
+  fn equal(left: Self, right: Self) -> bool:
+    return match left:
+      Option.None:
+        match right:
+          Option.None: true
+          Option.Some {value}: false
+      Option.Some {value}:
+        match right:
+          Option.None: false
+          Option.Some {value: other}: value == other
 )k";
   case StandardModule::Buffer:
     return R"k(export type ByteBuffer:
@@ -255,6 +329,7 @@ export fn parseBool(text: String) -> bool ! ParseError:
 from "std/buffer" import ByteBuffer
 from "std/iter" import Iterator
 from "std/option" import Option
+from "std/cmp" import Equal
 export enum FileKind:
   File
   Directory
@@ -279,6 +354,32 @@ export enum OpenMode:
   CreateNew
   Append
   ReadWrite
+fn __kindCode(value: FileKind) -> i64:
+  return match value:
+    FileKind.File: 1
+    FileKind.Directory: 2
+    FileKind.Symlink: 3
+    FileKind.Other: 4
+impl Equal for FileKind:
+  fn equal(left: Self, right: Self) -> bool:
+    return __kindCode(left) == __kindCode(right)
+fn __modeCode(value: OpenMode) -> i64:
+  return match value:
+    OpenMode.Read: 1
+    OpenMode.Write: 2
+    OpenMode.Create: 3
+    OpenMode.CreateNew: 4
+    OpenMode.Append: 5
+    OpenMode.ReadWrite: 6
+impl Equal for OpenMode:
+  fn equal(left: Self, right: Self) -> bool:
+    return __modeCode(left) == __modeCode(right)
+impl Equal for DirEntry:
+  fn equal(left: Self, right: Self) -> bool:
+    return left.name == right.name and left.kind == right.kind
+impl Equal for FileInfo:
+  fn equal(left: Self, right: Self) -> bool:
+    return left.kind == right.kind and left.size == right.size
 export error FsError:
   System:
     code: i32
@@ -370,8 +471,12 @@ export fn readLine(maxBytes: u64) -> Line ! IoError:
   return __kalandra_console_read_line(maxBytes)
 )k";
   case StandardModule::Process:
-    return R"k(export type ExitStatus:
+    return R"k(from "std/cmp" import Equal
+export type ExitStatus:
   code: u8
+impl Equal for ExitStatus:
+  fn equal(left: Self, right: Self) -> bool:
+    return left.code == right.code
 )k";
   case StandardModule::Format:
     return R"k(export fn format(template: String) -> String:

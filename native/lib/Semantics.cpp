@@ -3207,9 +3207,46 @@ private:
                          comparison.operation == ComparisonKind::NotEqual);
     if ((!numeric && !boolean && !string) || a.tensor || b.tensor || a.task || b.task ||
         a.fallible || b.fallible || a.device || b.device) {
+      const bool equality = comparison.operation == ComparisonKind::Equal ||
+                            comparison.operation == ComparisonKind::NotEqual;
+      const bool completed =
+          !a.task && !b.task && !a.fallible && !b.fallible && !a.device && !b.device;
+      if (equality && completed && (!a.tensor || a.array) && (!b.tensor || b.array) &&
+          sameFunctionValueType(genericValueType(a), genericValueType(b))) {
+        std::optional<std::size_t> capability;
+        for (std::size_t id = 0; id < syntax_.traits.size(); ++id) {
+          const auto &trait = syntax_.traits[id];
+          const auto module = syntax_.source->partIndex(trait.name.begin);
+          if (module < syntax_.standardModules.size() &&
+              syntax_.standardModules[module] == StandardModule::Comparison &&
+              name(trait.name) == "Equal") {
+            capability = id;
+            break;
+          }
+        }
+        if (capability) {
+          auto conformance = requireConformance(*capability, genericValueType(a), span);
+          if (!conformance ||
+              !requireGenericTraitProof(frame, *capability, genericTerm(*left), span) ||
+              !requireGenericTraitProof(frame, *capability, genericTerm(*right), span))
+            return {};
+          const auto method = conformance->methods.at("equal");
+          const auto token = syntax_.traits[*capability].methods.front().name;
+          ValueType result;
+          result.builtin = BuiltinValue::Bool;
+          auto value = invoke(frame, span, token, {comparison.left, comparison.right}, result, {},
+                              nullptr, false, method, std::vector<ValueId>{*left, *right});
+          if (!value || comparison.operation == ComparisonKind::Equal)
+            return value;
+          auto no = add(frame, result, span, BoolLiteral{false});
+          if (!no)
+            return {};
+          return add(frame, result, span, ScalarCompare{ComparisonKind::Equal, *value, *no});
+        }
+      }
       error("S056",
-            "comparison requires completed CPU scalars of the same numeric type, or bool/String "
-            "equality",
+            "comparison requires matching completed scalars; user-defined equality requires "
+            "explicit std/cmp.Equal conformance",
             span);
       return {};
     }

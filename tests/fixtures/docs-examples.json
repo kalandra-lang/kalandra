@@ -622,5 +622,10 @@
       "kind": "cpu",
       "expected": "2:4"
     }
+  ],
+  "equality": [
+    { "kind": "cpu", "expected": "true:true" },
+    { "kind": "cpu", "expected": "true:true\ntrue\ntrue:true" },
+    { "kind": "cpu", "expected": "true" }
   ]
 }

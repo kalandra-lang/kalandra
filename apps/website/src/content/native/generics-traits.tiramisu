@@ -86,6 +86,10 @@ This displays 42:42. Add.add infers Self from its arguments. Add[i64].add(20, 22
 
 Each implementation must provide every required function with matching parameter types, mut/own access, result type and error channel. A type does not inherit fields or methods from a trait. Trait functions are called through the trait name, rather than becoming instance methods.
 
+The standard Equal trait connects explicit implementations to == and !=, and supports comparison in generic algorithms.
+
+link { url = "/docs/equality", "Equality and the std/cmp.Equal contract" }
+
 h2 { "Associated types" }
 
 An associated type names a type chosen by an implementation. Refer to it as Self.Item in a trait and as T.Item when T has the corresponding bound. Generic implementations can describe a whole family of types.

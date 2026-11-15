@@ -13,6 +13,7 @@ parser.add_argument('--variant', choices=('debug', 'optimized', 'sanitized', 'th
                     required=True)
 parser.add_argument('--target', choices=('cpu', 'metal', 'vulkan', 'cuda'), default='cpu')
 parser.add_argument('--compile-only', action='store_true')
+parser.add_argument('--case', action='append', dest='cases', help='Run only selected fixtures; the default preserves the complete suite.')
 args = parser.parse_args()
 compiler = args.compiler.resolve()
 output = args.output.resolve()
@@ -33,6 +34,7 @@ gpu_prefix = '''  genericDeviceProbeResult = try parallel:
 
 
 def run(name, source, expected, *, device=False):
+    if args.cases and name not in args.cases: return
     root = output / name
     root.mkdir(exist_ok=True)
     if args.target != 'cpu' and not device:
@@ -232,7 +234,75 @@ negative = {
         'fn sideEffect()->i64:\n  return 0\n'
         'fn main()->i64:\n  return id[sideEffect()](42)\n', 'S082'),
 }
+from GenericsCases import EQUALITY_DECLARATIONS
+negative.update({
+    'equality-missing-impl': ('''type Uncomparable:
+  value:i64
+fn main()->bool:
+  return Uncomparable {value:1}==Uncomparable {value:1}
+''', 'S083'),
+    'equality-missing-bound': (EQUALITY_DECLARATIONS+'''fn same[T](left:T,right:T)->bool:
+  return left==right
+fn main()->bool:
+  return same(EqualityPoint {x:1,y:2},EqualityPoint {x:1,y:2})
+''', 'S083'),
+    'equality-shadow-trait': ('''trait Equal:
+  fn equal(left:Self,right:Self)->bool
+type Pretend:
+  value:i64
+impl Equal for Pretend:
+  fn equal(left:Self,right:Self)->bool:
+    return true
+fn main()->bool:
+  return Pretend {value:1}==Pretend {value:1}
+''', 'S083'),
+    'equality-array-element': ('''type Uncomparable:
+  value:i64
+fn main()->bool:
+  return [Uncomparable {value:1}]==[Uncomparable {value:1}]
+''', 'S083'),
+    'equality-wrong-result': ('''from "std/cmp" import Equal
+type Wrong:
+  value:i64
+impl Equal for Wrong:
+  fn equal(left:Self,right:Self)->i64:
+    return 1
+fn main()->bool:
+  return Wrong {value:1}==Wrong {value:1}
+''', 'S083'),
+    'equality-fallible': ('''from "std/cmp" import Equal
+error Problem:
+  Bad
+type Wrong:
+  value:i64
+impl Equal for Wrong:
+  fn equal(left:Self,right:Self)->bool ! Problem:
+    fail Problem.Bad
+fn main()->bool:
+  return Wrong {value:1}==Wrong {value:1}
+''', 'S083'),
+    'equality-input-mutation': ('''from "std/cmp" import Equal
+type Wrong:
+  values:[i64]
+impl Equal for Wrong:
+  fn equal(left:Self,right:Self)->bool:
+    left.values[0]=99
+    return true
+fn main()->bool:
+  return Wrong {values:[1]}==Wrong {values:[1]}
+''', 'S077'),
+    'equality-distinct-types': (EQUALITY_DECLARATIONS+'''type Other:
+  x:i64
+  y:i64
+fn main()->bool:
+  return EqualityPoint {x:1,y:2}==Other {x:1,y:2}
+''', 'S056'),
+    'equality-tensor': ('''fn main()->bool:
+  return tensor([1,2])==tensor([1,2])
+''', 'S056'),
+})
 for name, (source, code) in negative.items():
+    if args.cases and name not in args.cases: continue
     root = output / name
     root.mkdir(exist_ok=True)
     path = root / 'main.k'
@@ -248,3 +318,12 @@ for name, (source, code) in negative.items():
     assert rejected.returncode == 1 and f'error[{code}]'.encode() in rejected.stderr, (
         name, rejected.returncode, rejected.stderr)
     print('PASS diagnosed', name, flush=True)
+
+
+from GenericsCases import EQUALITY_DEVICE_CASES, EQUALITY_HOST_CASES
+for name,(declarations,expected) in EQUALITY_DEVICE_CASES.items():
+    expression = 'equalityRun()' if args.target=='cpu' else 'try parallel:\n    try await spawn equalityRun() on devices.gpu()'
+    source=prelude+declarations+main+'  result='+expression+'\n  try println(format("{}",result))\n  return ()\n'
+    run('equality-'+name,source,str(expected)+'\n',device=True)
+for name,(source,expected) in EQUALITY_HOST_CASES.items():
+    run('equality-'+name,prelude+source,expected)

@@ -1,0 +1,99 @@
+meta { title = "Equality", description = "Compare values with == and !=, and define explicit equality through std/cmp.Equal.", order = 12, group = "Library reference" }
+
+Use == to compare values and != for its negation. Operands must have the same type; numeric literals take their context from the other operand. Comparison does not convert an integer variable into a float or compare unrelated record types by their fields.
+
+h2 { "Equal" }
+
+code { "trait Equal: fn equal(left: Self, right: Self) -> bool" }
+
+Import Equal from std/cmp to implement comparison for a record or enum, or to declare a generic bound. Ordinary comparisons of supported values do not need an import. The compiler resolves the canonical standard trait without introducing its name into your module.
+
+codeblock { language = kalandra, """from "std/cmp" import Equal
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+type Point:
+  x: i64
+  y: i64
+
+impl Equal for Point:
+  fn equal(left: Self, right: Self) -> bool:
+    return left.x == right.x and left.y == right.y
+
+fn main() -> unit ! IoError:
+  a = Point {x: 10, y: 20}
+  b = Point {x: 10, y: 21}
+  try println(format("{}:{}", a == a, a != b))
+  return ()
+""" }
+
+This displays true:true. Records and enums do not acquire equality merely because their fields are comparable. Each type explicitly implements the contract. A different trait named Equal does not enable these operators. Normal implementation ownership and coherence rules apply.
+
+Both operands are evaluated once, from left to right, before the equality method runs. The method runs once; != negates that result rather than calling it again. Boolean short-circuiting is unchanged: an unevaluated comparison has no argument or method effects.
+
+The method reads both inputs without consuming or mutating them and returns an infallible bool. Expected errors must be handled within it. Ordinary faults, cancellation and local computation keep their normal behavior.
+
+h2 { "Supported values" }
+
+String, bool, unit and all ten numeric primitives have standard implementations. Primitive operators keep their direct implementation; they do not introduce runtime trait lookup. String equality compares the exact Unicode sequence, without normalization or case folding.
+
+Arrays compare structurally through the standard generic implementation when their element type implements Equal. Lengths must match, and elements compare in order until the first mismatch. Record implementations can also compare their array fields through the same contract. It is not backing-storage identity: even comparing an array with itself must respect element equality.
+
+Standard value implementations also cover Option[T] when T implements Equal, Range, ExitStatus, FileKind, OpenMode, DirEntry and FileInfo. Option.None equals another None of the same Option type; Some values compare their payloads. Range compares start, stop and step, rather than enumerating its sequence. The other records compare their declared value fields.
+
+codeblock { language = kalandra, """from "std/fs" import FileKind
+from "std/option" import Option
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  try println(format("{}:{}", [1, 2] == [1, 2], [1, 2] != [1]))
+  try println(format("{}", FileKind.File != FileKind.Directory))
+  value: Option[i64] = Option.Some {value: 42}
+  empty: Option[i64] = Option.None
+  try println(format("{}:{}", value == value, value != empty))
+  return ()
+""" }
+
+This displays true:true, true, and true:true on separate lines.
+
+Files, buffered handles, byte buffers and iterators do not compare by resource identity. Select meaningful values explicitly instead. Tensor equality and ordering are separate operations; Equal does not add tensor masks, sorting rules or relational operators to custom types.
+
+h2 { "Generic algorithms" }
+
+Declare an Equal bound when generic code compares user-defined values. Existing primitive-only generic comparisons retain their direct behavior.
+
+codeblock { language = kalandra, """from "std/cmp" import Equal
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn contains[T: Equal](values: [T], needle: T) -> bool:
+  for value in values:
+    if value == needle:
+      return true
+  return false
+
+fn main() -> unit ! IoError:
+  try println(format("{}", contains([4, 8, 15], 8)))
+  return ()
+""" }
+
+This displays true. The array is read without being consumed or changed.
+
+h2 { "Floating-point equality" }
+
+Equality preserves IEEE floating-point behavior. Positive and negative zero compare equal. A NaN compares unequal to every value, including itself. This also applies through Equal.equal, array elements and record implementations that compare their float fields. Equal therefore does not promise reflexivity for all types.
+
+Do not use equality as an approximate numerical test. Use an explicit tolerance appropriate to your calculation. Existing deterministic floating-point sorting, including NaNs and signed zeros, remains separate from equality.
+
+h2 { "CPU and GPU execution" }
+
+Device-compatible implementations use the same static function-call machinery as ordinary GPU functions. Numeric and bool comparisons, compatible records/enums and their arrays can run on supported Metal, Vulkan and CUDA paths. Existing arithmetic policies still apply, including the explicit fallback required for f64 computation on Metal.
+
+String operations and host I/O remain host operations. An implementation that uses them can run on the host in a mixed GPU program, but is rejected in a device kernel. Equality never introduces implicit device-to-host execution.
+
+list {
+  link { url = "/docs/generics-traits", "Generics and explicit trait conformance" },
+  link { url = "/docs/arrays", "Array values and mutation" },
+  link { url = "/docs/gpu-numerics", "GPU numerical operations and arithmetic policies" }
+}

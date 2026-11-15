@@ -200,3 +200,30 @@ fn main()->unit ! FsError:
     assert 'export fn readDir' in declarations and 'export type DirEntry:' in declarations,declarations
     client.finish()
 print('PASS: directory iterator/metadata aliases, canonical definitions and editor signatures')
+
+
+with tempfile.TemporaryDirectory(dir=directory) as temp:
+    root=Path(temp).resolve()
+    path=root/'equality.k'
+    text='''from "std/cmp" import Equal as Same
+type Position:
+  x:i64
+impl Same for Position:
+  fn equal(left:Self,right:Self)->bool:
+    return left.x==right.x
+fn main()->bool:
+  return Position {x:42}==Position {x:42}
+'''
+    client=Client(server)
+    client.init(workspaceFolders=[{'uri':root.as_uri(),'name':'equality'}])
+    client.open(path,text)
+    diagnostics=publications(client.barrier())[path.as_uri()]['diagnostics']
+    assert not diagnostics,diagnostics
+    definition=client.rpc('textDocument/definition',{
+        'textDocument':{'uri':path.as_uri()},
+        'position':{'line':3,'character':7}})['result']
+    assert definition['uri']=='kalandra-stdlib:std/cmp.k',definition
+    declarations=client.rpc('kalandra/standardLibrary',{'uri':'kalandra-stdlib:std/cmp.k'})['result']
+    assert 'export trait Equal:' in declarations and 'fn equal(left: Self, right: Self) -> bool' in declarations,declarations
+    client.finish()
+print('PASS: canonical Equal trait declarations, alias definition and operator checking')
