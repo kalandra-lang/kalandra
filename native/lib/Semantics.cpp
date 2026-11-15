@@ -248,6 +248,8 @@ public:
         error(diagnostic.code, diagnostic.message, diagnostic.span);
     if (!diagnostics_.empty())
       return {syntax_.source, {}, std::move(diagnostics_)};
+    if (!syntax_.editorOnly)
+      specializeStandardComparators(output_);
     recordImportOrigins();
     rememberGenericDeclarations();
     for (auto &[span, token] : sourceTokens_)
@@ -2219,6 +2221,10 @@ private:
         syntax_.functions[id].moduleIndex < syntax_.standardModules.size() &&
         syntax_.standardModules[syntax_.functions[id].moduleIndex] == StandardModule::Iteration &&
         name(syntax_.functions[id].name) == "take";
+    output_.functions[id].standardComparatorSort =
+        syntax_.functions[id].moduleIndex < syntax_.standardModules.size() &&
+        syntax_.standardModules[syntax_.functions[id].moduleIndex] == StandardModule::Comparison &&
+        name(syntax_.functions[id].name) == "__sortIndices";
     auto result = standardFormat(id)     ? add(frame, *output_.functions[id].declaredResult,
                                                syntax_.functions[id].span, StringLiteral{std::string{}})
                   : standardIterator(id) ? iteratorBody(frame, id, *standardIterator(id))
@@ -6629,7 +6635,47 @@ private:
     }
     return result;
   }
+  std::pair<bool, std::optional<ValueId>>
+  primitiveComparatorSort(Frame &frame, FunctionId declaration,
+                          const std::vector<ValueId> &operands, SourceSpan span) {
+    const auto &function = syntax_.functions[declaration];
+    if (function.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[function.moduleIndex] != StandardModule::Comparison ||
+        (name(function.name) != "sortBy" && name(function.name) != "sortedBy") ||
+        operands.size() != 2)
+      return {false, {}};
+    const auto &type = node(operands[0]).type;
+    if (!mutableArrayType(type))
+      return {false, {}};
+    const auto *reference = std::get_if<FunctionReference>(&node(operands[1]).operation);
+    if (!reference || !reference->captures.empty())
+      return {false, {}};
+    const auto origin = genericOrigins_.find(reference->function);
+    if (origin == genericOrigins_.end())
+      return {false, {}};
+    const auto &callback = syntax_.functions[origin->second];
+    if (callback.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[callback.moduleIndex] != StandardModule::Comparison)
+      return {false, {}};
+    const auto label = name(callback.name);
+    const bool integerOrder =
+        label == "compare" && (isBooleanStorage(type) ||
+                               (type.builtin == BuiltinValue::Numeric && isInteger(type.element)));
+    const bool floatOrder = label == "totalCompare" && type.builtin == BuiltinValue::Numeric &&
+                            !isInteger(type.element);
+    if (!integerOrder && !floatOrder)
+      return {false, {}};
+    // These sealed standard primitive comparisons are pure. Equal ranks have
+    // identical stored bits, so the existing key sort is observationally stable.
+    // All arguments have already been checked and evaluated once, in order.
+    return {true,
+            add(frame, type, span, ArraySort{operands[0], name(function.name) == "sortedBy"})};
+  }
   bool comparisonIntrinsicAvailable(const Frame &frame, std::string_view callee) const {
+    // Anonymous typed functions do not necessarily have a source Function slot.
+    if (frame.function >= syntax_.functions.size() ||
+        syntax_.functions[frame.function].name.begin == syntax_.functions[frame.function].name.end)
+      return false;
     const auto owner = syntax_.functions[frame.function].moduleIndex;
     return owner < syntax_.standardModules.size() &&
            syntax_.standardModules[owner] == StandardModule::Comparison &&

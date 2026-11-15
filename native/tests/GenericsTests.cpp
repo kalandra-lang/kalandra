@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <tuple>
 using namespace kalandra;
 namespace {
 void require(bool condition, const std::string &message) {
@@ -350,8 +351,9 @@ int main(int argc, char **argv) {
     {
       const SourceOverlay source{
           "ordering-validation.k",
-          "from \"std/cmp\" import compare,totalCompare,sortBy\n"
-          "fn main()->unit:\n  values=[1.0,0.0]\n  sortBy(values,totalCompare[f64])\n"
+          "from \"std/cmp\" import compare,totalCompare,sortBy,Ordering\n"
+          "fn comparator(a:f64,b:f64)->Ordering:\n  return totalCompare(a,b)\n"
+          "fn main()->unit:\n  values=[1.0,0.0]\n  sortBy(values,comparator)\n"
           "  order=compare(\"a\",\"b\")\n  return ()\n"};
       auto loaded = loadModules(source.path, {}, {}, {}, {&source, 1});
       require(bool(loaded), "ordering flag source did not load");
@@ -390,6 +392,44 @@ int main(int argc, char **argv) {
       require(bits && exchange && stringOrder &&
                   !numericCapabilityError(module, NumericTarget::Cpu),
               "ordering validation coverage incomplete");
+    }
+    // Only the loader-owned sort helper may specialize a proven callback.
+    for (const auto &[label, declarations, expectedIndirect] :
+         std::vector<std::tuple<std::string, std::string, bool>>{
+             {"known",
+              "fn cmp(a:i64,b:i64)->Ordering:\n  return compare(a,b)\n"
+              "fn run()->[i64]:\n  return sortedBy([3,1,2],cmp)\n",
+              false},
+             {"captured",
+              "fn run()->[i64]:\n  direction:i64=-1\n"
+              "  cmp=fn(a:i64,b:i64):return compare(a*direction,b*direction)\n"
+              "  return sortedBy([3,1,2],cmp)\n",
+              true},
+             {"multiple",
+              "fn asc(a:i64,b:i64)->Ordering:\n  return compare(a,b)\n"
+              "fn desc(a:i64,b:i64)->Ordering:\n  return compare(b,a)\n"
+              "fn dispatch(f:fn(i64,i64)->Ordering)->[i64]:\n"
+              "  return sortedBy([3,1,2],f)\n"
+              "fn run()->[i64]:\n  first=dispatch(asc)\n  return dispatch(desc)\n",
+              true}}) {
+      const SourceOverlay source{"ordering-dispatch.k",
+                                 "from \"std/cmp\" import Ordering,compare,sortedBy\n" +
+                                     declarations +
+                                     "fn main()->unit:\n  values=run()\n  return ()\n"};
+      auto loaded = loadModules(source.path, {}, {}, {}, {&source, 1});
+      require(bool(loaded), "ordering dispatch source did not load: " + label);
+      auto checked = check(std::move(*loaded));
+      require(checked.ok(), "ordering dispatch source did not check: " + label);
+      bool helper = false, indirect = false;
+      for (const auto &function : checked.module->functions) {
+        if (!function.standardComparatorSort || function.compileTimeOnly)
+          continue;
+        helper = true;
+        for (auto id : function.expressions)
+          indirect |=
+              std::holds_alternative<FunctionInvoke>(checked.module->expressions[id].operation);
+      }
+      require(helper && indirect == expectedIndirect, "ordering callback proof mismatch: " + label);
     }
     const std::string aliasedErrors =
         "error A:\n  Bad\nerror B:\n  Other\ntype Both=A | B\ntype Reverse=B | A\n"

@@ -360,11 +360,19 @@ invokeGeneric(Frame &frame, SourceSpan span, SourceSpan callee, FunctionId decla
     if (!checkGenericTermBounds(frame, function.generics, terms, span))
       return {};
   }
-  auto specialized = specializeFunction(declaration, std::move(bindings), span);
-  if (!specialized)
-    return {};
-  auto result = invoke(frame, span, callee, arguments, expected, selection, checkedSelection,
-                       spawned, specialized, std::move(operands));
+  std::optional<FunctionId> specialized;
+  std::optional<ValueId> result;
+  auto fast = !spawned && !selection ? primitiveComparatorSort(frame, declaration, operands, span)
+                                     : std::pair<bool, std::optional<ValueId>>{false, {}};
+  if (fast.first)
+    result = fast.second;
+  else {
+    specialized = specializeFunction(declaration, std::move(bindings), span);
+    if (!specialized)
+      return {};
+    result = invoke(frame, span, callee, arguments, expected, selection, checkedSelection, spawned,
+                    specialized, std::move(operands));
+  }
   if (result && genericContext(frame)) {
     auto term =
         function.result

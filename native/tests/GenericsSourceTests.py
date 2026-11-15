@@ -34,7 +34,7 @@ gpu_prefix = '''  genericDeviceProbeResult = try parallel:
 
 
 def run(name, source, expected, *, device=False):
-    if args.cases and name not in args.cases: return
+    if args.cases and name not in args.cases and not ('ordering-all' in args.cases and name.startswith('ordering-')): return
     root = output / name
     root.mkdir(exist_ok=True)
     if args.target != 'cpu' and not device:
@@ -347,6 +347,11 @@ fn main()->unit:
   result=__kalandra_cmp_bits(1.0)
   return ()
 ''', 'S031'),
+    'ordering-private-bits-lambda': ('''fn main()->unit:
+  callback=fn(value:f64):return __kalandra_cmp_bits(value)
+  result=callback(1.0)
+  return ()
+''', 'S031'),
     'ordering-private-exchange': ('''fn main()->unit:
   values=[1,2]
   __kalandra_cmp_exchange(values,0,1)
@@ -354,7 +359,7 @@ fn main()->unit:
 ''', 'S031'),
 })
 for name, (source, code) in negative.items():
-    if args.cases and name not in args.cases: continue
+    if args.cases and name not in args.cases and not ('ordering-all' in args.cases and name.startswith('ordering-')): continue
     root = output / name
     root.mkdir(exist_ok=True)
     path = root / 'main.k'

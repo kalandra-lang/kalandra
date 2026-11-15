@@ -81,3 +81,67 @@ for numeric in ['i8','i16','i32','i64','u8','u16','u32','u64']:
     return 42
   return 0
 ''',42)
+
+HOST_CASES['effects']=('''from "std/cmp" import compare,sortedBy,Ordering
+fn trace(text:String)->unit:
+  println(text) catch fn(error):return ()
+  return ()
+fn input()->[i64]:
+  trace("input")
+  return [3,1,2]
+fn chosen(a:i64,b:i64)->Ordering:
+  trace(format("{}:{}",a,b))
+  return compare(a,b)
+fn choose()->fn(i64,i64)->Ordering:
+  trace("choose")
+  return chosen
+fn main()->unit ! (IoError):
+  result=sortedBy(input(),choose())
+  try println(format("{}:{}:{}",result[0],result[1],result[2]))
+  return ()
+''','input\nchoose\n3:1\n1:2\n3:2\n1:2:3\n')
+
+DEVICE_CASES['captured-comparator']=(DECLARATIONS+'''fn orderingRun()->i64:
+  direction:i64=-1
+  comparator=fn(a:i64,b:i64):return compare(a*direction,b*direction)
+  direction=1
+  values=sortedBy([1,3,2],comparator)
+  if values[0]==3 and values[1]==2 and values[2]==1:
+    return 42
+  return 0
+''',42)
+
+DEVICE_CASES['dynamic-comparator']=(DECLARATIONS+'''fn ascending(a:i64,b:i64)->Ordering:
+  return compare(a,b)
+fn descending(a:i64,b:i64)->Ordering:
+  return compare(b,a)
+fn dispatch(values:[i64],comparator:fn(i64,i64)->Ordering)->[i64]:
+  return sortedBy(values,comparator)
+fn orderingRun()->i64:
+  first=dispatch([3,1,2],ascending)
+  second=dispatch([1,3,2],descending)
+  if first[0]==1 and first[2]==3 and second[0]==3 and second[2]==1:
+    return 42
+  return 0
+''',42)
+
+# Independent rank counting verifies stability without implementing a second sort.
+DEVICE_CASES['stable-ranks']=(DECLARATIONS+'''fn orderingRun()->i64:
+  original=generate(65,fn(i):return SortPlayer {score:(i*31+7)%17,id:i})
+  values=sortedBy(original,byScore)
+  index:i64=0
+  while index<length(values):
+    expected:i64=0
+    other:i64=0
+    while other<length(original):
+      if original[other].score<values[index].score:
+        expected=expected+1
+      else:
+        if original[other].score==values[index].score and original[other].id<values[index].id:
+          expected=expected+1
+      other=other+1
+    if expected!=index or original[index].id!=index:
+      return 0
+    index=index+1
+  return 42
+''',42)

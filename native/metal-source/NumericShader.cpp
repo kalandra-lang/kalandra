@@ -432,15 +432,13 @@ public:
         if (out.boolean)
           reject(node.span, "GPU numeric conversion requires a numeric value");
         auto &b = out.tensor ? lane : header;
-        const auto destination = b.getIntegerType(describeNumeric(node.type.element)->bits);
+        // ShaderValue stores every numerical value as raw bits in i64 (narrow
+        // values are zero-extended). Reinterpreting a float as its unsigned bits
+        // changes only the semantic element type, not this wire representation.
         const auto raw = materialize(out);
         auto [converted, valid] =
             conversion->bitwise
-                ? std::pair<Value, Value>{raw.getType() == destination
-                                              ? raw
-                                              : arith::BitcastOp::create(b, loc(), destination, raw)
-                                                    .getResult(),
-                                          yes}
+                ? std::pair<Value, Value>{raw, yes}
                 : gpuNumericConversion(b, loc(), raw, out.element, node.type.element,
                                        options.arithmetic, options.nativeFloat64Conversions);
         out.value = converted;

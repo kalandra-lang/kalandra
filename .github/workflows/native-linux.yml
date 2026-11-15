@@ -128,7 +128,7 @@ jobs:
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
         run: >-
           ctest --test-dir build/linux --output-on-failure
-          -R '^native-(cross-toolchain-validation|arithmetic-policy|fair-benchmark-evidence|steel-vendor-license)$'
+          -R '^native-(cross-toolchain-validation|arithmetic-policy|ordering-float-references|fair-benchmark-evidence|steel-vendor-license)$'
       - name: Qualify opaque synchronous task ownership
         run: |
           cmake --build build/linux --target kalandra-closed-task-tests-optimized -j2
