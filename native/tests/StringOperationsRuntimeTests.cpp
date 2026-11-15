@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tuple>
 using namespace kalandra::runtime;
 static void require(bool ok, const char *message) {
   if (!ok)
@@ -57,6 +58,38 @@ int main() {
     require(held && !std::memcmp(held->bytes().data(), expected.data(), 20) && !ctx.live() &&
                 ctx.allocations() == ctx.releases(),
             "result lifetime/cleanup failed");
+    for (const auto &[first, second, expectedOrder] :
+         {std::tuple<std::string, std::string, int>{"", "", 0},
+          {"a", "aa", -1},
+          {"aa", "a", 1},
+          {"a", "b", -1},
+          {"é", "e\xcc\x81", 1},
+          {"😀", "é", 1},
+          {std::string("a\0z", 3), std::string("a\0b", 3), 1},
+          {std::string(4096, 'x') + "a", std::string(4096, 'x') + "b", -1}}) {
+      Invocation ordered;
+      auto a = make(ordered, first), b = make(ordered, second);
+      require(kalandra_string_compare_v1(&ordered, &a, &b) == expectedOrder &&
+                  kalandra_string_compare_v1(&ordered, &b, &a) == -expectedOrder &&
+                  !ordered.status(),
+              "String lexicographic ordering differs from reference");
+      ordered.settle();
+      require(!ordered.live() && ordered.allocations() == ordered.releases(),
+              "String ordering leaked storage");
+    }
+    for (unsigned mode = 0; mode < 3; ++mode) {
+      Invocation bad;
+      auto a = make(bad, "a"), b = make(bad, std::string(4097, 'z'));
+      static_cast<char *>(b.allocated)[4096] = char(0x80);
+      if (mode == 1)
+        a = b;
+      if (mode == 2)
+        a.byteLength = 0;
+      require(kalandra_string_compare_v1(&bad, &a, &b) == 0 && bad.status() == 3,
+              "ordering shortcut hid invalid String backing");
+      bad.settle();
+      require(!bad.live(), "invalid ordering leaked storage");
+    }
     // Full validation precedes unequal-length, unequal-prefix and same-pointer shortcuts.
     for (unsigned mode = 0; mode < 6; ++mode) {
       Invocation bad;
@@ -108,7 +141,7 @@ int main() {
       failed.settle();
       require(!failed.live() && failed.allocations() == failed.releases(), "failed concat leaked");
     }
-    for (unsigned kind = 0; kind < 2; ++kind) {
+    for (unsigned kind = 0; kind < 3; ++kind) {
       Invocation work;
       std::string bytes(16 * 1024 * 1024, 'a');
       auto a = make(work, bytes), b = make(work, bytes);
@@ -126,11 +159,15 @@ int main() {
       // either a complete correct result or no published result, never a partial one.
       auto equal = kind == 0 ? kalandra_string_equal_v1(&work, &a, &b) : 0;
       StringDescriptor out{};
-      if (kind) out = concat(work, a, b);
+      if (kind == 1)
+        out = concat(work, a, b);
+      if (kind == 2)
+        require(kalandra_string_compare_v1(&work, &a, &b) == 0,
+                "cancelled or equal String ordering changed its result");
       cancel.join();
       if (kind == 0)
         require(equal == 0 || equal == 1, "invalid equality result");
-      else
+      else if (kind == 1)
         require((!out.data && !out.byteLength) ||
                     (out.byteLength == 2 * static_cast<std::int64_t>(bytes.size()) &&
                      !std::memcmp(out.data, bytes.data(), bytes.size()) &&
@@ -139,6 +176,8 @@ int main() {
       // Once cancellation is visible, every subsequent operation must reject it.
       require(kalandra_string_equal_v1(&work, &a, &b) == 0,
               "visible cancellation ignored by equality");
+      require(kalandra_string_compare_v1(&work, &a, &b) == 0,
+              "visible cancellation ignored by ordering");
       auto stopped = concat(work, a, b);
       require(!stopped.data && !stopped.byteLength,
               "visible cancellation ignored by concat");

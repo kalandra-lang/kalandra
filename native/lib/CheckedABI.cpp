@@ -175,6 +175,9 @@ bool forwardedTailReturn(llvm::CallInst &call) {
   return false;
 }
 } // namespace
+void simplifyNativeStackAdmission(llvm::Function &function) {
+  simplifyCheckedStackIR(function, true);
+}
 std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool functionValues) {
   using namespace llvm;
   // Structural simplification must use the same target layout as storage and
@@ -446,6 +449,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
                  target->getName() == "kalandra_string_array_validate" ||
                  target->getName() == "kalandra_string_concat" ||
                  target->getName() == "kalandra_string_equal" ||
+                 target->getName() == "kalandra_string_compare" ||
                  target->getName() == "kalandra_string_length" ||
                  target->getName() == "kalandra_string_byte_length" ||
                  target->getName() == "kalandra_string_index" ||
@@ -750,6 +754,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
                            "kalandra_string_array_validate",
                            "kalandra_string_concat",
                            "kalandra_string_equal",
+                           "kalandra_string_compare",
                            "kalandra_string_length",
                            "kalandra_string_byte_length",
                            "kalandra_string_index",

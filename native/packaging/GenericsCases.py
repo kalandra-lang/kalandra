@@ -272,3 +272,12 @@ fn equalityRun()->i64:
     return 42
   return 0
 ''',42)
+
+# Installed packages and all directed CPU cross-target pairs exercise ordering.
+SOURCE='from "std/cmp" import Ordering, compare, totalCompare, sortedBy, sortBy\n'+SOURCE
+SOURCE=SOURCE.replace('  return ()\n', '''  ranked=sortedBy([3,1,1,2],compare[i64])
+  sortBy(ranked,fn(a:i64,b:i64):return compare(b,a))
+  try println(format("{}:{}:{}:{}:{}",ranked[0],ranked[1],ranked[2],ranked[3],totalCompare(-0.0,0.0)==Ordering.Less))
+  return ()
+''',1)
+EXPECTED+='3:2:1:1:true\n'

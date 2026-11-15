@@ -141,6 +141,9 @@ inline void finalizeNativeCallResolvers(llvm::Module &module) {
   }
 }
 // Run after composing every execution engine that can produce source values.
+// Retry oversized generated plans after the existing semantics-preserving
+// checked simplifier, before applying the unchanged physical stack admission.
+void simplifyNativeStackAdmission(llvm::Function &function);
 std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module);
 // Windows ARM64 must retain stack cleanup when crossing between tailcc
 // (callee-pop) and ordinary C/fastcc (caller-pop) functions. Optional tail

@@ -6629,6 +6629,108 @@ private:
     }
     return result;
   }
+  bool comparisonIntrinsicAvailable(const Frame &frame, std::string_view callee) const {
+    const auto owner = syntax_.functions[frame.function].moduleIndex;
+    return owner < syntax_.standardModules.size() &&
+           syntax_.standardModules[owner] == StandardModule::Comparison &&
+           (callee == "__kalandra_cmp_ordering_code" || callee == "__kalandra_cmp_string_compare" ||
+            callee == "__kalandra_cmp_bits" || callee == "__kalandra_cmp_sign" ||
+            callee == "__kalandra_cmp_exchange");
+  }
+  std::optional<ValueId> comparisonIntrinsic(Frame &frame, SourceSpan span,
+                                             const std::string &callee,
+                                             const std::vector<ExprId> &arguments) {
+    if (callee == "__kalandra_cmp_ordering_code") {
+      if (arguments.size() != 1) {
+        error("S027", "Ordering discriminator access expects one value", span);
+        return {};
+      }
+      auto input = expression(frame, arguments[0]);
+      if (!input)
+        return {};
+      const auto type = node(*input).type;
+      if (type.builtin != BuiltinValue::Record || !type.record || type.task || type.fallible ||
+          type.tensor || type.array || type.device || *type.record >= output_.records.size() ||
+          output_.records[*type.record].name != "Ordering" ||
+          syntax_.standardModules[syntax_.source->partIndex(
+              output_.records[*type.record].declaration.begin)] != StandardModule::Comparison ||
+          output_.records[*type.record].fields.size() != 1 ||
+          output_.records[*type.record].variants.size() != 3) {
+        error("S055", "Ordering discriminator access requires canonical Ordering", span);
+        return {};
+      }
+      ValueType result;
+      result.element = NumericType::Int64;
+      return add(frame, result, span, RecordFieldRead{*input, 0});
+    }
+    if (callee == "__kalandra_cmp_string_compare") {
+      if (arguments.size() != 2) {
+        error("S027", "String ordering expects two strings", span);
+        return {};
+      }
+      ValueType string;
+      string.builtin = BuiltinValue::String;
+      auto left = expression(frame, arguments[0], string);
+      auto right = left ? expression(frame, arguments[1], string) : std::nullopt;
+      if (!left || !right)
+        return {};
+      ValueType result;
+      result.element = NumericType::Int64;
+      return add(frame, result, span, ScalarCompare{ComparisonKind::Less, *left, *right, true});
+    }
+    if (callee == "__kalandra_cmp_bits" || callee == "__kalandra_cmp_sign") {
+      if (arguments.size() != 1) {
+        error("S027", "comparison representation helper expects one float", span);
+        return {};
+      }
+      auto input = expression(frame, arguments[0]);
+      if (!input)
+        return {};
+      const auto type = node(*input).type;
+      if (type.builtin != BuiltinValue::Numeric || type.tensor || type.array || type.task ||
+          type.fallible || type.device || isInteger(type.element)) {
+        error("S055", "totalCompare requires matching f32 or f64 scalar operands", span);
+        return {};
+      }
+      ValueType result;
+      const bool narrow = type.element == NumericType::Float32;
+      result.element = narrow ? NumericType::UInt32 : NumericType::UInt64;
+      if (callee == "__kalandra_cmp_bits")
+        return add(frame, result, span, NumericConvert{*input, true});
+      if (narrow)
+        return add(frame, result, span, UInt32Literal{UINT32_C(0x80000000)});
+      return add(frame, result, span, UInt64Literal{UINT64_C(0x8000000000000000)});
+    }
+    if (callee == "__kalandra_cmp_exchange") {
+      if (arguments.size() != 3) {
+        error("S027", "comparison exchange helper expects an array and two indices", span);
+        return {};
+      }
+      auto input = expression(frame, arguments[0]);
+      if (!input)
+        return {};
+      if (!mutableArrayType(node(*input).type)) {
+        error("S078", "sortBy requires a mutable numeric or bool array", span);
+        return {};
+      }
+      ValueType indexType;
+      indexType.element = NumericType::Int64;
+      std::vector<ValueId> indices;
+      for (std::size_t i = 1; i != 3; ++i) {
+        auto index = expression(frame, arguments[i], indexType);
+        if (!index)
+          return {};
+        auto checked = add(frame, indexType, span, ArrayBoundsCheck{*input, *index});
+        if (!checked)
+          return {};
+        indices.push_back(*checked);
+      }
+      ValueType marker;
+      marker.builtin = BuiltinValue::Bool;
+      return add(frame, marker, span, ArrayStore{*input, indices[0], indices[1], true});
+    }
+    return {};
+  }
   std::optional<ValueId> invoke(Frame &frame, SourceSpan span, SourceSpan calleeSpan,
                                 const std::vector<ExprId> &arguments,
                                 const std::optional<ValueType> &expected,
@@ -6667,6 +6769,8 @@ private:
         error("S037", "placed spawn requires a statically named function", span);
         return {};
       }
+      if (comparisonIntrinsicAvailable(frame, callee))
+        return comparisonIntrinsic(frame, span, callee, arguments);
       if (auto numeric = resolveNumeric(callee))
         return conversion(frame, span, *numeric, arguments);
       if (callee == "array") {

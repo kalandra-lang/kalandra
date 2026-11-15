@@ -347,6 +347,50 @@ int main(int argc, char **argv) {
     require(invocationChecked, "adapter proof regression did not invoke a callback");
     adapter.module->functions[*entry].parameterOrigin = adapter.module->functions.size();
     require(!functionInvocationFlow(*adapter.module), "invalid adapter identity was trusted");
+    {
+      const SourceOverlay source{
+          "ordering-validation.k",
+          "from \"std/cmp\" import compare,totalCompare,sortBy\n"
+          "fn main()->unit:\n  values=[1.0,0.0]\n  sortBy(values,totalCompare[f64])\n"
+          "  order=compare(\"a\",\"b\")\n  return ()\n"};
+      auto loaded = loadModules(source.path, {}, {}, {}, {&source, 1});
+      require(bool(loaded), "ordering flag source did not load");
+      auto checked = check(std::move(*loaded));
+      require(checked.ok(), "ordering flag source did not check");
+      auto &module = *checked.module;
+      require(!numericCapabilityError(module, NumericTarget::Cpu), "valid ordering flags rejected");
+      bool bits = false, exchange = false, stringOrder = false;
+      for (auto &node : module.expressions) {
+        if (const auto *convert = std::get_if<NumericConvert>(&node.operation);
+            convert && convert->bitwise) {
+          const auto type = node.type;
+          node.type.element = NumericType::Int64;
+          require(bool(numericCapabilityError(module, NumericTarget::Cpu)),
+                  "bit access accepted wrong result type");
+          node.type = type;
+          bits = true;
+        }
+        if (auto *write = std::get_if<ArrayStore>(&node.operation);
+            write && write->exchange &&
+            module.expressions[write->input].type.element == NumericType::Float64) {
+          write->exchange = false;
+          require(bool(numericCapabilityError(module, NumericTarget::Cpu)),
+                  "exchange index treated as stored float");
+          write->exchange = true;
+          exchange = true;
+        }
+        if (auto *order = std::get_if<ScalarCompare>(&node.operation); order && order->threeWay) {
+          order->threeWay = false;
+          require(bool(numericCapabilityError(module, NumericTarget::Cpu)),
+                  "String ordering result treated as bool");
+          order->threeWay = true;
+          stringOrder = true;
+        }
+      }
+      require(bits && exchange && stringOrder &&
+                  !numericCapabilityError(module, NumericTarget::Cpu),
+              "ordering validation coverage incomplete");
+    }
     const std::string aliasedErrors =
         "error A:\n  Bad\nerror B:\n  Other\ntype Both=A | B\ntype Reverse=B | A\n"
         "trait Size:\n  fn size(value:Self)->i64\n";

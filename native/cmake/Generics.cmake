@@ -62,3 +62,12 @@ if(BUILD_TESTING)
     endforeach()
   endforeach()
 endif()
+
+if(BUILD_TESTING)
+  add_test(NAME native-ordering-float-references
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrderingFloatTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordering-float-references")
+  set_tests_properties(native-ordering-float-references PROPERTIES TIMEOUT 900
+    LABELS "feature-frontend;feature-runtime;feature-numerics")
+endif()

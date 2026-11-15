@@ -107,6 +107,150 @@ inline std::string_view standardModuleSource(StandardModule module) {
   case StandardModule::Comparison:
     return R"k(export trait Equal:
   fn equal(left: Self, right: Self) -> bool
+export enum Ordering:
+  Less
+  Equal
+  Greater
+fn __orderingCode(value: Ordering) -> i64:
+  return __kalandra_cmp_ordering_code(value)
+impl Equal for Ordering:
+  fn equal(left: Self, right: Self) -> bool:
+    return __orderingCode(left) == __orderingCode(right)
+export trait Order:
+  fn compare(left: Self, right: Self) -> Ordering
+export fn compare[T: Order](left: T, right: T) -> Ordering:
+  return Order.compare(left, right)
+impl Order for i8:
+  fn compare(left: Self, right: Self) -> Ordering:
+    return if left < right: Ordering.Less
+    else:
+      if left > right: Ordering.Greater
+      else: Ordering.Equal
+impl Order for i16:
+  fn compare(left: Self, right: Self) -> Ordering:
+    return if left < right: Ordering.Less
+    else:
+      if left > right: Ordering.Greater
+      else: Ordering.Equal
+impl Order for i32:
+  fn compare(left: Self, right: Self) -> Ordering:
+    return if left < right: Ordering.Less
+    else:
+      if left > right: Ordering.Greater
+      else: Ordering.Equal
+impl Order for i64:
+  fn compare(left: Self, right: Self) -> Ordering:
+    return if left < right: Ordering.Less
+    else:
+      if left > right: Ordering.Greater
+      else: Ordering.Equal
+impl Order for u8:
+  fn compare(left: Self, right: Self) -> Ordering:
+    return if left < right: Ordering.Less
+    else:
+      if left > right: Ordering.Greater
+      else: Ordering.Equal
+impl Order for u16:
+  fn compare(left: Self, right: Self) -> Ordering:
+    return if left < right: Ordering.Less
+    else:
+      if left > right: Ordering.Greater
+      else: Ordering.Equal
+impl Order for u32:
+  fn compare(left: Self, right: Self) -> Ordering:
+    return if left < right: Ordering.Less
+    else:
+      if left > right: Ordering.Greater
+      else: Ordering.Equal
+impl Order for u64:
+  fn compare(left: Self, right: Self) -> Ordering:
+    return if left < right: Ordering.Less
+    else:
+      if left > right: Ordering.Greater
+      else: Ordering.Equal
+export fn totalCompare[T](left: T, right: T) -> Ordering:
+  a = __kalandra_cmp_bits(left)
+  b = __kalandra_cmp_bits(right)
+  sign = __kalandra_cmp_sign(left)
+  largest = sign + (sign - 1)
+  first = if a >= sign: largest - a
+  else: a + sign
+  second = if b >= sign: largest - b
+  else: b + sign
+  return if first < second: Ordering.Less
+  else:
+    if first > second: Ordering.Greater
+    else: Ordering.Equal
+impl Order for String:
+  fn compare(left: Self, right: Self) -> Ordering:
+    order = __kalandra_cmp_string_compare(left, right)
+    return if order < 0: Ordering.Less
+    else:
+      if order > 0: Ordering.Greater
+      else: Ordering.Equal
+impl Order for bool:
+  fn compare(left: Self, right: Self) -> Ordering:
+    return if left == right: Ordering.Equal
+    else:
+      if left: Ordering.Greater
+      else: Ordering.Less
+fn __sortIndices[T](values: [T], comparator: fn(T, T) -> Ordering) -> [i64]:
+  count = length(values)
+  positions = generate(count, fn(i): return i)
+  scratch = generate(count, fn(i): return 0)
+  width: i64 = 1
+  while width < count:
+    start: i64 = 0
+    while start < count:
+      middle = if width < count - start: start + width
+      else: count
+      finish = if width < count - middle: middle + width
+      else: count
+      left = start
+      right = middle
+      output = start
+      while left < middle and right < finish:
+        decision = comparator(values[positions[left]], values[positions[right]])
+        before = decision != Ordering.Greater
+        if before:
+          scratch[output] = positions[left]
+          left = left + 1
+        else:
+          scratch[output] = positions[right]
+          right = right + 1
+        output = output + 1
+      while left < middle:
+        scratch[output] = positions[left]
+        left = left + 1
+        output = output + 1
+      while right < finish:
+        scratch[output] = positions[right]
+        right = right + 1
+        output = output + 1
+      start = finish
+    previous = positions
+    positions = scratch
+    scratch = previous
+    width = if width < count - width: width + width
+    else: count
+  return positions
+export fn sortedBy[T](values: [T], comparator: fn(T, T) -> Ordering) -> [T]:
+  positions = __sortIndices(values, comparator)
+  return generate(length(values), fn(i): return values[positions[i]])
+fn __exchange[T](mut values: [T], left: i64, right: i64) -> unit:
+  __kalandra_cmp_exchange(values, left, right)
+  return ()
+export fn sortBy[T](mut values: [T], comparator: fn(T, T) -> Ordering) -> [T]:
+  positions = __sortIndices(values, comparator)
+  destinations = generate(length(values), fn(i): return 0)
+  for index in range(length(values)):
+    destinations[positions[index]] = index
+  for index in range(length(values)):
+    while destinations[index] != index:
+      target = destinations[index]
+      __exchange(values, index, target)
+      __exchange(destinations, index, target)
+  return values
 impl Equal for String:
   fn equal(left: Self, right: Self) -> bool:
     return left == right

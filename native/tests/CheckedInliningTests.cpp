@@ -162,6 +162,21 @@ int main(int argc, char **argv) {
     big.CreateRetVoid();
     check(kalandra::nativeStackBudgetError(*oversized, module.getDataLayout()).has_value());
     check(kalandra::nativeStackBudgetError(*oversized, module.getDataLayout(), false, 17000).has_value());
+    // Generated synchronous plans can exceed the conservative SSA accounting
+    // before dead-state cleanup. The retry removes dead work, not real storage.
+    kalandra::simplifyNativeStackAdmission(*fn);
+    check(!kalandra::nativeStackBudgetError(*fn, module.getDataLayout()));
+    kalandra::simplifyNativeStackAdmission(*oversized);
+    check(kalandra::nativeStackBudgetError(*oversized, module.getDataLayout()).has_value());
+    auto *storage = Function::Create(FunctionType::get(voidType, {}, false),
+                                     GlobalValue::ExternalLinkage, "real.storage", module);
+    IRBuilder<> allocated(BasicBlock::Create(context, "entry", storage));
+    auto *pointer = allocated.CreateAlloca(allocated.getInt8Ty(), allocated.getInt64(17000));
+    auto escape = module.getOrInsertFunction("escape", voidType, allocated.getPtrTy());
+    allocated.CreateCall(escape, {pointer});
+    allocated.CreateRetVoid();
+    kalandra::simplifyNativeStackAdmission(*storage);
+    check(kalandra::nativeStackBudgetError(*storage, module.getDataLayout()).has_value());
     check(!verifyModule(module, &errs()));
   }
   for (bool reverse : {false, true}) {

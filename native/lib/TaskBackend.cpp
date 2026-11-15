@@ -343,8 +343,11 @@ public:
     for (std::size_t id = 0; id < synchronousEntries.size(); ++id)
       if (synchronousEntries[id]) {
         emitPlan(id, true);
-        if (auto error = nativeStackBudgetError(*synchronousEntries[id], module.getDataLayout()))
-          throw std::runtime_error(*error);
+        if (nativeStackBudgetError(*synchronousEntries[id], module.getDataLayout())) {
+          simplifyNativeStackAdmission(*synchronousEntries[id]);
+          if (auto error = nativeStackBudgetError(*synchronousEntries[id], module.getDataLayout()))
+            throw std::runtime_error(*error);
+        }
       }
     if (!exports.empty())
       for (auto *entry : entries) {

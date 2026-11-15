@@ -417,6 +417,8 @@ public:
                {"kalandra_string_byte_length",
                 builder_.getFunctionType({ptr}, {builder_.getI64Type()})},
                {"kalandra_string_concat", builder_.getFunctionType({ptr, ptr, ptr}, {})},
+               {"kalandra_string_compare",
+                builder_.getFunctionType({ptr, ptr}, {builder_.getI64Type()})},
                {"kalandra_string_equal",
                 builder_.getFunctionType({ptr, ptr}, {builder_.getI64Type()})}}) {
         auto fn = func::FuncOp::create(builder_, builder_.getUnknownLoc(), name, signature);
@@ -3072,6 +3074,21 @@ private:
                  right = expression(frame, operation.right);
             if (input_.expressions[operation.left].type.builtin == BuiltinValue::String) {
               auto a = stringSlot(loc, left), b = stringSlot(loc, right);
+              if (operation.threeWay || (operation.operation != ComparisonKind::Equal &&
+                                         operation.operation != ComparisonKind::NotEqual)) {
+                auto order =
+                    func::CallOp::create(builder_, loc, "kalandra_string_compare",
+                                         TypeRange{builder_.getI64Type()}, ValueRange{a, b})
+                        .getResult(0);
+                if (operation.threeWay)
+                  return order;
+                const auto predicate =
+                    operation.operation == ComparisonKind::Less        ? arith::CmpIPredicate::slt
+                    : operation.operation == ComparisonKind::LessEqual ? arith::CmpIPredicate::sle
+                    : operation.operation == ComparisonKind::Greater   ? arith::CmpIPredicate::sgt
+                                                                       : arith::CmpIPredicate::sge;
+                return compare(loc, predicate, order, integer(loc, 0));
+              }
               auto equal = func::CallOp::create(builder_, loc, "kalandra_string_equal",
                                                 TypeRange{builder_.getI64Type()}, ValueRange{a, b})
                                .getResult(0);
@@ -3095,6 +3112,8 @@ private:
           } else if constexpr (std::is_same_v<T, NumericConvert>) {
             auto input = expression(frame, operation.input);
             const auto source = input_.expressions[operation.input].type.element;
+            if (operation.bitwise)
+              return arith::BitcastOp::create(builder_, loc, type(node.type), input);
             if (node.type.tensor)
               return convertTensor(loc, input, cast<RankedTensorType>(type(node.type)), source,
                                    node.type.element);
@@ -3134,6 +3153,17 @@ private:
             auto position = expression(frame, operation.index);
             auto value = expression(frame, operation.value);
             const auto &array = input_.expressions[operation.input].type;
+            if (operation.exchange) {
+              position = arrayWritePosition(loc, input, position, array, NumericType::Int64);
+              value = arrayWritePosition(loc, input, value, array, NumericType::Int64);
+              auto a = arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(), position);
+              auto b = arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(), value);
+              auto first = collectionRead(loc, input, ValueRange{a});
+              auto second = collectionRead(loc, input, ValueRange{b});
+              collectionInsert(loc, second, input, ValueRange{a});
+              collectionInsert(loc, first, input, ValueRange{b});
+              return arith::ConstantIntOp::create(builder_, loc, 0, 1);
+            }
             // A continuation may pass a normalized index through a private
             // kernel ABI. Recheck at the sink as well as the pre-RHS check.
             position = arrayWritePosition(loc, input, position, array, NumericType::Int64);
@@ -4443,10 +4473,16 @@ std::expected<BackendOutput, std::string>
 lowerNative(const TypedModule &input, std::optional<std::string> testEntry,
             const std::vector<std::string> &exports, ArithmeticMode arithmetic,
             bool deferCallFinalization, CpuTarget target) {
-  for (const auto &fn : input.functions)
-    if (fn.compileTimeOnly && ((testEntry && *testEntry == fn.name) ||
-                               std::ranges::find(exports, fn.name) != exports.end()))
-      return std::unexpected("compile-time helpers cannot be exported as runtime functions");
+  const auto compileTimeExport = [&](const std::string &name) {
+    // Match the same first declaration selected by the export lowering. An
+    // unrelated standard generic template may share a root function's name.
+    const auto found =
+        std::ranges::find_if(input.functions, [&](const auto &fn) { return fn.name == name; });
+    return found != input.functions.end() && found->compileTimeOnly;
+  };
+  if ((testEntry && compileTimeExport(*testEntry)) ||
+      std::ranges::any_of(exports, compileTimeExport))
+    return std::unexpected("compile-time helpers cannot be exported as runtime functions");
   if (target.triple.empty() && target.dataLayout.empty())
     target = {KALANDRA_NATIVE_CPU_TARGET_TRIPLE, nativeCpuDataLayout};
   target.triple = llvm::Triple::normalize(target.triple);

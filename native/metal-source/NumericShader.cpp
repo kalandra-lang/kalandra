@@ -432,9 +432,17 @@ public:
         if (out.boolean)
           reject(node.span, "GPU numeric conversion requires a numeric value");
         auto &b = out.tensor ? lane : header;
+        const auto destination = b.getIntegerType(describeNumeric(node.type.element)->bits);
+        const auto raw = materialize(out);
         auto [converted, valid] =
-            gpuNumericConversion(b, loc(), materialize(out), out.element, node.type.element,
-                                 options.arithmetic, options.nativeFloat64Conversions);
+            conversion->bitwise
+                ? std::pair<Value, Value>{raw.getType() == destination
+                                              ? raw
+                                              : arith::BitcastOp::create(b, loc(), destination, raw)
+                                                    .getResult(),
+                                          yes}
+                : gpuNumericConversion(b, loc(), raw, out.element, node.type.element,
+                                       options.arithmetic, options.nativeFloat64Conversions);
         out.value = converted;
         out.valid = both(lane, out.valid, valid);
         if (!out.tensor)
@@ -3207,9 +3215,22 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
             condition(valid, [&] {
               if (std::holds_alternative<ArrayBoundsCheck>(node.operation))
                 store(offsets.at(op.output), index);
-              else if (std::holds_alternative<ArrayStore>(node.operation)) {
-                heap->writeSource(h, arith::AddIOp::create(b, loc, index, constant(4)),
-                                  load(offsets.at(op.args.at(2))));
+              else if (const auto *write = std::get_if<ArrayStore>(&node.operation)) {
+                if (write->exchange) {
+                  const Value other = indexOf(op.args.at(2));
+                  const auto otherValid = compare(arith::CmpIPredicate::ult, other, length);
+                  condition(arith::XOrIOp::create(b, loc, otherValid, yes),
+                            [&] { heap->fault(1); });
+                  condition(otherValid, [&] {
+                    const Value a = arith::AddIOp::create(b, loc, index, constant(4));
+                    const Value d = arith::AddIOp::create(b, loc, other, constant(4));
+                    const Value first = heap->read(h, a), second = heap->read(h, d);
+                    heap->writeSource(h, a, second);
+                    heap->writeSource(h, d, first);
+                  });
+                } else
+                  heap->writeSource(h, arith::AddIOp::create(b, loc, index, constant(4)),
+                                    load(offsets.at(op.args.at(2))));
                 store(offsets.at(op.output), constant(0));
               } else {
                 const auto offset = wordsFor(index, type);

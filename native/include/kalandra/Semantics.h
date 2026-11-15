@@ -259,6 +259,7 @@ struct BoolLiteral {
 struct ScalarCompare {
   ComparisonKind operation;
   ValueId left, right;
+  bool threeWay = false; // Compiler-owned String comparison returns signed i64.
 };
 struct ScalarBinary {
   TokenKind operation;
@@ -273,6 +274,7 @@ struct TensorBinary {
 };
 struct NumericConvert {
   ValueId input;
+  bool bitwise = false; // Compiler-owned same-width float/integer representation access.
 };
 struct TensorLiteral {
   std::vector<ValueId> elements;
@@ -312,6 +314,7 @@ struct ArrayBoundsCheck {
 }; // Normalize/validate the index before an element assignment's RHS runs.
 struct ArrayStore {
   ValueId input, index, value;
+  bool exchange = false; // value is a second normalized index; commit both stores together.
 }; // Statement-only; index is the result of ArrayBoundsCheck, never unchecked.
 struct TensorIndex {
   ValueId input;
