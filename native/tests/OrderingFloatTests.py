@@ -1,4 +1,5 @@
 """Check representation ordering against independent raw-bit CPU references."""
+from OrdinaryTestEnvironment import configure,qualified_variants
 import argparse,hashlib,json,subprocess,sys
 from pathlib import Path
 p=argparse.ArgumentParser(description=__doc__)
@@ -6,18 +7,11 @@ p.add_argument('--compiler',type=Path,required=True)
 p.add_argument('--clang',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
 a=p.parse_args();a.compiler=a.compiler.resolve();a.output.mkdir(parents=True,exist_ok=True)
+configure(a.clang)
 repo=Path(__file__).resolve().parents[2]
 variants=[('debug','-O0',['-O0']),('optimized','-O2',['-O2']),('sanitized','--sanitize',['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer'])]
 if sys.platform!='win32':variants.append(('thread-sanitized','--thread-sanitize',['-O1','-g','-fsanitize=thread','-fno-omit-frame-pointer']))
-if sys.platform=='win32':
- probe=a.output/'sanitizer-probe.k';probe.write_text('fn main()->unit:\n  return ()\n')
- checked=subprocess.run([str(a.compiler),str(probe),'--sanitize','-o',str(a.output/'sanitizer-probe.exe')],capture_output=True,text=True,timeout=300)
- if checked.returncode==2 and 'ASan/UBSan are unavailable in the pinned Windows ARM64 toolchain' in checked.stderr:
-  variants=[v for v in variants if v[0]!='sanitized']
-  (a.output/'unsupported.json').write_text(json.dumps({'sanitized':checked.stderr.strip()},indent=2)+'\n')
-  print('UNSUPPORTED sanitized:',checked.stderr.strip(),flush=True)
- else:
-  assert checked.returncode==0,(checked.returncode,checked.stdout,checked.stderr)
+variants=qualified_variants(variants,a.compiler)
 compilerSHA256=hashlib.sha256(a.compiler.read_bytes()).hexdigest()
 records=[]
 def run(command):
