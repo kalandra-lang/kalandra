@@ -22,9 +22,27 @@ enum class FileAction : std::uint32_t {
   ReadIntoBuffer,
   ReadAppend,
   WriteBuffer,
-  WriteAllBuffer
+  WriteAllBuffer,
+  OpenDirectory,
+  ReadDirectory,
+  Metadata,
+  DirectoryCreate,
+  RemoveFile,
+  DirectoryRemove
 };
 inline std::optional<FileAction> fileAction(std::string_view name) {
+  if (name == "__openDirectory")
+    return FileAction::OpenDirectory;
+  if (name == "__readDirectory")
+    return FileAction::ReadDirectory;
+  if (name == "metadata")
+    return FileAction::Metadata;
+  if (name == "createDir")
+    return FileAction::DirectoryCreate;
+  if (name == "removeFile")
+    return FileAction::RemoveFile;
+  if (name == "removeDir")
+    return FileAction::DirectoryRemove;
   if (name == "readAppend")
     return FileAction::ReadAppend;
   constexpr std::string_view names[] = {"open",      "bufferedReader", "bufferedWriter", "read",
@@ -35,6 +53,11 @@ inline std::optional<FileAction> fileAction(std::string_view name) {
     if (name == names[i])
       return static_cast<FileAction>(i);
   return {};
+}
+inline bool filePathAction(FileAction action) {
+  return action == FileAction::Open || action == FileAction::OpenDirectory ||
+         action == FileAction::Metadata || action == FileAction::DirectoryCreate ||
+         action == FileAction::RemoveFile || action == FileAction::DirectoryRemove;
 }
 inline bool consumesFile(FileAction action) {
   return action == FileAction::BufferedReader || action == FileAction::BufferedWriter ||

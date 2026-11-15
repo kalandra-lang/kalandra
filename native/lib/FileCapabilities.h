@@ -1,5 +1,6 @@
 #pragma once
 #include "kalandra/Semantics.h"
+#include <algorithm>
 namespace kalandra {
 inline std::optional<std::string>
 fileCapabilityError(const TypedModule &module, const TypedExpr &expression, NumericTarget target) {
@@ -28,8 +29,39 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
       !result.errorRecord || *result.errorRecord >= module.records.size() ||
       module.records[*result.errorRecord].standard != StandardRecord::FsError)
     return bad("requires host execution and its nominal FsError channel");
-  if (unsigned(op->action) > unsigned(FileAction::WriteAllBuffer))
+  if (unsigned(op->action) > unsigned(FileAction::DirectoryRemove))
     return bad("has an invalid action");
+  if (op->action >= FileAction::OpenDirectory) {
+    if (op->arguments.size() != 1 || op->arguments[0] >= module.expressions.size())
+      return bad("utility operation requires one valid input");
+    const auto &argument = module.expressions[op->arguments[0]].type;
+    if (!scalar(argument) ||
+        (filePathAction(op->action) ? argument.builtin != BuiltinValue::String
+                                    : !nominal(argument, StandardRecord::File)))
+      return bad("utility operation has an invalid path or directory handle");
+    result.fallible = false;
+    result.errorRecord.reset();
+    if (!scalar(result))
+      return bad("utility operation requires a completed scalar result");
+    if (op->action == FileAction::OpenDirectory)
+      return nominal(result, StandardRecord::File) ? std::nullopt
+                                                   : bad("directory open requires File");
+    if (op->action == FileAction::Metadata)
+      return nominal(result, StandardRecord::FileInfo) ? std::nullopt
+                                                       : bad("metadata requires FileInfo");
+    if (op->action == FileAction::ReadDirectory) {
+      if (!nominal(result, StandardRecord::Option))
+        return bad("directory advance requires Option[DirEntry]");
+      const auto &fields = module.records[*result.record].fields;
+      const auto item =
+          std::ranges::find_if(fields, [](const auto &field) { return field.name == "value"; });
+      return item != fields.end() && scalar(item->type) && nominal(item->type, StandardRecord::DirEntry)
+                 ? std::nullopt
+                 : bad("directory option requires DirEntry");
+    }
+    return result.builtin == BuiltinValue::Unit ? std::nullopt
+                                                : bad("path modification requires unit");
+  }
   const auto count =
       op->action == FileAction::Flush || op->action == FileAction::Finish ||
               op->action == FileAction::Close

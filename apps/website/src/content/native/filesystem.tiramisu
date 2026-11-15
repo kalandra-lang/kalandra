@@ -1,4 +1,4 @@
-meta { title = "Files and buffered I/O", description = "Open owned file handles, read bytes and UTF-8 lines, and write buffered output with std/fs.", order = 6, group = "Library reference" }
+meta { title = "Files, directories and buffered I/O", description = "Read and write files, iterate directories, inspect metadata and manage owned handles with std/fs.", order = 6, group = "Library reference" }
 
 Import file operations from std/fs. Open a file once, process it incrementally, and close it when finished. Use bufferedReader or bufferedWriter for repeated small operations. Standard modules are included with the compiler and require no package installation.
 
@@ -264,3 +264,88 @@ list {
   link { url = "/docs/functions", "Function parameters and return values" },
   link { url = "/docs/parallelism", "Task groups, shared access and cancellation" }
 }
+
+h2 { "Directory operations and metadata" }
+
+readDir opens a directory and returns an owned lazy iterator. Its items contain independent Strings, so retaining an entry does not retain the directory cursor. Use metadata to inspect one path, and createDir, removeFile or removeDir for basic filesystem changes.
+
+codeblock { language = kalandra, """from "std/fs" import createDir, removeFile, removeDir, readDir, metadata, open, OpenMode, writeText, close, FsError
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! (FsError | IoError):
+  try createDir("sample-directory")
+  file = try open("sample-directory/hello.txt", OpenMode.CreateNew)
+  try writeText(file, "hello")
+  try close(file)
+
+  info = try metadata("sample-directory/hello.txt")
+  try println(format("bytes={}", info.size))
+  try for entry in try readDir("sample-directory"):
+    try println(entry.name)
+
+  try removeFile("sample-directory/hello.txt")
+  try removeDir("sample-directory")
+  return ()
+""" }
+
+This displays bytes=5 and hello.txt. The first try around the loop propagates traversal errors; the try before readDir propagates opening errors. Errors in the loop body still require their own handling.
+
+h2 { "FileKind" }
+
+list {
+  "FileKind.File: a regular file.",
+  "FileKind.Directory: a directory.",
+  "FileKind.Symlink: a symbolic link; Windows directory junctions also use this kind.",
+  "FileKind.Other: another filesystem object, such as a POSIX FIFO or an unrecognized Windows reparse point."
+}
+
+Use match to distinguish kinds. Classification describes what the filesystem reported during the operation; another process can change a path afterward.
+
+h2 { "DirEntry" }
+
+code { "type DirEntry: name: String; kind: FileKind" }
+
+name is one filename component, excluding its parent directory. Join it to the directory path with std/path.join when you need a full path. kind classifies the entry without following its symbolic-link target. An entry owns its text and remains valid after advancing or closing its cursor.
+
+h2 { "FileInfo" }
+
+code { "type FileInfo: kind: FileKind; size: u64" }
+
+size is the byte length of a regular file. It is zero for directories, symbolic links and other object kinds; it does not report allocated disk blocks, directory contents or a link target's size.
+
+h2 { "readDir" }
+
+code { "readDir(path: String) -> Iterator[DirEntry, FsError] ! FsError" }
+
+Opening happens at the call, so a missing path or a path that is not a directory reports FsError immediately. Consumption advances through entries incrementally; enumeration does not build an array of the whole directory. Operating-system APIs can buffer or prefetch entries. Ordering is unspecified, dot and dot-dot entries are excluded, and traversal is not recursive. Opening a path that resolves to a directory through a symlink is allowed; listing its entries does not recursively follow links.
+
+A for loop takes ownership of its cursor and closes it on exhaustion, break, return or error. Faults and cancellation also retire owned cursor resources. Manual next calls retain the cursor between calls: use std/iter.close when finished, or let its owning scope end. This uses the same ownership lifecycle as other iterators. Native directory closing runs on the I/O service, just like automatic file cleanup; an already started OS request can finish independently after cancellation.
+
+Directory enumeration is not a filesystem snapshot. Entries can appear, disappear or change while traversal proceeds. An unreadable entry or invalid filename encoding produces FsError rather than a silently changed name. POSIX filenames must be valid UTF-8 to appear as Strings; Windows names use strict Unicode conversion. Filesystems that reject malformed names at creation cannot produce that encoding case.
+
+h2 { "metadata" }
+
+code { "metadata(path: String) -> FileInfo ! FsError" }
+
+Inspect the final path component without following a symbolic link. Parent components still follow ordinary OS path resolution. A broken symbolic link can be inspected as FileKind.Symlink. A missing path reports FsError.System; there is no separate exists check whose result guarantees a later open will succeed.
+
+h2 { "createDir" }
+
+code { "createDir(path: String) -> unit ! FsError" }
+
+Create one directory. Its parent must already exist. An existing path, including an existing directory, reports FsError.System. POSIX permissions follow the process umask; Windows uses inherited security settings. This does not create missing parents.
+
+h2 { "removeFile" }
+
+code { "removeFile(path: String) -> unit ! FsError" }
+
+Remove a file or file symbolic link. A directory is rejected. Removing a symbolic link removes the link, not its target. Windows directory junctions and directory symbolic links use removeDir because the OS distinguishes their removal operation.
+
+h2 { "removeDir" }
+
+code { "removeDir(path: String) -> unit ! FsError" }
+
+Remove one empty directory. A nonempty directory is rejected; removal is never recursive. On Windows, removing a directory junction or directory symbolic link removes that link without traversing or deleting its target.
+
+These operations run on the host through the same bounded I/O service as file reads and writes. Structured tasks can suspend while a request is pending. They work on the host in mixed GPU applications and are rejected in device kernels. Filesystem changes already performed by the OS cannot be undone by a later error or cancellation.

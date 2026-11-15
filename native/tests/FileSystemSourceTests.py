@@ -11,6 +11,7 @@ p.add_argument('--output', type=Path, required=True)
 p.add_argument('--variant', choices=('debug','optimized','sanitized','thread-sanitized'), required=True)
 p.add_argument('--target', choices=('cpu','metal','vulkan','cuda'), default='cpu')
 p.add_argument('--compile-only', action='store_true')
+p.add_argument('--case', action='append', dest='cases', help='Run only selected fixtures; default runs the complete suite.')
 a = p.parse_args()
 a.compiler = a.compiler.resolve(); a.output = a.output.resolve(); a.output.mkdir(parents=True, exist_ok=True)
 flag = {'debug':'-O0','optimized':'-O2','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[a.variant]
@@ -20,6 +21,8 @@ from "std/fmt" import format
 '''
 
 def build(name, source, diagnostic=None):
+    if a.cases and name not in a.cases:
+        return
     directory = a.output/name; directory.mkdir(exist_ok=True)
     path = directory/'main.k'; path.write_text(prelude + source, encoding='utf-8')
     executable = directory/('program.exe' if os.name == 'nt' else 'program')
@@ -35,6 +38,8 @@ def build(name, source, diagnostic=None):
     return executable if a.target == 'cpu' else output/executable.name
 
 def run(name, source, expected, contents=None):
+    if a.cases and name not in a.cases:
+        return
     if a.target != 'cpu':
         source = source.replace('! (FsError | IoError):', '! (FsError | IoError | TaskError):')
         source = re.sub(r'(fn main\(args:\[String\]\)->unit ! [^\n]+:\n)', r'\1  answer=try parallel:\n    gpu=devices.gpu()\n    try await spawn double(21) on gpu\n  try println(format("{}",answer))\n', source)
@@ -59,6 +64,53 @@ def run(name, source, expected, contents=None):
         assert result.returncode == 0 and result.stdout == expected and not stderr,(name,workers,result)
         if contents is not None: assert data.read_bytes() == contents,(name,data.read_bytes())
     print('PASS: executed',name,flush=True)
+
+run('directory-utilities','''from "std/fs" import readDir, metadata, createDir, removeFile, removeDir, FileKind
+from "std/iter" import next, close as closeEntries
+from "std/option" import Option
+fn kindNumber(kind:FileKind)->i64:
+  return match kind:
+    FileKind.File:1
+    FileKind.Directory:2
+    FileKind.Symlink:3
+    FileKind.Other:4
+fn main(args:[String])->unit ! (FsError | IoError):
+  root=args[0]
+  try createDir(root)
+  try createDir(root+"/child")
+  file=try open(root+"/é.txt",OpenMode.Create)
+  try writeText(file,"hello")
+  try close(file)
+  info=try metadata(root+"/é.txt")
+  try println(format("{}:{}",kindNumber(info.kind)==1,info.size))
+  directory=try metadata(root)
+  try println(format("{}:{}",kindNumber(directory.kind)==2,directory.size))
+  count=0
+  files=0
+  directories=0
+  try for entry in try readDir(root):
+    count=count+1
+    if kindNumber(entry.kind)==1: files=files+1
+    if kindNumber(entry.kind)==2: directories=directories+1
+  try println(format("{}:{}:{}",count,files,directories))
+  cursor=try readDir(root)
+  first=try next(cursor)
+  closeEntries(cursor)
+  retained=match first:
+    Option.None:""
+    Option.Some {value}:value.name
+  try println(format("{}",length(retained)>0))
+  stopped=0
+  try for entry in try readDir(root):
+    stopped=stopped+1
+    break
+  try println(format("{}",stopped))
+  rejected=removeDir(root) catch fn(error):return ()
+  try removeFile(root+"/é.txt")
+  try removeDir(root+"/child")
+  try removeDir(root)
+  return ()
+''',b'true:5\ntrue:0\n2:1:1\ntrue\n1\n')
 
 run('bytes-and-ownership','''fn passAlong(own file: File)->File:
   return file
@@ -282,4 +334,22 @@ if a.target=='cpu':
         'own-signature':('fn consume(own file:File)->unit:\n  return ()\nfn main()->unit:\n  f:fn(File)->unit=consume\n  return ()\n','expected fn('),
         'task-conflict':('fn first(file:File)->unit ! FsError:\n  bytes=try read(file,1)\n  return ()\nfn bad(file:File)->unit ! (FsError | TaskError):\n  return try parallel:\n    task=spawn first(file)\n    try first(file)\n    try await task\n    ()\nfn main()->unit:\n  return ()\n',"can't access file handle"),
     }
+    negatives.update({
+        'directory-cursor-move': ('''from "std/fs" import readDir
+from "std/iter" import close as closeEntries
+fn main()->unit ! FsError:
+  cursor=try readDir(".")
+  moved=cursor
+  closeEntries(cursor)
+  return ()
+''', 'was moved'),
+        'directory-cursor-borrow': ('''from "std/fs" import DirEntry
+from "std/iter" import Iterator, close as closeEntries
+fn bad(cursor:Iterator[DirEntry,FsError])->unit:
+  closeEntries(cursor)
+  return ()
+fn main()->unit:
+  return ()
+''', "can't move a borrowed"),
+    })
     for name,(source,diagnostic) in negatives.items(): build(name,source,diagnostic)

@@ -1151,6 +1151,12 @@ private:
             header.standard = StandardRecord::BufferedWriter;
           if (label == "OpenMode")
             header.standard = StandardRecord::OpenMode;
+          if (label == "FileKind")
+            header.standard = StandardRecord::FileKind;
+          if (label == "DirEntry")
+            header.standard = StandardRecord::DirEntry;
+          if (label == "FileInfo")
+            header.standard = StandardRecord::FileInfo;
           if (label == "FsError")
             header.standard = StandardRecord::FsError;
         }
@@ -1937,7 +1943,7 @@ private:
         names.push_back(symbol.name);
       }
       const auto prefix = options_.signature->argumentIndex.value_or(arguments.size());
-      if (prefix > 0 && !arguments.empty() && action != FileAction::Open) {
+      if (prefix > 0 && !arguments.empty() && !filePathAction(action)) {
         auto actual = expression(frame, arguments[0]);
         if (!actual || !isFileResource(output_, node(*actual).type))
           return {};
@@ -1995,13 +2001,13 @@ private:
            action == FileAction::WriteAll) &&
           !std::holds_alternative<ArrayExpr>(syntax_.expressions[arguments[i]].value))
         context.reset();
-      if (i == 0 && action != FileAction::Open)
+      if (i == 0 && !filePathAction(action))
         context.reset();
       const auto arg = expression(frame, arguments[i], context);
       if (!arg)
         return {};
       const auto &type = node(*arg).type;
-      if (i == 0 && action != FileAction::Open) {
+      if (i == 0 && !filePathAction(action)) {
         if (!isFileResource(output_, type) || type.array || type.task || type.fallible ||
             type.device) {
           error("S081", "filesystem operation requires a completed host file handle", span);

@@ -935,7 +935,7 @@ private:
               rememberResource(argument, args.back(), env, uses);
             }
             validateResources(uses, env);
-            if (op.action != FileAction::Open && !args.empty()) {
+            if (!filePathAction(op.action) && !args.empty()) {
               write(op.arguments[0], args[0], env, spawned);
               if (consumesFile(op.action))
                 consume(op.arguments[0], args[0], env);
