@@ -1,7 +1,7 @@
-#include "NativeLayout.h"
-#include "NativeStack.h"
 #include "NativeCallFoundation.h"
 #include "NativeFastABI.h"
+#include "NativeLayout.h"
+#include "NativeStack.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -439,6 +439,8 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
                  target->getName() == "kalandra_application_arguments" ||
                  target->getName() == "kalandra_path" ||
                  target->getName() == "kalandra_format_scalar" ||
+                 target->getName() == "kalandra_format_number" ||
+                 target->getName() == "kalandra_format_align" ||
                  target->getName() == "kalandra_format_join" ||
                  target->getName() == "kalandra_string_validate" ||
                  target->getName() == "kalandra_string_array_validate" ||
@@ -741,6 +743,8 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
                            "kalandra_application_arguments",
                            "kalandra_path",
                            "kalandra_format_scalar",
+                           "kalandra_format_number",
+                           "kalandra_format_align",
                            "kalandra_format_join",
                            "kalandra_string_validate",
                            "kalandra_string_array_validate",

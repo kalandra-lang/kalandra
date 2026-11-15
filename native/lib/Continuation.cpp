@@ -26,8 +26,11 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           auto values = op.arguments;
           values.insert(values.begin(), op.callee);
           return values;
+        } else if constexpr (std::is_same_v<T, FormatOperation>) {
+          auto values = op.originalArguments;
+          values.insert(values.end(), op.arguments.begin(), op.arguments.end());
+          return values;
         } else if constexpr (std::is_same_v<T, FunctionCall> ||
-                             std::is_same_v<T, FormatOperation> ||
                              std::is_same_v<T, BufferOperation> ||
                              std::is_same_v<T, IteratorOperation> ||
                              std::is_same_v<T, FileOperation> || std::is_same_v<T, TimeOperation>)
@@ -648,6 +651,9 @@ private:
                                std::is_same_v<T, IteratorOperation> ||
                                std::is_same_v<T, FileOperation> ||
                                std::is_same_v<T, TimeOperation>) {
+            if constexpr (std::is_same_v<T, FormatOperation>)
+              for (auto &argument : op.originalArguments)
+                argument = importValue(argument);
             for (auto &argument : op.arguments)
               argument = importValue(argument);
           } else if constexpr (std::is_same_v<T, ArrayMap>) {
@@ -865,7 +871,9 @@ private:
     } else if (auto *parse = std::get_if<ParseOperation>(&op)) {
       parse->input = reads.at(0);
     } else if (auto *format = std::get_if<FormatOperation>(&op)) {
-      format->arguments = reads;
+      const auto count = format->originalArguments.size();
+      format->originalArguments.assign(reads.begin(), reads.begin() + count);
+      format->arguments.assign(reads.begin() + count, reads.end());
     } else if (auto *reference = std::get_if<FunctionReference>(&op)) {
       reference->function = referenced;
       reference->captures = reads;

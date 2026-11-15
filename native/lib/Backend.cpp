@@ -397,6 +397,13 @@ public:
                                                           {builder_.getI64Type()})},
                {"kalandra_format_scalar",
                 builder_.getFunctionType({ptr, builder_.getI32Type(), builder_.getI64Type()}, {})},
+               {"kalandra_format_number",
+                builder_.getFunctionType({ptr, builder_.getI32Type(), builder_.getI64Type(),
+                                          builder_.getI32Type(), builder_.getI64Type()},
+                                         {})},
+               {"kalandra_format_align",
+                builder_.getFunctionType({ptr, ptr, builder_.getI64Type(), builder_.getI32Type()},
+                                         {})},
                {"kalandra_format_join",
                 builder_.getFunctionType({ptr, ptr, builder_.getI64Type()}, {})},
                {"kalandra_string_validate", builder_.getFunctionType({ptr}, {})},
@@ -2927,6 +2934,8 @@ private:
           } else if constexpr (std::is_same_v<T, FormatOperation>) {
             // Evaluate every source argument once, left to right, BEFORE any
             // formatting allocations. This preserves ordinary call fault order.
+            for (auto original : operation.originalArguments)
+              expression(frame, original);
             std::vector<Value> arguments;
             for (auto argument : operation.arguments)
               arguments.push_back(expression(frame, argument));
@@ -2963,8 +2972,25 @@ private:
                     value = arith::ExtUIOp::create(builder_, loc, builder_.getI64Type(), value);
                   auto tag = arith::ConstantIntOp::create(builder_, loc,
                                                           static_cast<std::uint32_t>(*kind), 32);
-                  func::CallOp::create(builder_, loc, "kalandra_format_scalar", TypeRange{},
-                                       ValueRange{scratch, tag, value});
+                  if (part.spec.presentation == runtime::FormatPresentation::Default)
+                    func::CallOp::create(builder_, loc, "kalandra_format_scalar", TypeRange{},
+                                         ValueRange{scratch, tag, value});
+                  else {
+                    auto presentation = arith::ConstantIntOp::create(
+                        builder_, loc, static_cast<std::uint32_t>(part.spec.presentation), 32);
+                    func::CallOp::create(builder_, loc, "kalandra_format_number", TypeRange{},
+                                         ValueRange{scratch, tag, value, presentation,
+                                                    integer(loc, part.spec.precision)});
+                  }
+                  value = LLVM::LoadOp::create(builder_, loc, stringType, scratch);
+                }
+                if (part.spec.alignment != runtime::FormatAlignment::None) {
+                  LLVM::StoreOp::create(builder_, loc, value, scratch);
+                  auto alignment = arith::ConstantIntOp::create(
+                      builder_, loc, static_cast<std::uint32_t>(part.spec.alignment), 32);
+                  func::CallOp::create(
+                      builder_, loc, "kalandra_format_align", TypeRange{},
+                      ValueRange{scratch, scratch, integer(loc, part.spec.width), alignment});
                   value = LLVM::LoadOp::create(builder_, loc, stringType, scratch);
                 }
               }

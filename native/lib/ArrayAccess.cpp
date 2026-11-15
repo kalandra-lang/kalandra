@@ -952,6 +952,9 @@ private:
             return {};
           } else if constexpr (std::is_same_v<T, FormatOperation> ||
                                std::is_same_v<T, TimeOperation>) {
+            if constexpr (std::is_same_v<T, FormatOperation>)
+              for (auto value : op.originalArguments)
+                input(value);
             for (auto value : op.arguments)
               input(value);
             return {};

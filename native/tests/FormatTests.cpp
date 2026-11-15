@@ -10,6 +10,7 @@
 #include <tuple>
 using namespace kalandra;
 using namespace kalandra::runtime;
+void testFormatControls();
 static void require(bool condition, const char *message) {
   if (!condition) throw std::runtime_error(message);
 }
@@ -25,6 +26,7 @@ static std::string render(FormatScalarKind kind, std::uint64_t bits) {
 }
 int main() {
   try {
+    testFormatControls();
     const auto parsed = parseFormatTemplate("é {{literal}}: {} / {}", 2);
     require(parsed && parsed->size() == 4, "format segmentation failed");
     require((*parsed)[0].text == "é {literal}: " && (*parsed)[1].argument &&

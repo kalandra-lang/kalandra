@@ -23,7 +23,7 @@ list {
   link { url = "/docs/time", "std/time — measure elapsed time and suspend tasks" },
   link { url = "/docs/environment", "std/env — read inherited environment variables" },
   link { url = "/docs/console", "std/io — console input, output, Line and IoError" },
-  link { url = "/docs/console#format", "std/fmt — literal-template scalar formatting" },
+  link { url = "/docs/console#format", "std/fmt — checked formatting and Display" },
   link { url = "/docs/applications#choose-an-exit-status", "std/process — application ExitStatus" }
 }
 
