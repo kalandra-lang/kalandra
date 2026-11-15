@@ -358,6 +358,13 @@ fn main()->unit:
   return ()
 ''', 'S031'),
 })
+negative.update({
+    'ordering-wrong-result': ('from "std/cmp" import sortedBy\nfn main()->unit:\n  values=sortedBy([1,2],fn(a:i64,b:i64):return a<b)\n  return ()\n', 'S010'),
+    'ordering-fallible': ('from "std/cmp" import sortedBy,Ordering,compare\nerror Bad:\n  Wrong\nfn comparator(a:i64,b:i64)->Ordering ! Bad:\n  return compare(a,b)\nfn main()->unit:\n  values=sortedBy([1,2],comparator)\n  return ()\n', 'S010'),
+    'ordering-string-mut': ('from "std/cmp" import sortBy,compare\nfn main()->unit:\n  values=["b","a"]\n  sortBy(values,compare[String])\n  return ()\n', 'S076'),
+    'ordering-readonly': ('from "std/cmp" import sortBy,compare\nfn wrong(values:[i64])->unit:\n  sortBy(values,compare[i64])\n  return ()\nfn main()->unit:\n  wrong([2,1])\n  return ()\n', 'S077'),
+    'ordering-shared-reader': ('from "std/cmp" import sortBy,compare\nfn read(values:[i64])->i64:\n  return values[0]\nfn main()->unit ! TaskError:\n  values=[2,1]\n  try parallel:\n    task=spawn read(values)\n    sortBy(values,compare[i64])\n    try await task\n  return ()\n', 'S077'),
+})
 for name, (source, code) in negative.items():
     if args.cases and name not in args.cases and not ('ordering-all' in args.cases and name.startswith('ordering-')): continue
     root = output / name
