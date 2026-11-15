@@ -99,7 +99,7 @@ h2 { "Comparator effects and resource use" }
 
 A comparator borrows its arguments without consuming or mutating them. It may capture readable values and perform ordinary effects, but must handle expected errors within its own body. Ordinary faults and cancellation propagate normally. Do not depend on a particular comparison count or comparison sequence; use a consistent comparator rather than changing the ranking during a sort.
 
-Empty and singleton arrays invoke no comparisons. Sorting uses a stable merge of index permutations, takes O(n log n) comparisons and O(n) temporary storage, and obeys the existing allocation limits. Even an inconsistent comparator cannot remove the algorithm's bounds or make invalid memory access legal; its final ranking is unspecified.
+Empty and singleton arrays invoke no comparisons. Custom comparator sorting uses a stable merge of index permutations, takes O(n log n) comparisons and O(n) temporary storage, and obeys the existing allocation limits. For canonical primitive compare and totalCompare, the compiler can use the existing key-sort implementation; equal ranks then have identical stored representations, preserving observable stability. Even an inconsistent comparator cannot remove the algorithm's bounds or make invalid memory access legal; its final ranking is unspecified.
 
 sortedBy never writes the input. sortBy computes the permutation before changing the input, so a comparator fault leaves it unchanged. During the final in-place permutation, each swap commits both elements before the next cancellation checkpoint. A stopped operation can leave an intermediate ordering, but preserves the input elements and their exact bits.
 
