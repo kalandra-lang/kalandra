@@ -316,6 +316,19 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
       files[id].targets.push_back(*target);
       files[id].height = std::max(files[id].height, files[*target].height + 1);
     }
+    // Equality resolves one canonical capability without placing its name in
+    // the user's import namespace. Primitive operators still lower directly.
+    if (!standard && std::ranges::any_of(parsed.module.expressions, [](const auto &expression) {
+          const auto *comparison = std::get_if<ComparisonExpr>(&expression.value);
+          return comparison && (comparison->operation == ComparisonKind::Equal ||
+                                comparison->operation == ComparisonKind::NotEqual);
+        })) {
+      auto target = visit(fs::path(standardModulePath(StandardModule::Comparison)), 0, depth + 1,
+                          *source, {}, StandardModule::Comparison);
+      if (!target)
+        return {};
+      files[id].height = std::max(files[id].height, files[*target].height + 1);
+    }
     // Yielding expressions use the canonical Iterator and Option declarations
     // without injecting their exported names into the user's import namespace.
     // Standard modules already declare their own dependencies (and std/iter

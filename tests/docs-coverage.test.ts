@@ -121,6 +121,7 @@ test("standard-module callables have individual public reference entries", async
     Buffer: "buffers",
     Option: "options",
     Iteration: "iteration",
+    Comparison: "equality",
   };
   let count = 0;
   for (const module of declarations.matchAll(
