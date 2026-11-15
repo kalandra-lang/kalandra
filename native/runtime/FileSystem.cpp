@@ -353,9 +353,9 @@ void execute(Job &job) noexcept {
   case FileAction::OpenDirectory:
   case FileAction::ReadDirectory:
   case FileAction::Metadata:
-  case FileAction::CreateDirectory:
+  case FileAction::DirectoryCreate:
   case FileAction::RemoveFile:
-  case FileAction::RemoveDirectory:
+  case FileAction::DirectoryRemove:
   case FileAction::Open:
     break;
   case FileAction::BufferedReader:
@@ -877,7 +877,7 @@ extern "C" bool kalandra_file_step_v1(Invocation *ctx, FileResult *out, std::uin
   bool done = true;
   try {
     if (healthy(*ctx)) {
-      if (action > std::uint32_t(FileAction::RemoveDirectory))
+      if (action > std::uint32_t(FileAction::DirectoryRemove))
         ctx->fault(3);
       else
         done = step(*ctx, *out, static_cast<FileAction>(action), *args, state);

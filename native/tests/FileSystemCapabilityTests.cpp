@@ -63,9 +63,9 @@ int main() {
                          Spec{FileAction::OpenDirectory, {text}, nominal(0)},
                          Spec{FileAction::ReadDirectory, {nominal(0)}, nominal(9)},
                          Spec{FileAction::Metadata, {text}, nominal(8)},
-                         Spec{FileAction::CreateDirectory, {text}, unit},
+                         Spec{FileAction::DirectoryCreate, {text}, unit},
                          Spec{FileAction::RemoveFile, {text}, unit},
-                         Spec{FileAction::RemoveDirectory, {text}, unit}};
+                         Spec{FileAction::DirectoryRemove, {text}, unit}};
   for (const auto &spec : specs) {
     module.expressions.clear();
     std::vector<ValueId> arguments;

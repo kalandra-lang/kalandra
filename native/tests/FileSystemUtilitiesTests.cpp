@@ -94,19 +94,19 @@ void testFileSystemUtilities(const std::filesystem::path &root) {
             "close invalidated yielded name");
     require(call(ctx, FileAction::ReadDirectory, input).kind == FileKind::InvalidArgument,
             "closed directory accepted advancement");
-    auto removed = call(ctx, FileAction::RemoveDirectory, pathArgument(ctx, directory));
+    auto removed = call(ctx, FileAction::DirectoryRemove, pathArgument(ctx, directory));
     require(removed.kind == FileKind::System, "nonempty directory was removed");
     removed = call(ctx, FileAction::RemoveFile, pathArgument(ctx, directory / "child"));
     require(removed.kind == FileKind::System && std::filesystem::is_directory(directory / "child"),
             "removeFile removed a directory");
     const auto created = directory / "created";
-    require(call(ctx, FileAction::CreateDirectory, pathArgument(ctx, created)).kind ==
+    require(call(ctx, FileAction::DirectoryCreate, pathArgument(ctx, created)).kind ==
                 FileKind::Success,
             "createDir failed");
-    require(call(ctx, FileAction::CreateDirectory, pathArgument(ctx, created)).kind ==
+    require(call(ctx, FileAction::DirectoryCreate, pathArgument(ctx, created)).kind ==
                 FileKind::System,
             "createDir silently accepted an existing path");
-    require(call(ctx, FileAction::RemoveDirectory, pathArgument(ctx, created)).kind ==
+    require(call(ctx, FileAction::DirectoryRemove, pathArgument(ctx, created)).kind ==
                 FileKind::Success,
             "removeDir failed");
     require(call(ctx, FileAction::Metadata, pathArgument(ctx, created)).kind == FileKind::System,

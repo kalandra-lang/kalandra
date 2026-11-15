@@ -192,9 +192,9 @@ void pathUtility(Job &job) noexcept {
     (void)CloseHandle(handle);
     return;
   }
-  const bool success = job.action == FileAction::CreateDirectory
+  const bool success = job.action == FileAction::DirectoryCreate
                            ? CreateDirectoryW(path.data(), nullptr)
-                       : job.action == FileAction::RemoveDirectory ? RemoveDirectoryW(path.data())
+                       : job.action == FileAction::DirectoryRemove ? RemoveDirectoryW(path.data())
                                                                    : DeleteFileW(path.data());
   if (!success)
     job.system(lastError());
@@ -220,8 +220,8 @@ void pathUtility(Job &job) noexcept {
     }
     return;
   }
-  const auto result = job.action == FileAction::CreateDirectory   ? ::mkdir(path, 0777)
-                      : job.action == FileAction::RemoveDirectory ? ::rmdir(path)
+  const auto result = job.action == FileAction::DirectoryCreate   ? ::mkdir(path, 0777)
+                      : job.action == FileAction::DirectoryRemove ? ::rmdir(path)
                                                                   : ::unlink(path);
   if (result)
     job.system(lastError());

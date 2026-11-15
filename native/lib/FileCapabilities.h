@@ -29,7 +29,7 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
       !result.errorRecord || *result.errorRecord >= module.records.size() ||
       module.records[*result.errorRecord].standard != StandardRecord::FsError)
     return bad("requires host execution and its nominal FsError channel");
-  if (unsigned(op->action) > unsigned(FileAction::RemoveDirectory))
+  if (unsigned(op->action) > unsigned(FileAction::DirectoryRemove))
     return bad("has an invalid action");
   if (op->action >= FileAction::OpenDirectory) {
     if (op->arguments.size() != 1 || op->arguments[0] >= module.expressions.size())
