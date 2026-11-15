@@ -1,4 +1,4 @@
-meta { title = "Files and buffered I/O", description = "Open owned file handles, read bytes and UTF-8 lines, and write buffered output with std/fs.", order = 6, group = "Library reference" }
+meta { title = "Files, directories and buffered I/O", description = "Read and write files, iterate directories, inspect metadata and manage owned handles with std/fs.", order = 6, group = "Library reference" }
 
 Import file operations from std/fs. Open a file once, process it incrementally, and close it when finished. Use bufferedReader or bufferedWriter for repeated small operations. Standard modules are included with the compiler and require no package installation.
 
