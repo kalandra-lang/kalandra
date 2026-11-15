@@ -14,7 +14,9 @@ int main() {
   TypedModule module;
   constexpr std::array records{StandardRecord::File,           StandardRecord::BufferedReader,
                                StandardRecord::BufferedWriter, StandardRecord::OpenMode,
-                               StandardRecord::FsError,        StandardRecord::Line};
+                               StandardRecord::FsError,        StandardRecord::Line,
+                               StandardRecord::FileKind,       StandardRecord::DirEntry,
+                               StandardRecord::FileInfo,       StandardRecord::Option};
   for (auto standard : records) {
     TypedRecord record{"standard", {}, {}};
     record.standard = standard;
@@ -27,6 +29,7 @@ int main() {
     type.record = id;
     return type;
   };
+  module.records[9].fields.push_back({"value", nominal(7), {}});
   ValueType count;
   count.element = NumericType::UInt64;
   ValueType text;
@@ -56,7 +59,13 @@ int main() {
                          Spec{FileAction::Close, {nominal(1)}, unit},
                          Spec{FileAction::SeekTo, {nominal(1), count}, unit},
                          Spec{FileAction::WriteText, {nominal(2), text}, unit},
-                         Spec{FileAction::WriteLine, {nominal(0), text}, unit}};
+                         Spec{FileAction::WriteLine, {nominal(0), text}, unit},
+                         Spec{FileAction::OpenDirectory, {text}, nominal(0)},
+                         Spec{FileAction::ReadDirectory, {nominal(0)}, nominal(9)},
+                         Spec{FileAction::Metadata, {text}, nominal(8)},
+                         Spec{FileAction::CreateDirectory, {text}, unit},
+                         Spec{FileAction::RemoveFile, {text}, unit},
+                         Spec{FileAction::RemoveDirectory, {text}, unit}};
   for (const auto &spec : specs) {
     module.expressions.clear();
     std::vector<ValueId> arguments;
@@ -70,6 +79,11 @@ int main() {
     TypedExpr expression{{}, result, FileOperation{spec.action, arguments}};
     CHECK(!fileCapabilityError(module, expression, NumericTarget::Cpu));
     CHECK(fileCapabilityError(module, expression, NumericTarget::AppleGpu));
+    if (spec.action == FileAction::ReadDirectory) {
+      module.records[9].fields[0].type = nominal(5);
+      CHECK(fileCapabilityError(module, expression, NumericTarget::Cpu));
+      module.records[9].fields[0].type = nominal(7);
+    }
     auto invalid = expression;
     std::get<FileOperation>(invalid.operation).arguments.clear();
     CHECK(fileCapabilityError(module, invalid, NumericTarget::Cpu));
@@ -92,5 +106,5 @@ int main() {
     CHECK(fileCapabilityError(module, expression, NumericTarget::Cpu));
   }
   std::puts(
-      "Filesystem capability validation: all 15 operations and invalid transport contracts passed");
+      "Filesystem capability validation: all 21 operations and invalid transport contracts passed");
 }

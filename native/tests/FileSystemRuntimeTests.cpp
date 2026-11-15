@@ -422,12 +422,14 @@ static void blockedCancellation(const std::filesystem::path &root) {
   CHECK(::close(peer) == 0);
 }
 #endif
+void testFileSystemUtilities(const std::filesystem::path &);
 int main(int argc, char **argv) {
   CHECK(argc == 2);
   const std::filesystem::path root(argv[1]);
   std::filesystem::create_directories(root);
   std::filesystem::remove_all(root / "cases");
   std::filesystem::create_directory(root / "cases");
+  testFileSystemUtilities(root / "cases");
   roundTrip(root / "cases");
   consumingHandleTransfer(root / "cases");
   bufferingAndLines(root / "cases");

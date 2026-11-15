@@ -172,3 +172,31 @@ fn main()->String:
     assert 'export trait Display:' in declarations and 'fn display(value: Self) -> String' in declarations,declarations
     client.finish()
 print('PASS: custom Display conformance and canonical standard trait definition')
+
+with tempfile.TemporaryDirectory(dir=directory) as temp:
+    root=Path(temp).resolve()
+    path=root/'directory.k'
+    text='''from "std/fs" import readDir as entries, metadata, FsError
+fn main()->unit ! FsError:
+  cursor=try entries(".")
+  info=try metadata(".")
+  return ()
+'''
+    client=Client(server)
+    client.init(workspaceFolders=[{'uri':root.as_uri(),'name':'directory'}])
+    client.open(path,text)
+    diagnostics=publications(client.barrier())[path.as_uri()]['diagnostics']
+    assert not diagnostics,diagnostics
+    for row,word in [(2,'entries'),(3,'metadata')]:
+        line=text.splitlines()[row]
+        params={'textDocument':{'uri':path.as_uri()},
+                'position':{'line':row,'character':line.index(word)+1}}
+        definition=client.rpc('textDocument/definition',params)['result']
+        assert definition['uri']=='kalandra-stdlib:std/fs.k',definition
+        signature=client.rpc('textDocument/signatureHelp',{
+            **params,'position':{'line':row,'character':line.index('(".")')+2}})['result']
+        assert signature and 'path: String' in signature['signatures'][0]['label'],signature
+    declarations=client.rpc('kalandra/standardLibrary',{'uri':'kalandra-stdlib:std/fs.k'})['result']
+    assert 'export fn readDir' in declarations and 'export type DirEntry:' in declarations,declarations
+    client.finish()
+print('PASS: directory iterator/metadata aliases, canonical definitions and editor signatures')

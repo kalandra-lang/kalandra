@@ -8,6 +8,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstring>
+#include <cwchar>
 #include <mutex>
 #include <new>
 #include <thread>
@@ -20,8 +21,10 @@
 #else
 #include <cerrno>
 #include <csignal>
+#include <dirent.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 
@@ -30,11 +33,15 @@ using namespace kalandra::runtime;
 using namespace std::chrono_literals;
 #ifdef _WIN32
 using NativeFile = HANDLE;
+using NativeDirectory = HANDLE;
+const NativeDirectory invalidDirectory = INVALID_HANDLE_VALUE;
 const NativeFile invalidFile = INVALID_HANDLE_VALUE;
 std::int32_t lastError() noexcept { return static_cast<std::int32_t>(GetLastError()); }
 constexpr auto ioError = ERROR_WRITE_FAULT;
 #else
 using NativeFile = int;
+using NativeDirectory = DIR *;
+constexpr NativeDirectory invalidDirectory = nullptr;
 constexpr NativeFile invalidFile = -1;
 std::int32_t lastError() noexcept { return errno; }
 constexpr auto ioError = EIO;
@@ -50,12 +57,31 @@ std::int32_t closeNative(NativeFile file) noexcept {
   return ::close(file) == 0 ? 0 : lastError();
 #endif
 }
+std::int32_t closeDirectory(NativeDirectory directory) noexcept {
+  if (directory == invalidDirectory)
+    return 0;
+#ifdef _WIN32
+  return FindClose(directory) ? 0 : lastError();
+#else
+  return ::closedir(directory) == 0 ? 0 : lastError();
+#endif
+}
+struct DirectoryData {
+#ifdef _WIN32
+  WIN32_FIND_DATAW first{};
+  bool firstPending = false;
+#endif
+  bool exhausted = false;
+};
+constexpr std::size_t directoryNameBytes = 65536;
 constexpr std::size_t fileSlots = 65536, noFileSlot = fileSlots;
 std::size_t reserveFileSlot();
 void releaseFileSlot(std::size_t) noexcept;
-void deferClose(NativeFile &, std::size_t &) noexcept;
+void deferClose(NativeFile &, std::size_t &, NativeDirectory &) noexcept;
 struct FileState : OwnedState {
   NativeFile file = invalidFile;
+  NativeDirectory directory = invalidDirectory;
+  bool isDirectory = false;
   std::size_t closeSlot = noFileSlot;
   enum class Buffer { None, Read, Write } buffer = Buffer::None;
   std::uint64_t capacity = 0, begin = 0, end = 0;
@@ -63,11 +89,11 @@ struct FileState : OwnedState {
       : OwnedState(OwnedKind::File, sizeof(FileState) + capacity, cleanup, retireFile),
         capacity(capacity) {}
   unsigned char *data() noexcept { return reinterpret_cast<unsigned char *>(this + 1); }
-  ~FileState() { deferClose(file, closeSlot); }
+  ~FileState() { deferClose(file, closeSlot, directory); }
   static void cleanup(void *p) noexcept { static_cast<FileState *>(p)->~FileState(); }
   static void retireFile(void *p) noexcept {
     auto &file = *static_cast<FileState *>(p);
-    deferClose(file.file, file.closeSlot);
+    deferClose(file.file, file.closeSlot, file.directory);
   }
 };
 FileDescriptor descriptor(FileState *file) noexcept { return ownedDescriptor(file); }
@@ -210,7 +236,9 @@ std::uint64_t write(Job &job, FileState &file, const unsigned char *bytes,
   return n;
 }
 std::int32_t closeFile(FileState &file) noexcept {
-  const auto result = closeNative(std::exchange(file.file, invalidFile));
+  const auto directoryError = closeDirectory(std::exchange(file.directory, invalidDirectory));
+  const auto nativeError = closeNative(std::exchange(file.file, invalidFile));
+  const auto result = directoryError ? directoryError : nativeError;
   releaseFileSlot(std::exchange(file.closeSlot, noFileSlot));
   return result;
 }
@@ -288,20 +316,46 @@ void open(Job &job) noexcept {
     releaseFileSlot(std::exchange(job.output->closeSlot, noFileSlot));
   }
 }
+#include "FileSystemUtilities.h"
 void execute(Job &job) noexcept {
   if (job.abandoned)
     return;
+  if (job.action == FileAction::OpenDirectory) {
+    openDirectory(job);
+    return;
+  }
+  if (filePathAction(job.action) && job.action != FileAction::Open) {
+    pathUtility(job);
+    return;
+  }
   if (job.action == FileAction::Open) {
     open(job);
     return;
   }
   auto &file = *job.file;
   std::lock_guard lock(file.mutex);
-  if (file.file == invalidFile) {
+  if (file.isDirectory) {
+    if (job.action == FileAction::ReadDirectory && file.closeSlot != noFileSlot)
+      readDirectory(job, file);
+    else if (job.action == FileAction::Close && file.closeSlot != noFileSlot) {
+      const auto error = closeFile(file);
+      if (error)
+        job.system(error);
+    } else
+      job.kind = FileKind::InvalidArgument;
+    return;
+  }
+  if (job.action == FileAction::ReadDirectory || file.file == invalidFile) {
     job.kind = FileKind::InvalidArgument;
     return;
   }
   switch (job.action) {
+  case FileAction::OpenDirectory:
+  case FileAction::ReadDirectory:
+  case FileAction::Metadata:
+  case FileAction::CreateDirectory:
+  case FileAction::RemoveFile:
+  case FileAction::RemoveDirectory:
   case FileAction::Open:
     break;
   case FileAction::BufferedReader:
@@ -457,6 +511,7 @@ struct Executor {
   std::array<Pending, 64> queue;
   struct CloseSlot {
     NativeFile file = invalidFile;
+    NativeDirectory directory = invalidDirectory;
     bool reserved = false;
   };
   std::array<CloseSlot, fileSlots> closes;
@@ -475,6 +530,7 @@ struct Executor {
     for (;;) {
       Pending current;
       NativeFile closing = invalidFile;
+      NativeDirectory closingDirectory = invalidDirectory;
       std::size_t closeIndex = noFileSlot;
       {
         std::unique_lock lock(mutex);
@@ -484,6 +540,7 @@ struct Executor {
           closeBegin = (closeBegin + 1) % fileSlots;
           --closeCount;
           closing = closes[closeIndex].file;
+          closingDirectory = closes[closeIndex].directory;
         } else {
           current = std::move(queue[begin]);
           begin = (begin + 1) % queue.size();
@@ -492,6 +549,7 @@ struct Executor {
         ++active;
       }
       if (closeIndex != noFileSlot) {
+        (void)closeDirectory(closingDirectory);
         (void)closeNative(closing);
         {
           std::lock_guard lock(mutex);
@@ -509,11 +567,13 @@ struct Executor {
         execute(*current.job);
       if (current.job->file && current.job->file->retired.load(std::memory_order_acquire)) {
         std::lock_guard native(current.job->file->mutex);
-        deferClose(current.job->file->file, current.job->file->closeSlot);
+        deferClose(current.job->file->file, current.job->file->closeSlot,
+                   current.job->file->directory);
       }
       if (current.job->output && current.job->output->retired.load(std::memory_order_acquire)) {
         std::lock_guard native(current.job->output->mutex);
-        deferClose(current.job->output->file, current.job->output->closeSlot);
+        deferClose(current.job->output->file, current.job->output->closeSlot,
+                   current.job->output->directory);
       }
       // Native access has ended. Releasing the exact byte pin before done
       // publication avoids unnecessary COW on an ordinary successful return.
@@ -569,8 +629,8 @@ void releaseFileSlot(std::size_t slot) noexcept {
   service.closes[slot] = {};
   --service.reserved;
 }
-void deferClose(NativeFile &file, std::size_t &slot) noexcept {
-  if (file == invalidFile) {
+void deferClose(NativeFile &file, std::size_t &slot, NativeDirectory &directory) noexcept {
+  if (file == invalidFile && directory == invalidDirectory) {
     releaseFileSlot(std::exchange(slot, noFileSlot));
     return;
   }
@@ -580,6 +640,7 @@ void deferClose(NativeFile &file, std::size_t &slot) noexcept {
   std::lock_guard lock(service.mutex);
   const auto index = std::exchange(slot, noFileSlot);
   service.closes[index].file = std::exchange(file, invalidFile);
+  service.closes[index].directory = std::exchange(directory, invalidDirectory);
   service.closeQueue[(service.closeBegin + service.closeCount) % fileSlots] = std::uint32_t(index);
   ++service.closeCount;
   service.changed.notify_one();
@@ -630,7 +691,7 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
   if (!op->storage.valid())
     return nullptr;
   FileState *file = nullptr;
-  if (action != FileAction::Open) {
+  if (!filePathAction(action)) {
     file = inspectFile(ctx, args.file);
     if (!file)
       return nullptr;
@@ -646,10 +707,10 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
   std::uint64_t size = 0;
   if (bufferRead || bufferWrite)
     size = buffer.size;
-  else if (action == FileAction::Open) {
+  else if (filePathAction(action)) {
     if (!validateString(ctx, args.path))
       return nullptr;
-    if (args.mode > std::uint64_t(FileMode::ReadWrite) ||
+    if ((action == FileAction::Open && args.mode > std::uint64_t(FileMode::ReadWrite)) ||
         (args.path.byteLength && std::memchr(args.path.data, 0, args.path.byteLength))) {
       out.kind = FileKind::InvalidArgument;
       return nullptr;
@@ -664,7 +725,9 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
     if (!healthy(ctx))
       return nullptr;
     size = std::uint64_t(args.bytes.sizes[0]);
-  } else if (returnsBytes(action) || action == FileAction::ReadLine)
+  } else if (action == FileAction::ReadDirectory)
+    size = directoryNameBytes;
+  else if (returnsBytes(action) || action == FileAction::ReadLine)
     size = args.value;
   if (size > std::uint64_t(INT64_MAX) - sizeof(Job)) {
     ctx.fault(2);
@@ -687,16 +750,23 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
     job->buffer = std::move(buffer);
     if (file)
       job->fileOwner = std::move(*ctx.lease(file));
-    if (action == FileAction::Open || action == FileAction::BufferedReader ||
-        action == FileAction::BufferedWriter) {
-      job->output = createFile(ctx, action == FileAction::Open ? 0 : args.value);
+    if (action == FileAction::Open || action == FileAction::OpenDirectory ||
+        action == FileAction::BufferedReader || action == FileAction::BufferedWriter) {
+      job->output = createFile(ctx, action == FileAction::OpenDirectory ? sizeof(DirectoryData)
+                                    : action == FileAction::Open        ? 0
+                                                                        : args.value);
       if (!job->output)
         return nullptr;
       job->outputOwner = std::move(*ctx.lease(job->output));
     }
-    if (action == FileAction::Open) {
-      if (args.path.byteLength)
-        std::memcpy(job->data(), args.path.data, args.path.byteLength);
+    if (filePathAction(action)) {
+      for (std::uint64_t offset = 0; offset < std::uint64_t(args.path.byteLength);) {
+        if (!healthy(ctx))
+          return nullptr;
+        const auto count = std::min<std::uint64_t>(1024, args.path.byteLength - offset);
+        std::memcpy(job->data() + offset, args.path.data + offset, count);
+        offset += count;
+      }
       job->data()[args.path.byteLength] = 0;
     } else if (writesText(action)) {
       for (std::uint64_t offset = 0; offset < std::uint64_t(args.path.byteLength);) {
@@ -743,7 +813,10 @@ bool step(Invocation &ctx, FileResult &out, FileAction action, const FileArgumen
     return true;
   }
   out.kind = job.kind;
-  out.code = job.error;
+  out.code = job.kind == FileKind::Success &&
+                     (action == FileAction::Metadata || action == FileAction::ReadDirectory)
+                 ? std::int32_t(job.mode)
+                 : job.error;
   out.count = job.count;
   if (job.kind == FileKind::System) {
     systemError(ctx, out, job.error);
@@ -773,7 +846,9 @@ bool step(Invocation &ctx, FileResult &out, FileAction action, const FileArgumen
       args.bytes.aligned[args.bytes.offset + std::int64_t(i) * args.bytes.strides[0]] =
           job.data()[i];
     }
-  } else if ((returnsBytes(action) || action == FileAction::ReadLine) && job.count) {
+  } else if ((returnsBytes(action) || action == FileAction::ReadLine ||
+              action == FileAction::ReadDirectory) &&
+             job.count) {
     auto *data = static_cast<std::uint8_t *>(ctx.allocateRecord(job.count));
     if (!data)
       return true;
@@ -784,7 +859,7 @@ bool step(Invocation &ctx, FileResult &out, FileAction action, const FileArgumen
       std::memcpy(data + offset, job.data() + offset, n);
       offset += n;
     }
-    if (action == FileAction::ReadLine)
+    if (action == FileAction::ReadLine || action == FileAction::ReadDirectory)
       out.text = {data, reinterpret_cast<const char *>(data), std::int64_t(job.count)};
     else {
       out.bytes.allocated = out.bytes.aligned = data;
@@ -802,7 +877,7 @@ extern "C" bool kalandra_file_step_v1(Invocation *ctx, FileResult *out, std::uin
   bool done = true;
   try {
     if (healthy(*ctx)) {
-      if (action > std::uint32_t(FileAction::WriteAllBuffer))
+      if (action > std::uint32_t(FileAction::RemoveDirectory))
         ctx->fault(3);
       else
         done = step(*ctx, *out, static_cast<FileAction>(action), *args, state);

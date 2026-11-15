@@ -38,8 +38,10 @@ inline void emitFileArguments(llvm::IRBuilder<> &b, const TaskValueTypes &types,
     auto *type = layout->getElementType(field);
     b.CreateStore(b.CreateLoad(type, input), b.CreateStructGEP(layout, arguments, field));
   };
-  if (op.action == FileAction::Open) {
+  if (filePathAction(op.action)) {
     copy(1, inputs.at(0));
+    if (op.action != FileAction::Open)
+      return;
     auto *mode = b.CreateSub(b.CreateLoad(b.getInt64Ty(), inputs.at(1)), b.getInt64(1));
     b.CreateStore(mode, b.CreateStructGEP(layout, arguments, 4));
     return;
@@ -115,14 +117,41 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
     }
     b.CreateBr(next);
   }
+  const auto storeInfo = [&](std::size_t id, llvm::Value *record, bool entry) {
+    storeField(id, record, "kind", b.CreateZExt(loadTransport(1), b.getInt64Ty()));
+    if (entry)
+      storeField(id, record, "name", loadTransport(2));
+    else
+      storeField(id, record, "size", loadTransport(5));
+  };
+  const auto directoryItem = [&]() {
+    const auto &fields = input.records.at(*result.record).fields;
+    const auto found =
+        std::ranges::find_if(fields, [](const auto &field) { return field.name == "value"; });
+    if (found == fields.end() || !found->type.record ||
+        input.records.at(*found->type.record).standard != StandardRecord::DirEntry)
+      throw std::invalid_argument("directory option lost DirEntry");
+    return std::pair{std::size_t(found - fields.begin()), *found->type.record};
+  };
   b.SetInsertPoint(success);
   auto *value = b.CreateStructGEP(resultType, output, 1);
   switch (op.action) {
   case FileAction::Open:
+  case FileAction::OpenDirectory:
   case FileAction::BufferedReader:
   case FileAction::BufferedWriter:
     b.CreateStore(loadTransport(3), value);
     break;
+  case FileAction::Metadata:
+    storeInfo(*result.record, value, false);
+    break;
+  case FileAction::ReadDirectory: {
+    auto *option = types.records()[*result.record];
+    b.CreateStore(b.getInt64(2), b.CreateStructGEP(option, value, 0));
+    const auto [field, id] = directoryItem();
+    storeInfo(id, b.CreateStructGEP(option, value, field), true);
+    break;
+  }
   case FileAction::Read:
   case FileAction::ReadExact:
     b.CreateStore(loadTransport(4), value);
@@ -145,7 +174,7 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
   }
   b.CreateBr(next);
   b.SetInsertPoint(end);
-  if (op.action == FileAction::ReadLine) {
+  if (op.action == FileAction::ReadLine || op.action == FileAction::ReadDirectory) {
     b.CreateStore(b.getInt64(1), b.CreateStructGEP(types.records()[*result.record],
                                                    b.CreateStructGEP(resultType, output, 1), 0));
     b.CreateBr(next);

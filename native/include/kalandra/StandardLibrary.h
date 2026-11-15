@@ -253,6 +253,19 @@ export fn parseBool(text: String) -> bool ! ParseError:
   case StandardModule::Filesystem:
     return R"k(from "std/io" import Line
 from "std/buffer" import ByteBuffer
+from "std/iter" import Iterator
+from "std/option" import Option
+export enum FileKind:
+  File
+  Directory
+  Symlink
+  Other
+export type DirEntry:
+  name: String
+  kind: FileKind
+export type FileInfo:
+  kind: FileKind
+  size: u64
 export type File:
   __storage: [u8]
 export type BufferedReader:
@@ -277,6 +290,27 @@ export error FsError:
     expected: u64
     actual: u64
   InvalidArgument
+fn __openDirectory(path: String) -> File ! FsError:
+  return __kalandra_fs_open_directory(path)
+fn __readDirectory(directory: File) -> Option[DirEntry] ! FsError:
+  return __kalandra_fs_read_directory(directory)
+export fn readDir(path: String) -> Iterator[DirEntry, FsError] ! FsError:
+  directory = try __openDirectory(path)
+  return while true:
+    entry = try __readDirectory(directory)
+    match entry:
+      Option.None: break
+      Option.Some {value}:
+        yield value
+        ()
+export fn metadata(path: String) -> FileInfo ! FsError:
+  return __kalandra_fs_metadata(path)
+export fn createDir(path: String) -> unit ! FsError:
+  return __kalandra_fs_create_directory(path)
+export fn removeFile(path: String) -> unit ! FsError:
+  return __kalandra_fs_remove_file(path)
+export fn removeDir(path: String) -> unit ! FsError:
+  return __kalandra_fs_remove_directory(path)
 export fn open(path: String, mode: OpenMode) -> File ! FsError:
   return __kalandra_fs_open(path, mode)
 export fn bufferedReader(own file: File, capacity: u64) -> BufferedReader ! FsError:

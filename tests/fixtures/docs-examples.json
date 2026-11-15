@@ -497,6 +497,10 @@
     {
       "kind": "cpu",
       "expected": "3:97:9"
+    },
+    {
+      "kind": "cpu",
+      "expected": "bytes=5\nhello.txt"
     }
   ],
   "parsing": [
