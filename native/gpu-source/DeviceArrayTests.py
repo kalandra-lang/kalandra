@@ -61,8 +61,9 @@ for name, (helper, call, typ, expected) in cases().items():
 root = a.root/'tensor-composition'
 root.mkdir(exist_ok=True)
 helper = """fn factor(n:i64)->f32:
-  values=for i in range(n):
+  values=array(for i in range(n):
     yield f32(i)
+  )
   total:f32=0
   for value in values:
     total=total+value

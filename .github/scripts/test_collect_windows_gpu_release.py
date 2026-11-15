@@ -81,6 +81,30 @@ class WindowsGpuReleaseTests(unittest.TestCase):
                 compose.assert_not_called()
                 self.assertEqual(list((root/'assets').iterdir()), [])
 
+    def test_compile_evidence_is_accepted_without_exporting_it(self):
+        def diagnostics(members):
+            for backend in ('cuda', 'vulkan'):
+                members[f'installed-{backend}/compile-jobs.json'] = '{"suites": []}'
+                members[f'installed-{backend}/compile-logs/generators.log'] = 'qualified'
+        root, _, compose = self.workspace(mutate=diagnostics)
+        collector.collect(Path('runtimes'), root/'assets', 'arm64')
+        self.assertEqual(compose.call_count, 4)
+        self.assertEqual(len(list((root/'assets').iterdir())), 4)
+        self.assertFalse(list(root.glob('*.log')))
+        self.assertFalse(list(root.glob('compile-jobs.json')))
+
+    def test_unknown_diagnostic_locations_and_extensions_reject(self):
+        for name in ('other/compile-jobs.json', 'installed-cuda/extra.json',
+                     'installed-cuda/compile-logs/program.exe',
+                     'installed-vulkan/compile-logs/nested/output.log',
+                     'installed-cuda/compile-logs/../escape.log'):
+            with self.subTest(name=name):
+                root, _, compose = self.workspace(mutate=lambda members: members.update({name: 'unexpected'}))
+                with self.assertRaises(RuntimeError):
+                    collector.collect(Path('runtimes'), root/'assets', 'arm64')
+                compose.assert_not_called()
+                self.assertEqual(list((root/'assets').iterdir()), [])
+
     def test_nonreproducible_second_backend_exports_nothing(self):
         root, _, compose = self.workspace()
         original = compose.side_effect

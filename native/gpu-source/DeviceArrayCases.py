@@ -145,57 +145,64 @@ fn work(n:i64)->i64:
         return value
     result.update({
         'ordered-nested-yield': ("""fn work(n:i64)->i64:
-  values=for i in range(n):
+  values=array(for i in range(n):
     if i%2==0:
       continue
     for j in range(3):
       if j==2:
         break
       yield i*10+j
+  )
   result=0
   for value in values:
     result=result*13+value
   return result
 """, 'work(10)', 'i64', ordered([i*10+j for i in range(10) if i%2 for j in range(2)])),
         'empty-yield': ("""fn work(n:i64)->i64:
-  values=for i in range(n):
+  values=array(for i in range(n):
     if i<0:
       yield i
+  )
   return length(values)
 """, 'work(10)', 'i64', 0),
         'while-yield-break': ("""fn work(n:i64)->i64:
   i=0
-  values=while i<n:
+  values=array(while i<n:
     i=i+1
     if i>4:
       break
     if i%2==1:
       yield i
+  )
   result=0
   for value in values:
     result=result*13+value
   return result
 """, 'work(20)', 'i64', ordered([1,3])),
         'nested-collectors-gc': ("""fn work(n:i64)->i64:
-  values=for i in range(n):
-    inner=for j in range(3):
+  values=array(for i in range(n):
+    inner=array(for j in range(3):
       yield i*10+j
+    )
     for value in inner:
       if value%2==0:
         yield value
+  )
   result=0
   for value in values:
     result=result*13+value
   return result
 """, 'work(4)', 'i64', ordered([i*10+j for i in range(4) for j in range(3) if j%2==0])),
         'collector-growth': ("""fn work(n:i64)->i64:
-  values=for i in range(n):
+  values=array(for i in range(n):
     yield i
+  )
   return length(values)+values[n-1]+values[0]
 """, 'work(1000)', 'i64', 1999),
         'boolean-yield': ("""fn work(n:i64)->i64:
-  flags=for i in range(n):
+  flags=array(for i in range(n):
     yield i%2==0
+  )
   total=0
   for flag in flags:
     if flag:
@@ -422,10 +429,11 @@ def fault_cases():
   return length(copied)
 ''', 'work(2)', 5)
     result['partial-yield-fault'] = ("""fn work(n:i64)->i64:
-  values=for i in range(n):
+  values=array(for i in range(n):
     yield i+1
     if i==2:
       yield 1/(n-n)
+  )
   return length(values)
 """, 'work(5)', 4)
     result['generate-negative'] = ("""fn work(n:i64)->i64:

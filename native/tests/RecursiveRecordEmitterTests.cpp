@@ -10,6 +10,7 @@
 #include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include <iostream>
@@ -597,6 +598,88 @@ int main(int argc, char **argv) {
       copy->setName(name);
       copy->setLinkage(llvm::GlobalValue::ExternalLinkage);
     }
+    // Independently emitted producer and consumer components must not rely on
+    // the order in which either component first requested its value layouts.
+    const ValueType producerTypes[]{integer, text};
+    const ValueType consumerTypes[]{text, integer};
+    auto producerLayouts = emitTaskPayloadValueLayouts(input, *native, producerTypes);
+    auto consumerLayouts = emitTaskPayloadValueLayouts(input, *native, consumerTypes);
+    const auto identity = [](llvm::GlobalVariable *layout) {
+      return layout->getInitializer()->getOperand(0);
+    };
+    require(identity(producerLayouts[0]) == identity(consumerLayouts[1]) &&
+                identity(producerLayouts[1]) == identity(consumerLayouts[0]),
+            "payload identities depend on component layout creation order");
+    require(identity(producerLayouts[0]) != identity(consumerLayouts[0]),
+            "different payload schemas collided across components");
+    // Equal native widths do not make types interchangeable, and callable
+    // identity includes its full signature rather than a component-local index.
+    auto unsignedInteger = integer;
+    unsignedInteger.element = NumericType::UInt64;
+    ValueType booleanType;
+    booleanType.builtin = BuiltinValue::Bool;
+    auto unitType = booleanType;
+    unitType.builtin = BuiltinValue::Unit;
+    auto parameterArray = integer;
+    parameterArray.array = parameterArray.tensor = true;
+    parameterArray.shape = {{}};
+    auto readSignature = std::make_shared<FunctionSignature>();
+    readSignature->parameters = {parameterArray};
+    readSignature->result = integer;
+    auto mutSignature = std::make_shared<FunctionSignature>(*readSignature);
+    mutSignature->mutableParameters = {true};
+    auto readFunction = callable, mutFunction = callable;
+    readFunction.callable = readSignature;
+    mutFunction.callable = mutSignature;
+    auto fixedSignature = std::make_shared<FunctionSignature>(*readSignature);
+    fixedSignature->parameters[0].array = false;
+    fixedSignature->parameters[0].shape[0].constant = 2;
+    auto otherFixedSignature = std::make_shared<FunctionSignature>(*fixedSignature);
+    otherFixedSignature->parameters[0].shape[0].constant = 3;
+    auto fixedFunction = callable, otherFixedFunction = callable;
+    fixedFunction.callable = fixedSignature;
+    otherFixedFunction.callable = otherFixedSignature;
+    auto fallibleSignature = std::make_shared<FunctionSignature>(*readSignature);
+    fallibleSignature->result.fallible = true;
+    auto fallibleFunction = callable;
+    fallibleFunction.callable = fallibleSignature;
+    const ValueType schemas[]{integer,       unsignedInteger,    booleanType,
+                              unitType,      readFunction,       mutFunction,
+                              fixedFunction, otherFixedFunction, fallibleFunction};
+    auto ordered = emitTaskKernelPayloadValueLayouts(input, kernels, *native, schemas);
+    std::vector<ValueType> reversed(std::rbegin(schemas), std::rend(schemas));
+    auto opposite = emitTaskKernelPayloadValueLayouts(input, kernels, *native, reversed);
+    for (std::size_t i = 0; i < ordered.size(); ++i) {
+      require(identity(ordered[i]) == identity(opposite[ordered.size() - i - 1]),
+              "payload schema identity changed with callable discovery order");
+      for (std::size_t j = 0; j < i; ++j)
+        require(identity(ordered[i]) != identity(ordered[j]),
+                "same-width numeric, bool/unit or callable schemas collided");
+    }
+    ordered[1]->setName("iterator_wrong_item");
+    ordered[1]->setLinkage(llvm::GlobalValue::ExternalLinkage);
+    const auto token = [&](llvm::GlobalVariable *layout) {
+      return llvm::cast<llvm::GlobalVariable>(
+          llvm::cast<llvm::ConstantExpr>(identity(layout))->getOperand(0));
+    };
+    require(token(ordered[0])->getInitializer() != token(ordered[1])->getInitializer() &&
+                token(ordered[2])->getInitializer() != token(ordered[3])->getInitializer(),
+            "distinct payload tokens have identical readonly contents and could be folded by ICF");
+    auto component = std::make_unique<llvm::Module>("iterator-consumer-component", llvmContext);
+    component->setDataLayout(native->getDataLayout());
+    component->setTargetTriple(native->getTargetTriple());
+    auto separate = emitTaskPayloadValueLayouts(input, *component, consumerTypes);
+    separate[1]->setName("iterator_linked_consumer_item");
+    separate[1]->setLinkage(llvm::GlobalValue::ExternalLinkage);
+    require(!llvm::Linker::linkModules(*native, std::move(component)),
+            "independent iterator component could not link");
+    require(identity(producerLayouts[0]) ==
+                identity(native->getNamedGlobal("iterator_linked_consumer_item")),
+            "payload schema tokens did not coalesce across LLVM modules");
+    producerLayouts[0]->setName("iterator_producer_item");
+    producerLayouts[0]->setLinkage(llvm::GlobalValue::ExternalLinkage);
+    consumerLayouts[1]->setName("iterator_consumer_item");
+    consumerLayouts[1]->setLinkage(llvm::GlobalValue::ExternalLinkage);
     auto *plainFunction = emitTaskKernelValueLayout(input, kernels, *native, callable);
     auto *plainCopy = llvm::cast<llvm::Function>(plainFunction->getInitializer()->getOperand(3));
     plainCopy->setName("task_copy_plain_function");

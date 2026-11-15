@@ -40,6 +40,7 @@ private:
   Backing *backing_ = nullptr;
   explicit AllocationLease(Backing *backing) noexcept : backing_(backing) {}
   friend class Invocation;
+  friend struct OwnedState;
 };
 // One execution unit. Access to a context is exclusive, even if its execution
 // later migrates between workers. Backing references can cross contexts.
@@ -93,11 +94,20 @@ public:
   // address. The cleanup identity distinguishes resources from ordinary bytes.
   void *readResource(void *address, void (*cleanup)(void *) noexcept,
                      std::uint64_t minimumBytes) noexcept;
+  void *readResourceFrom(const Invocation &, void *address, void (*cleanup)(void *) noexcept,
+                        std::uint64_t minimumBytes) noexcept;
   // Private compiler frame metadata, never source-visible or leaseable. The
   // caller completes infallible construction before returning to source code.
   // Cleanup does not enter source code; descendants retire before their parent.
   void *allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept;
+  // Reorder a fully constructed newest control into a surviving root escrow.
+  // Admission/rollback finishes first; no existing control is destroyed/moved.
+  bool moveNewestControlToRoot(void *) noexcept;
   void releaseControl(void *) noexcept;
+  // Private independent metadata (array builders) has no descendant controls.
+  // Match its cleanup identity and unlink only this entry; lexical resource
+  // controls above it must retain their asynchronous retirement boundaries.
+  bool releaseIndependentControl(void *, void (*cleanup)(void *) noexcept) noexcept;
   void *latestControl(void (*cleanup)(void *) noexcept) noexcept;
   // Field backing remains invocation-owned across inline aggregate copies.
   // Release only at a scalar CLI boundary; ordinary helpers may return records.
@@ -135,6 +145,16 @@ public:
   // including after explicit release. The default scope settles with Invocation.
   void bindRecursiveBudget(void *state, EnvironmentReserve reserve,
                            EnvironmentRelease release) noexcept;
+  // Private independent-frame budget. The fresh context must settle before
+  // this Generator resource is destroyed; it never retains a self-reference.
+  // Charges follow every surviving owner of the resource, including while the
+  // bound context is dormant and another context grows retained backing.
+  // Multiple fresh contained ledgers may share the same aggregate resource;
+  // each must settle before the resource's control header is destroyed.
+  void bindResourceBudget(Invocation &owner, void *allocation) noexcept;
+  // Sticky private cleanup proof; ordinary invocations need no scope walk.
+  void markDeferredOwnedResource() noexcept { flags_ |= DeferredOwnedResource; }
+  bool hasDeferredOwnedResource() const noexcept { return flags_ & DeferredOwnedResource; }
   std::uint64_t recursiveBytes() const noexcept;
   void *allocateEnvironment(std::uint64_t bytes, const void *key) noexcept;
   // Borrow capture bytes from an environment already owned by this invocation.
@@ -225,7 +245,8 @@ private:
     NativeInterrupts = 4,
     Materialized = 8,
     ControlReady = 16,
-    DynamicResources = 32
+    DynamicResources = 32,
+    DeferredOwnedResource = 64
   };
   std::uint32_t flags_ = 0;
   // 0 clear, 1 token, 2 observed/faulted/settled, 3 native protected.
@@ -335,6 +356,11 @@ private:
 // The supported 64-bit CPU ABIs share this invocation layout. Keep compiler
 // field access and runtime storage identical even when built on different hosts.
 struct InvocationABI {
+  // Private failure-injection ordinal. Admission attempts include reused and
+  // failed owners, so they are deliberately distinct from allocation counts.
+  static std::uint64_t allocationAttempts(const Invocation &invocation) noexcept {
+    return invocation.flags_ & Invocation::Materialized ? invocation.storage_.value.attempts_ : 0;
+  }
   static std::uint8_t armNativeCancellation(Invocation &invocation) noexcept {
     invocation.initializeControl();
     const auto previous = invocation.pollMode_;
@@ -420,6 +446,9 @@ void kalandra_record_validate_v1(kalandra::runtime::Invocation *, const void *, 
 bool kalandra_record_retain_v1(kalandra::runtime::Invocation *,
                                const kalandra::runtime::Invocation *, const void *, std::uint64_t,
                                std::uint64_t) noexcept;
+bool kalandra_record_tensor_pack_v1(kalandra::runtime::Invocation *, void *,
+                                    const kalandra::runtime::Invocation *, const void *,
+                                    std::uint64_t, std::uint64_t) noexcept;
 bool kalandra_retain_v1(kalandra::runtime::Invocation *, const kalandra::runtime::Invocation *,
                         void *) noexcept;
 void kalandra_expected_task_error_v1(kalandra::runtime::Invocation *, std::int64_t, std::int64_t,

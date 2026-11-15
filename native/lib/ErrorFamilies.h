@@ -4,6 +4,8 @@
 
 namespace kalandra {
 inline std::vector<std::size_t> errorMembers(const TypedModule &module, std::size_t family) {
+  if (module.records.at(family).uninhabited)
+    return {};
   const auto &members = module.records.at(family).errorMembers;
   return members.empty() ? std::vector<std::size_t>{family} : members;
 }
@@ -15,6 +17,10 @@ inline std::optional<std::size_t> taskErrorFamily(const TypedModule &module) {
 }
 inline bool errorSubset(const TypedModule &module, std::optional<std::size_t> source,
                         std::optional<std::size_t> target) {
+  if ((source && *source >= module.records.size()) || (target && *target >= module.records.size()))
+    return false;
+  if (source && module.records[*source].uninhabited)
+    return true;
   if (source == target)
     return true;
   if (!source)

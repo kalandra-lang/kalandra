@@ -437,6 +437,7 @@ std::optional<SignatureInfo> signatureInfo(ParseResult syntax, std::string_view 
   if (!selected)
     return {};
   const auto &call = std::get<CallExpr>(syntax.module.expressions[*selected].value);
+  const auto callArgumentCount = call.arguments.size();
   const auto &callee = syntax.module.expressions[call.callee];
   std::optional<SourceSpan> token;
   if (const auto *name = std::get_if<NameExpr>(&callee.value))
@@ -658,10 +659,26 @@ std::optional<SignatureInfo> signatureInfo(ParseResult syntax, std::string_view 
   TypePrinter printer{semantic->module};
   SignatureInfo result;
   const auto name = semantic->token.source->slice(semantic->token.span);
-  if (semantic->function)
+  if (semantic->function) {
+    const auto &function = semantic->module.functions[*semantic->function];
+    const auto origin = semantic->module.source->origin(function.declaration.begin).first;
+    if (semantic->module.source->slice(function.declaration) == "range" && origin &&
+        origin->path() == standardModulePath(StandardModule::Iteration)) {
+      const auto count = std::clamp<std::size_t>(callArgumentCount, 1, 3);
+      result.parameters = count == 1 ? std::vector<std::string>{"stop: i64"}
+                                     : std::vector<std::string>{"start: i64", "stop: i64"};
+      if (count == 3)
+        result.parameters.push_back("step: i64");
+      result.label = "fn " + std::string(name) + "(";
+      for (std::size_t i = 0; i < result.parameters.size(); ++i)
+        result.label += (i ? ", " : "") + result.parameters[i];
+      result.label += ") -> " + printer.type(function.resultType);
+      result.activeParameter = std::min(active, count - 1);
+      return printer.valid ? std::optional{std::move(result)} : std::nullopt;
+    }
     result.label =
         printer.function(semantic->module.functions[*semantic->function], name, &result.parameters);
-  else if (semantic->type)
+  } else if (semantic->type)
     return callableSignature(semantic->module, *semantic->type, name, active);
   else
     return {};

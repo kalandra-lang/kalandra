@@ -20,7 +20,7 @@ fn main()->unit ! IoError:
     client.open(path, text)
     assert not publications(client.barrier())[path.as_uri()]['diagnostics']
     for module, expected in [('io', 'export fn println'), ('fmt', 'export fn format'),
-                             ('process', 'export type ExitStatus'), ('fs', 'export fn open'), ('parse', 'export fn parseI64'), ('path', 'export fn join'), ('env', 'export fn get')]:
+                             ('option', 'export enum Option[T]'), ('process', 'export type ExitStatus'), ('fs', 'export fn open'), ('parse', 'export fn parseI64'), ('path', 'export fn join'), ('env', 'export fn get')]:
         result = client.rpc('kalandra/standardLibrary', {'uri': f'kalandra-stdlib:std/{module}.k'})
         assert expected in result['result'], result
     for uri in ('file:///etc/passwd', 'kalandra-stdlib:std/missing.k', 'kalandra-stdlib:std/../main.k'):

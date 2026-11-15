@@ -133,12 +133,13 @@ fn main() -> i64 ! TaskError:
 fn main() -> i64:
   return choose(true) + choose(false)
 ''', '84\n'),
-    'abandoned-collection': ('''fn pick() -> i64:
+    'abandoned-generator': ('''fn pick() -> i64:
   values = for i in range(10):
-    if i == 7:
-      return 42
     yield i
-  return length(values)
+  for value in values:
+    if value == 7:
+      return 42
+  return 0
 fn main() -> i64:
   return pick()
 ''', '42\n'),
@@ -463,7 +464,7 @@ for optimization in ('-O0', '-O2'):
 
 rejected = {
     'handler-break-boundary': 'error E:\n  Bad\nfn failer()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  for i in range(1):\n    value=failer() catch fn(error):\n      break\n    value\n  return 42\n',
-    'handler-yield-boundary': 'error E:\n  Bad\nfn failer()->i64 ! E:\n  fail E.Bad\nfn main()->[i64]:\n  return for i in range(1):\n    value=failer() catch fn(error):\n      yield 1\n      return 0\n    yield value\n',
+    'handler-yield-boundary': 'error E:\n  Bad\nfn failer()->i64 ! E:\n  fail E.Bad\nfn main()->[i64]:\n  return array(for i in range(1):\n    value=failer() catch fn(error):\n      yield 1\n      return 0\n    yield value\n  )\n',
     'constant-zero': 'fn main() -> i64:\n  zero = 0\n  return 1 / zero\n',
     'missing-return': 'fn main() -> i64:\n  42\n',
     'partial-return': 'fn main() -> i64:\n  if true:\n    return 42\n',

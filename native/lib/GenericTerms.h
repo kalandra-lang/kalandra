@@ -408,6 +408,28 @@ void recordGenericValue(const Frame &frame, ValueId id) {
           if (auto symbol = genericSymbolTerms_.find(operation.symbol);
               symbol != genericSymbolTerms_.end())
             term = symbol->second;
+        } else if constexpr (std::is_same_v<Op, IteratorOperation>) {
+          if (!operation.arguments.empty()) {
+            const auto source = genericTerm(operation.arguments[0]);
+            if (!source.arguments.empty() && !term.arguments.empty() &&
+                (operation.action == IteratorAction::Next ||
+                 operation.action == IteratorAction::FromArray))
+              term.arguments[0] = source.arguments[0];
+            if (operation.action == IteratorAction::Next && source.arguments.size() == 2 &&
+                term.failure) {
+              auto failure = source.arguments[1];
+              failure.actual = term.failure->actual;
+              term.failure = std::make_shared<const GenericTerm>(std::move(failure));
+            }
+          }
+        } else if constexpr (std::is_same_v<Op, GeneratorCreate>) {
+          const auto &function = output_.functions[operation.function];
+          if (function.generator && !term.arguments.empty())
+            for (auto value : function.expressions)
+              if (const auto *yield = std::get_if<YieldOperation>(&node(value).operation);
+                  yield && yield->collection == function.generator->collection)
+                term.arguments[0] =
+                    mergeGenericTerms(std::move(term.arguments[0]), genericTerm(yield->operand));
         } else if constexpr (std::is_same_v<Op, RecordFieldRead>) {
           term = recordFieldGenericTerm(genericTerm(operation.input), operation.field,
                                         expression.type);

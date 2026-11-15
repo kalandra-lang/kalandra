@@ -102,6 +102,11 @@ jobs:
         run: >-
           ctest --test-dir build/native --output-on-failure
           -R '^native-explicit-returns$'
+      - name: Qualify iterator contracts and source generators
+        run: |
+          cmake --build build/native --target native-iterator-qualification -j2
+          ctest --test-dir build/native --output-on-failure -j2 \
+            -R '^(frontend-iterator-(contracts|fusion)-|native-((iterators|generator)-source-|iterator-fusion-))'
       - name: Qualify checked recursive calls and signed remainder
         run: |
           cmake --build build/native --target kalandra-checked-inlining-tests -j2
@@ -238,7 +243,7 @@ jobs:
   qualify-vulkan:
     needs: bundle-targets
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -257,7 +262,7 @@ jobs:
   qualify-cuda:
     needs: bundle-targets
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -286,7 +291,7 @@ jobs:
             arch: arm64
             msvc: arm64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 90
     defaults:
       run:
         shell: pwsh
@@ -305,7 +310,7 @@ jobs:
       - name: Qualify final experimental Windows CUDA and Vulkan archives
         run: |
           foreach ($backend in @('cuda', 'vulkan')) {
-            python native/gpu-runtime/qualification/windows_installed.py --backend $backend --bundled-targets --archive "release-assets/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/release-$backend" --arch ${{ matrix.arch }}
+            python native/gpu-runtime/qualification/windows_installed.py --backend $backend --bundled-targets --archive "release-assets/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/release-$backend" --arch ${{ matrix.arch }} --jobs 2
             if ($LASTEXITCODE -ne 0) { throw "$backend released Windows package qualification failed" }
           }
   notarize:

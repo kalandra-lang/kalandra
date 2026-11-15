@@ -1,5 +1,28 @@
 """Shared executable contracts for statement/expression loops and lexical exits."""
 CASES = {
+    'match-loop-exits': ('''enum Action:
+  Skip
+  End
+  Keep
+fn main()->i64:
+  total=0
+  for value in range(7):
+    action=if value==2:
+      Action.Skip
+    else:
+      if value==5:
+        Action.End
+      else:
+        Action.Keep
+    match action:
+      Action.Skip:
+        continue
+      Action.End: break
+      Action.Keep:
+        total=total+value
+        ()
+  return total
+''', '8'),
     'while-break': ('''fn main()->i64:
   i=0
   result=while i<10:
@@ -336,18 +359,19 @@ REJECTED = {
 
 }
 
-# Eager yield collections are also portable and cross-target contracts.
+# Explicitly materialized yield sequences are portable and cross-target contracts.
 CASES.update({
     'yield-nested': ('''fn main()->[i64]:
-  results=for row in range(4):
+  results=array(for row in range(4):
     for value in range(row):
       if value%2==0:
         yield row*10+value
+  )
   return results
 ''', '[10, 20, 30, 32]'),
     'yield-while': ('''fn main()->[i64]:
   i=0
-  return while i<6:
+  return array(while i<6:
     i=i+1
     if i==2:
       continue
@@ -355,174 +379,203 @@ CASES.update({
     if i==4:
       break
     yield i*10
+  )
 ''', '[1, 10, 3, 30, 4]'),
     'yield-empty': ('''fn main()->[f32]:
-  return for i in range(0):
+  return array(for i in range(0):
     yield 1
+  )
 ''', '[]'),
     'yield-filter-empty': ('''fn main()->[i64]:
-  return for i in range(5):
+  return array(for i in range(5):
     if i<0:
       yield i
+  )
 ''', '[]'),
     'yield-nested-exit': ('''fn main()->[i64]:
-  return for i in range(3):
+  return array(for i in range(3):
     for j in range(4):
       if j==2:
         break
       yield i*10+j
     yield 99
+  )
 ''', '[0, 1, 99, 10, 11, 99, 20, 21, 99]'),
     'yield-independent': ('''fn main()->[i64]:
-  return for i in range(3):
-    inner=for j in range(i):
+  return array(for i in range(3):
+    inner=array(for j in range(i):
       yield j
+    )
     yield length(inner)
+  )
 ''', '[0, 1, 2]'),
     'yield-string': ('''fn main()->String:
-  words=for i in range(40):
+  words=array(for i in range(40):
     yield "été λ"+"!"
+  )
   return words[39]
 ''', 'été λ!'),
     'yield-record': ('''type Box:
   value:i64
   text:String
 fn main()->i64:
-  boxes=for i in range(40):
+  boxes=array(for i in range(40):
     yield Box {value:i,text:"hello"+"!"}
+  )
   return boxes[39].value+length(boxes[0].text)
 ''', '45'),
     'yield-functions': ('''fn main()->i64:
-  callbacks=for i in range(20):
+  callbacks=array(for i in range(20):
     yield fn(x:i64):return x+i
+  )
   return callbacks[0](1)+callbacks[19](1)
 ''', '21'),
     'yield-bool': ('''fn main()->i64:
-  flags=for i in range(40):
+  flags=array(for i in range(40):
     yield i%2==0
+  )
   flags[0]=false
   return if flags[0] or flags[39]:0
   else:length(flags)
 ''', '40'),
     'yield-mutable-result': ('''fn main()->[i64]:
-  values=for i in range(20):
+  values=array(for i in range(20):
     yield i
+  )
   values[19]=42
   return slice(values,17,20)
 ''', '[17, 18, 42]'),
     'yield-range-evaluated-once': ('''fn main()->i64:
   n=3
-  values=for i in range(n):
+  values=array(for i in range(n):
     n=0
     yield i
+  )
   return length(values)+n
-''', '3'),
+''', '6'),
     'yield-grow': ('''fn main()->i64:
-  values=for i in range(1025):
+  values=array(for i in range(1025):
     yield i
+  )
   return values[1024]+length(values)
 ''', '2049'),
     'yield-lambda-local': ('''fn main()->i64:
-  results=for i in range(3):
+  results=array(for i in range(3):
     callback=fn(n:i64)->[i64]:
-      return for j in range(n):
+      return array(for j in range(n):
         yield j
+      )
     yield length(callback(i))
+  )
   return results[2]
 ''', '2'),
     'yield-task': ('''fn identity(x:i64)->i64:
   return x
 fn main()->i64 ! TaskError:
   return try parallel:
-    values=for i in range(4):
-      child=spawn identity(i)
-      yield try await child
+    values=try array(for i in range(4):
+      value=try parallel:
+        child=spawn identity(i)
+        try await child
+      yield value
+    )
     length(values)+values[3]
 ''', '7'),
     'yield-record-alias': ('''type Box:
   values:[i64]
 fn main()->i64:
   source=[1]
-  boxes=for i in range(20):
+  boxes=array(for i in range(20):
     yield Box {values:source}
+  )
   source[0]=7
   return boxes[19].values[0]
 ''', '7'),
     'yield-int8': ('''fn main()->i8:
-  values:[i8]=for i in range(3):
+  values:[i8]=array(for i in range(3):
     yield i8(i+1)
+  )
   total:i8=0
   for value in values:
     total=total+value
   return total
 ''', '6'),
     'yield-uint8': ('''fn main()->u8:
-  values:[u8]=for i in range(3):
+  values:[u8]=array(for i in range(3):
     yield u8(i+1)
+  )
   total:u8=0
   for value in values:
     total=total+value
   return total
 ''', '6'),
     'yield-int16': ('''fn main()->i16:
-  values:[i16]=for i in range(3):
+  values:[i16]=array(for i in range(3):
     yield i16(i+1)
+  )
   total:i16=0
   for value in values:
     total=total+value
   return total
 ''', '6'),
     'yield-uint16': ('''fn main()->u16:
-  values:[u16]=for i in range(3):
+  values:[u16]=array(for i in range(3):
     yield u16(i+1)
+  )
   total:u16=0
   for value in values:
     total=total+value
   return total
 ''', '6'),
     'yield-int32': ('''fn main()->i32:
-  values:[i32]=for i in range(3):
+  values:[i32]=array(for i in range(3):
     yield i32(i+1)
+  )
   total:i32=0
   for value in values:
     total=total+value
   return total
 ''', '6'),
     'yield-uint32': ('''fn main()->u32:
-  values:[u32]=for i in range(3):
+  values:[u32]=array(for i in range(3):
     yield u32(i+1)
+  )
   total:u32=0
   for value in values:
     total=total+value
   return total
 ''', '6'),
     'yield-int64': ('''fn main()->i64:
-  values:[i64]=for i in range(3):
+  values:[i64]=array(for i in range(3):
     yield i64(i+1)
+  )
   total:i64=0
   for value in values:
     total=total+value
   return total
 ''', '6'),
     'yield-uint64': ('''fn main()->u64:
-  values:[u64]=for i in range(3):
+  values:[u64]=array(for i in range(3):
     yield u64(i+1)
+  )
   total:u64=0
   for value in values:
     total=total+value
   return total
 ''', '6'),
     'yield-float32': ('''fn main()->f32:
-  values:[f32]=for i in range(3):
+  values:[f32]=array(for i in range(3):
     yield f32(i+1)
+  )
   total:f32=0
   for value in values:
     total=total+value
   return total
 ''', '6'),
     'yield-float64': ('''fn main()->f64:
-  values:[f64]=for i in range(3):
+  values:[f64]=array(for i in range(3):
     yield f64(i+1)
+  )
   total:f64=0
   for value in values:
     total=total+value
@@ -536,14 +589,16 @@ REJECTED.update({
   return 0
 ''',
     'yield-mixed-types': '''fn main()->[i64]:
-  return for i in range(3):
+  return array(for i in range(3):
     yield i
     yield true
+  )
 ''',
     'yield-break-value': '''fn main()->[i64]:
-  return for i in range(3):
+  return array(for i in range(3):
     yield i
     break 9
+  )
 ''',
     'yield-else-result': '''fn main()->[i64]:
   for i in range(3):
@@ -552,44 +607,50 @@ REJECTED.update({
     [0]
 ''',
     'yield-array-element': '''fn main()->i64:
-  values=for i in range(3):
+  values=array(for i in range(3):
     yield [i]
+  )
   return 0
 ''',
     'yield-tensor-element': '''fn main()->i64:
-  values=for i in range(3):
+  values=array(for i in range(3):
     yield tensor([i])
+  )
   return 0
 ''',
     'yield-pending': '''fn work()->i64:
   return 1
 fn main()->i64 ! TaskError:
   return try parallel:
-    values=for i in range(3):
+    values=array(for i in range(3):
       pending=spawn work()
       yield i
+    )
     length(values)
 ''',
     'yield-task-value': '''fn work()->i64:
   return 1
 fn main()->i64 ! TaskError:
   return try parallel:
-    values=for i in range(3):
+    values=array(for i in range(3):
       yield spawn work()
+    )
     length(values)
 ''',
     'yield-function-boundary': '''fn main()->[i64]:
-  return for i in range(3):
+  return array(for i in range(3):
     callback=fn()->i64:
       yield i
       return 0
     yield callback()
+  )
 ''',
     'yield-readonly-record': '''type Box:
   values:[i64]
 fn edit(input:[i64])->i64:
-  boxes=for i in range(1):
+  boxes=array(for i in range(1):
     yield Box {values:input}
+  )
   boxes[0].values[0]=7
   return 0
 fn main()->i64:
@@ -602,8 +663,9 @@ fn read(boxes:[Box])->i64:
 fn main()->i64 ! TaskError:
   return try parallel:
     source=[1]
-    boxes=for i in range(1):
+    boxes=array(for i in range(1):
       yield Box {values:source}
+    )
     child=spawn read(boxes)
     source[0]=9
     try await child
@@ -614,10 +676,11 @@ CASES.update({
     'yield-expected-error': ('''error Stop:
   Done
 fn work()->[i64] ! Stop:
-  return for i in range(20):
+  return array(for i in range(20):
     if i==17:
       fail Stop.Done
     yield i
+  )
 fn main()->i64:
   values=work() catch fn(error):return [42]
   return values[0]
@@ -625,8 +688,9 @@ fn main()->i64:
     'yield-task-functions': ('''fn read(callbacks:[fn(i64)->i64])->i64:
   return callbacks[0](2)+callbacks[19](2)
 fn main()->i64 ! TaskError:
-  callbacks=for i in range(20):
+  callbacks=array(for i in range(20):
     yield fn(x:i64):return x+i
+  )
   return try parallel:
     child=spawn read(callbacks)
     try await child
@@ -634,8 +698,9 @@ fn main()->i64 ! TaskError:
 })
 
 CASES['yield-helper-caller'] = ('''fn values()->[i64]:
-  return for i in range(5):
+  return array(for i in range(5):
     yield i
+  )
 fn main()->i64:
   a=values()
   return a[4]+length(a)
@@ -647,9 +712,12 @@ fn main()->i64 ! TaskError:
   total=0
   for round in range(5):
     value=parallel:
-      values=for i in range(3):
-        child=spawn divide(2-i)
-        yield try await child
+      values=try array(for i in range(3):
+        completed=try parallel:
+          child=spawn divide(2-i)
+          try await child
+        yield completed
+      )
       length(values)
     recovered=value catch fn(error):return 7
     total=total+recovered
@@ -659,14 +727,18 @@ fn main()->i64 ! TaskError:
 CASES['yield-nested-recovery'] = ('''fn divide(value:i64)->i64:
   return 6/value
 fn main()->[i64] ! TaskError:
-  return for row in range(3):
+  return array(for row in range(3):
     outcome=parallel:
-      values=for i in range(3):
-        child=spawn divide(2-i)
-        yield try await child
+      values=try array(for i in range(3):
+        completed=try parallel:
+          child=spawn divide(2-i)
+          try await child
+        yield completed
+      )
       length(values)
     value=outcome catch fn(error):return 7
     yield value
+  )
 ''', '[7, 7, 7]')
 
 CASES['yield-union-primary-recovery'] = ('''error Stop:
@@ -683,9 +755,12 @@ fn main()->i64 ! TaskError:
   for round in range(5):
     value=parallel:
       checkedValue=try checked(1)
-      values=for i in range(3):
-        child=spawn divide(2-i)
-        yield try await child
+      values=try array(for i in range(3):
+        completed=try parallel:
+          child=spawn divide(2-i)
+          try await child
+        yield completed
+      )
       length(values)
     recovered=value catch fn(error):
       return match error:

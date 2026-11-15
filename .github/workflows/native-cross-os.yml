@@ -88,6 +88,11 @@ jobs:
         run: >-
           ctest --test-dir build/macos --output-on-failure
           -R '^native-explicit-returns$'
+      - name: Qualify iterator contracts and source generators
+        run: |
+          cmake --build build/macos --target native-iterator-qualification -j2
+          ctest --test-dir build/macos --output-on-failure -j2 \
+            -R '^(frontend-iterator-(contracts|fusion)-|native-((iterators|generator)-source-|iterator-fusion-))'
       - name: Qualify scoped ownership and compiler value layouts
         run: |
           cmake --build build/macos --target kalandra-ownership-scope-optimized kalandra-value-scope-optimized -j2

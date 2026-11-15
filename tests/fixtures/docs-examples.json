@@ -102,6 +102,10 @@
     {
       "kind": "gpu",
       "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
     }
   ],
   "functions": [
@@ -557,6 +561,50 @@
     {
       "kind": "gpu",
       "expected": "42"
+    }
+  ],
+  "options": [
+    {
+      "kind": "cpu",
+      "expected": "42:7"
+    }
+  ],
+  "iteration": [
+    {
+      "kind": "cpu",
+      "expected": "24"
+    },
+    {
+      "kind": "cpu",
+      "expected": "2:9"
+    },
+    {
+      "kind": "cpu",
+      "expected": "12:9"
+    },
+    {
+      "kind": "cpu",
+      "expected": "6:9"
+    },
+    {
+      "kind": "cpu",
+      "expected": "12"
+    },
+    {
+      "kind": "cpu",
+      "expected": "4:9"
+    },
+    {
+      "kind": "cpu",
+      "expected": "2\n4\n6"
+    },
+    {
+      "kind": "cpu",
+      "expected": "77"
+    },
+    {
+      "kind": "cpu",
+      "expected": "2:4"
     }
   ]
 }

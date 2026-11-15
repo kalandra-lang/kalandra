@@ -14,6 +14,7 @@
 #endif
 #include "../include/kalandra/NumericType.h"
 #include "NativeCancellation.h"
+#include "OwnedResources.h"
 #include "Runtime.h"
 #include <algorithm>
 #include <array>
@@ -162,6 +163,8 @@ struct ResourceWatch;
 struct ResourceAccounting {
   std::uint64_t bytes = 0;
   ResourceWatch *observers = nullptr;
+  std::uint64_t reserved = 0;
+  bool aggregateBudget = false;
 };
 struct ResourceWatch {
   ResourceWatch *next = nullptr, *previous = nullptr, *storeNext = nullptr;
@@ -406,47 +409,193 @@ bool Invocation::trackResource(void *address) noexcept {
   }
   return watchResource(owner->backing);
 }
+namespace {
+enum class ResourceGrowth { Ready, Budget, Stopped };
+bool reserveResourceBudget(void *, std::uint64_t) noexcept;
+void releaseResourceBudget(void *, std::uint64_t) noexcept;
+ResourceGrowth growResource(ResourceAccounting &resource, std::uint64_t bytes,
+                            Invocation *requester) noexcept {
+  // Ordinary resources and task budgets retain their allocation-free path.
+  bool linked = false;
+  for (auto *note = resource.observers; note; note = note->next)
+    linked |= note->reserve == reserveResourceBudget;
+  if (!linked) {
+    auto *failed = resource.observers;
+    for (; failed; failed = failed->next) {
+      if (bytes <= failed->charged)
+        continue;
+      const auto delta = bytes - failed->charged;
+      if (delta > UINT64_MAX - *failed->contextBytes || delta > UINT64_MAX - *failed->scopeBytes ||
+          !failed->reserve(failed->budget, delta))
+        break;
+      *failed->scopeBytes += delta;
+      *failed->contextBytes += delta;
+    }
+    if (failed || (requester && requester->poll())) {
+      for (auto *note = resource.observers; note != failed; note = note->next)
+        if (bytes > note->charged) {
+          const auto delta = bytes - note->charged;
+          *note->scopeBytes -= delta;
+          *note->contextBytes -= delta;
+          note->release(note->budget, delta);
+        }
+      return failed ? ResourceGrowth::Budget : ResourceGrowth::Stopped;
+    }
+    for (auto *note = resource.observers; note; note = note->next)
+      if (bytes > note->charged)
+        note->charged = bytes;
+    resource.bytes = bytes;
+    return ResourceGrowth::Ready;
+  }
+  struct Node {
+    ResourceAccounting *resource;
+    std::uint64_t delta = 0, target = 0;
+    unsigned color = 0;
+    bool reached = false;
+  };
+  struct Visit {
+    std::size_t index;
+    ResourceWatch *next;
+  };
+  struct Charge {
+    ResourceWatch *watch;
+    std::uint64_t bytes;
+  };
+  std::vector<Charge> acquired;
+  const auto rollback = [&] {
+    for (auto i = acquired.rbegin(); i != acquired.rend(); ++i)
+      i->watch->release(i->watch->budget, i->bytes);
+  };
+  try {
+    std::vector<Node> nodes{{&resource}};
+    std::unordered_map<ResourceAccounting *, std::size_t> indices{{&resource, 0}};
+    std::vector<Visit> stack{{0, resource.observers}};
+    std::vector<std::size_t> order;
+    nodes[0].color = 1;
+    // Iterative graph discovery avoids recursive reserve callbacks through a
+    // chain of independently owned generator frames. Ownership must be a DAG.
+    while (!stack.empty()) {
+      auto &visit = stack.back();
+      while (visit.next && visit.next->reserve != reserveResourceBudget)
+        visit.next = visit.next->next;
+      if (!visit.next) {
+        nodes[visit.index].color = 2;
+        order.push_back(visit.index);
+        stack.pop_back();
+        continue;
+      }
+      auto *note = visit.next;
+      visit.next = note->next;
+      auto *parent = static_cast<Backing *>(note->budget)->resource();
+      if (!parent || !parent->aggregateBudget)
+        return ResourceGrowth::Budget;
+      auto [found, inserted] = indices.emplace(parent, nodes.size());
+      const auto index = found->second;
+      if (inserted)
+        nodes.push_back({parent});
+      if (nodes[index].color == 1)
+        return ResourceGrowth::Budget;
+      if (!nodes[index].color) {
+        nodes[index].color = 1;
+        stack.push_back({index, parent->observers});
+      }
+    }
+    nodes[0].target = bytes;
+    nodes[0].reached = true;
+    std::vector<Charge> changes;
+    std::unordered_map<std::uint64_t *, std::uint64_t> counters;
+    const auto chargeCounter = [&](std::uint64_t *counter, std::uint64_t delta) {
+      auto &pending = counters[counter];
+      if (delta > UINT64_MAX - pending || pending + delta > UINT64_MAX - *counter)
+        return false;
+      pending += delta;
+      return true;
+    };
+    // Reverse postorder is child-before-parent. A shared ancestor receives the
+    // sum of every path before reserving from its own surviving owners.
+    for (auto i = order.rbegin(); i != order.rend(); ++i) {
+      auto &node = nodes[*i];
+      if (*i != 0) {
+        if (!node.delta)
+          continue;
+        if (node.delta > UINT64_MAX - node.resource->reserved)
+          return ResourceGrowth::Budget;
+        node.target = node.resource->reserved + node.delta;
+        node.reached = true;
+      }
+      for (auto *note = node.resource->observers; note; note = note->next) {
+        if (node.target <= note->charged)
+          continue;
+        const auto delta = node.target - note->charged;
+        if (!chargeCounter(note->scopeBytes, delta) || !chargeCounter(note->contextBytes, delta))
+          return ResourceGrowth::Budget;
+        changes.push_back({note, delta});
+        if (note->reserve == reserveResourceBudget) {
+          auto &parent = nodes[indices.at(static_cast<Backing *>(note->budget)->resource())];
+          if (delta > UINT64_MAX - parent.delta)
+            return ResourceGrowth::Budget;
+          parent.delta += delta;
+        }
+      }
+    }
+    // Allocate the journal before making externally visible reservations.
+    acquired.reserve(changes.size());
+    for (const auto &change : changes) {
+      auto *note = change.watch;
+      if (note->reserve == reserveResourceBudget)
+        continue;
+      if (!note->reserve(note->budget, change.bytes)) {
+        rollback();
+        return ResourceGrowth::Budget;
+      }
+      acquired.push_back(change);
+    }
+    if (requester && requester->poll()) {
+      rollback();
+      return ResourceGrowth::Stopped;
+    }
+    for (const auto &[counter, delta] : counters)
+      *counter += delta;
+    for (const auto &change : changes)
+      change.watch->charged += change.bytes;
+    for (const auto &node : nodes)
+      if (node.reached) {
+        node.resource->reserved += node.delta;
+        node.resource->bytes = node.target;
+      }
+    return ResourceGrowth::Ready;
+  } catch (...) {
+    rollback();
+    return ResourceGrowth::Budget;
+  }
+}
+bool reserveResourceBudget(void *p, std::uint64_t bytes) noexcept {
+  std::lock_guard lock(resourceAccountingMutex);
+  auto &resource = *static_cast<Backing *>(p)->resource();
+  if (bytes > UINT64_MAX - resource.reserved ||
+      growResource(resource, resource.reserved + bytes, nullptr) != ResourceGrowth::Ready)
+    return false;
+  resource.reserved += bytes;
+  return true;
+}
+void releaseResourceBudget(void *p, std::uint64_t bytes) noexcept {
+  std::lock_guard lock(resourceAccountingMutex);
+  auto &resource = *static_cast<Backing *>(p)->resource();
+  resource.reserved -= bytes;
+  resource.bytes = resource.reserved;
+}
+} // namespace
 bool Invocation::resizeResource(void *address, std::uint64_t bytes) noexcept {
   auto *owner = findOwner(address);
   if (!owner || !owner->backing->resource()) {
     fault(3);
     return false;
   }
-  // Constructor/retain publication registered the actual owning stores.
-  // The current temporary work scope may only borrow that owner; charging it
-  // again would add metadata and reservations to every growth operation.
   std::lock_guard lock(resourceAccountingMutex);
-  auto &resource = *owner->backing->resource();
-  auto *failed = resource.observers;
-  for (; failed; failed = failed->next) {
-    if (bytes <= failed->charged)
-      continue;
-    const auto delta = bytes - failed->charged;
-    if (delta > UINT64_MAX - *failed->contextBytes || delta > UINT64_MAX - *failed->scopeBytes ||
-        !failed->reserve(failed->budget, delta))
-      break;
-    *failed->scopeBytes += delta;
-    *failed->contextBytes += delta;
-  }
-  if (failed || poll()) {
-    for (auto *note = resource.observers; note != failed; note = note->next)
-      if (bytes > note->charged) {
-        const auto delta = bytes - note->charged;
-        *note->scopeBytes -= delta;
-        *note->contextBytes -= delta;
-        note->release(note->budget, delta);
-      }
-    if (failed)
-      fault(2);
-    return false;
-  }
-  for (auto *note = resource.observers; note; note = note->next) {
-    if (bytes <= note->charged)
-      continue;
-    note->charged = bytes;
-  }
-  resource.bytes = bytes;
-  return true;
+  const auto result = growResource(*owner->backing->resource(), bytes, this);
+  if (result == ResourceGrowth::Budget)
+    fault(2);
+  return result == ResourceGrowth::Ready;
 }
 AllocationLease::~AllocationLease() { releaseBacking(backing_); }
 AllocationLease::AllocationLease(AllocationLease &&other) noexcept
@@ -493,6 +642,19 @@ std::optional<AllocationLease> Invocation::lease(const void *allocated) const no
   if (!retainBacking(backing))
     return {};
   return AllocationLease(backing);
+}
+std::optional<AllocationLease> OwnedState::pinForRetirement() noexcept {
+  // The registry lock keeps the linked base object readable, including when
+  // its last ordinary owner has entered destruction and is waiting to detach.
+  // A zero reference count must never be resurrected into a second destructor.
+  auto *backing = reinterpret_cast<Backing *>(this) - 1;
+  auto references = backing->references.load(std::memory_order_relaxed);
+  while (references && references != UINT64_MAX) {
+    if (backing->references.compare_exchange_weak(
+            references, references + 1, std::memory_order_acquire, std::memory_order_relaxed))
+      return AllocationLease(backing);
+  }
+  return {};
 }
 std::optional<std::span<const std::byte>>
 AllocationLease::environmentBytes(const void *code, std::uint64_t size,
@@ -666,6 +828,23 @@ void *Invocation::readResource(void *address, void (*cleanup)(void *) noexcept,
   }
   return address;
 }
+void *Invocation::readResourceFrom(const Invocation &source, void *address,
+                                   void (*cleanup)(void *) noexcept,
+                                   std::uint64_t minimumBytes) noexcept {
+  if (poll() || !usable())
+    return nullptr;
+  if (!source.usable() || !cleanup) {
+    fault(3);
+    return nullptr;
+  }
+  auto *owner = source.findOwner(address);
+  if (!owner || owner->backing->cleanup != cleanup ||
+      owner->backing->bytes < minimumBytes) {
+    fault(3);
+    return nullptr;
+  }
+  return address;
+}
 void *Invocation::allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept {
   AccountingGuard accounting(flags_ & DynamicResources);
   auto &state = ledger();
@@ -695,6 +874,24 @@ void *Invocation::allocateControl(std::uint64_t bytes, void (*cleanup)(void *) n
   live_.store(live_.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
   ++state.allocations_;
   return control + 1;
+}
+bool Invocation::moveNewestControlToRoot(void *address) noexcept {
+  if (!(flags_ & Materialized) || !storage_.value.controls_ ||
+      storage_.value.controls_ + 1 != address) {
+    fault(3);
+    return false;
+  }
+  auto &head = storage_.value.controls_;
+  auto *control = head;
+  if (!control->next)
+    return true;
+  head = control->next;
+  auto *tail = head;
+  while (tail->next)
+    tail = tail->next;
+  tail->next = control;
+  control->next = nullptr;
+  return true;
 }
 void Invocation::clearControl() noexcept {
   auto &state = storage_.value;
@@ -727,6 +924,30 @@ void Invocation::releaseControl(void *address) noexcept {
   while (state.controls_ != control)
     clearControl();
   clearControl();
+}
+bool Invocation::releaseIndependentControl(void *address,
+                                           void (*cleanup)(void *) noexcept) noexcept {
+  AccountingGuard accounting(flags_ & DynamicResources);
+  auto &state = ledger();
+  auto **link = &state.controls_;
+  while (*link && *link + 1 != address)
+    link = &(*link)->next;
+  auto *control = *link;
+  if (!control || !cleanup || control->cleanup != cleanup) {
+    fault(3);
+    return false;
+  }
+  *link = control->next;
+  control->cleanup(control + 1);
+  const auto charge = control->charge;
+  control->~ControlAllocation();
+  std::free(control);
+  if (charge && state.recursiveRelease_)
+    state.recursiveRelease_(state.recursiveBudget_, charge);
+  state.recursiveBytes_ -= charge;
+  live_.store(live_.load(std::memory_order_relaxed) - 1, std::memory_order_relaxed);
+  ++state.releases_;
+  return true;
 }
 void *Invocation::latestControl(void (*cleanup)(void *) noexcept) noexcept {
   if (!(flags_ & Materialized))
@@ -918,6 +1139,24 @@ void Invocation::bindRecursiveBudget(void *state, EnvironmentReserve reserve,
   ledgerState.recursiveBudget_ = state;
   ledgerState.recursiveReserve_ = reserve;
   ledgerState.recursiveRelease_ = release;
+}
+void Invocation::bindResourceBudget(Invocation &owner, void *allocation) noexcept {
+  auto *source = owner.findOwner(allocation);
+  if (!source || !source->backing->resource() || source->backing->cleanup != OwnedState::cleanup ||
+      source->backing->bytes < sizeof(OwnedState) + sizeof(ResourceAccounting) ||
+      static_cast<OwnedState *>(allocation)->kind != OwnedKind::Generator) {
+    fault(3);
+    return;
+  }
+  std::lock_guard lock(resourceAccountingMutex);
+  auto &resource = *source->backing->resource();
+  if (!resource.aggregateBudget && resource.bytes) {
+    fault(3);
+    return;
+  }
+  bindRecursiveBudget(source->backing, reserveResourceBudget, releaseResourceBudget);
+  if (!status())
+    resource.aggregateBudget = true;
 }
 void *Invocation::allocateEnvironment(std::uint64_t bytes, const void *key) noexcept {
   if (poll())
@@ -1585,6 +1824,76 @@ extern "C" bool kalandra_record_retain_v1(kalandra::runtime::Invocation *destina
     return false;
   }
   return !allocated || destination->retainFrom(*source, allocated);
+}
+extern "C" bool kalandra_record_tensor_pack_v1(kalandra::runtime::Invocation *destination,
+                                               void *output,
+                                               const kalandra::runtime::Invocation *source,
+                                               const void *input, std::uint64_t rank,
+                                               std::uint64_t element) noexcept {
+  if (!destination)
+    return false;
+  if (!output || !source || !input || rank > 128) {
+    destination->fault(3);
+    return false;
+  }
+  if (!kalandra_environment_tensor_retain_v1(destination, source, input, rank, element))
+    return false;
+  // A tensor's ordinary native view may have an aligned pointer, offset and
+  // strides. Inline record fields have the existing canonical packed ABI.
+  void *allocated = nullptr;
+  const auto descriptorBytes = 2 * sizeof(void *) + 8 + 16 * rank;
+  if (validRecordStorage(*source, input, rank, element, allocated)) {
+    std::memcpy(output, input, descriptorBytes);
+    return true;
+  }
+  const auto *raw = static_cast<const std::byte *>(input);
+  void *aligned;
+  std::int64_t offset, sizes[128], strides[128], indices[128]{};
+  std::memcpy(&aligned, raw + sizeof(void *), sizeof(void *));
+  std::memcpy(&offset, raw + 2 * sizeof(void *), 8);
+  std::memcpy(sizes, raw + 2 * sizeof(void *) + 8, rank * 8);
+  std::memcpy(strides, raw + 2 * sizeof(void *) + 8 + rank * 8, rank * 8);
+  const auto width =
+      kalandra::describeNumeric(static_cast<kalandra::NumericType>(element))->bytes();
+  std::uint64_t count =
+      std::any_of(sizes, sizes + rank, [](auto size) { return size == 0; }) ? 0 : 1;
+  for (std::size_t axis = 0; axis < rank; ++axis) {
+    if (count && count > std::uint64_t(INT64_MAX) / width / std::uint64_t(sizes[axis])) {
+      destination->fault(2);
+      return false;
+    }
+    count *= std::uint64_t(sizes[axis]);
+  }
+  allocated = count ? destination->allocateRecord(count * width) : nullptr;
+  if (count && !allocated)
+    return false;
+  for (std::uint64_t index = 0; index < count; ++index) {
+    if ((index & 255) == 0 && destination->poll())
+      return false;
+    auto position = std::uint64_t(offset);
+    for (std::size_t axis = 0; axis < rank; ++axis)
+      position += std::uint64_t(indices[axis]) * std::uint64_t(strides[axis]);
+    std::memcpy(static_cast<std::byte *>(allocated) + index * width,
+                static_cast<const std::byte *>(aligned) + position * width, width);
+    for (auto axis = rank; axis; --axis) {
+      if (++indices[axis - 1] < sizes[axis - 1])
+        break;
+      indices[axis - 1] = 0;
+    }
+  }
+  auto *out = static_cast<std::byte *>(output);
+  std::memcpy(out, &allocated, sizeof(void *));
+  std::memcpy(out + sizeof(void *), &allocated, sizeof(void *));
+  offset = 0;
+  std::memcpy(out + 2 * sizeof(void *), &offset, 8);
+  std::memcpy(out + 2 * sizeof(void *) + 8, sizes, rank * 8);
+  std::uint64_t stride = count ? 1 : 0;
+  for (auto axis = rank; axis; --axis) {
+    strides[axis - 1] = std::int64_t(stride);
+    stride *= std::uint64_t(sizes[axis - 1]);
+  }
+  std::memcpy(out + 2 * sizeof(void *) + 8 + rank * 8, strides, rank * 8);
+  return !destination->poll();
 }
 
 namespace {

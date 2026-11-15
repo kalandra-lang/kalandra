@@ -6,7 +6,7 @@ const keywords = new Set(
   ),
 );
 const numericTypes = new Set(
-  "i8 u8 i16 u16 i32 u32 i64 u64 f32 f64 bool unit String Tensor TaskError FaultKind".split(
+  "i8 u8 i16 u16 i32 u32 i64 u64 f32 f64 bool unit never String Tensor TaskError FaultKind".split(
     " ",
   ),
 );

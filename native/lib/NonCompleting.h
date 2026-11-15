@@ -32,7 +32,8 @@ inline std::vector<bool> nonCompletingValues(const TypedModule &module) {
           } else if constexpr (std::is_same_v<T, ParallelOperation>)
             return stopped(op.result);
           else if constexpr (std::is_same_v<T, WhileOperation>) {
-            if (op.functionBoundary || op.condition >= id || exits.contains(op.identity))
+            if (op.functionBoundary || op.traversalErrorBoundary || op.condition >= id ||
+                exits.contains(op.identity))
               return false;
             const auto *condition =
                 std::get_if<BoolLiteral>(&module.expressions[op.condition].operation);

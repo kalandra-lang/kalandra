@@ -46,7 +46,7 @@ def main():
     for name, extra in [('timing', []), ('profile', ['-DKALANDRA_TASK_PROFILE'])]:
         command = [clang, '-std=c++23', '-Wall', '-Wextra', '-Werror', '-O2', '-DNDEBUG', *extra,
                    ROOT / 'native/benchmarks/Scheduler.cpp', ROOT / 'native/runtime/Tasks.cpp',
-                   ROOT / 'native/runtime/Runtime.cpp', '-o', BUILD / name]
+                   ROOT / 'native/runtime/Runtime.cpp', ROOT / 'native/runtime/OwnedResources.cpp', '-o', BUILD / name]
         run(command)
         commands.append(list(map(str, command)))
     configs = list(itertools.product([1, 2, 4, 8], [(16, 1), (32, 1), (33, 1), (128, 1), (16, 32), (128, 32), (1024, 256)], [1, 8]))
@@ -99,6 +99,7 @@ def main():
         print(f'{workers} workers {records}/{groups} slots {hops} resumes: {row["median_us"]:.2f} us')
     sources = ['native/benchmarks/Scheduler.cpp', 'native/benchmarks/scheduler.py',
                'native/runtime/Tasks.cpp', 'native/runtime/Tasks.h',
+               'native/runtime/OwnedResources.cpp', 'native/runtime/OwnedResources.h',
                'native/runtime/Runtime.cpp', 'native/runtime/Runtime.h']
     cpu = {}
     for key in ['machdep.cpu.brand_string', 'hw.logicalcpu', 'hw.memsize']:

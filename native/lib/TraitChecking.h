@@ -47,6 +47,8 @@ std::string nominalPatternHead(const TypeSyntax &syntax) {
     if (auto resolved = resolveAlias(alias->second, active))
       return prefix + std::string("record:") + std::to_string(*resolved);
   }
+  if (name(syntax.name) == "never")
+    return prefix + std::string("record:") + std::to_string(neverFamily());
   if (name(syntax.name) == "TaskError")
     return prefix + std::string("record:") + std::to_string(taskFamily());
   return prefix + name(syntax.name);
@@ -298,6 +300,7 @@ std::optional<FunctionSignature> requirementSignature(const Function &requiremen
     signature.result.fallible = true;
     signature.result.errorRecord = normalizedError(*family);
   }
+  signature.result = eraseNeverError(std::move(signature.result));
   return signature;
 }
 std::shared_ptr<TraitConformance> requireConformance(std::size_t trait, ValueType actual,
@@ -391,7 +394,7 @@ std::shared_ptr<TraitConformance> requireConformance(std::size_t trait, ValueTyp
       }
       const auto concrete = output_.functions[*method];
       bool compatible = concrete.parameters.size() == signature->parameters.size() &&
-                        syntax_.functions[*method].taskError == required.taskError &&
+                        syntax_.functions[*method].taskError == signature->result.fallible &&
                         concrete.declaredResult &&
                         sameFunctionValueType(*concrete.declaredResult, signature->result);
       for (std::size_t i = 0; compatible && i < concrete.parameters.size(); ++i) {

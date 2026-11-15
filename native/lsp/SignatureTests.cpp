@@ -35,6 +35,19 @@ int main() {
                 genericSignature->activeParameter == 1,
             "incomplete generic argument signature lost");
     auto result = query(add + "fn main():\n  return add(|1,2)\n");
+    const std::string rangePrelude = "from \"std/iter\" import range as steps\nfn main()->unit:\n";
+    auto range = recover(rangePrelude + "  values=steps(|10)\n  return ()\n");
+    require(range && range->parameters == std::vector<std::string>{"stop: i64"},
+            "one-argument range signature must label its argument stop: " +
+                (range ? range->label : "no signature"));
+    range = recover(rangePrelude + "  values=steps(2,|10)\n  return ()\n");
+    require(range && range->parameters == std::vector<std::string>{"start: i64", "stop: i64"} &&
+                range->activeParameter == 1,
+            "two-argument range signature lost its start/stop overload");
+    range = recover(rangePrelude + "  values=steps(2,10,|2)\n  return ()\n");
+    require(range && range->parameters == std::vector<std::string>{"start: i64", "stop: i64", "step: i64"} &&
+                range->activeParameter == 2,
+            "three-argument range signature lost its explicit step");
     require(result && result->label == "fn add(left: i64, right: i64) -> i64" &&
                 result->parameters == std::vector<std::string>{"left: i64", "right: i64"} &&
                 result->activeParameter == 0,

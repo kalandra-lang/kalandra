@@ -66,6 +66,40 @@ static FileArguments withFile(FileDescriptor file, std::uint64_t n = 0) {
   args.value = n;
   return args;
 }
+static void consumingHandleTransfer(const std::filesystem::path &root) {
+  for (unsigned mode = 0; mode != 4; ++mode) {
+    Invocation destination;
+    void *receivingScope = nullptr;
+    if (mode & 1)
+      receivingScope = kalandra_file_scope_enter_v1(&destination, nullptr, 0);
+    FileDescriptor file;
+    {
+      Invocation source;
+      if (mode & 2)
+        CHECK(ensureOwnedEscapeScope(source));
+      auto *scope = kalandra_file_scope_enter_v1(&source, nullptr, 0);
+      CHECK(scope);
+      file = open(source, root / ("consuming-" + std::to_string(mode)), FileMode::Create);
+      {
+        OwnedReceiveGuard receiving(source, destination);
+        CHECK(kalandra_owned_copy_v1(&destination, &source, &file));
+      }
+      kalandra_file_scope_leave_v1(&source, scope, nullptr);
+      source.settle();
+      CHECK(!source.live());
+    }
+    auto args = withFile(file);
+    args.bytes = bytes(destination, "still open");
+    auto result = call(destination, FileAction::WriteAll, args);
+    CHECK(result.kind == FileKind::Success && result.count == 10);
+    if (receivingScope) {
+      kalandra_file_scope_leave_v1(&destination, receivingScope, nullptr);
+      CHECK(call(destination, FileAction::WriteAll, args).kind == FileKind::InvalidArgument);
+    }
+    destination.settle();
+    CHECK(!destination.live() && destination.allocations() == destination.releases());
+  }
+}
 static void roundTrip(const std::filesystem::path &root) {
   Invocation ctx;
   const auto path = root / std::filesystem::path(std::u8string(u8"spaces Ω 文.bin"));
@@ -395,6 +429,7 @@ int main(int argc, char **argv) {
   std::filesystem::remove_all(root / "cases");
   std::filesystem::create_directory(root / "cases");
   roundTrip(root / "cases");
+  consumingHandleTransfer(root / "cases");
   bufferingAndLines(root / "cases");
   errorsAndFailures(root / "cases");
   logicalOwnership(root / "cases");

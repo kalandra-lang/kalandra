@@ -59,7 +59,7 @@ def main():
                 p.run([p.CLANG,*clang_flags,*bench_macros,'-DKALANDRA_KERNEL',*(['-DMATRIX_KERNEL'] if kind==2 else []),directory/'Driver.cpp',ir,compiler.parent/'libkalandra-task-core-optimized.a','-o',binary]);binaries.append(binary)
             p.run([compiler, '--test-entry', 'main',directory/'gpu.k','--target','metal','--arithmetic',arithmetic,'-O2','-o',directory/'gpu-bundle'])
             objects=[]
-            for i,source in enumerate((directory/'GpuDriver.cpp',p.ROOT/'native/metal/Metal.mm',p.ROOT/'native/runtime/Runtime.cpp',p.ROOT/'native/runtime/Tasks.cpp')):
+            for i,source in enumerate((directory/'GpuDriver.cpp',p.ROOT/'native/metal/Metal.mm',p.ROOT/'native/runtime/Runtime.cpp',p.ROOT/'native/runtime/Tasks.cpp',p.ROOT/'native/runtime/OwnedResources.cpp')):
                 obj=directory/f'gpu-{i}.o';objects.append(obj)
                 extra=['-fobjc-arc','-fblocks','-fno-objc-msgsend-class-selector-stubs'] if source.suffix=='.mm' else []
                 p.run([p.CLANG,*clang_flags,*bench_macros,*extra,'-c',source,'-o',obj])

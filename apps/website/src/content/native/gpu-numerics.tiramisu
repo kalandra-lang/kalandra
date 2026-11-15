@@ -189,6 +189,8 @@ GPU helpers can carry numeric and bool values, supported arrays, records, enums 
 
 h2 { "Local arrays and collecting loops" }
 
+Inside a GPU helper, materialize a yielding expression immediately with array(for ... yield ...). Stored Iterator values and lazy adapters run on the CPU host; transfer their completed numerical data before launching a GPU task.
+
 A GPU helper can construct numeric and bool arrays, index and iterate them, and modify local elements. Assignment keeps the same backing; copy creates independent element storage. slice and concat also construct independent arrays. A synchronous helper with a mut parameter can modify an array created by the calling GPU helper. GPU tasks can capture existing numeric and bool arrays as read-only parameters. Helpers can return flat numeric or bool arrays as native CPU arrays after await.
 
 codeblock { language = kalandra, """from "std/io" import println, IoError
@@ -196,10 +198,11 @@ from "std/fmt" import format
 
 fn selected(n: i64) -> i64:
   indices = generate(n, fn(i): return i)
-  values = for i in indices:
+  values = array(for i in indices:
     if i % 2 == 1:
       for offset in range(2):
         yield i * 10 + offset
+  )
   snapshot = copy(values)
   values[0] = 999
   total = 0

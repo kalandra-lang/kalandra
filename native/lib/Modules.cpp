@@ -316,6 +316,26 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
       files[id].targets.push_back(*target);
       files[id].height = std::max(files[id].height, files[*target].height + 1);
     }
+    // Yielding expressions use the canonical Iterator and Option declarations
+    // without injecting their exported names into the user's import namespace.
+    // Standard modules already declare their own dependencies (and std/iter
+    // must not acquire an implicit dependency on itself).
+    if (!standard && std::ranges::any_of(parsed.module.expressions, [](const auto &expression) {
+          return std::visit(
+              [](const auto &op) {
+                using T = std::decay_t<decltype(op)>;
+                if constexpr (std::is_same_v<T, WhileExpr> || std::is_same_v<T, ForExpr>)
+                  return op.collecting;
+                return false;
+              },
+              expression.value);
+        })) {
+      auto target = visit(fs::path(standardModulePath(StandardModule::Iteration)), 0, depth + 1,
+                          *source, {}, StandardModule::Iteration);
+      if (!target)
+        return {};
+      files[id].height = std::max(files[id].height, files[*target].height + 1);
+    }
     files[id].complete = true;
     return id;
   };

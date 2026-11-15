@@ -3,6 +3,7 @@
 #ifndef KALANDRA_REBIND_FRONTEND_ONLY
 #include "../lib/NativeStack.h"
 #include "llvm/AsmParser/Parser.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/SourceMgr.h"
 #endif
@@ -14,21 +15,29 @@ static void require(bool ok, const std::string &message) {
     throw std::runtime_error(message);
 }
 static CheckResult analyze(const std::string &source) {
+  if (source.find("yield ") != std::string::npos) {
+    const SourceOverlay overlay{"locals.k", source};
+    auto loaded = loadModules(overlay.path, {}, {}, {}, {&overlay, 1});
+    require(bool(loaded), "cannot load generator binding fixture");
+    return check(std::move(*loaded));
+  }
   return check(parse(std::make_shared<SourceFile>("locals.k", source)));
 }
 int main() {
   try {
     for (auto source :
-         {"fn main()->[i64]:\n  return for i in range(3):\n    for j in range(i):\n      if j%2==0:\n     "
-          "   yield i+j\n",
-          "fn main()->[f32]:\n  return for i in range(0):\n    yield 1\n",
+         {"fn main()->[i64]:\n  return array(for i in range(3):\n    for j in range(i):\n      if "
+          "j%2==0:\n     "
+          "   yield i+j\n  )\n",
+          "fn main()->[f32]:\n  return array(for i in range(0):\n    yield 1\n  )\n",
           "fn main()->i64:\n  i=0\n  result=while i<4:\n    i=i+1\n    if i==2:\n      continue\n  "
           "  break i\n  else:\n    0\n  return result\n",
           "fn main()->i64:\n  total=0\n  for value in range(5,0,-1):\n    if value==3:\n      "
           "break\n    total=total+value\n  return total\n",
           "fn main()->String:\n  return for text in [\"a\",\"b\"]:\n    break text\n  else:\n    "
           "\"empty\"\n",
-          "fn main()->i64:\n  a=10\n  a=a*2\n  return a\n", "fn main()->bool:\n  a=true\n  a=false\n  return a\n",
+          "fn main()->i64:\n  a=10\n  a=a*2\n  return a\n",
+          "fn main()->bool:\n  a=true\n  a=false\n  return a\n",
           "fn main()->[i64]:\n  a=[1]\n  a=[2]\n  return a\n",
           "fn main()->[bool]:\n  a=[true]\n  a=[false,true]\n  return a\n",
           "fn step(a:i64)->i64:\n  a=a+1\n  return a\nfn main()->i64:\n  return step(2)\n",
@@ -39,10 +48,13 @@ int main() {
           "a=a+2\n  return a\n",
           "fn main()->i64:\n  a=10\n  f=fn(x:i64):return a+x\n  a=20\n  return f(1)+a\n",
           "fn main()->i64:\n  a=1\n  a=0\n  return if a==0: 7\n  else: 1/a\n",
-          "fn id(x:i64)->i64:\n  return x\nfn main()->i64 ! TaskError:\n  a=10\n  return try parallel:\n    "
+          "fn id(x:i64)->i64:\n  return x\nfn main()->i64 ! TaskError:\n  a=10\n  return try "
+          "parallel:\n    "
           "pending=spawn id(a)\n    a=20\n    prior=try await pending\n    a+prior\n",
-          "fn id(x:i64)->i64:\n  return x\nfn main()->i64 ! TaskError:\n  a=0\n  while a<10:\n    try "
-          "parallel:\n      pending=spawn id(a)\n      a=try await pending+1\n      0\n  return a\n",
+          "fn id(x:i64)->i64:\n  return x\nfn main()->i64 ! TaskError:\n  a=0\n  while a<10:\n    "
+          "try "
+          "parallel:\n      pending=spawn id(a)\n      a=try await pending+1\n      0\n  return "
+          "a\n",
           "fn main()->i64:\n  values=generate(8,fn(i):\n    a=0\n    while a<i:\n      a=a+1\n    "
           "return a\n  )\n  return values[7]\n"}) {
       auto result = analyze(source);
@@ -63,12 +75,14 @@ int main() {
     std::string wide = "type Wide:\n";
     for (unsigned field = 0; field < 600; ++field)
       wide += "  field" + std::to_string(field) + ":i64\n";
-    wide += "fn collect(value:Wide)->[Wide]:\n  return for index in range(1):\n    yield value\nfn "
+    wide += "fn collect(value:Wide)->[Wide]:\n  return array(for index in range(1):\n    yield "
+            "value\n  )\nfn "
             "main()->i64:\n  return 0\n";
     auto wideTyped = analyze(wide);
     require(wideTyped.ok(), "wide collector parameter rejected by the frontend");
     auto wideIr = lowerNative(*wideTyped.module);
-    require(bool(wideIr), "wide collector lost native admission");
+    require(bool(wideIr),
+            "wide collector lost native admission: " + (wideIr ? "" : wideIr.error()));
     llvm::LLVMContext wideContext;
     llvm::SMDiagnostic diagnostic;
     auto wideModule = llvm::parseAssemblyString(wideIr->llvm, diagnostic, wideContext);
@@ -78,8 +92,21 @@ int main() {
       if (function.getName().starts_with("collection.payload.copy.")) {
         require(!nativeStackBudgetError(function, wideModule->getDataLayout()),
                 "collection copy adapter bypassed the native stack budget");
-        sawElement |= function.getName() == "collection.payload.copy.record.0";
       }
+    // Locate the actual 600-field item through its layout descriptor. Private
+    // adapter names encode structural schemas and are not a stable ABI.
+    for (const auto &global : wideModule->globals()) {
+      if (!global.getName().starts_with("collection.payload.layout."))
+        continue;
+      auto *layout = llvm::dyn_cast_or_null<llvm::ConstantStruct>(global.getInitializer());
+      if (!layout || layout->getNumOperands() != 5)
+        continue;
+      auto *bytes = llvm::dyn_cast<llvm::ConstantInt>(layout->getOperand(1));
+      auto *copy = llvm::dyn_cast<llvm::Function>(layout->getOperand(3)->stripPointerCasts());
+      if (bytes && bytes->getZExtValue() == 600 * sizeof(std::int64_t) && copy &&
+          copy->getName().starts_with("collection.payload.copy.") && !copy->isDeclaration())
+        sawElement = true;
+    }
     require(sawElement, "wide collector element adapter was not emitted");
 #endif
     for (auto source :

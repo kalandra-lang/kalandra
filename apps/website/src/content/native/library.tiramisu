@@ -1,6 +1,6 @@
 meta { title = "Built-in functions", description = "Alphabetical index of every public built-in call and numeric conversion.", order = 0, group = "Library reference" }
 
-Built-ins are functions available without an import. Use the alphabetical index to look up a name, or choose a reference by topic. Record and enum constructors, operators and control-flow keywords are described in the language reference. range(...) is allocation-free for-loop syntax rather than a first-class callable or array constructor.
+Built-ins are functions available without an import. Use the alphabetical index to look up a name, or choose a reference by topic. Record and enum constructors, operators and control-flow keywords are described in the language reference. range(...) is available as allocation-free for-loop syntax; import its factory from std/iter to store and reuse a Range value.
 
 list {
   link { url = "/docs/collection-functions", "Collections — arrays, Strings and tensor construction" },
@@ -14,6 +14,8 @@ h2 { "Standard modules" }
 Standard modules are explicit imports included with the compiler. They do not require package installation.
 
 list {
+  link { url = "/docs/iteration", "std/iter — ranges and owned cursors" },
+  link { url = "/docs/options", "std/option — present and absent values" },
   link { url = "/docs/filesystem", "std/fs — owned files, byte and line I/O, buffering" },
   link { url = "/docs/buffers", "std/buffer — owned growable byte storage" },
   link { url = "/docs/parsing", "std/parse — convert text to typed numbers and booleans" },

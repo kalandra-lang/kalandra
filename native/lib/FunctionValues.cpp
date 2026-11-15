@@ -180,6 +180,24 @@ public:
         const auto explicitCount = fn.parameters.size() - fn.captureCount;
         for (std::size_t i = 0; i < fn.captureCount; ++i)
           source(fn.parameters[explicitCount + i], ref->captures[i]);
+      } else if (const auto *generator = std::get_if<GeneratorCreate>(&value.operation)) {
+        if (generator->function >= module_.functions.size())
+          return false;
+        const auto &fn = module_.functions[generator->function];
+        if (!fn.generator || fn.parameters.size() != generator->captures.size())
+          return false;
+        for (std::size_t index = 0; index < generator->captures.size(); ++index)
+          source(fn.parameters[index], generator->captures[index]);
+        for (auto expression : fn.expressions)
+          if (const auto *yield =
+                  std::get_if<YieldOperation>(&module_.expressions[expression].operation);
+              yield && yield->collection == fn.generator->collection)
+            edge(yield->operand, id);
+        for (auto outcome : outcomes[generator->function])
+          edge(outcome, id);
+      } else if (const auto *iterator = std::get_if<IteratorOperation>(&value.operation)) {
+        for (auto argument : iterator->arguments)
+          edge(argument, id);
       } else if (const auto *call = std::get_if<FunctionCall>(&value.operation)) {
         if (call->function >= module_.functions.size())
           return false;
@@ -289,6 +307,15 @@ private:
   std::size_t remaining_ = 300000;
   bool valid_ = true;
 
+  bool carriesTargets(const ValueType &type) const {
+    if (containsFunctionStorage(module_, type))
+      return true;
+    if (!isIterator(module_, type))
+      return false;
+    const auto &arguments = module_.records[*type.record].typeArguments;
+    return arguments.size() == 2 && containsFunctionStorage(module_, arguments[0]);
+  }
+
   bool step() {
     if (!remaining_) {
       valid_ = false;
@@ -302,8 +329,7 @@ private:
       valid_ = false;
       return;
     }
-    if (containsFunctionStorage(module_, module_.expressions[id].type) &&
-        targets[id].insert(target).second)
+    if (carriesTargets(module_.expressions[id].type) && targets[id].insert(target).second)
       pending_.emplace_back(id, target);
   }
   void edge(ValueId from, ValueId to) {
@@ -311,8 +337,7 @@ private:
       valid_ = false;
       return;
     }
-    if (!containsFunctionStorage(module_, module_.expressions[to].type) ||
-        !edges_[from].insert(to).second)
+    if (!carriesTargets(module_.expressions[to].type) || !edges_[from].insert(to).second)
       return;
     const auto previous = targets[from];
     for (auto target : previous)
@@ -726,10 +751,11 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
         return false;
       const auto &parameter = type.callable->parameters[i];
       if (type.callable->mutates(i) &&
-          ((!parameter.array && !isByteBuffer(module, parameter)) || parameter.task ||
-           parameter.fallible || parameter.device ||
+          ((!parameter.array && !isByteBuffer(module, parameter) &&
+            !isIterator(module, parameter)) ||
+           parameter.task || parameter.fallible || parameter.device ||
            (parameter.builtin != BuiltinValue::Numeric && !isBooleanStorage(parameter) &&
-            !isByteBuffer(module, parameter))))
+            !isByteBuffer(module, parameter) && !isIterator(module, parameter))))
         return false;
     }
     visited += type.callable->parameters.size();
@@ -773,10 +799,12 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
         return "invalid or unsupported function-valued field type";
   for (const auto &symbol : module.symbols) {
     if (symbol.mutableAccess &&
-        (!symbol.parameter || (!symbol.type.array && !isByteBuffer(module, symbol.type)) ||
+        (!symbol.parameter ||
+         (!symbol.type.array && !isByteBuffer(module, symbol.type) &&
+          !isIterator(module, symbol.type)) ||
          symbol.type.task || symbol.type.fallible || symbol.type.device ||
          (symbol.type.builtin != BuiltinValue::Numeric && !isBooleanStorage(symbol.type) &&
-          !isByteBuffer(module, symbol.type))))
+          !isByteBuffer(module, symbol.type) && !isIterator(module, symbol.type))))
       return "invalid mutating parameter access";
     if (!valid(valid, symbol.type, 0))
       return "invalid or unsupported function-value type";

@@ -14,7 +14,7 @@ COMPILE(ownership "fn probe(n:i64)->i64:\n  saved=[7]\n  total=0\n  for i in ran
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS}
   "${SOURCE_DIR}/tests/LoopOwnershipRuntimeTests.cpp" "${OUTPUT_DIR}/ownership.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/ownership-harness")
 RUN_OK("${OUTPUT_DIR}/ownership-harness")
-COMPILE(collection "fn probe(n:i64,faultAt:i64)->i64:\n  values=for i in range(n):\n    if i==faultAt:\n      zero=0\n      yield i/zero\n    yield i\n  return length(values)\nfn main()->i64:\n  return 0\n" --test-entry probe)
+COMPILE(collection "fn probe(n:i64,faultAt:i64)->i64:\n  values=array(for i in range(n):\n    if i==faultAt:\n      zero=0\n      yield i/zero\n    yield i\n  )\n  return length(values)\nfn main()->i64:\n  return 0\n" --test-entry probe)
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS}
   "${SOURCE_DIR}/tests/CollectRuntimeTests.cpp" "${OUTPUT_DIR}/collection.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/collection-harness")
 RUN_OK("${OUTPUT_DIR}/collection-harness")

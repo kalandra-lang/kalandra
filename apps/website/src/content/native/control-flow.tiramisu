@@ -1,4 +1,4 @@
-meta { title = "Conditions, loops and matching", description = "Choose values, iterate over arrays and ranges, and exit loops safely.", order = 4, group = "Language reference" }
+meta { title = "Conditions, loops and matching", description = "Choose values, traverse arrays, ranges and cursors, and exit loops safely.", order = 4, group = "Language reference" }
 
 bool has the values true and false. Comparisons return bool. Use not, and and or for Boolean logic. and and or evaluate only the operands needed to determine the result.
 
@@ -88,7 +88,7 @@ This displays 8. continue advances to the next element. A bare break would end t
 
 h2 { "Iterate over an integer range" }
 
-Use range(stop), range(start, stop), or range(start, stop, step) as a for iterable. These forms are allocation-free loop syntax; they do not construct an array or a reusable iterator value. Arguments are completed i64 values, evaluated once from left to right. The default start is zero and the default step is one. The stop is exclusive. A negative step counts downward; a direction that cannot reach the stop produces no iterations. A zero step produces a checked arithmetic fault, including for an otherwise empty range. Advancing beyond the i64 limits ends the range without wrapping around.
+Use range(stop), range(start, stop), or range(start, stop, step) as a for iterable. These forms are allocation-free loop syntax and do not construct an array. To store or pass a reusable Range value, import range from std/iter. Arguments are completed i64 values, evaluated once from left to right. The default start is zero and the default step is one. The stop is exclusive. A negative step counts downward; a direction that cannot reach the stop produces no iterations. A zero step produces a checked arithmetic fault, including for an otherwise empty range. Advancing beyond the i64 limits ends the range without wrapping around.
 
 codeblock { language = kalandra, """from "std/io" import println, IoError
 from "std/fmt" import format
@@ -105,17 +105,26 @@ fn main() -> unit ! IoError:
 
 This displays 8, from 5 + 3 + 1 - 1. Reassigning index inside the body changes that iteration's local value; it does not change the next range value.
 
+h2 { "Iterate over a cursor" }
+
+A for loop also accepts an Iterator. It takes ownership and closes the cursor when traversal ends, including on break or return. Use next manually when you need to resume the same cursor later. A fallible cursor makes the loop's result fallible; use try or catch to handle that traversal error.
+
+list {
+  link { url = "/docs/iteration#for-over-a-cursor", "Cursor ownership, traversal errors and examples" }
+}
+
 h2 { "Build an array with yield" }
 
-A for or while expression containing yield builds an array. Each executed yield appends one value in execution order. You can filter values with if, skip an iteration with continue, or stop with a bare break. Values yielded before continue or break remain in the result. A collecting loop has no else result and does not accept break value.
+A for or while expression containing yield creates a lazy Iterator. Its body runs only when an item is requested, and pauses after each yield. Use array(...) to consume the sequence immediately into an array. You can filter values with if, skip an iteration with continue, or stop with a bare break. A yielding loop has no else result and does not accept break value.
 
 codeblock { language = kalandra, """from "std/io" import print, println, IoError
 from "std/fmt" import format
 
 fn main() -> unit ! IoError:
-  squares = for value in [3, -2, 7, 0]:
+  squares = array(for value in [3, -2, 7, 0]:
     if value > 0:
       yield value * value
+  )
   output: [i64] = squares
 
   try print("[")
@@ -127,7 +136,7 @@ fn main() -> unit ! IoError:
   return ()
 """ }
 
-This displays [9, 49]. All yielded values must have the same element type. A type annotation on the result supplies the element type for numeric literals. If no yield executes, the result is an empty array of that type. The loop runs eagerly before the assignment completes; yield does not suspend execution or create a lazy generator.
+This displays [9, 49]. All yielded values must have the same item type. An array result annotation can supply the element type for numeric literals in an immediately materialized loop. If no yield executes, array returns an empty array. Without array(...), construction returns a cursor without running the body.
 
 Nested statement loops contribute to the enclosing collecting expression. This lets one traversal produce zero, one or several values per iteration.
 
@@ -135,10 +144,11 @@ codeblock { language = kalandra, """from "std/io" import print, println, IoError
 from "std/fmt" import format
 
 fn main() -> unit ! IoError:
-  results = for row in range(4):
+  results = array(for row in range(4):
     for value in range(row):
       if value % 2 == 0:
         yield row * 10 + value
+  )
   output: [i64] = results
 
   try print("[")
@@ -150,14 +160,14 @@ fn main() -> unit ! IoError:
   return ()
 """ }
 
-This displays [10, 20, 30, 32]. break and continue still target the nearest loop. Assigning a nested loop expression to a separate binding creates a separate result array; its yields do not append to the outer result. A function or callback cannot yield into its caller's loop.
+This displays [10, 20, 30, 32]. break and continue still target the nearest loop. Assigning a nested yielding loop expression to a separate binding creates an independent cursor; use array(...) when you need its elements stored. Its yields do not append to the outer sequence. A function or callback cannot yield into its caller's loop.
 
 codeblock { language = kalandra, """from "std/io" import print, println, IoError
 from "std/fmt" import format
 
 fn main() -> unit ! IoError:
   index = 0
-  values = while index < 6:
+  values = array(while index < 6:
     index = index + 1
     if index == 2:
       continue
@@ -165,6 +175,7 @@ fn main() -> unit ! IoError:
     if index == 4:
       break
     yield index * 10
+  )
   output: [i64] = values
 
   try print("[")
@@ -176,9 +187,9 @@ fn main() -> unit ! IoError:
   return ()
 """ }
 
-This displays [1, 10, 3, 30, 4]. yield accepts the supported array element types: numeric scalars, bool, Strings, records and functions. Array and tensor elements are not supported. Values must be completed and on the CPU; await tasks and handle expected errors before yielding their results. Yielding does not settle other tasks created in the iteration. Cancellation, faults and resource exhaustion abort construction without returning a partial array.
+This displays [1, 10, 3, 30, 4]. The generator has its own copy of the scalar binding index; advancing it does not reassign the enclosing binding. Yield accepts completed CPU values, including numbers, bool, Strings, records, functions, arrays and tensors. Materialization cannot nest array or tensor items; wrap those items in a record. Await tasks and handle expected errors before yielding their results. Child tasks may continue running while the generator is paused; closing the cursor cancels and joins them. Cancellation, faults and resource exhaustion abort materialization without returning a partial array.
 
-The result has fresh array storage. Owned elements retain their ordinary aliasing rules: yielding a record does not duplicate arrays referenced by its fields. Existing read locks and mutation permissions still apply. Use generate for an indexed construction with a known count, map to transform an existing array, or a collecting loop when filtering, nested traversal or early exits make the construction clearer.
+The result has fresh array storage. Owned elements retain their ordinary aliasing rules: yielding a record does not duplicate arrays referenced by its fields. Existing read locks and mutation permissions still apply. Use generate for an indexed construction with a known count, map to transform an existing array, or a yielding loop when filtering, nested traversal or early exits make the construction clearer. See the iteration reference for capture ownership, errors and lazy adapters.
 
 h2 { "Get a value from a loop" }
 

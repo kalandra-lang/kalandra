@@ -1,3 +1,4 @@
+#include "../runtime/GeneratorFrame.h"
 #include "../runtime/String.h"
 #include <array>
 #include <atomic>
@@ -16,8 +17,42 @@ static void require(bool value, const char *message) {
   if (!value)
     throw std::runtime_error(message);
 }
+extern "C" const ValueLayout iterator_producer_item, iterator_consumer_item,
+    iterator_linked_consumer_item, iterator_wrong_item;
 int main() {
   try {
+    {
+      Invocation context;
+      require(iterator_consumer_item.identity == iterator_linked_consumer_item.identity,
+              "linked consumer changed its item type identity");
+      auto cursor = generatorRange(context, {2, 5, 1}, iterator_producer_item, 0, 0);
+      for (std::int64_t expected = 2; expected < 5; ++expected) {
+        std::int64_t value = -1;
+        require(generatorNext(context, cursor, iterator_linked_consumer_item, nullptr, &value,
+                              nullptr) == GeneratorStep::Item &&
+                    value == expected,
+                "independently emitted producer/consumer item layouts did not interoperate");
+      }
+      std::int64_t value = -1;
+      require(generatorNext(context, cursor, iterator_linked_consumer_item, nullptr, &value,
+                            nullptr) == GeneratorStep::Exhausted &&
+                  !context.status(),
+              "cross-component cursor did not reach exhaustion");
+      require(generatorClose(context, cursor), "cross-component cursor close failed");
+      context.settle();
+      require(!context.live(), "cross-component cursor retained its frame");
+    }
+    {
+      Invocation context;
+      auto cursor = generatorRange(context, {2, 5, 1}, iterator_producer_item, 0, 0);
+      std::uint64_t output = 0;
+      require(generatorNext(context, cursor, iterator_wrong_item, nullptr, &output, nullptr) ==
+                      GeneratorStep::Stopped &&
+                  context.status() == 3,
+              "same-width signed and unsigned item layouts were accepted as interchangeable");
+      context.settle();
+      require(!context.live(), "rejected item schema leaked its frame");
+    }
     for (std::uint64_t tag : {1u, 2u})
       for (std::uint64_t kind : {0u, 1u, 2u, 3u, 4u, 5u, UINT32_MAX}) {
         Invocation context;

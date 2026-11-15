@@ -29,7 +29,7 @@ def main():
     for name, (text, expected) in CASES.items():
         source, output = args.output / (name + '.k'), args.output / name
         source.write_text(text)
-        result = invoke([args.compiler, source, '-o', output, '--emit-llvm', str(output) + '.ll', *flags])
+        result = invoke([args.compiler, source, '--test-entry', 'main', '-o', output, '--emit-llvm', str(output) + '.ll', *flags])
         assert result.returncode == 0 and not result.stderr, (name, 'compile', result.returncode, result.stdout, result.stderr)
         for workers in (1, 2, 4):
             result = invoke([output.resolve()], env=dict(os.environ, KALANDRA_WORKERS=str(workers)))
@@ -40,7 +40,7 @@ def main():
         source, output = args.output / (name + '.k'), args.output / name
         source.write_text(text)
         output.write_text('preserved output\n')
-        result = invoke([args.compiler, source, '-o', output, *flags])
+        result = invoke([args.compiler, source, '--test-entry', 'main', '-o', output, *flags])
         assert result.returncode != 0 and result.stderr, (name, 'invalid source admitted')
         assert output.read_text() == 'preserved output\n', (name, 'damaged existing output')
         records.append(dict(case=name, rejected=True))
@@ -48,7 +48,7 @@ def main():
     source = args.output / 'zero-step.k'
     source.write_text('fn zero()->i64:\n  return 0\nfn main()->i64:\n  for i in range(0,0,zero()):\n    i+1\n  return 42\n')
     output = args.output / 'zero-step'
-    result = invoke([args.compiler, source, '-o', output, *flags])
+    result = invoke([args.compiler, source, '--test-entry', 'main', '-o', output, *flags])
     assert result.returncode == 0, result.stderr
     result = invoke([output.resolve()])
     assert result.returncode != 0 and not result.stdout and 'fault' in result.stderr.lower(), (result.returncode, result.stdout, result.stderr)
