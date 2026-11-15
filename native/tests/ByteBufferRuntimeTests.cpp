@@ -1,5 +1,6 @@
 #include "../runtime/ByteBuffer.h"
 #include "../runtime/FileSystem.h"
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -401,6 +402,14 @@ static void blockedWriteSnapshot() {
   CHECK(::mkfifo(path.c_str(), 0600) == 0);
   const auto peer = ::open(path.c_str(), O_RDONLY | O_NONBLOCK);
   CHECK(peer >= 0);
+  // Size from actual pipe capacity so unread data remains outstanding
+  // before cancellation even when the pipe exceeds the default payload.
+  std::size_t payloadSize = 1 << 20;
+#ifdef F_GETPIPE_SZ
+  const auto pipeBytes = ::fcntl(peer, F_GETPIPE_SZ);
+  CHECK(pipeBytes > 0);
+  payloadSize = std::max(payloadSize, std::size_t(pipeBytes) + 65536);
+#endif
   Invocation owner;
   FileArguments file;
   const auto name = path.string();
@@ -409,9 +418,8 @@ static void blockedWriteSnapshot() {
   auto handle = fileCall(owner, FileAction::Open, file).file;
   auto buffer = call(owner, BufferAction::Create).buffer;
   auto args = with(buffer);
-  args.bytes = bytes(owner, std::string(1 << 20, 'A'));
+  args.bytes = bytes(owner, std::string(payloadSize, 'A'));
   call(owner, BufferAction::Append, args);
-  const auto *original = bufferStats(owner, buffer).data;
   std::atomic<bool> cancelled{false};
   Invocation operation;
   operation.bindCancellation(&cancelled);
@@ -424,7 +432,7 @@ static void blockedWriteSnapshot() {
   void *state = nullptr;
   CHECK(!kalandra_file_step_v1(&operation, &result, unsigned(FileAction::WriteAllBuffer), &request,
                                &state));
-  // Observe the first byte: the OS write is now in flight, not merely queued.
+  // Observe committed output before cancelling the remaining write.
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   unsigned char first = 0;
   while (::read(peer, &first, 1) != 1) {
@@ -440,13 +448,16 @@ static void blockedWriteSnapshot() {
   operation.settle();
   CHECK(std::chrono::steady_clock::now() - start < std::chrono::seconds(1));
   call(owner, BufferAction::Clear, with(buffer));
-  args.bytes = bytes(owner, "replacement");
+  args.bytes = bytes(owner, std::string(payloadSize, 'R'));
   call(owner, BufferAction::Append, args);
-  CHECK(bufferStats(owner, buffer).data != original);
   auto mutableBytes = call(owner, BufferAction::IntoArray, with(buffer)).bytes;
-  mutableBytes.aligned[0] = 'X';
-  // Retire source state before draining the outstanding OS request. Its pin
-  // must preserve both bytes and the file until the native worker completes.
+  CHECK(mutableBytes.sizes[0] == std::int64_t(payloadSize));
+  std::memset(mutableBytes.aligned + mutableBytes.offset, 'X', payloadSize);
+  // A worker may finish abandonment before mutation, making backing reuse
+  // valid. If it is still using the snapshot, *all* its bytes must remain A.
+  // The direct BufferIO view tests separately require COW while a pin is held.
+  // Retire caller state before draining: any outstanding native request must
+  // preserve both bytes and the file until completion.
   owner.settle();
   CHECK(!owner.live());
   std::size_t received = 1;
@@ -464,7 +475,10 @@ static void blockedWriteSnapshot() {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
   }
-  CHECK(received >= 65536 && received < (1 << 20));
+  CHECK(received >= 65536 && received <= payloadSize);
+#ifdef F_GETPIPE_SZ
+  CHECK(received < payloadSize); // The payload exceeds this pipe's capacity.
+#endif
   CHECK(::close(peer) == 0);
   CHECK(std::filesystem::remove(path));
 }
