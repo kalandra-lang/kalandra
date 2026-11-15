@@ -37,7 +37,7 @@ def run(command):
     assert result.returncode == 0, (command, result.returncode, result.stdout, result.stderr)
     return result
 for variant, flag, flags in variants:
-    binary = args.output.resolve() / variant
+    binary = args.output.resolve() / (variant + ('.exe' if sys.platform == 'win32' else ''))
     ir = binary.with_suffix('.ll')
     run([args.compiler, source, '--test-entry', 'run', flag, '--emit-llvm', ir,
          '-o', str(binary) + '-standalone'])

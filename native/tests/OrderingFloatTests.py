@@ -27,7 +27,7 @@ fn main()->unit:
 ''')
  for variant,flag,flags in variants:
   for policy in ['hardware','software']:
-   binary=a.output/(numeric+'-'+variant+'-'+policy);ir=binary.with_suffix('.ll')
+   binary=a.output/(numeric+'-'+variant+'-'+policy+('.exe' if sys.platform=='win32' else ''));ir=binary.with_suffix('.ll')
    run([a.compiler,source,'--test-entry','run','--arithmetic',policy,flag,'--emit-llvm',ir,'-o',str(binary)+'-standalone'])
    runtime=a.compiler.parent/(('' if sys.platform=='win32' else 'lib')+'kalandra-native-runtime'+('-'+variant if 'sanitized' in variant else '')+('.lib' if sys.platform=='win32' else '.a'))
    run([a.clang,'-std=c++23','-ffp-contract=off','-Wno-override-module','-pthread',*flags,*(['-DFLOAT32'] if numeric=='f32' else []),*(['-DCALLABLE_PLAN'] if '@kalandra_callable_test_entry =' in ir.read_text() else []),*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),repo/'native/tests/OrderingFloatRuntimeTests.cpp',ir,runtime,'-o',binary])
