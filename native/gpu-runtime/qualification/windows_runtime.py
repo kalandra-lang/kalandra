@@ -27,7 +27,7 @@ path.write_text('#include "ExecutablePath.h"\n#include <filesystem>\nint main(in
 checks=[('path',[path]),('loader',[source/'tests/WindowsLoaderTests.cpp'])]
 if a.backend=='vulkan':
     checks[1][1].append(source/'VulkanLoader.cpp')
-    checks.append(('interface',[source/'tests/SpirvInterfaceTests.cpp',source/'SpirvInterface.cpp']))
+    checks.append(('interface',[source/'tests/SpirvInterfaceTests.cpp',source/'tests/SpirvFileTests.cpp',source/'SpirvInterface.cpp']))
 for name,inputs in checks:
     binary=out/(name+'.exe');run([cxx,*flags,*inputs,'-o',binary])
     imports=subprocess.check_output([readobj,'--coff-imports',binary],text=True).lower()
