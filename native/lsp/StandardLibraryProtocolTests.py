@@ -146,3 +146,29 @@ fn main()->unit:
     assert 'export fn isAbsolute(path: String) -> bool:' in declarations,declarations
     client.finish()
 print('PASS: path declarations, aliases, definition URI, signature and hover')
+
+with tempfile.TemporaryDirectory(dir=directory) as temp:
+    root=Path(temp).resolve()
+    path=root/'display.k'
+    text='''from "std/fmt" import format, Display
+type Point:
+  x:i64
+impl Display for Point:
+  fn display(value:Self)->String:
+    return format("{}",value.x)
+fn main()->String:
+  return format("{:>8}",Point {x:42})
+'''
+    client=Client(server)
+    client.init(workspaceFolders=[{'uri':root.as_uri(),'name':'display'}])
+    client.open(path,text)
+    assert not publications(client.barrier())[path.as_uri()]['diagnostics']
+    line=text.splitlines()[3]
+    definition=client.rpc('textDocument/definition',{
+        'textDocument':{'uri':path.as_uri()},
+        'position':{'line':3,'character':line.index('Display')+2}})['result']
+    assert definition['uri']=='kalandra-stdlib:std/fmt.k',definition
+    declarations=client.rpc('kalandra/standardLibrary',{'uri':'kalandra-stdlib:std/fmt.k'})['result']
+    assert 'export trait Display:' in declarations and 'fn display(value: Self) -> String' in declarations,declarations
+    client.finish()
+print('PASS: custom Display conformance and canonical standard trait definition')

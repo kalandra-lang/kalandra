@@ -249,6 +249,9 @@ struct ParseOperation {
 struct FormatOperation {
   std::vector<FormatPart> parts;
   std::vector<ValueId> arguments;
+  // Source operands must complete before any user Display implementation runs.
+  // Empty for the existing primitive path.
+  std::vector<ValueId> originalArguments = {};
 };
 struct BoolLiteral {
   bool value;

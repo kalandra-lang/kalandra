@@ -1,4 +1,4 @@
-meta { title = "Console I/O and formatting", description = "Read and write Unicode text with std/io and format scalar values with std/fmt.", order = 5, group = "Library reference" }
+meta { title = "Console I/O and formatting", description = "Read and write Unicode text with std/io and format values with std/fmt.", order = 5, group = "Library reference" }
 
 Import console functions from std/io and formatting from std/fmt. Standard modules are part of the compiler and need no package dependency or network access. They are ordinary explicit imports, rather than names added to every source module.
 
@@ -85,15 +85,81 @@ fn main() -> unit ! IoError:
 
 The output is count=42, ready=true, name=Kalandra followed by 42 enclosed in braces on the next line. Arguments are evaluated once, from left to right. The result is an owned String.
 
-Supported values are String, bool and the ten numeric scalar types: i8, i16, i32, i64, u8, u16, u32, u64, f32 and f64. Integers use decimal notation; booleans use true and false. Floating-point formatting preserves enough information to round-trip at the value's source precision. Formatting is independent of the process locale.
+String, bool and the ten numeric primitives implement Display: i8, i16, i32, i64, u8, u16, u32, u64, f32 and f64. With the default placeholder, integers use decimal notation, booleans use true and false, and floats preserve enough information to round-trip at their source precision. Formatting is independent of the process locale.
 
-Arrays, tensors, records, unit, alignment and precision specifiers are not accepted. Format individual elements or choose the fields you want to display. A dynamically computed template is not accepted, and format cannot be stored or passed as a first-class function.
+h3 { "Presentation and alignment" }
+
+list {
+  "{:.2}: format an f32 or f64 with two digits after the decimal point.",
+  "{:x}: format an integer in lowercase hexadecimal, without a prefix. Negative values retain a minus sign.",
+  "{:>8}: right-align the displayed text within a minimum width of eight Unicode scalar values.",
+  "{:<8}: left-align the displayed text within the same minimum width.",
+  "{:>8.2} and {:>6x}: combine alignment with fixed precision or hexadecimal presentation."
+}
+
+codeblock { language = kalandra, """from "std/fmt" import format
+from "std/io" import println, IoError
+
+fn main() -> unit ! IoError:
+  try println(format("price={:.2}, id={:x}", 3.14159, 255))
+  try println(format("[{:>8}] [{:<8}]", "hello", "é"))
+  return ()
+""" }
+
+The first line is price=3.14, id=ff. The second line puts three spaces before hello and seven spaces after é, inside the brackets. Width counts Unicode scalar values, not UTF-8 bytes, grapheme clusters or terminal columns. Combining marks and the individual scalars of an emoji sequence count separately. Alignment uses spaces and never truncates longer text.
+
+Precision rounds the actual binary floating-point value to the requested number of decimal places, using nearest rounding with ties to even. For example, formatting 1.125 with two decimal places gives 1.12, while 1.375 gives 1.38. Decimal literals that have no exact binary representation may round differently from their written decimal spelling. Signed zero is preserved. Nonfinite values retain the default nan, inf or -inf spelling.
+
+Widths and precisions must be nonnegative integer literals that fit the String size domain. Large output remains subject to allocation limits and cancellation. Precision applies only to floats, hexadecimal only to integers, and alignment to any displayed value. Invalid controls and incompatible types are compile errors.
+
+h2 { "Display" }
+
+code { "trait Display: fn display(value: Self) -> String" }
+
+Implement Display to choose how your own records and enums appear in format. The method returns a String and reads its input without consuming or mutating it. Implementations use normal trait conformance and static dispatch.
+
+codeblock { language = kalandra, """from "std/fmt" import format, Display
+from "std/io" import println, IoError
+
+type Point:
+  x: i64
+  y: i64
+
+impl Display for Point:
+  fn display(value: Self) -> String:
+    return format("({}, {})", value.x, value.y)
+
+fn main() -> unit ! IoError:
+  point = Point {x: 10, y: 20}
+  try println(format("Position: {}", point))
+  try println(format("[{:>12}]", point))
+  return ()
+""" }
+
+This prints Position: (10, 20), followed by the same point right-aligned inside brackets. Arrays, tensors and other aggregate values have no automatic textual representation. Select their elements explicitly or implement Display for a domain-specific type.
+
+Generic code that displays a user-defined value declares a Display bound:
+
+codeblock { language = kalandra, """from "std/fmt" import format, Display
+from "std/io" import println, IoError
+
+fn label[T: Display](value: T) -> String:
+  return format("value={}", value)
+
+fn main() -> unit ! IoError:
+  try println(label(42))
+  return ()
+""" }
+
+All format argument expressions run once, from left to right, before any custom display method runs. Each placeholder then displays its value once, in template order. A display method may perform ordinary local computation; any expected errors must be handled inside it because its result is infallible. Runtime faults and cancellation keep their normal behavior.
+
+The returned String is owned. Custom display methods can allocate their own Strings; formatting does not promise allocation-free streaming. A dynamically computed template is not accepted, and format cannot be stored or passed as a first-class function.
 
 h2 { "Tasks and devices" }
 
 Console operations run on the CPU. Within structured tasks, a pending read or write suspends its task so another ready task can run, including when the program uses a single worker. Cancellation can stop waiting tasks and settle their owned values; an operating-system operation that has already started can finish independently. Cancellation cannot retract bytes already written.
 
-Use direct host calls for console I/O in programs compiled for GPU targets. Passing an I/O function as a callback is supported by CPU-targeted programs only. Console operations and Strings cannot be used inside device kernels.
+Use direct host calls for console I/O in programs compiled for GPU targets. Passing an I/O function as a callback is supported by CPU-targeted programs only. Console operations and formatting are host-only. In a GPU-targeted program, format and Display work on the host around device computations; they do not transfer work to the CPU implicitly from a kernel. Strings cannot be used inside device kernels.
 
 Ordinary sequential applications use direct host I/O when the compiler proves that scheduling is unnecessary. Explicit parallel work keeps task admission checks, cancellation and task resource limits. The explicit readLine bound still applies in both cases.
 

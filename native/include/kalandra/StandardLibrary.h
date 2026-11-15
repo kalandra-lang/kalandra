@@ -342,6 +342,44 @@ export fn readLine(maxBytes: u64) -> Line ! IoError:
   case StandardModule::Format:
     return R"k(export fn format(template: String) -> String:
   return __kalandra_format(template)
+export trait Display:
+  fn display(value: Self) -> String
+impl Display for String:
+  fn display(value: Self) -> String:
+    return value
+impl Display for bool:
+  fn display(value: Self) -> String:
+    return format("{}", value)
+impl Display for i8:
+  fn display(value: Self) -> String:
+    return format("{}", value)
+impl Display for i16:
+  fn display(value: Self) -> String:
+    return format("{}", value)
+impl Display for i32:
+  fn display(value: Self) -> String:
+    return format("{}", value)
+impl Display for i64:
+  fn display(value: Self) -> String:
+    return format("{}", value)
+impl Display for u8:
+  fn display(value: Self) -> String:
+    return format("{}", value)
+impl Display for u16:
+  fn display(value: Self) -> String:
+    return format("{}", value)
+impl Display for u32:
+  fn display(value: Self) -> String:
+    return format("{}", value)
+impl Display for u64:
+  fn display(value: Self) -> String:
+    return format("{}", value)
+impl Display for f32:
+  fn display(value: Self) -> String:
+    return format("{}", value)
+impl Display for f64:
+  fn display(value: Self) -> String:
+    return format("{}", value)
 )k";
   }
   return {};

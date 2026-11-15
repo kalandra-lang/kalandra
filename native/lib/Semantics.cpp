@@ -2100,11 +2100,9 @@ private:
       auto value = expression(frame, arguments[i]);
       if (!value)
         return {};
-      const auto &type = node(*value).type;
-      if (type.tensor || type.array || type.task || type.fallible || type.device ||
-          (type.builtin != BuiltinValue::Numeric && type.builtin != BuiltinValue::Bool &&
-           type.builtin != BuiltinValue::String)) {
-        error("S080", "format arguments require completed String, numeric or bool values",
+      const auto type = node(*value).type;
+      if (type.task || type.fallible || type.device) {
+        error("S080", "format arguments require completed host values",
               syntax_.expressions[arguments[i]].span);
         return {};
       }
@@ -2112,7 +2110,65 @@ private:
     }
     ValueType result;
     result.builtin = BuiltinValue::String;
-    return add(frame, result, span, FormatOperation{std::move(*parts), std::move(values)});
+    // Evaluate all source operands before calling any user formatter, just as
+    // ordinary calls evaluate their operands before entering the callee.
+    auto originalArguments = values;
+    bool custom = false;
+    std::size_t index = 0;
+    for (const auto &part : *parts) {
+      if (!part.argument)
+        continue;
+      const auto value = values[index];
+      const auto type = node(value).type;
+      const auto site = syntax_.expressions[arguments[index + 1]].span;
+      const bool scalar =
+          !type.tensor && !type.array &&
+          (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool ||
+           type.builtin == BuiltinValue::String);
+      const bool numeric = scalar && type.builtin == BuiltinValue::Numeric;
+      if (part.spec.presentation == runtime::FormatPresentation::Fixed &&
+          (!numeric || isInteger(type.element))) {
+        error("S080", "fixed decimal precision requires an f32 or f64 value", site);
+        return {};
+      }
+      if (part.spec.presentation == runtime::FormatPresentation::HexLower &&
+          (!numeric || !isInteger(type.element))) {
+        error("S080", "hexadecimal formatting requires an integer value", site);
+        return {};
+      }
+      if (!scalar) {
+        std::optional<std::size_t> display;
+        for (std::size_t id = 0; id < syntax_.traits.size(); ++id) {
+          const auto &trait = syntax_.traits[id];
+          const auto module = syntax_.source->partIndex(trait.name.begin);
+          if (module < syntax_.standardModules.size() &&
+              syntax_.standardModules[module] == StandardModule::Format &&
+              name(trait.name) == "Display") {
+            display = id;
+            break;
+          }
+        }
+        if (!display) {
+          error("S080", "format requires the standard Display capability", site);
+          return {};
+        }
+        auto conformance = requireConformance(*display, genericValueType(type), site);
+        if (!conformance || !requireGenericTraitProof(frame, *display, genericTerm(value), site))
+          return {};
+        const auto method = conformance->methods.at("display");
+        const auto methodName = syntax_.traits[*display].methods.front().name;
+        auto converted = invoke(frame, site, methodName, {arguments[index + 1]}, result, {},
+                                nullptr, false, method, std::vector<ValueId>{value});
+        if (!converted)
+          return {};
+        values[index] = *converted;
+        custom = true;
+      }
+      ++index;
+    }
+    return add(frame, result, span,
+               FormatOperation{std::move(*parts), std::move(values),
+                               custom ? std::move(originalArguments) : std::vector<ValueId>{}});
   }
   bool analyzeFunction(FunctionId id) {
     if (states_[id] == State::Complete)
@@ -6864,8 +6920,8 @@ private:
     return add(frame, std::move(resultType), span, FunctionCall{id, std::move(operands)});
   }
 #include "GenericChecking.h"
-#include "NeverChecking.h"
 #include "IterationChecking.h"
+#include "NeverChecking.h"
   std::size_t nextLoop_ = 1;
   Module syntax_;
   SemanticLimits limits_;

@@ -66,6 +66,15 @@ def program_cases():
         'fn main(args:[String])->unit ! IoError:\n'
         '  try println(format("answer={}, arguments={}",42,length(args)))\n'
         '  return ()\n'), output='answer=42, arguments=0\n', application=True)
+    cases['display-format-application'] = dict(source=(
+        'from "std/fmt" import format, Display\nfrom "std/io" import println, IoError\n'
+        'type Point:\n  x:i64\n  y:i64\n'
+        'impl Display for Point:\n  fn display(value:Self)->String:\n'
+        '    return format("({}, {})",value.x,value.y)\n'
+        'fn main()->unit ! IoError:\n'
+        '  try println(format("[{:>10}] {:.2} {:x}",Point {x:1,y:2},1.125,-255))\n'
+        '  try println(format("[{:>4}] [{:<4}]", "é", "é"))\n'
+        '  return ()\n'), output='[    (1, 2)] 1.12 -ff\n[   é] [é  ]\n', application=True)
     cases['filesystem-application'] = dict(source=FILESYSTEM_SOURCE, output=FILESYSTEM_EXPECTED, application=True, filesystem=True)
     cases['parsing-application'] = dict(source=PARSE_SOURCE, output=PARSE_EXPECTED, application=True)
     cases['path-application'] = dict(source=PATH_SOURCE, outputBySystem={system:path_expected(system=='windows') for system in ('linux','macos','windows')}, application=True)

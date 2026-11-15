@@ -29,6 +29,8 @@ void visitTypedChildren(Expr &expression, ValueVisit values, SymbolVisit symbols
   std::visit(
       [&](auto &op) {
         using T = std::remove_cvref_t<decltype(op)>;
+        if constexpr (requires { op.originalArguments; })
+          visitTypedIds(op.originalArguments, values);
         if constexpr (requires { op.arguments; })
           visitTypedIds(op.arguments, values);
         if constexpr (requires { op.captures; })

@@ -71,6 +71,22 @@ run('streams', '''fn main()->unit ! (IoError | TaskError):
   return ()
 ''', b'', b'answer=42\n')
 
+run('custom-format', '''from "std/fmt" import Display
+type Report:
+  label:String
+  value:i64
+impl Display for Report:
+  fn display(value:Self)->String:
+    return format("{}={:x}",value.label,value.value)
+fn main()->unit ! (IoError | TaskError):
+  answer=try parallel:
+    gpu=devices.gpu()
+    try await spawn double(21) on gpu
+  report=Report {label:"é",value:answer}
+  try println(format("{:>8} {:.2}",report,3.14159))
+  return ()
+''', b'', '    é=2a 3.14\n'.encode())
+
 run('text-tasks', '''fn readOne()->String ! IoError:
   line=try readLine(100)
   return match line:
@@ -162,3 +178,22 @@ fn main()->unit ! (IoError | TaskError):
             child.stderr.close()
     print('PASS: compiled pending-read fault application' if a.compile_only else
           'PASS: GPU arithmetic fault cancels pending console read; no EOF or worker starvation', flush=True)
+
+
+if not a.cases or 'format-device-rejected' in a.cases:
+    directory = a.output / 'format-device-rejected'
+    directory.mkdir(exist_ok=True)
+    path = directory / 'main.k'
+    path.write_text(prelude + '''fn render(value:i64)->i64:
+  return length(format("{:x}",value))
+fn main()->i64 ! TaskError:
+  return try parallel:
+    try await spawn render(42) on devices.gpu()
+''', encoding='utf-8')
+    bundle = directory / 'bundle'
+    result = subprocess.run([a.compiler.resolve(), path.resolve(), '--target', a.target,
+                             '--test-entry', 'main', flag, '-o', bundle.resolve()],
+                            capture_output=True, timeout=180)
+    (directory / 'build.log').write_bytes(result.stdout + result.stderr)
+    assert result.returncode and b'[G001]' in result.stderr and not bundle.exists(), result
+    print('PASS: device formatting rejected without implicit host fallback', flush=True)

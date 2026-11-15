@@ -763,15 +763,36 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
         return "String formatting requires a completed CPU String result";
       std::size_t fields = 0;
       for (const auto &part : format->parts) {
+        const auto &spec = part.spec;
+        if (unsigned(spec.presentation) > unsigned(runtime::FormatPresentation::HexLower) ||
+            unsigned(spec.alignment) > unsigned(runtime::FormatAlignment::Right) ||
+            spec.width > std::uint64_t(INT64_MAX) || spec.precision > std::uint64_t(INT64_MAX) ||
+            (spec.alignment == runtime::FormatAlignment::None && spec.width) ||
+            (spec.presentation != runtime::FormatPresentation::Fixed && spec.precision))
+          return "invalid format control metadata";
         if (part.argument) {
           ++fields;
           if (!part.text.empty())
             return "format argument part contains literal bytes";
-        } else if (!validUtf8(part.text))
-          return "format contains invalid UTF-8 literal bytes";
+        } else {
+          if (!validUtf8(part.text))
+            return "format contains invalid UTF-8 literal bytes";
+          if (spec.presentation != runtime::FormatPresentation::Default ||
+              spec.alignment != runtime::FormatAlignment::None)
+            return "literal format part contains argument controls";
+        }
       }
       if (fields != format->arguments.size())
         return "format argument count differs from its template";
+      if (!format->originalArguments.empty() && format->originalArguments.size() != fields)
+        return "format source evaluation count differs from its template";
+      for (auto input : format->originalArguments) {
+        if (input >= module.expressions.size())
+          return "format references invalid source evaluation";
+        const auto &type = module.expressions[input].type;
+        if (type.task || type.fallible || type.device)
+          return "format source evaluations require completed host values";
+      }
       for (auto input : format->arguments) {
         if (input >= module.expressions.size())
           return "format references invalid input";
@@ -780,6 +801,18 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
             (type.builtin != BuiltinValue::String && type.builtin != BuiltinValue::Numeric &&
              type.builtin != BuiltinValue::Bool))
           return "format arguments require completed CPU String, numeric or bool values";
+      }
+      std::size_t index = 0;
+      for (const auto &part : format->parts) {
+        if (!part.argument)
+          continue;
+        const auto &type = module.expressions[format->arguments[index++]].type;
+        if (part.spec.presentation == runtime::FormatPresentation::Fixed &&
+            (type.builtin != BuiltinValue::Numeric || isInteger(type.element)))
+          return "fixed format control requires floating-point input";
+        if (part.spec.presentation == runtime::FormatPresentation::HexLower &&
+            (type.builtin != BuiltinValue::Numeric || !isInteger(type.element)))
+          return "hex format control requires integer input";
       }
     }
     if (const auto *concat = std::get_if<StringConcat>(&expression.operation)) {
@@ -1244,9 +1277,20 @@ std::string dumpTypedIR(const TypedModule &module) {
             } else if constexpr (std::is_same_v<T, FormatOperation>) {
               out << "string.format parts=[";
               for (const auto &part : operation.parts) {
-                if (part.argument)
-                  out << "{}";
-                else {
+                if (part.argument) {
+                  out << '{';
+                  if (part.spec.alignment != runtime::FormatAlignment::None ||
+                      part.spec.presentation != runtime::FormatPresentation::Default)
+                    out << ':';
+                  if (part.spec.alignment != runtime::FormatAlignment::None)
+                    out << (part.spec.alignment == runtime::FormatAlignment::Left ? '<' : '>')
+                        << part.spec.width;
+                  if (part.spec.presentation == runtime::FormatPresentation::Fixed)
+                    out << '.' << part.spec.precision;
+                  if (part.spec.presentation == runtime::FormatPresentation::HexLower)
+                    out << 'x';
+                  out << '}';
+                } else {
                   out << "0x";
                   for (unsigned char byte : part.text)
                     out << std::hex << std::setw(2) << std::setfill('0') << unsigned(byte);
@@ -1255,6 +1299,11 @@ std::string dumpTypedIR(const TypedModule &module) {
                 out << ';';
               }
               out << "] ";
+              if (!operation.originalArguments.empty()) {
+                out << "evaluate ";
+                arguments(operation.originalArguments);
+                out << " then ";
+              }
               arguments(operation.arguments);
             } else if constexpr (std::is_same_v<T, StringConcat>)
               out << "string.concat %" << operation.left << " %" << operation.right;
