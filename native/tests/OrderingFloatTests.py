@@ -9,6 +9,15 @@ a=p.parse_args();a.compiler=a.compiler.resolve();a.output.mkdir(parents=True,exi
 repo=Path(__file__).resolve().parents[2]
 variants=[('debug','-O0',['-O0']),('optimized','-O2',['-O2']),('sanitized','--sanitize',['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer'])]
 if sys.platform!='win32':variants.append(('thread-sanitized','--thread-sanitize',['-O1','-g','-fsanitize=thread','-fno-omit-frame-pointer']))
+if sys.platform=='win32':
+ probe=a.output/'sanitizer-probe.k';probe.write_text('fn main()->unit:\n  return ()\n')
+ checked=subprocess.run([str(a.compiler),str(probe),'--sanitize','-o',str(a.output/'sanitizer-probe.exe')],capture_output=True,text=True,timeout=300)
+ if checked.returncode==2 and 'ASan/UBSan are unavailable in the pinned Windows ARM64 toolchain' in checked.stderr:
+  variants=[v for v in variants if v[0]!='sanitized']
+  (a.output/'unsupported.json').write_text(json.dumps({'sanitized':checked.stderr.strip()},indent=2)+'\n')
+  print('UNSUPPORTED sanitized:',checked.stderr.strip(),flush=True)
+ else:
+  assert checked.returncode==0,(checked.returncode,checked.stdout,checked.stderr)
 compilerSHA256=hashlib.sha256(a.compiler.read_bytes()).hexdigest()
 records=[]
 def run(command):

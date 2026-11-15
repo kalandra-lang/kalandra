@@ -31,6 +31,19 @@ variants = [('debug', '-O0', ['-O0']), ('optimized', '-O2', ['-O2']),
 if sys.platform != 'win32':
     variants.append(('thread-sanitized', '--thread-sanitize',
                      ['-O1', '-g', '-fsanitize=thread', '-fno-omit-frame-pointer']))
+if sys.platform == 'win32':
+    probe = args.output / 'sanitizer-probe.k'
+    probe.write_text('fn main()->unit:\n  return ()\n')
+    checked = subprocess.run([str(args.compiler), str(probe), '--sanitize', '-o',
+                              str(args.output / 'sanitizer-probe.exe')],
+                             capture_output=True, text=True, timeout=300)
+    if checked.returncode == 2 and 'ASan/UBSan are unavailable in the pinned Windows ARM64 toolchain' in checked.stderr:
+        variants = [v for v in variants if v[0] != 'sanitized']
+        (args.output / 'unsupported.json').write_text(json.dumps(
+            {'sanitized': checked.stderr.strip()}, indent=2) + '\n')
+        print('UNSUPPORTED sanitized:', checked.stderr.strip(), flush=True)
+    else:
+        assert checked.returncode == 0, (checked.returncode, checked.stdout, checked.stderr)
 records = []
 def run(command):
     result = subprocess.run(list(map(str, command)), capture_output=True, text=True, timeout=300)
