@@ -17,6 +17,11 @@ build/vulkan-hello/program
 ```
 
 The output is a directory containing the executable and its generated SPIR-V.
+Generated control-flow modules and runtime file loading share a 16 MiB limit per
+SPIR-V module. The compiler diagnoses larger outputs before publishing a bundle.
+The loader checks file size, alignment and magic before reflection or driver
+submission; missing and malformed files retain distinct errors. This code-size
+bound is separate from tensor backing budgets and the loaded-kernel count.
 Project manifests and local packages use the common `--project`/`--package`
 options. All three arithmetic policies and `-O0`/`-O2` are supported. Normal
 Linux root builds also support `--sanitize` with separate ASan/UBSan host/runtime

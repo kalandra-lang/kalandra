@@ -68,6 +68,8 @@ codeblock { language = bash, """kalandra main.k --target vulkan -O2 -o app
 
 GPU compilation requires system C++23 development headers in addition to the compiler's private tools. Execution requires the system Vulkan loader and a compatible physical GPU driver. Keep the generated executable and its SPIR-V resources together. This backend does not provide Raspberry Pi VideoCore acceleration or imply support for every Vulkan device. Linux RTX 5090 and Intel ARL are the current physical qualification devices; Windows GPU execution remains unqualified.
 
+Vulkan limits each generated SPIR-V module to 16 MiB. Compilation reports an error if a module exceeds that bound. This code-size limit is separate from device-array storage budgets; keep every generated shader with its executable.
+
 Vulkan currently defaults to fixed-tree matmul. Select --matmul-policy optimized explicitly to use the full-f32 tiled matrix kernel. Its private right-operand transpose consumes an extra GPU buffer and dispatch within the normal resource limits. Matrix optimization does not enable fast math for ordinary elementwise expressions.
 
 Native f64 depends on the device. NVIDIA RTX 5090 passes the native four-operation edge corpus. Intel f64 division currently reports an unsupported capability; select --arithmetic hardware-with-software-fallback to permit the integer GPU companion. Intel kernels without f64 division remain native. Fallback applies to f64 arithmetic for the selected kernel as a whole while retaining native f32; it is not chosen separately for each instruction. Missing or malformed shader resources are errors, not reasons to select software arithmetic. Hardware-only mode never silently selects software.

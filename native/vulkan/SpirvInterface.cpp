@@ -1,9 +1,25 @@
 #include "SpirvInterface.h"
 #include <algorithm>
 #include <cstring>
+#include <fstream>
 #include <map>
 #include <set>
 namespace kalandra::runtime::vulkan {
+std::expected<std::vector<std::uint32_t>, SpirvFileError>
+readSpirvFile(const std::filesystem::path &path) {
+  std::ifstream input(path, std::ios::binary | std::ios::ate);
+  if (!input)
+    return std::unexpected(SpirvFileError::Unavailable);
+  const std::streamoff length = input.tellg();
+  if (length < 20 || static_cast<std::uint64_t>(length) > MaxSpirvModuleBytes || length % 4)
+    return std::unexpected(SpirvFileError::Invalid);
+  std::vector<std::uint32_t> words(static_cast<std::size_t>(length) / 4);
+  input.seekg(0);
+  input.read(reinterpret_cast<char *>(words.data()), length);
+  if (!input || words.front() != 0x07230203)
+    return std::unexpected(SpirvFileError::Invalid);
+  return words;
+}
 std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uint32_t> words) {
   if (words.size() < 5 || words[0] != 0x07230203 || words[4] || !words[3] || words[3] > (1u << 24))
     return std::unexpected("invalid SPIR-V header");
