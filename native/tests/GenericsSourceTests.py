@@ -34,7 +34,12 @@ gpu_prefix = '''  genericDeviceProbeResult = try parallel:
 
 
 def run(name, source, expected, *, device=False):
-    if args.cases and name not in args.cases and not ('ordering-all' in args.cases and name.startswith('ordering-')): return
+    if (args.cases and name not in args.cases
+            and not ('ordering-all' in args.cases and name.startswith('ordering-'))
+            and not any(group in args.cases and name.startswith(group+'-')
+                        for group in ('arithmetic-primitive-traits',
+                                      'arithmetic-tensor-traits', 'arithmetic-tensor-ranks'))):
+        return
     root = output / name
     root.mkdir(exist_ok=True)
     if args.target != 'cpu' and not device:
@@ -84,10 +89,11 @@ operator_body = '  value=arithmeticRun()\n' if args.target == 'cpu' else """  va
 run('arithmetic-operators', prelude + ARITHMETIC_DECLARATIONS + main + operator_body +
     '  try println(format("{}",value))\n  return ()\n', f'{ARITHMETIC_EXPECTED}\n', device=True)
 
-primitive_ops = 'from "std/ops" import Add, Sub, Mul, Div, Rem, Neg\n'
-primitive_body = ''
-primitive_expected = ''
+# Qualify every scalar type independently: combining ten multi-stage programs
+# exceeds CUDA's existing 64-resident-module budget even with sequential awaits.
 for primitive in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
+    primitive_body = ''
+    primitive_ops = 'from "std/ops" import Add, Sub, Mul, Div, Rem, Neg\n'
     primitive_ops += f"""fn arithmetic{primitive}()->{primitive}:
   a={primitive}(20)
   b={primitive}(2)
@@ -109,12 +115,12 @@ for primitive in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
     try await spawn arithmetic{primitive}() on gpu
 """
     primitive_body += f'  try println(format("{{}}",result{primitive}))\n'
-    primitive_expected += '22\n' if primitive.startswith(('i','u')) else '20\n'
-run('arithmetic-primitive-traits', prelude+primitive_ops+main+primitive_body+'  return ()\n',
-    primitive_expected, device=True)
+    primitive_expected = '22\n' if primitive.startswith(('i','u')) else '20\n'
+    run('arithmetic-primitive-traits-'+primitive, prelude+primitive_ops+main+primitive_body+'  return ()\n',
+        primitive_expected, device=True)
 
-tensor_traits = 'from "std/ops" import Add, Mul, Sub, Div, Neg\n'
-for n,primitive in enumerate(('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64')):
+for primitive in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
+    tensor_traits = 'from "std/ops" import Add, Mul, Sub, Div, Neg\n'
     tensor_traits += f"""fn tensorArithmetic{primitive}(a:Tensor[{primitive},?],b:Tensor[{primitive},?])->{primitive}:
   sum=Add.add(a,b)
   product=Mul.mul(sum,{primitive}(2))
@@ -122,8 +128,7 @@ for n,primitive in enumerate(('i8','i16','i32','i64','u8','u16','u32','u64','f32
   result=Sub.sub(quotient,a)
   return reduceSum(result)
 """
-tensor_body=''
-for primitive in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
+    tensor_body=''
     tensor_body+=f'  tensorA{primitive}={primitive}(tensor([1,2]))\n  tensorB{primitive}={primitive}(tensor([3,4]))\n'
     if args.target=='cpu':tensor_body+=f'  tensorResult{primitive}=tensorArithmetic{primitive}(tensorA{primitive},tensorB{primitive})\n'
     else:
@@ -134,11 +139,11 @@ for primitive in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
     try await spawn tensorArithmetic{primitive}(a,b) on gpu
 """
     tensor_body+=f'  try println(format("{{}}",tensorResult{primitive}))\n'
-run('arithmetic-tensor-traits',prelude+tensor_traits+main+tensor_body+'  return ()\n','7\n'*10,device=True)
+    run('arithmetic-tensor-traits-'+primitive,prelude+tensor_traits+main+tensor_body+'  return ()\n','7\n',device=True)
 
-rank_traits='from "std/ops" import Add, Mul\n'
-rank_body=''
 for primitive in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
+    rank_traits='from "std/ops" import Add, Mul\n'
+    rank_body=''
     rank_traits+=f"""fn rankThree{primitive}(a:Tensor[{primitive},?,?,?],b:Tensor[{primitive},?,?,?])->{primitive}:
   return reduceSum(Add.add(a,b))
 fn rankZero{primitive}(a:Tensor[{primitive}],b:Tensor[{primitive}])->{primitive}:
@@ -159,7 +164,7 @@ fn rankZero{primitive}(a:Tensor[{primitive}],b:Tensor[{primitive}])->{primitive}
     try await spawn {name}{primitive}(a,b) on gpu
 """
     rank_body+=f'  try println(format("{{}}:{{}}",rankThreeResult{primitive},rankZeroResult{primitive}))\n'
-run('arithmetic-tensor-ranks',prelude+rank_traits+main+rank_body+'  return ()\n','36:6\n'*10,device=True)
+    run('arithmetic-tensor-ranks-'+primitive,prelude+rank_traits+main+rank_body+'  return ()\n','36:6\n',device=True)
 
 order_traits = """from "std/ops" import Add
 from "std/io" import println, IoError
