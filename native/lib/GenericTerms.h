@@ -541,9 +541,14 @@ void recordGenericValue(const Frame &frame, ValueId id) {
 bool namedGenericDependency(const GenericTerm &term, std::size_t depth = 0) const {
   if (depth >= limits_.maxDepth)
     return true;
-  for (const auto &variable : term.variables)
+  for (auto variable : term.variables) {
+    // A declared E | Fixed channel is still an equation on named E, unlike
+    // an unknown callable F's derived parameter or error type.
+    if (variable.ends_with(".$errorUnion"))
+      variable.resize(variable.size() - 12);
     if (variable.find(".$") == std::string::npos && !variable.starts_with("$derived:"))
       return true;
+  }
   return std::ranges::any_of(
              term.arguments,
              [&](const auto &argument) { return namedGenericDependency(argument, depth + 1); }) ||

@@ -175,6 +175,22 @@ int main(int argc, char **argv) {
                             "  callback=Choose[Value,A].choose\n  return callback(v,a,b)\n"
                             "fn main()->i64:\n  return choose(Value {n:42},1,2)\n",
         "S083");
+    const std::string unionMethods =
+        "error Invalid:\n  Bad\nerror Fixed:\n  Other\n"
+        "type Value:\n  n:i64\ntrait Use[R]:\n"
+        "  fn use(value:Self,callback:fn()->i64 ! (R | Fixed))->i64\n"
+        "impl[R] Use[R] for Value:\n"
+        "  fn use(value:Self,callback:fn()->i64 ! (R | Fixed))->i64:\n    return value.n\n"
+        "fn source()->i64 ! (Invalid | Fixed):\n  return 42\n";
+    good("trait function values accept matching named error-union relationships",
+         unionMethods + "fn correct[A](value:Value,callback:fn()->i64 ! (A | Fixed))->i64:\n"
+                        "  method=Use[Value,A].use\n  return method(value,callback)\n"
+                        "fn main()->i64:\n  return correct[Invalid](Value {n:42},source)\n");
+    bad("trait function values preserve named error-union relationships",
+        unionMethods + "fn wrong[A,B](value:Value,callback:fn()->i64 ! (B | Fixed))->i64:\n"
+                       "  method=Use[Value,A].use\n  return method(value,callback)\n"
+                       "fn main()->i64:\n  return wrong[Invalid,Invalid](Value {n:42},source)\n",
+        "S083");
     good("generic nominal bounds carry trait arguments",
          mix + "type Pair[T:Mix[R],R]:\n  value:T\n  other:R\n"
                "fn build[A:Mix[B],B](a:A,b:B)->Pair[A,B]:\n"
