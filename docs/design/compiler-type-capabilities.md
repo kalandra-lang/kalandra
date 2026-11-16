@@ -88,8 +88,8 @@ modes and known driver/loader findings remain explicit.
 ## Shared query interfaces
 
 TypeCapabilities.h provides a non-owning TypeFacts view of a live ValueType.
-The factory rejects temporary types, so a stored view cannot refer to a destroyed
-argument. completedHostScalar preserves the legacy completed-value profile;
+The factory rejects temporary types. Callers must keep the referenced ValueType
+alive for the lifetime of the view. completedHostScalar preserves the legacy completed-value profile;
 plainHostScalar additionally requires the absence of error-family metadata.
 The frontend map-signature prerequisite is named separately from normalized IR
 scalar validation, preserving parallel error channels and validation phases.
