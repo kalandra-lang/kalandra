@@ -282,9 +282,16 @@ struct Parameter {
   bool mutableAccess = false;
   bool owned = false;
 };
+struct TraitReference : SourceSpan {
+  std::vector<TypeSyntax> arguments;
+  SourceSpan span;
+  TraitReference(SourceSpan name = {}) : SourceSpan(name), span(name) {}
+  TraitReference(TypeSyntax type)
+      : SourceSpan(type.name), arguments(std::move(type.arguments)), span(type.span) {}
+};
 struct GenericParameter {
   SourceSpan name;
-  std::vector<SourceSpan> bounds;
+  std::vector<TraitReference> bounds;
   std::string internalName = {}; // Synthesized Self parameters retain original source spans.
 };
 struct Function {
@@ -329,8 +336,9 @@ struct TraitDeclaration {
   SourceSpan name;
   bool exported = false;
   std::vector<SourceSpan> associatedTypes;
-  std::vector<std::vector<SourceSpan>> associatedBounds;
+  std::vector<std::vector<TraitReference>> associatedBounds;
   std::vector<Function> methods;
+  std::vector<GenericParameter> generics = {};
 };
 struct TraitImplementation {
   SourceSpan trait;
@@ -338,6 +346,7 @@ struct TraitImplementation {
   std::vector<GenericParameter> generics;
   std::vector<std::pair<SourceSpan, TypeSyntax>> associatedTypes;
   std::vector<Function> methods;
+  std::vector<TypeSyntax> traitArguments = {};
 };
 struct Module {
   // Source storage outlives all borrowed slices/byte spans. Expressions use flat

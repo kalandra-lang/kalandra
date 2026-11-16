@@ -30,6 +30,9 @@ void good(const std::string &name, const std::string &source) {
 }
 void bad(const std::string &name, const std::string &source, const std::string &code) {
   auto result = analyze(source);
+  if (!std::ranges::any_of(result.diagnostics, [&](const auto &d) { return d.code == code; }))
+    for (const auto &d : result.diagnostics)
+      std::cerr << renderDiagnostic(*result.source, d);
   require(
       !result.ok() && !result.module &&
           std::ranges::any_of(result.diagnostics, [&](const auto &d) { return d.code == code; }),
@@ -44,6 +47,56 @@ const std::string measure =
 int main(int argc, char **argv) {
   try {
     require(argc == 2, "expected temporary module directory");
+    good("trait arguments select distinct implementations and associated results",
+         "type Value:\n  n:i64\n"
+         "trait Convert[Target]:\n  type Output\n"
+         "  fn convert(value:Self,target:Target)->Self.Output\n"
+         "impl Convert[i64] for Value:\n  type Output=i64\n"
+         "  fn convert(value:Self,target:i64)->Self.Output:\n    return value.n+target\n"
+         "impl Convert[String] for Value:\n  type Output=String\n"
+         "  fn convert(value:Self,target:String)->Self.Output:\n    return target\n"
+         "fn use[V:Convert[i64]](value:V)->V.Output:\n"
+         "  return Convert.convert(value,1)\n"
+         "fn main()->i64:\n  v=Value {n:39}\n"
+         "  text=Convert[Value,String].convert(v,\"ok\")\n"
+         "  return use(v)+length(text)\n");
+    good("trait and implementation parameters have distinct scopes",
+         "type Box[T]:\n  value:T\n"
+         "trait Convert[T]:\n  fn size(value:Self,other:T)->i64\n"
+         "impl[T] Convert[String] for Box[T]:\n"
+         "  fn size(value:Self,other:String)->i64:\n    return length(other)\n"
+         "fn main()->i64:\n  return Convert.size(Box {value:1},\"answer\")\n");
+    bad("trait argument arity", "trait T[A]:\n  fn f(value:Self)->unit\n"
+        "impl T for i64:\n  fn f(value:Self)->unit:\n    return ()\n"
+        "fn main()->unit:\n  return ()\n", "S083");
+    const std::string mix =
+        "trait Mix[R]:\n  fn mix(value:Self,other:R)->i64\n"
+        "impl Mix[i64] for i64:\n  fn mix(value:Self,other:i64)->i64:\n"
+        "    return value+other\n"
+        "impl Mix[f64] for i64:\n  fn mix(value:Self,other:f64)->i64:\n"
+        "    return value\n";
+    bad("a bound proves only its requested trait arguments", mix +
+        "fn wrong[T:Mix[i64]](value:T)->i64:\n"
+        "  return Mix[T,f64].mix(value,1.0)\n"
+        "fn main()->i64:\n  return wrong(1)\n", "S083");
+    bad("equal concrete arguments do not equate abstract trait parameters", mix +
+        "fn wrong[T:Mix[U],U,V](value:T,other:U,unrelated:V)->i64:\n"
+        "  return Mix.mix(value,unrelated)\n"
+        "fn main()->i64:\n  return wrong(1,2,3)\n", "S083");
+    bad("a concrete implementation does not cover an abstract RHS", mix +
+        "fn wrong[R](value:i64,other:R)->i64:\n  return Mix.mix(value,other)\n"
+        "fn main()->i64:\n  return wrong(1,2)\n", "S083");
+    const std::string correlated =
+        "type Box[T]:\n  value:T\n"
+        "trait Mix[R]:\n  fn mix(value:Self,other:R)->i64\n"
+        "impl[T] Mix[T] for Box[T]:\n"
+        "  fn mix(value:Self,other:T)->i64:\n    return 42\n";
+    good("tuple proofs preserve repeated generic parameters", correlated +
+        "fn correct[T](value:Box[T],other:T)->i64:\n  return Mix.mix(value,other)\n"
+        "fn main()->i64:\n  return correct(Box {value:1},2)\n");
+    bad("tuple proofs reject coincident unrelated parameters", correlated +
+        "fn wrong[A,B](value:Box[A],other:B)->i64:\n  return Mix.mix(value,other)\n"
+        "fn main()->i64:\n  return wrong(Box {value:1},2)\n", "S083");
     good("inferred/explicit function specialization and values",
          "fn id[T](value:T)->T:\n  return value\n"
          "fn main()->i64:\n  f=id[i64]\n  a=id(12)\n  b=id[i32](7)\n  return f(a)+i64(b)\n");

@@ -1,3 +1,26 @@
+std::string traitReferenceLabel(const TraitReference &reference) const {
+  std::string label = name(reference);
+  if (!reference.arguments.empty()) {
+    label += "[";
+    for (std::size_t n = 0; n < reference.arguments.size(); ++n) {
+      if (n) label += ",";
+      label += std::string(syntax_.source->slice(reference.arguments[n].span));
+    }
+    label += "]";
+  }
+  return label;
+}
+std::optional<std::vector<ValueType>> traitArgumentTypes(
+    const std::vector<TypeSyntax> &arguments, const GenericBindings &bindings) {
+  GenericScope scope(*this, std::make_shared<const GenericBindings>(bindings), genericProofOwner_);
+  std::vector<ValueType> values;
+  for (const auto &argument : arguments) {
+    auto value = type(argument);
+    if (!value) return {};
+    values.push_back(genericValueType(*value));
+  }
+  return values;
+}
 struct TraitImpl {
   std::size_t declaration, trait;
   std::unordered_map<std::string, FunctionId> methods;
@@ -5,6 +28,7 @@ struct TraitImpl {
 struct TraitConformance {
   State state = State::Unseen;
   GenericBindings bindings;
+  GenericBindings implementationBindings;
   std::unordered_map<std::string, FunctionId> methods;
   std::optional<std::size_t> implementation;
   bool signaturesChecked = false;
@@ -109,8 +133,14 @@ void registerTraitImplementations() {
       continue;
     }
     const auto trait = syntax_.traits[selected->second];
+    if (implementation.traitArguments.size() != trait.generics.size()) {
+      error("S083", "incorrect number of trait arguments in implementation", implementation.trait);
+      continue;
+    }
     std::unordered_set<std::string> targetParameters;
     std::vector<const TypeSyntax *> pending{&implementation.target};
+    for (const auto &argument : implementation.traitArguments)
+      pending.push_back(&argument);
     while (!pending.empty()) {
       const auto *type = pending.back();
       pending.pop_back();
@@ -129,7 +159,7 @@ void registerTraitImplementations() {
     }
     for (const auto &parameter : implementation.generics)
       if (!targetParameters.contains(name(parameter.name)))
-        error("S083", "implementation type parameters must be determined by the target type",
+        error("S083", "implementation type parameters must be determined by the implementing type or trait arguments",
               parameter.name);
 
     const auto targetKey = functionKey(syntax_.source->partIndex(implementation.target.name.begin),
@@ -141,8 +171,18 @@ void registerTraitImplementations() {
       if (auto record = genericRecords_.find(targetKey); record != genericRecords_.end())
         owner = syntax_.source->partIndex(syntax_.records[record->second].name.begin);
     }
+    for (const auto &argument : implementation.traitArguments) {
+      if (argument.array || argument.tensor || argument.function) continue;
+      const auto key = functionKey(syntax_.source->partIndex(argument.name.begin), name(argument.name));
+      if (auto record = records_.find(key); record != records_.end())
+        if (syntax_.source->partIndex(output_.records[record->second].declaration.begin) == module)
+          owner = module;
+      if (auto record = genericRecords_.find(key); record != genericRecords_.end())
+        if (syntax_.source->partIndex(syntax_.records[record->second].name.begin) == module)
+          owner = module;
+    }
     if (module != syntax_.source->partIndex(trait.name.begin) && owner != module)
-      error("S083", "implementation must belong to the module defining the trait or target type",
+      error("S083", "implementation must belong to the module defining the trait or an outer nominal operand type",
             implementation.trait);
     if (!implementation.target.array &&
         genericParameterNamed(implementation.generics, name(implementation.target.name)))
@@ -151,8 +191,12 @@ void registerTraitImplementations() {
     for (const auto &previous : traitImplementations_)
       if (previous.trait == selected->second) {
         const auto &pattern = syntax_.implementations[previous.declaration];
-        if (overlappingPatterns(pattern.target, pattern.generics, implementation.target,
-                                implementation.generics))
+        bool overlaps = overlappingPatterns(pattern.target, pattern.generics, implementation.target,
+                                            implementation.generics);
+        for (std::size_t n = 0; overlaps && n < pattern.traitArguments.size(); ++n)
+          overlaps = overlappingPatterns(pattern.traitArguments[n], pattern.generics,
+                                         implementation.traitArguments[n], implementation.generics);
+        if (overlaps)
           error("S083", "overlapping trait implementations are not permitted",
                 implementation.trait);
       }
@@ -304,9 +348,15 @@ std::optional<FunctionSignature> requirementSignature(const Function &requiremen
   return signature;
 }
 std::shared_ptr<TraitConformance> requireConformance(std::size_t trait, ValueType actual,
-                                                     SourceSpan site) {
+                                                     SourceSpan site,
+                                                     const std::vector<ValueType> &arguments = {}) {
   actual = genericValueType(actual);
-  const auto key = std::to_string(trait) + ":" + genericTypeKey(actual);
+  if (arguments.size() != syntax_.traits[trait].generics.size()) {
+    error("S083", "incorrect number of trait arguments", site);
+    return nullptr;
+  }
+  auto key = std::to_string(trait) + ":" + genericTypeKey(actual);
+  for (const auto &argument : arguments) key += ";" + genericTypeKey(argument);
   if (auto found = conformances_.find(key); found != conformances_.end()) {
     if (found->second->state == State::Checking)
       error("S083", "cyclic trait conformance requirements", site);
@@ -330,6 +380,11 @@ std::shared_ptr<TraitConformance> requireConformance(std::size_t trait, ValueTyp
     GenericBindings bindings;
     if (!matchImplementation(original.target, actual, original.generics, bindings))
       continue;
+    bool matches = true;
+    for (std::size_t n = 0; matches && n < arguments.size(); ++n)
+      matches = matchImplementation(original.traitArguments[n], arguments[n], original.generics,
+                                    bindings);
+    if (!matches) continue;
     if (!checkGenericBounds(original.generics, bindings, site))
       break;
     {
@@ -358,21 +413,29 @@ std::shared_ptr<TraitConformance> requireConformance(std::size_t trait, ValueTyp
       error("S083", "unresolved or cyclic associated type definitions", original.trait);
       break;
     }
+    // Trait parameters and implementation parameters are different lexical scopes.
+    // In impl[T] Convert[String] for Box[T], the implementation T is not String.
+    auto requirementBindings = bindings;
+    for (std::size_t n = 0; n < arguments.size(); ++n)
+      requirementBindings[genericParameterLabel(declaration.generics[n])] = arguments[n];
+    if (!checkGenericBounds(declaration.generics, requirementBindings, site)) break;
     for (std::size_t i = 0; i < declaration.associatedTypes.size(); ++i)
       if (i < declaration.associatedBounds.size())
         for (auto bound : declaration.associatedBounds[i]) {
           const auto needed =
               traitNames_.find(functionKey(syntax_.source->partIndex(bound.begin), name(bound)));
-          if (needed == traitNames_.end() ||
+          const auto arguments = traitArgumentTypes(bound.arguments, requirementBindings);
+          if (needed == traitNames_.end() || !arguments ||
               !requireConformance(needed->second,
                                   bindings.at("Self." + name(declaration.associatedTypes[i])),
-                                  original.trait)) {
+                                  original.trait, *arguments)) {
             error("S083", "associated type does not satisfy its declared trait bounds", bound);
             conformance->state = State::Failed;
             return nullptr;
           }
         }
-    conformance->bindings = bindings;
+    conformance->bindings = requirementBindings;
+    conformance->implementationBindings = bindings;
     conformance->implementation = implementation.declaration;
     if (!genericRegistryReady_) {
       conformance->state = State::Complete;
@@ -382,7 +445,7 @@ std::shared_ptr<TraitConformance> requireConformance(std::size_t trait, ValueTyp
       const auto selected = implementation.methods.find(name(required.name));
       if (selected == implementation.methods.end())
         break;
-      auto signature = requirementSignature(required, bindings, trait);
+      auto signature = requirementSignature(required, requirementBindings, trait);
       auto method = specializeFunction(selected->second, bindings, site);
       if (!signature || !method)
         break;
@@ -443,7 +506,9 @@ bool checkGenericBounds(const std::vector<GenericParameter> &parameters, Generic
         error("S083", "unknown trait bound '" + name(bound) + "'", bound);
         return false;
       }
-      auto conformance = requireConformance(trait->second, value, site);
+      auto arguments = traitArgumentTypes(bound.arguments, bindings);
+      if (!arguments) return false;
+      auto conformance = requireConformance(trait->second, value, site, *arguments);
       if (!conformance)
         return false;
       for (auto associated : syntax_.traits[trait->second].associatedTypes) {
@@ -462,21 +527,29 @@ bool checkGenericBounds(const std::vector<GenericParameter> &parameters, Generic
 bool resolveKnownGenericBounds(const std::vector<GenericParameter> &parameters,
                                GenericBindings &bindings, SourceSpan site) {
   for (const auto &parameter : parameters)
-    if (bindings.contains(genericParameterLabel(parameter)) && !parameter.bounds.empty())
-      if (!checkGenericBounds({parameter}, bindings, site))
-        return false;
+    if (bindings.contains(genericParameterLabel(parameter)) && !parameter.bounds.empty()) {
+      auto known = parameter;
+      std::erase_if(known.bounds, [&](const auto &bound) {
+        return !std::ranges::all_of(bound.arguments, [&](const auto &argument) {
+          return genericTypeKnown(argument, parameters, bindings);
+        });
+      });
+      if (!checkGenericBounds({known}, bindings, site)) return false;
+    }
   return true;
 }
 void validateTraitImplementations() {
   genericRegistryReady_ = true;
-  const auto validateBounds = [&](const std::vector<SourceSpan> &bounds) {
-    std::unordered_set<std::size_t> seen;
+  const auto validateBounds = [&](const std::vector<TraitReference> &bounds) {
+    std::unordered_set<std::string> seen;
     for (auto bound : bounds) {
       const auto found =
           traitNames_.find(functionKey(syntax_.source->partIndex(bound.begin), name(bound)));
       if (found == traitNames_.end())
         error("S083", "unknown trait bound '" + name(bound) + "'", bound);
-      else if (!seen.insert(found->second).second)
+      else if (bound.arguments.size() != syntax_.traits[found->second].generics.size())
+        error("S083", "incorrect number of trait arguments in bound", bound);
+      else if (!seen.insert(std::to_string(found->second) + ":" + traitReferenceLabel(bound)).second)
         error("S083", "duplicate trait bound", bound);
     }
   };
@@ -490,9 +563,11 @@ void validateTraitImplementations() {
     validateParameters(record.generics);
   for (const auto &implementation : syntax_.implementations)
     validateParameters(implementation.generics);
-  for (const auto &trait : syntax_.traits)
+  for (const auto &trait : syntax_.traits) {
+    validateParameters(trait.generics);
     for (const auto &bounds : trait.associatedBounds)
       validateBounds(bounds);
+  }
   // Concrete implementations are checked even when not selected by a call.
   for (const auto &implementation : traitImplementations_) {
     const auto original = syntax_.implementations[implementation.declaration];
@@ -500,7 +575,16 @@ void validateTraitImplementations() {
       continue;
     GenericScope scope(*this, nullptr);
     if (auto target = type(original.target))
-      requireConformance(implementation.trait, *target, original.trait);
+      {
+        std::vector<ValueType> arguments;
+        bool valid = true;
+        for (const auto &annotation : original.traitArguments) {
+          auto value = type(annotation);
+          if (!value) { valid = false; break; }
+          arguments.push_back(*value);
+        }
+        if (valid) requireConformance(implementation.trait, *target, original.trait, arguments);
+      }
   }
   std::vector<std::size_t> pending;
   for (const auto &[id, instance] : genericRecordInstances_) {
@@ -541,21 +625,36 @@ invokeTrait(Frame &frame, SourceSpan span, SourceSpan traitName, SourceSpan meth
   }
   GenericBindings bindings;
   if (!types.empty()) {
-    if (types.size() != 1) {
-      error("S083", "explicit trait calls require exactly one implementing type", span);
+    if (types.size() != 1 + trait.generics.size()) {
+      error("S083", "explicit trait calls require Self followed by all trait arguments", span);
       return {};
     }
     auto actual = type(types[0]);
     if (!actual)
       return {};
     bindings["Self"] = genericValueType(*actual);
+    for (std::size_t n = 0; n < trait.generics.size(); ++n) {
+      auto value = type(types[n + 1]);
+      if (!value) return {};
+      bindings[genericParameterLabel(trait.generics[n])] = genericValueType(*value);
+    }
   }
   // Reuse recursive generic unification for Self in arrays, nominal arguments,
   // tensor elements and callback signatures, not only a bare Self parameter.
   GenericParameter selfParameter;
   selfParameter.name = trait.name;
   selfParameter.internalName = "Self";
-  const std::vector<GenericParameter> selfParameters{selfParameter};
+  auto selfParameters = trait.generics;
+  selfParameters.push_back(selfParameter);
+  const auto traitArguments = [&]() -> std::optional<std::vector<ValueType>> {
+    std::vector<ValueType> values;
+    for (const auto &parameter : trait.generics) {
+      auto it = bindings.find(genericParameterLabel(parameter));
+      if (it == bindings.end()) return {};
+      values.push_back(it->second);
+    }
+    return values;
+  };
   const auto inferSelf = [&](const TypeSyntax &pattern, const ValueType &actual) {
     return inferGenericType(pattern, actual, selfParameters, bindings, span);
   };
@@ -568,8 +667,9 @@ invokeTrait(Frame &frame, SourceSpan span, SourceSpan traitName, SourceSpan meth
   std::vector<ValueId> operands;
   for (std::size_t i = 0; i < arguments.size(); ++i) {
     std::optional<ValueType> context;
-    if (bindings.contains("Self")) {
-      auto conformance = requireConformance(found->second, bindings.at("Self"), span);
+    auto knownArguments = traitArguments();
+    if (bindings.contains("Self") && knownArguments) {
+      auto conformance = requireConformance(found->second, bindings.at("Self"), span, *knownArguments);
       if (!conformance)
         return {};
       for (const auto &[key, value] : conformance->bindings)
@@ -589,7 +689,12 @@ invokeTrait(Frame &frame, SourceSpan span, SourceSpan traitName, SourceSpan meth
     error("S083", "cannot infer the implementing type; use Trait[Type].function(...)", span);
     return {};
   }
-  auto conformance = requireConformance(found->second, bindings.at("Self"), span);
+  auto argumentsKnown = traitArguments();
+  if (!argumentsKnown) {
+    error("S083", "cannot infer trait arguments; use Trait[Self, Arguments...].function(...)", span);
+    return {};
+  }
+  auto conformance = requireConformance(found->second, bindings.at("Self"), span, *argumentsKnown);
   if (!conformance)
     return {};
   auto selfTerm = concreteGenericTerm(bindings.at("Self"));
@@ -601,7 +706,15 @@ invokeTrait(Frame &frame, SourceSpan span, SourceSpan traitName, SourceSpan meth
                              selfParameters, selfTerms);
   if (auto inferred = selfTerms.find("Self"); inferred != selfTerms.end())
     selfTerm = mergeGenericTerms(std::move(selfTerm), inferred->second);
-  if (!requireGenericTraitProof(frame, found->second, selfTerm, span))
+  std::vector<GenericTerm> argumentTerms;
+  for (std::size_t n = 0; n < trait.generics.size(); ++n) {
+    const auto label = genericParameterLabel(trait.generics[n]);
+    auto term = selfTerms.contains(label) ? selfTerms.at(label) : concreteGenericTerm(bindings.at(label));
+    if (!types.empty()) term = mergeGenericTerms(std::move(term),
+                                                sourceGenericTerm(frame, types[n+1], bindings.at(label)));
+    argumentTerms.push_back(std::move(term));
+  }
+  if (!requireGenericTraitProof(frame, found->second, selfTerm, span, argumentTerms))
     return {};
   const auto method = conformance->methods.at(name(methodName));
   ResolvedSourceToken methodToken{methodName, requirement->name, {}, {}};
@@ -610,7 +723,13 @@ invokeTrait(Frame &frame, SourceSpan span, SourceSpan traitName, SourceSpan meth
   auto result = invoke(frame, span, methodName, arguments, expected, selection, checkedSelection,
                        spawned, method, std::move(operands));
   if (result && genericContext(frame)) {
-    GenericTermBindings terms{{"Self", selfTerm}};
+    GenericTermBindings terms = selfTerms;
+    terms["Self"] = selfTerm;
+    for (std::size_t n = 0; n < trait.generics.size(); ++n) {
+      const auto label = genericParameterLabel(trait.generics[n]);
+      if (!types.empty()) terms[label] = sourceGenericTerm(frame, types[n + 1], bindings.at(label));
+      else if (!terms.contains(label)) terms[label] = concreteGenericTerm(bindings.at(label));
+    }
     for (auto associated : trait.associatedTypes) {
       auto item = concreteGenericTerm(conformance->bindings.at("Self." + name(associated)));
       for (const auto &variable : selfTerm.variables)

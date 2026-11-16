@@ -17,7 +17,7 @@ bool validGenericParameters(const std::vector<GenericParameter> &parameters) {
     }
     std::unordered_set<std::string> bounds;
     for (auto bound : parameter.bounds)
-      if (!bounds.insert(name(bound)).second) {
+      if (!bounds.insert(traitReferenceLabel(bound)).second) {
         error("S083", "duplicate trait bound", bound);
         valid = false;
       }
@@ -49,6 +49,7 @@ void registerGenericDeclarations() {
   }
   for (std::size_t i = 0; i < syntax_.traits.size(); ++i) {
     const auto &trait = syntax_.traits[i];
+    validGenericParameters(trait.generics);
     const auto label = name(trait.name);
     if (reservedGenericDeclaration(label))
       error("S083", "reserved trait name '" + label + "'", trait.name);
