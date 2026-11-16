@@ -281,3 +281,51 @@ SOURCE=SOURCE.replace('  return ()\n', '''  ranked=sortedBy([3,1,1,2],compare[i6
   return ()
 ''',1)
 EXPECTED+='3:2:1:1:true\n'
+
+# Arithmetic operators dispatch statically through generic trait applications.
+ARITHMETIC_DECLARATIONS = '''from "std/ops" import Add, Sub, Mul, Div, Rem, Neg
+type ArithmeticValue:
+  n:i64
+impl Add[ArithmeticValue] for ArithmeticValue:
+  type Output=ArithmeticValue
+  fn add(left:Self,right:ArithmeticValue)->Self.Output:
+    return ArithmeticValue {n:left.n+right.n}
+impl Sub[ArithmeticValue] for ArithmeticValue:
+  type Output=ArithmeticValue
+  fn sub(left:Self,right:ArithmeticValue)->Self.Output:
+    return ArithmeticValue {n:left.n-right.n}
+impl Mul[i64] for ArithmeticValue:
+  type Output=i64
+  fn mul(left:Self,right:i64)->Self.Output:
+    return left.n*right
+impl Mul[ArithmeticValue] for i64:
+  type Output=i64
+  fn mul(left:Self,right:ArithmeticValue)->Self.Output:
+    return left*right.n
+impl Div[i64] for ArithmeticValue:
+  type Output=i64
+  fn div(left:Self,right:i64)->Self.Output:
+    return left.n/right
+impl Rem[i64] for ArithmeticValue:
+  type Output=i64
+  fn rem(left:Self,right:i64)->Self.Output:
+    return left.n%right
+impl Neg for ArithmeticValue:
+  type Output=ArithmeticValue
+  fn neg(value:Self)->Self.Output:
+    return ArithmeticValue {n:-value.n}
+fn arithmeticProduct[T:Mul[R],R](value:T,right:R)->Mul[T,R].Output:
+  return value*right
+fn arithmeticRun()->i64:
+  a=ArithmeticValue {n:20}
+  b=ArithmeticValue {n:22}
+  combined=a+b
+  difference=b-a
+  negative=-a
+  return combined.n+difference.n+negative.n+arithmeticProduct(a,2)+2*b+combined/2+combined%5
+'''
+ARITHMETIC_EXPECTED = 131
+SOURCE = ARITHMETIC_DECLARATIONS + SOURCE
+SOURCE = SOURCE.replace('  return ()\n',
+    '  try println(format("{}",arithmeticRun()))\n  return ()\n',1)
+EXPECTED += '131\n'

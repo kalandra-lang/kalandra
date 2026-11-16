@@ -44,6 +44,7 @@ std::shared_ptr<const GenericProofOwner> proofOwnerForRecord(std::size_t record)
 std::shared_ptr<const GenericProofOwner> proofOwnerForTrait(std::size_t trait) {
   auto owner = std::make_shared<GenericProofOwner>();
   owner->selfTrait = trait;
+  owner->parameters = syntax_.traits[trait].generics;
   return owner;
 }
 
@@ -221,6 +222,8 @@ GenericTermBindings genericOwnerEnvironment(const GenericProofOwner &owner,
                                             const GenericBindings &bindings) {
   GenericTermBindings environment;
   for (const auto &[label, actual] : bindings) {
+    if (label.starts_with("$"))
+      continue;
     environment.emplace(label, abstractGenericTerm(concreteGenericTerm(actual), label));
   }
   if (owner.implementation) {
@@ -238,6 +241,7 @@ GenericTermBindings genericOwnerEnvironment(const GenericProofOwner &owner,
         }
       }
   }
+  normalizeAssociatedGenericTerms(owner, bindings, environment);
   return environment;
 }
 GenericTermBindings genericTermEnvironment(FunctionId function) {
@@ -260,6 +264,8 @@ GenericTerm instantiateGenericTerm(const TypeSyntax &pattern, const ValueType &a
         instantiateGenericTerm(element, recordArrayElement(actual), environment, depth + 1)};
     return finishGenericTerm(std::move(term));
   }
+  if (auto projection = instantiatedQualifiedProjection(pattern, actual, environment))
+    return *projection;
   if (auto variable = environment.find(associatedName(pattern)); variable != environment.end()) {
     term = variable->second;
     term.actual = actual;
@@ -529,54 +535,184 @@ void recordGenericValue(const Frame &frame, ValueId id) {
   if (dependentGenericTerm(term))
     genericValueTerms_[id] = finishGenericTerm(std::move(term));
 }
-std::set<std::size_t> declaredGenericTraits(const GenericProofOwner &owner,
-                                            const std::string &variable) {
-  std::set<std::size_t> traits;
-  const auto dot = variable.find('.');
-  const auto base = variable.substr(0, dot);
+// Enforce equations stated by a callable signature. An opaque callable F has
+// derived parameter types (F.$parameterN), rather than a declared equation to
+// another named parameter; its existing specialization rules still apply.
+bool namedGenericDependency(const GenericTerm &term, std::size_t depth = 0) const {
+  if (depth >= limits_.maxDepth)
+    return true;
+  for (auto variable : term.variables) {
+    // A declared E | Fixed channel is still an equation on named E, unlike
+    // an unknown callable F's derived parameter or error type.
+    if (variable.ends_with(".$errorUnion"))
+      variable.resize(variable.size() - 12);
+    if (variable.find(".$") == std::string::npos && !variable.starts_with("$derived:"))
+      return true;
+  }
+  return std::ranges::any_of(
+             term.arguments,
+             [&](const auto &argument) { return namedGenericDependency(argument, depth + 1); }) ||
+         (term.error && namedGenericDependency(*term.error, depth + 1)) ||
+         (term.failure && namedGenericDependency(*term.failure, depth + 1));
+}
+bool sameGenericTermIdentity(const GenericTerm &a, const GenericTerm &b,
+                             std::size_t depth = 0) const {
+  if (depth >= limits_.maxDepth || genericTypeKey(a.actual) != genericTypeKey(b.actual) ||
+      a.variables != b.variables || a.arguments.size() != b.arguments.size() ||
+      bool(a.error) != bool(b.error) || bool(a.failure) != bool(b.failure))
+    return false;
+  for (std::size_t n = 0; n < a.arguments.size(); ++n)
+    if (!sameGenericTermIdentity(a.arguments[n], b.arguments[n], depth + 1))
+      return false;
+  return (!a.error || sameGenericTermIdentity(*a.error, *b.error, depth + 1)) &&
+         (!a.failure || sameGenericTermIdentity(*a.failure, *b.failure, depth + 1));
+}
+struct GenericTraitApplication {
+  std::size_t trait;
+  std::vector<GenericTerm> arguments;
+};
+std::vector<GenericTerm> instantiateTraitArguments(const std::vector<TypeSyntax> &annotations,
+                                                   const std::vector<ValueType> &values,
+                                                   const GenericTermBindings &environment) {
+  std::vector<GenericTerm> terms;
+  for (std::size_t n = 0; n < annotations.size(); ++n)
+    terms.push_back(instantiateGenericTerm(annotations[n], values[n], environment));
+  return terms;
+}
+std::vector<GenericTraitApplication> declaredGenericApplications(const GenericProofOwner &owner,
+                                                                 const std::string &variable) {
+  std::vector<GenericTraitApplication> applications;
+  if (!genericBindings_)
+    return applications;
+  auto environment = genericOwnerEnvironment(owner, *genericBindings_);
+  auto position = variable.find('.');
+  const auto base = variable.substr(0, position);
+  auto value = environment.find(base);
+  std::optional<GenericProjection> projection;
+  if (auto found = genericProjections_.find(base); found != genericProjections_.end())
+    projection = found->second;
+  if (value == environment.end() && !projection)
+    return applications;
+  auto current = projection ? abstractGenericTerm(concreteGenericTerm(projection->output), base)
+                            : value->second;
+  const auto append = [&](const TraitReference &bound, const GenericBindings &bindings,
+                          const GenericTermBindings &terms,
+                          std::vector<GenericTraitApplication> &destination) {
+    auto trait = traitNames_.find(functionKey(syntax_.source->partIndex(bound.begin), name(bound)));
+    if (trait == traitNames_.end())
+      return;
+    auto values = traitArgumentTypes(bound.arguments, bindings);
+    if (values)
+      destination.push_back(
+          {trait->second, instantiateTraitArguments(bound.arguments, *values, terms)});
+  };
+  if (projection) {
+    std::vector<ValueType> arguments;
+    for (const auto &argument : projection->arguments)
+      arguments.push_back(argument.actual);
+    auto conformance = requireConformance(projection->trait, projection->self.actual,
+                                          syntax_.traits[projection->trait].name, arguments);
+    if (!conformance)
+      return {};
+    GenericTermBindings terms{{"Self", projection->self}};
+    const auto &declaration = syntax_.traits[projection->trait];
+    for (std::size_t n = 0; n < projection->arguments.size(); ++n)
+      terms[genericParameterLabel(declaration.generics[n])] = projection->arguments[n];
+    for (auto label : declaration.associatedTypes)
+      terms["Self." + name(label)] =
+          projectedGenericTerm(projection->trait, projection->self, projection->arguments,
+                               name(label), conformance->bindings.at("Self." + name(label)));
+    for (std::size_t n = 0; n < declaration.associatedTypes.size(); ++n)
+      if (name(declaration.associatedTypes[n]) == projection->member &&
+          n < declaration.associatedBounds.size())
+        for (const auto &bound : declaration.associatedBounds[n])
+          append(bound, conformance->bindings, terms, applications);
+  }
   for (const auto &parameter : owner.parameters)
     if (genericParameterLabel(parameter) == base)
-      for (auto bound : parameter.bounds) {
-        const auto found =
-            traitNames_.find(functionKey(syntax_.source->partIndex(bound.begin), name(bound)));
-        if (found != traitNames_.end())
-          traits.insert(found->second);
-      }
-  if (base == "Self" && owner.selfTrait)
-    traits.insert(*owner.selfTrait);
-  auto position = dot;
+      for (const auto &bound : parameter.bounds)
+        append(bound, *genericBindings_, environment, applications);
+  if (base == "Self" && owner.selfTrait) {
+    if (owner.implementation) {
+      const auto &impl = syntax_.implementations[*owner.implementation];
+      if (auto values = traitArgumentTypes(impl.traitArguments, *genericBindings_))
+        applications.push_back({*owner.selfTrait, instantiateTraitArguments(impl.traitArguments,
+                                                                            *values, environment)});
+    } else {
+      std::vector<GenericTerm> arguments;
+      for (const auto &p : syntax_.traits[*owner.selfTrait].generics)
+        if (auto it = environment.find(genericParameterLabel(p)); it != environment.end())
+          arguments.push_back(it->second);
+      applications.push_back({*owner.selfTrait, std::move(arguments)});
+    }
+  }
+  std::string projected = base;
   while (position != std::string::npos) {
     const auto next = variable.find('.', position + 1);
     const auto member = variable.substr(
         position + 1, next == std::string::npos ? std::string::npos : next - position - 1);
-    std::set<std::size_t> associated;
-    for (auto trait : traits) {
-      const auto &declaration = syntax_.traits[trait];
-      for (std::size_t i = 0; i < declaration.associatedTypes.size(); ++i)
-        if (name(declaration.associatedTypes[i]) == member &&
-            i < declaration.associatedBounds.size())
-          for (auto bound : declaration.associatedBounds[i]) {
-            const auto found =
-                traitNames_.find(functionKey(syntax_.source->partIndex(bound.begin), name(bound)));
-            if (found != traitNames_.end())
-              associated.insert(found->second);
-          }
+    if (member.starts_with("$"))
+      return {};
+    projected += "." + member;
+    std::vector<GenericTraitApplication> associated;
+    std::optional<GenericTerm> item;
+    for (const auto &application : applications) {
+      const auto &declaration = syntax_.traits[application.trait];
+      for (std::size_t n = 0; n < declaration.associatedTypes.size(); ++n) {
+        if (name(declaration.associatedTypes[n]) != member)
+          continue;
+        std::vector<ValueType> arguments;
+        for (const auto &t : application.arguments)
+          arguments.push_back(t.actual);
+        auto conformance =
+            requireConformance(application.trait, current.actual, declaration.name, arguments);
+        if (!conformance)
+          return {};
+        item = abstractGenericTerm(concreteGenericTerm(conformance->bindings.at("Self." + member)),
+                                   projected);
+        GenericTermBindings terms{{"Self", current}};
+        for (std::size_t j = 0; j < application.arguments.size(); ++j)
+          terms[genericParameterLabel(declaration.generics[j])] = application.arguments[j];
+        for (auto label : declaration.associatedTypes)
+          terms["Self." + name(label)] = abstractGenericTerm(
+              concreteGenericTerm(conformance->bindings.at("Self." + name(label))),
+              projected.substr(0, projected.size() - member.size()) + name(label));
+        GenericScope scope(*this, std::make_shared<const GenericBindings>(conformance->bindings),
+                           proofOwnerForTrait(application.trait));
+        if (n < declaration.associatedBounds.size())
+          for (const auto &bound : declaration.associatedBounds[n])
+            append(bound, conformance->bindings, terms, associated);
+      }
     }
-    traits = std::move(associated);
+    if (!item)
+      return {};
+    current = *item;
+    applications = std::move(associated);
     position = next;
   }
-  return traits;
+  return applications;
 }
 bool requireGenericTraitProof(const GenericProofOwner &owner, std::size_t trait,
-                              const GenericTerm &term, SourceSpan site, std::size_t depth = 0) {
-  if (!dependentGenericTerm(term))
+                              const GenericTerm &term, SourceSpan site, std::size_t depth = 0,
+                              const std::vector<GenericTerm> &arguments = {}) {
+  if (!dependentGenericTerm(term) &&
+      std::ranges::none_of(arguments, [&](const auto &t) { return dependentGenericTerm(t); }))
     return true;
   if (depth >= limits_.maxDepth) {
     error("S083", "generic trait proof exceeds the configured depth", site);
     return false;
   }
-  for (const auto &variable : term.variables)
-    if (!declaredGenericTraits(owner, variable).contains(trait)) {
+  for (const auto &variable : term.variables) {
+    bool established = false;
+    for (const auto &application : declaredGenericApplications(owner, variable)) {
+      if (application.trait != trait || application.arguments.size() != arguments.size())
+        continue;
+      bool equal = true;
+      for (std::size_t n = 0; n < arguments.size(); ++n)
+        equal = equal && sameGenericTermIdentity(application.arguments[n], arguments[n]);
+      established = established || equal;
+    }
+    if (!established) {
       const auto required = name(syntax_.traits[trait].name);
       std::string message;
       if (variable.find(".$errorUnion") != std::string::npos)
@@ -587,45 +723,91 @@ bool requireGenericTraitProof(const GenericProofOwner &owner, std::size_t trait,
                   variable.substr(0, variable.find(".$")) +
                   "'; name and constrain that type in the generic signature";
       else
-        message =
-            "generic type '" + variable + "' requires a declared '" + required + "' trait bound";
+        message = "generic type '" + genericVariableLabel(variable) + "' requires a declared '" +
+                  required + "' trait bound with the requested arguments";
       error("S083", std::move(message), site);
       return false;
     }
+  }
   if (!term.variables.empty())
     return true;
-  auto conformance = requireConformance(trait, term.actual, site);
-  if (!conformance || !conformance->implementation)
+  std::vector<ValueType> values;
+  for (const auto &argument : arguments)
+    values.push_back(argument.actual);
+  auto conformance = requireConformance(trait, term.actual, site, values);
+  if (!conformance)
+    return false;
+  if (conformance->builtinArithmetic) {
+    // A tensor constructor preserves its scalar element provenance. A builtin
+    // operation cannot justify unrelated opaque scalar type parameters.
+    const auto element = [](const GenericTerm &value) -> const GenericTerm & {
+      return value.actual.tensor && !value.arguments.empty() ? value.arguments[0] : value;
+    };
+    if (arguments.empty() || sameGenericTermIdentity(element(term), element(arguments[0])))
+      return true;
+    error("S083", "builtin arithmetic requires the same abstract numeric element type", site);
+    return false;
+  }
+  if (!conformance->implementation)
     return false;
   const auto &implementation = syntax_.implementations[*conformance->implementation];
   GenericTermBindings bindings;
   inferGenericTermBindings(implementation.target, term, implementation.generics, bindings);
+  for (std::size_t n = 0; n < arguments.size(); ++n)
+    inferGenericTermBindings(implementation.traitArguments[n], arguments[n],
+                             implementation.generics, bindings);
+  if (!arguments.empty()) {
+    if (!sameGenericTermIdentity(
+            instantiateGenericTerm(implementation.target, term.actual, bindings), term)) {
+      error("S083", "implementation requires a more specific implementing type", site);
+      return false;
+    }
+    for (std::size_t n = 0; n < arguments.size(); ++n)
+      if (!sameGenericTermIdentity(instantiateGenericTerm(implementation.traitArguments[n],
+                                                          arguments[n].actual, bindings),
+                                   arguments[n])) {
+        error("S083", "implementation does not establish the abstract trait argument relationship",
+              site);
+        return false;
+      }
+  }
   for (const auto &parameter : implementation.generics)
-    for (auto bound : parameter.bounds) {
+    for (const auto &bound : parameter.bounds) {
       const auto needed =
           traitNames_.find(functionKey(syntax_.source->partIndex(bound.begin), name(bound)));
       const auto value = bindings.find(name(parameter.name));
-      if (needed == traitNames_.end() || value == bindings.end() ||
-          !requireGenericTraitProof(owner, needed->second, value->second, site, depth + 1))
+      auto actualArguments =
+          traitArgumentTypes(bound.arguments, conformance->implementationBindings);
+      if (needed == traitNames_.end() || value == bindings.end() || !actualArguments ||
+          !requireGenericTraitProof(
+              owner, needed->second, value->second, site, depth + 1,
+              instantiateTraitArguments(bound.arguments, *actualArguments, bindings)))
         return false;
     }
   return true;
 }
 bool requireGenericTraitProof(const Frame &frame, std::size_t trait, const GenericTerm &term,
-                              SourceSpan site) {
+                              SourceSpan site, const std::vector<GenericTerm> &arguments = {}) {
   if (!genericContext(frame))
     return true;
-  return requireGenericTraitProof(*proofOwnerForFunction(genericRoot(frame)), trait, term, site);
+  return requireGenericTraitProof(*proofOwnerForFunction(genericRoot(frame)), trait, term, site, 0,
+                                  arguments);
 }
 bool checkGenericTermBounds(const Frame &frame, const std::vector<GenericParameter> &parameters,
                             const GenericTermBindings &bindings, SourceSpan site) {
+  GenericBindings actual;
+  for (const auto &[label, term] : bindings)
+    actual[label] = term.actual;
   for (const auto &parameter : parameters)
-    for (auto bound : parameter.bounds) {
+    for (const auto &bound : parameter.bounds) {
       const auto trait =
           traitNames_.find(functionKey(syntax_.source->partIndex(bound.begin), name(bound)));
       const auto term = bindings.find(genericParameterLabel(parameter));
-      if (trait == traitNames_.end() || term == bindings.end() ||
-          !requireGenericTraitProof(frame, trait->second, term->second, site))
+      auto arguments = traitArgumentTypes(bound.arguments, actual);
+      if (trait == traitNames_.end() || term == bindings.end() || !arguments ||
+          !requireGenericTraitProof(
+              frame, trait->second, term->second, site,
+              instantiateTraitArguments(bound.arguments, *arguments, bindings)))
         return false;
     }
   return true;
@@ -640,6 +822,27 @@ GenericTerm substituteGenericTerm(const GenericTerm &source, const GenericTermBi
     return term;
   }
   for (const auto &variable : source.variables) {
+    const auto dot = variable.find('.');
+    const auto base = variable.substr(0, dot);
+    if (auto projection = genericProjections_.find(base); projection != genericProjections_.end()) {
+      const auto descriptor = projection->second; // Recursive substitution may rehash the registry.
+      auto self = substituteGenericTerm(descriptor.self, bindings, depth + 1);
+      std::vector<GenericTerm> arguments;
+      for (const auto &argument : descriptor.arguments)
+        arguments.push_back(substituteGenericTerm(argument, bindings, depth + 1));
+      auto replacement = projectedGenericTerm(descriptor.trait, self, arguments, descriptor.member,
+                                              descriptor.output);
+      if (dot == std::string::npos)
+        term = mergeGenericTerms(std::move(term), replacement);
+      else {
+        for (const auto &root : replacement.variables)
+          term.variables.insert(root + variable.substr(dot));
+        if (replacement.variables.empty() && dependentGenericTerm(replacement))
+          term.variables.insert("$derived:" + genericTermIdentityKey(replacement) +
+                                variable.substr(dot));
+      }
+      continue;
+    }
     const auto found = bindings.find(variable);
     if (found != bindings.end())
       term = mergeGenericTerms(std::move(term), found->second);
@@ -665,6 +868,9 @@ GenericTerm substituteGenericTerm(const GenericTerm &source, const GenericTermBi
 
 GenericTerm genericErrorTerm(SourceSpan channel, const ValueType &actual,
                              const GenericTermBindings &bindings) {
+  if (auto projection = syntax_.errorProjections.find(channel.begin);
+      projection != syntax_.errorProjections.end())
+    return instantiateGenericTerm(projection->second, actual, bindings);
   const auto label = qualifiedErrorName(channel);
   if (auto direct = bindings.find(label); direct != bindings.end())
     return direct->second;
@@ -743,14 +949,19 @@ bool checkGenericTypeApplication(const std::vector<GenericParameter> &parameters
   if (!genericProofOwner_ || !genericBindings_)
     return true;
   const auto environment = genericOwnerEnvironment(*genericProofOwner_, *genericBindings_);
-  for (std::size_t i = 0; i < parameters.size(); ++i) {
-    const auto term = instantiateGenericTerm(
+  GenericTermBindings terms;
+  for (std::size_t i = 0; i < parameters.size(); ++i)
+    terms[genericParameterLabel(parameters[i])] = instantiateGenericTerm(
         arguments[i], bindings.at(genericParameterLabel(parameters[i])), environment);
-    for (auto bound : parameters[i].bounds) {
+  for (const auto &parameter : parameters) {
+    const auto &term = terms.at(genericParameterLabel(parameter));
+    for (const auto &bound : parameter.bounds) {
       const auto needed =
           traitNames_.find(functionKey(syntax_.source->partIndex(bound.begin), name(bound)));
-      if (needed == traitNames_.end() ||
-          !requireGenericTraitProof(*genericProofOwner_, needed->second, term, site))
+      auto actual = concreteTraitArguments(bound.arguments, bindings);
+      if (needed == traitNames_.end() || !actual ||
+          !requireGenericTraitProof(*genericProofOwner_, needed->second, term, site, 0,
+                                    instantiateTraitArguments(bound.arguments, *actual, terms)))
         return false;
     }
   }

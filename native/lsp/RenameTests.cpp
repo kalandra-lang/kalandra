@@ -67,6 +67,12 @@ int main(int argc, char **argv) {
     require(renamed["main.k"] == "fn main()->i64:\n  counter=0\n  while counter<3:\n    "
                                  "counter=counter+1\n  return counter\n",
             "rename includes mutable declaration, writes and reads");
+    const std::string standardLocal =
+        "from \"std/ops\" import Add\nfn main()->String:\n  value=\"text\"\n  return value\n";
+    Fixture standardNames(base, "standard-generic-locals", {{"main.k", standardLocal}});
+    auto standardRename = standardNames.success("main.k", standardLocal.find("value"), "textValue");
+    require(standardRename["main.k"].find("return textValue") != std::string::npos,
+            "unused immutable standard generic bodies must not block user local renames");
     const std::string local =
         "fn main():\n  value=1\n  read=fn():return value\n  return read()+value\n";
     Fixture locals(base, "locals", {{"main.k", local}});

@@ -263,9 +263,10 @@ private:
       const bool declaration =
           namedFunction(rest) || (rest.starts_with("export ") && namedFunction(rest.substr(7))) ||
           rest.starts_with("type ") || rest.starts_with("enum ") || rest.starts_with("error ") ||
-          rest.starts_with("from ") || rest.starts_with("export from ") ||
-          rest.starts_with("export type ") || rest.starts_with("export enum ") ||
-          rest.starts_with("export error ");
+          rest.starts_with("trait ") || rest.starts_with("impl ") ||
+          rest.starts_with("export trait ") || rest.starts_with("from ") ||
+          rest.starts_with("export from ") || rest.starts_with("export type ") ||
+          rest.starts_with("export enum ") || rest.starts_with("export error ");
       if (declaration && delimiters_.size() <= 8) {
         const auto boundary = position_ ? position_ - 1 : 0;
         while (!delimiters_.empty()) {

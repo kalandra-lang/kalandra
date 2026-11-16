@@ -1,0 +1,105 @@
+meta { title = "Arithmetic traits", description = "Define static arithmetic operators and write generic numerical algorithms with std/ops.", order = 10, group = "Language reference" }
+
+Import traits from std/ops to define arithmetic for your own types or express the operations a generic algorithm requires. Operators call these implementations statically. They do not introduce runtime method lookup, boxing or implicit numeric conversions.
+
+h2 { "Operator reference" }
+
+h2 { "Add[Rhs]" }
+
+code { "fn add(left: Self, right: Rhs) -> Self.Output" }
+
+Implement left + right. Built-in numeric addition uses the existing overflow and floating-point rules; String addition concatenates text on the host.
+
+h2 { "Sub[Rhs]" }
+
+code { "fn sub(left: Self, right: Rhs) -> Self.Output" }
+
+Implement left - right. Standard numeric subtraction keeps its checked integer behavior.
+
+h2 { "Mul[Rhs]" }
+
+code { "fn mul(left: Self, right: Rhs) -> Self.Output" }
+
+Implement left * right. Tensor multiplication remains elementwise; use matmul for a matrix product.
+
+h2 { "Div[Rhs]" }
+
+code { "fn div(left: Self, right: Rhs) -> Self.Output" }
+
+Implement left / right. Standard integer division truncates toward zero and faults on zero divisors or a signed division overflow. Floating division follows the selected arithmetic policy.
+
+h2 { "Rem[Rhs]" }
+
+code { "fn rem(left: Self, right: Rhs) -> Self.Output" }
+
+Implement left % right. Standard remainder accepts integers; its sign and checked faults follow the numeric arithmetic rules.
+
+h2 { "Neg" }
+
+code { "fn neg(value: Self) -> Self.Output" }
+
+Implement -value. Standard integer negation faults when the result is outside the destination type's range.
+
+
+Each trait declares an associated Output type. Self is the left operand type; Rhs is the right operand type. Neg has only Self. The result may differ from either operand. Unary + retains its existing numeric meaning; these traits do not overload assignment, comparison, logical operators or control flow.
+
+h2 { "Define an operator" }
+
+codeblock { language = kalandra, """from "std/ops" import Add, Mul
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+type Distance:
+  metres: i64
+
+impl Add[Distance] for Distance:
+  type Output = Distance
+  fn add(left: Self, right: Distance) -> Self.Output:
+    return Distance {metres: left.metres + right.metres}
+
+impl Mul[i64] for Distance:
+  type Output = Distance
+  fn mul(left: Self, right: i64) -> Self.Output:
+    return Distance {metres: left.metres * right}
+
+fn main() -> unit ! IoError:
+  walk = Distance {metres: 120}
+  total = (walk + walk) * 3
+  try println(format("{}", total.metres))
+  return ()
+""" }
+
+This displays 720. Operands evaluate once, from left to right. Operator parameters provide read access: implementations cannot implicitly mutate or consume either operand. The required methods are infallible. Handle expected errors inside the method or use an explicit function with an error channel; checked arithmetic faults retain their ordinary behavior.
+
+The trait, Self and every Rhs argument select an implementation. Implementing Distance * i64 does not implement i64 * Distance. You may define the latter separately in the module that owns Distance. Overlapping implementations are rejected, including overlaps involving repeated generic parameters. Bounds alone do not prove that implementations are disjoint.
+
+h2 { "Generic algorithms" }
+
+codeblock { language = kalandra, """from "std/ops" import Add
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn sum[T: Add[T]](left: T, right: T) -> Add[T, T].Output:
+  return Add.add(left, right)
+
+fn main() -> unit ! IoError:
+  add = Add[i64, i64].add
+  try println(format("{}:{}", sum(20, 22), add(40, 2)))
+  return ()
+""" }
+
+This displays 42:42. Add[T, T].Output names the result of the specific implementation. T.Output is also available when exactly one declared trait application provides Output. With several such applications, qualify the projection even when their concrete result types happen to match. A bound that permits addition does not promise that its result is T or that another operation exists on that result.
+
+Trait function values require explicit types: Trait[Self, Arguments...].method. Ordinary qualified calls can infer their types from arguments. Generic trait parameters are types, rather than constant values or implicit conversions.
+
+h2 { "Built-in arithmetic and GPU execution" }
+
+The standard traits cover the existing compatible numeric scalar and tensor operations: all ten numeric element types, equal tensor ranks and extents, and the supported scalar/tensor combinations. Numeric operands must use the same element type. Rem requires integers; Add also supports host String concatenation. Neg follows the existing checked numeric negation rules, including unsigned values. Built-in operators keep their direct compiler lowering and do not acquire an extra dispatch layer.
+
+Custom operators can run on a GPU when their specialized bodies, operands and results are device-compatible. The compiler checks that body against the selected Metal, Vulkan or CUDA backend. A trait implementation never introduces a hidden CPU fallback. Numeric arithmetic policies, transfer requirements, cancellation and ownership rules apply as usual; Apple GPUs still require explicit software fallback for f64 arithmetic.
+
+list {
+  link { url = "/docs/generics-traits", "Generic traits, associated types and implementation rules" },
+  link { url = "/docs/numbers", "Numeric types, checked arithmetic and conversions" },
+  link { url = "/docs/gpu-numerics", "GPU numerical policies and backend support" }
+}

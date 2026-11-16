@@ -319,19 +319,20 @@ private:
     const bool grouped = consume(TokenKind::LeftParen);
     std::vector<SourceSpan> members;
     do {
-      auto member = expect(TokenKind::Identifier, "expected an error family");
-      if (!member)
+      auto annotation = parseType();
+      if (!annotation)
         return {};
-      auto span = member->span;
-      while (consume(TokenKind::Dot)) {
-        auto associated = expect(TokenKind::Identifier, "expected an associated error type");
-        if (!associated)
-          return {};
-        span.end = associated->span.end;
+      if (annotation->array || annotation->tensor || annotation->function ||
+          (!annotation->arguments.empty() && annotation->members.empty())) {
+        error("P006", "expected an error family or associated error type", annotation->span);
+        return {};
       }
+      const auto span = annotation->span;
+      if (!annotation->arguments.empty())
+        result_.module.errorProjections.emplace(span.begin, std::move(*annotation));
       members.push_back(span);
       if (members.size() > limits_.maxTokens) {
-        error("P006", "error union exceeds configured token budget", member->span);
+        error("P006", "error union exceeds configured token budget", span);
         return {};
       }
     } while (consume(TokenKind::Pipe));
@@ -358,10 +359,14 @@ private:
       GenericParameter parameter{name->span, {}};
       if (consume(TokenKind::Colon)) {
         do {
-          auto bound = expect(TokenKind::Identifier, "expected a trait bound");
+          auto bound = parseType();
           if (!bound)
             return {};
-          parameter.bounds.push_back(bound->span);
+          if (bound->array || bound->tensor || bound->function || !bound->members.empty()) {
+            error("P038", "expected a named trait bound", bound->span);
+            return {};
+          }
+          parameter.bounds.emplace_back(std::move(*bound));
         } while (consume(TokenKind::Plus));
       }
       parameters.push_back(std::move(parameter));
@@ -384,6 +389,10 @@ private:
     if (!name)
       return {};
     trait.name = name->span;
+    auto generics = genericParameters();
+    if (!generics)
+      return {};
+    trait.generics = std::move(*generics);
     if (!expect(TokenKind::Colon, "expected ':' after trait name") ||
         !expect(TokenKind::Newline, "trait requirements must start on the next line") ||
         !expect(TokenKind::Indent, "expected indented trait requirements"))
@@ -396,13 +405,17 @@ private:
         auto associated = expect(TokenKind::Identifier, "expected an associated type name");
         if (!associated)
           return {};
-        std::vector<SourceSpan> bounds;
+        std::vector<TraitReference> bounds;
         if (consume(TokenKind::Colon))
           do {
-            auto bound = expect(TokenKind::Identifier, "expected an associated type trait bound");
+            auto bound = parseType();
             if (!bound)
               return {};
-            bounds.push_back(bound->span);
+            if (bound->array || bound->tensor || bound->function || !bound->members.empty()) {
+              error("P038", "expected a named associated type trait bound", bound->span);
+              return {};
+            }
+            bounds.emplace_back(std::move(*bound));
           } while (consume(TokenKind::Plus));
         if (!expect(TokenKind::Newline, "associated types are requirements, not defaults"))
           return {};
@@ -430,6 +443,20 @@ private:
     if (!trait)
       return {};
     implementation.trait = trait->span;
+    if (consume(TokenKind::LeftBracket)) {
+      if (at(TokenKind::RightBracket)) {
+        error("P038", "trait arguments cannot be empty", current().span);
+        return {};
+      }
+      do {
+        auto argument = parseType();
+        if (!argument)
+          return {};
+        implementation.traitArguments.push_back(std::move(*argument));
+      } while (consume(TokenKind::Comma) && !at(TokenKind::RightBracket));
+      if (!expect(TokenKind::RightBracket, "expected ']' after trait arguments"))
+        return {};
+    }
     if (!word("for")) {
       error("P038", "expected 'for' and an implementing type", current().span);
       return {};

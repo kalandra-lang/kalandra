@@ -74,6 +74,9 @@ std::expected<Graph, std::string> indexGraph(ParseResult syntax, const std::stri
   for (const auto &record : syntax.module.records)
     if (record.exported)
       exports.emplace(Name{source->partIndex(record.name.begin), word(record.name)}, record.name);
+  for (const auto &trait : syntax.module.traits)
+    if (trait.exported)
+      exports.emplace(Name{source->partIndex(trait.name.begin), word(trait.name)}, trait.name);
   for (const auto &import : syntax.module.imports)
     if (import.exported && import.target)
       for (const auto &name : import.names) {
@@ -323,8 +326,11 @@ planRename(const std::vector<std::string> &roots, const std::string &workspace,
     for (const auto &edge : graph.edges)
       covered.insert(edge.use);
     for (const auto &[use, word] : graph.identifiers)
-      if ((word == result.placeholder || word == *newName) && !covered.contains(use) &&
-          !(grammarWord(word) && !graph.expressionNames.contains(use)))
+      // Compiler-owned modules cannot resolve user locals or be edited by a
+      // workspace rename. Their unused generic bodies need not be specialized
+      // merely because an internal parameter shares the user's spelling.
+      if (!standardModuleFromPath(use.path) && (word == result.placeholder || word == *newName) &&
+          !covered.contains(use) && !(grammarWord(word) && !graph.expressionNames.contains(use)))
         return std::unexpected(
             "Rename encounters an unmapped identifier with the affected spelling");
   }

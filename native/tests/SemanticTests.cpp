@@ -22,6 +22,11 @@ void accepted(const CheckResult &result) {
 void rejected(std::string text, std::string_view code, SemanticLimits limits = {}) {
   auto result = analyze(text, limits);
   require(!result.ok() && !result.module, "invalid module published typed IR:\n" + text);
+  if (!std::ranges::any_of(result.diagnostics, [code](const auto &d) { return d.code == code; })) {
+    std::cerr << text;
+    for (const auto &diagnostic : result.diagnostics)
+      std::cerr << renderDiagnostic(*result.source, diagnostic);
+  }
   require(std::ranges::any_of(result.diagnostics, [code](const auto &d) { return d.code == code; }),
           "missing diagnostic: " + std::string(code));
 }

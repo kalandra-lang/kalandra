@@ -17,7 +17,7 @@ bool validGenericParameters(const std::vector<GenericParameter> &parameters) {
     }
     std::unordered_set<std::string> bounds;
     for (auto bound : parameter.bounds)
-      if (!bounds.insert(name(bound)).second) {
+      if (!bounds.insert(traitReferenceLabel(bound)).second) {
         error("S083", "duplicate trait bound", bound);
         valid = false;
       }
@@ -49,6 +49,7 @@ void registerGenericDeclarations() {
   }
   for (std::size_t i = 0; i < syntax_.traits.size(); ++i) {
     const auto &trait = syntax_.traits[i];
+    validGenericParameters(trait.generics);
     const auto label = name(trait.name);
     if (reservedGenericDeclaration(label))
       error("S083", "reserved trait name '" + label + "'", trait.name);
@@ -122,8 +123,13 @@ std::optional<std::size_t> specializeRecord(std::size_t declaration, GenericBind
   label += "]";
   if (auto found = recordSpecializations_.find(key); found != recordSpecializations_.end())
     return found->second;
-  if (!checkGenericBounds(original.generics, bindings, site))
-    return {};
+  {
+    auto owner = std::make_shared<GenericProofOwner>();
+    owner->parameters = original.generics;
+    GenericScope scope(*this, std::make_shared<const GenericBindings>(bindings), owner);
+    if (!checkGenericBounds(original.generics, bindings, site))
+      return {};
+  }
   if (++specializationCount_ > limits_.maxSpecializations) {
     error("S082", "generic nominal specialization budget exceeded", site);
     return {};

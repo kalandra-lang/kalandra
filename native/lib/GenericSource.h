@@ -38,7 +38,7 @@ std::string sourceTypeLabel(const TypeSyntax &type, std::size_t depth = 0) const
       result += ", " + (dimension.extent ? std::to_string(*dimension.extent) : "?");
     result += "]";
   } else {
-    result = associatedName(type);
+    result = name(type.name);
     if (!type.arguments.empty()) {
       result += "[";
       for (std::size_t i = 0; i < type.arguments.size(); ++i) {
@@ -48,6 +48,8 @@ std::string sourceTypeLabel(const TypeSyntax &type, std::size_t depth = 0) const
       }
       result += "]";
     }
+    for (auto member : type.members)
+      result += "." + name(member);
   }
   return type.array ? "[" + result + "]" : result;
 }
@@ -60,7 +62,7 @@ std::string sourceTypeParameters(const std::vector<GenericParameter> &parameters
       result += ", ";
     result += genericParameterLabel(parameter);
     for (std::size_t i = 0; i < parameter.bounds.size(); ++i)
-      result += (i ? " + " : ": ") + name(parameter.bounds[i]);
+      result += (i ? " + " : ": ") + traitReferenceLabel(parameter.bounds[i]);
   }
   return result + "]";
 }
@@ -95,7 +97,7 @@ void rememberTraitName(SourceSpan site) {
     return;
   const auto &trait = syntax_.traits[found->second];
   ResolvedSourceToken token{site, trait.name, {}, {}};
-  token.label = "trait " + name(trait.name);
+  token.label = "trait " + name(trait.name) + sourceTypeParameters(trait.generics);
   rememberSourceToken(std::move(token));
 }
 void rememberGenericTypeSyntax(const TypeSyntax &type,
@@ -111,13 +113,21 @@ void rememberGenericTypeSyntax(const TypeSyntax &type,
       for (const auto &parameter : current.function->parameters)
         pending.push_back(&parameter);
     }
+    if (current.function)
+      for (auto channel : current.function->errorTypes)
+        if (auto projection = syntax_.errorProjections.find(channel.begin);
+            projection != syntax_.errorProjections.end())
+          pending.push_back(&projection->second);
+    if (traitNames_.contains(
+            functionKey(syntax_.source->partIndex(current.name.begin), name(current.name))))
+      rememberTraitName(current.name);
     const auto site = current.element.value_or(current.name);
     for (const auto &parameter : parameters)
       if (name(site) == genericParameterLabel(parameter)) {
         ResolvedSourceToken token{site, parameter.name, {}, {}};
         token.label = "type " + genericParameterLabel(parameter);
         for (std::size_t i = 0; i < parameter.bounds.size(); ++i)
-          token.label += (i ? " + " : ": ") + name(parameter.bounds[i]);
+          token.label += (i ? " + " : ": ") + traitReferenceLabel(parameter.bounds[i]);
         rememberSourceToken(std::move(token));
       }
     const auto found =
@@ -137,8 +147,11 @@ void rememberGenericDeclarations() {
       TypeSyntax type;
       type.name = type.span = parameter.name;
       rememberGenericTypeSyntax(type, generics);
-      for (auto bound : parameter.bounds)
+      for (const auto &bound : parameter.bounds) {
         rememberTraitName(bound);
+        for (const auto &argument : bound.arguments)
+          rememberGenericTypeSyntax(argument, generics);
+      }
     }
   };
   for (const auto &record : syntax_.records) {
@@ -162,9 +175,14 @@ void rememberGenericDeclarations() {
       rememberGenericTypeSyntax(parameter.type, function.generics);
     if (function.result)
       rememberGenericTypeSyntax(*function.result, function.generics);
+    for (auto channel : function.errorTypes)
+      if (auto projection = syntax_.errorProjections.find(channel.begin);
+          projection != syntax_.errorProjections.end())
+        rememberGenericTypeSyntax(projection->second, function.generics);
   }
   for (const auto &trait : syntax_.traits) {
     rememberTraitName(trait.name);
+    parameters(trait.generics);
     for (const auto &bounds : trait.associatedBounds)
       for (auto bound : bounds)
         rememberTraitName(bound);
@@ -178,5 +196,7 @@ void rememberGenericDeclarations() {
     rememberTraitName(implementation.trait);
     parameters(implementation.generics);
     rememberGenericTypeSyntax(implementation.target, implementation.generics);
+    for (const auto &argument : implementation.traitArguments)
+      rememberGenericTypeSyntax(argument, implementation.generics);
   }
 }

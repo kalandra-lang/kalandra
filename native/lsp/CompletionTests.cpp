@@ -22,6 +22,12 @@ static bool has(const lsp::CompletionInfo &info, const std::string &name) {
 }
 int main() {
   try {
+    auto importedOperatorCompletion = query(
+        "from \"std/ops\" import Add\n"
+        "fn join(text:String,left:i64,right:i64)->i64:\n  return left+right\n"
+        "fn main():\n  earlier=2\n  return join(\"text\", ear|\n");
+    require(has(importedOperatorCompletion, "earlier"),
+            "incomplete calls must recover before compiler-owned trait declarations");
     auto loopNames = query("fn main()->i64:\n  for item in range(3):\n    it|\n  return 0\n");
     require(has(loopNames, "item"), "for binding is missing from its body scope");
     auto loopExit = query("fn main()->i64:\n  while true:\n    br|\n  return 0\n");
@@ -500,7 +506,7 @@ int main() {
         {(pathRoot / "main.k").string(), ""},
         {(pathRoot / "foreign" / "hidden.k").string(), ""}};
     info = pathQuery("from \"std/|\" import println\nfn main():\n  return ()\n", {});
-    require(info.names.size() == 11 && has(info, "std/buffer") && has(info, "std/iter") && has(info, "std/option") &&
+    require(info.names.size() == 13 && has(info, "std/ops") && has(info, "std/cmp") && has(info, "std/buffer") && has(info, "std/iter") && has(info, "std/option") &&
                 has(info, "std/time") && has(info, "std/env") && has(info, "std/path") &&
                 has(info, "std/parse") && has(info, "std/fs") && has(info, "std/io") &&
                 has(info, "std/fmt") && has(info, "std/process"),

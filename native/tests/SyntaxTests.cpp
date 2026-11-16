@@ -455,6 +455,27 @@ void genericsAndTraits() {
 } // namespace
 int main(int argc, char **argv) {
   try {
+    auto parameterized = syntax(
+        "trait Convert[Target: Read[i64]]:\n  type Output: Equal[Target]\n"
+        "  fn convert(value:Self,other:Target)->Self.Output\n"
+        "impl[T] Convert[Box[T]] for Value[T]:\n  type Output=T\n"
+        "  fn convert(value:Self,other:Box[T])->T:\n    return value.item\n"
+        "fn use[T: Convert[i64] + Convert[f64]](value:T)->Convert[T,i64].Output:\n"
+        "  return Convert[T,i64].convert(value,1)\n");
+    require(parameterized.ok(), "parameterized traits/bounds/implementations syntax");
+    require(parameterized.module.traits[0].generics.size() == 1 &&
+                parameterized.module.traits[0].generics[0].bounds[0].arguments.size() == 1 &&
+                parameterized.module.traits[0].associatedBounds[0][0].arguments.size() == 1 &&
+                parameterized.module.implementations[0].traitArguments.size() == 1 &&
+                parameterized.module.functions[0].generics[0].bounds.size() == 2 &&
+                parameterized.module.functions[0].result->arguments.size() == 2,
+            "trait argument syntax lost its structure");
+    validTree(parameterized);
+    for (auto text : {"trait T[]:\n  fn f(x:Self)->unit\n",
+                      "impl T[] for i64:\n  fn f(x:Self)->unit:\n    return ()\n",
+                      "fn f[T: [i64]](x:T)->unit:\n  return ()\n"})
+      require(!syntax(text).ok(), "malformed trait parameters accepted");
+    std::cout << "PASS parameterized trait syntax\n";
     const std::vector<std::pair<std::string, std::function<void()>>> tests{
         {"generics and traits", genericsAndTraits},
         {"lexer lines", lexerLines},

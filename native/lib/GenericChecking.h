@@ -145,6 +145,10 @@ bool genericTypeKnown(const TypeSyntax &syntax, const std::vector<GenericParamet
     if (!genericTypeKnown(syntax.function->result, parameters, bindings))
       return false;
     for (auto channel : syntax.function->errorTypes) {
+      if (auto projection = syntax_.errorProjections.find(channel.begin);
+          projection != syntax_.errorProjections.end() &&
+          !genericTypeKnown(projection->second, parameters, bindings))
+        return false;
       const auto label = qualifiedErrorName(channel);
       if (genericParameterNamed(parameters, label.substr(0, label.find('.'))) &&
           !bindings.contains(label))
@@ -214,8 +218,12 @@ std::optional<FunctionId> specializeFunction(FunctionId declaration, GenericBind
   }
   if (auto found = functionSpecializations_.find(key); found != functionSpecializations_.end())
     return found->second;
-  if (!checkGenericBounds(original.generics, bindings, site))
-    return {};
+  {
+    GenericScope scope(*this, std::make_shared<const GenericBindings>(bindings),
+                       proofOwnerForFunction(declaration));
+    if (!checkGenericBounds(original.generics, bindings, site))
+      return {};
+  }
   if (++specializationCount_ > limits_.maxSpecializations) {
     error("S082", "generic specialization budget exceeded; check for expanding recursive types",
           site);
@@ -376,7 +384,8 @@ invokeGeneric(Frame &frame, SourceSpan span, SourceSpan callee, FunctionId decla
         syntax_.standardModules[function.moduleIndex] == StandardModule::Comparison &&
         name(function.name) == "sortedBy") {
       auto helper = functions_.find(functionKey(function.moduleIndex, "__sortedValues"));
-      if (helper != functions_.end()) implementation = helper->second;
+      if (helper != functions_.end())
+        implementation = helper->second;
     }
     specialized = specializeFunction(implementation, std::move(bindings), span);
     if (!specialized)
@@ -454,8 +463,13 @@ std::optional<ValueId> specializedFunctionValue(Frame &frame, SourceSpan span,
   }
   return result;
 }
+// Member fragments depend on declarations from the preceding fragment.
+// clang-format off
 #include "GenericNominals.h"
 #include "GenericTerms.h"
 #include "TraitChecking.h"
+#include "GenericProjections.h"
+#include "ArithmeticChecking.h"
+// clang-format on
 
 #include "GenericSource.h"
