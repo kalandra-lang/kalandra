@@ -664,6 +664,41 @@ std::optional<FunctionInvocationFlow> functionInvocationFlow(const TypedModule &
   }
   return result;
 }
+std::size_t specializeStandardComparators(TypedModule &module, std::size_t budget) {
+  const auto flow = functionInvocationFlow(module, budget);
+  if (!flow)
+    return 0;
+  std::size_t changed = 0;
+  for (const auto &function : module.functions) {
+    if (!function.standardComparatorSort)
+      continue;
+    for (auto id : function.expressions) {
+      if (!budget--)
+        return changed;
+      auto &node = module.expressions.at(id);
+      const auto *call = std::get_if<FunctionInvoke>(&node.operation);
+      if (!call || flow->unknown[id] || flow->targets[id].size() != 1)
+        continue;
+      const auto target = flow->targets[id].front();
+      if (target >= module.functions.size() || module.functions[target].compileTimeOnly ||
+          module.functions[target].captureCount ||
+          module.functions[target].parameters.size() != call->arguments.size())
+        continue;
+      // Reading an immutable callable binding (or an empty function reference)
+      // has no independent effects/resources. Never discard a computed callee,
+      // a captured environment, or an unknown/multiple-target dispatch.
+      const auto &callee = module.expressions.at(call->callee).operation;
+      const auto *reference = std::get_if<FunctionReference>(&callee);
+      if (!std::holds_alternative<SymbolRead>(callee) &&
+          (!reference || !reference->captures.empty()))
+        continue;
+      const auto arguments = call->arguments;
+      node.operation = FunctionCall{target, arguments};
+      ++changed;
+    }
+  }
+  return changed;
+}
 std::optional<std::string> functionValueTransportError(const TypedModule &module,
                                                        const TypedExpr &invocation) {
   const bool indirect = std::holds_alternative<FunctionInvoke>(invocation.operation);

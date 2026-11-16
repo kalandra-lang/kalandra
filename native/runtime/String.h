@@ -23,6 +23,9 @@ void kalandra_string_concat_v1(kalandra::runtime::Invocation *,
                                kalandra::runtime::StringDescriptor *,
                                const kalandra::runtime::StringDescriptor *,
                                const kalandra::runtime::StringDescriptor *) noexcept;
+std::int64_t kalandra_string_compare_v1(kalandra::runtime::Invocation *,
+                                        const kalandra::runtime::StringDescriptor *,
+                                        const kalandra::runtime::StringDescriptor *) noexcept;
 std::int64_t kalandra_string_equal_v1(kalandra::runtime::Invocation *,
                                       const kalandra::runtime::StringDescriptor *,
                                       const kalandra::runtime::StringDescriptor *) noexcept;

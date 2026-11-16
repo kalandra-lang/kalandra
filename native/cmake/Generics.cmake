@@ -62,3 +62,27 @@ if(BUILD_TESTING)
     endforeach()
   endforeach()
 endif()
+
+if(BUILD_TESTING)
+  add_test(NAME native-ordering-float-references
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrderingFloatTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordering-float-references")
+  set_tests_properties(native-ordering-float-references PROPERTIES TIMEOUT 900
+    LABELS "feature-frontend;feature-runtime;feature-numerics")
+endif()
+
+if(BUILD_TESTING)
+  add_test(NAME native-ordering-sort-references
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrderingSortTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordering-sort-references")
+  set_tests_properties(native-ordering-sort-references PROPERTIES TIMEOUT 900
+    LABELS "feature-frontend;feature-runtime;feature-control")
+  add_test(NAME native-ordering-copy-sort-references
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrderingCopySortTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordering-copy-sort-references")
+  set_tests_properties(native-ordering-copy-sort-references PROPERTIES TIMEOUT 900
+    LABELS "feature-frontend;feature-runtime;feature-control;feature-numerics")
+endif()

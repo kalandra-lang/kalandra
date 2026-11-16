@@ -227,3 +227,33 @@ fn main()->bool:
     assert 'export trait Equal:' in declarations and 'fn equal(left: Self, right: Self) -> bool' in declarations,declarations
     client.finish()
 print('PASS: canonical Equal trait declarations, alias definition and operator checking')
+
+with tempfile.TemporaryDirectory(dir=directory) as temp:
+    root=Path(temp).resolve()
+    path=root/'ordering.k'
+    text='''from "std/cmp" import Order as Rank, Ordering, compare as compareValues, sortedBy as ranked
+type Score:
+  value:i64
+impl Rank for Score:
+  fn compare(a:Self,b:Self)->Ordering:
+    return compareValues(a.value,b.value)
+fn main()->unit:
+  result=ranked([Score {value:2},Score {value:1}],compareValues[Score])
+  return ()
+'''
+    client=Client(server)
+    client.init(workspaceFolders=[{'uri':root.as_uri(),'name':'ordering'}])
+    client.open(path,text)
+    diagnostics=publications(client.barrier())[path.as_uri()]['diagnostics']
+    assert not diagnostics,diagnostics
+    for row,word in [(3,'Rank'),(5,'compareValues'),(7,'ranked')]:
+        definition=client.rpc('textDocument/definition',{
+            'textDocument':{'uri':path.as_uri()},
+            'position':{'line':row,'character':text.splitlines()[row].index(word)+1}})['result']
+        assert definition['uri']=='kalandra-stdlib:std/cmp.k',definition
+    declarations=client.rpc('kalandra/standardLibrary',{'uri':'kalandra-stdlib:std/cmp.k'})['result']
+    assert 'export trait Order:' in declarations and 'export enum Ordering:' in declarations,declarations
+    for name in ['compare','totalCompare','sortedBy','sortBy']:
+        assert 'export fn '+name+'[' in declarations,(name,declarations)
+    client.finish()
+print('PASS: canonical Order/Ordering declarations, aliases and sorting editor definitions')

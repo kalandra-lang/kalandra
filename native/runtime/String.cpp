@@ -190,6 +190,27 @@ kalandra_string_equal_v1(kalandra::runtime::Invocation *context,
   return context->poll() == 0 ? 1 : 0;
 }
 extern "C" std::int64_t
+kalandra_string_compare_v1(kalandra::runtime::Invocation *context,
+                           const kalandra::runtime::StringDescriptor *left,
+                           const kalandra::runtime::StringDescriptor *right) noexcept {
+  if (!kalandra::runtime::validateString(*context, *left) ||
+      !kalandra::runtime::validateString(*context, *right))
+    return 0;
+  const auto size = std::min(left->byteLength, right->byteLength);
+  for (std::uint64_t i = 0; i < static_cast<std::uint64_t>(size);) {
+    if (context->poll() != 0)
+      return 0;
+    const auto count = std::min<std::uint64_t>(1024, size - i);
+    const auto order = std::memcmp(left->data + i, right->data + i, count);
+    if (order)
+      return order < 0 ? -1 : 1;
+    i += count;
+  }
+  if (context->poll() != 0)
+    return 0;
+  return left->byteLength < right->byteLength ? -1 : left->byteLength > right->byteLength ? 1 : 0;
+}
+extern "C" std::int64_t
 kalandra_string_length_v1(kalandra::runtime::Invocation *context,
                           const kalandra::runtime::StringDescriptor *value) noexcept {
   return kalandra::runtime::stringLength(*context, *value, false);

@@ -1,8 +1,9 @@
 #include "VulkanBuild.h"
-#include "VulkanBuildConfig.h"
 #include "BuiltinShaders.h"
-#include "llvm/Support/Program.h"
+#include "SpirvInterface.h"
+#include "VulkanBuildConfig.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Program.h"
 #include <fstream>
 #include <stdexcept>
 #include <vector>
@@ -110,6 +111,11 @@ void buildVulkanProgram(const std::filesystem::path &directory,
         run(extractArgs);
         run({translate, "--no-implicit-module", "--serialize-spirv",
              base + ".kernel.mlir", "-o", base + ".spv"});
+        if (std::filesystem::file_size(base + ".spv") >
+            kalandra::runtime::vulkan::MaxSpirvModuleBytes)
+          throw std::runtime_error("generated Vulkan shader exceeds the module limit (" +
+                                   std::to_string(kalandra::runtime::vulkan::MaxSpirvModuleBytes) +
+                                   " bytes)");
         run({validate, "--target-env", "vulkan1.0", base + ".spv"});
       };
       compile(target.string(), arithmetic == kalandra::ArithmeticMode::Software ? "software" : "hardware");

@@ -8,7 +8,9 @@ void check(bool value) {
   if (!value)
     std::abort();
 }
+void checkSpirvFiles();
 int main() {
+  checkSpirvFiles();
   std::vector<std::uint32_t> module{0x07230203,
                                     0x10000,
                                     0,

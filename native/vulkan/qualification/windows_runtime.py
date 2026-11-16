@@ -30,7 +30,7 @@ for name in ('Vulkan', 'VulkanLoader', 'SpirvInterface', 'Program', 'TensorBridg
     text = subprocess.check_output([readobj, '--file-headers', obj], text=True)
     assert ('IMAGE_FILE_MACHINE_AMD64' if a.arch == 'x86_64' else 'IMAGE_FILE_MACHINE_ARM64') in text
     objects.append(obj.name)
-for name, files in [('interface', ['tests/SpirvInterfaceTests.cpp', 'SpirvInterface.cpp']),
+for name, files in [('interface', ['tests/SpirvInterfaceTests.cpp', 'tests/SpirvFileTests.cpp', 'SpirvInterface.cpp']),
                     ('path', ['tests/ExecutablePathTests.cpp']),
                     ('loader', ['tests/WindowsLoaderTests.cpp', 'VulkanLoader.cpp'])]:
     binary = root/(name+'.exe')

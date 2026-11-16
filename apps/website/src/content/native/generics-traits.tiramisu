@@ -88,7 +88,10 @@ Each implementation must provide every required function with matching parameter
 
 The standard Equal trait connects explicit implementations to == and !=, and supports comparison in generic algorithms.
 
-link { url = "/docs/equality", "Equality and the std/cmp.Equal contract" }
+list {
+  link { url = "/docs/equality", "Equality and the std/cmp.Equal contract" },
+  link { url = "/docs/ordering", "Ordering and stable comparator sorting" }
+}
 
 h2 { "Associated types" }
 

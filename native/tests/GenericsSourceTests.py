@@ -34,7 +34,7 @@ gpu_prefix = '''  genericDeviceProbeResult = try parallel:
 
 
 def run(name, source, expected, *, device=False):
-    if args.cases and name not in args.cases: return
+    if args.cases and name not in args.cases and not ('ordering-all' in args.cases and name.startswith('ordering-')): return
     root = output / name
     root.mkdir(exist_ok=True)
     if args.target != 'cpu' and not device:
@@ -301,8 +301,72 @@ fn main()->bool:
   return tensor([1,2])==tensor([1,2])
 ''', 'S056'),
 })
+negative.update({
+    'ordering-missing-implementation': ('''from "std/cmp" import compare
+type Wrong:
+  value:i64
+fn main()->unit:
+  result=compare(Wrong {value:1},Wrong {value:2})
+  return ()
+''', 'S083'),
+    'ordering-missing-bound': ('''from "std/cmp" import Order,Ordering,compare
+type Wrong:
+  value:i64
+impl Order for Wrong:
+  fn compare(a:Self,b:Self)->Ordering:
+    return compare(a.value,b.value)
+fn unbounded[T](a:T,b:T)->Ordering:
+  return compare(a,b)
+fn main()->unit:
+  result=unbounded(Wrong {value:1},Wrong {value:2})
+  return ()
+''', 'S083'),
+    'ordering-shadow-trait': ('''from "std/cmp" import compare,Ordering
+trait Order:
+  fn compare(a:Self,b:Self)->Ordering
+type Wrong:
+  value:i64
+impl Order for Wrong:
+  fn compare(a:Self,b:Self)->Ordering:
+    return Ordering.Equal
+fn main()->unit:
+  result=compare(Wrong {value:1},Wrong {value:2})
+  return ()
+''', 'S083'),
+    'ordering-float-not-order': ('''from "std/cmp" import compare
+fn main()->unit:
+  result=compare(1.0,2.0)
+  return ()
+''', 'S083'),
+    'ordering-total-integer': ('''from "std/cmp" import totalCompare
+fn main()->unit:
+  result=totalCompare(1,2)
+  return ()
+''', 'S055'),
+    'ordering-private-bits': ('''fn main()->unit:
+  result=__kalandra_cmp_bits(1.0)
+  return ()
+''', 'S031'),
+    'ordering-private-bits-lambda': ('''fn main()->unit:
+  callback=fn(value:f64):return __kalandra_cmp_bits(value)
+  result=callback(1.0)
+  return ()
+''', 'S031'),
+    'ordering-private-exchange': ('''fn main()->unit:
+  values=[1,2]
+  __kalandra_cmp_exchange(values,0,1)
+  return ()
+''', 'S031'),
+})
+negative.update({
+    'ordering-wrong-result': ('from "std/cmp" import sortedBy\nfn main()->unit:\n  values=sortedBy([1,2],fn(a:i64,b:i64):return a<b)\n  return ()\n', 'S010'),
+    'ordering-fallible': ('from "std/cmp" import sortedBy,Ordering,compare\nerror Bad:\n  Wrong\nfn comparator(a:i64,b:i64)->Ordering ! Bad:\n  return compare(a,b)\nfn main()->unit:\n  values=sortedBy([1,2],comparator)\n  return ()\n', 'S010'),
+    'ordering-string-mut': ('from "std/cmp" import sortBy,compare\nfn main()->unit:\n  values=["b","a"]\n  sortBy(values,compare[String])\n  return ()\n', 'S076'),
+    'ordering-readonly': ('from "std/cmp" import sortBy,compare\nfn wrong(values:[i64])->unit:\n  sortBy(values,compare[i64])\n  return ()\nfn main()->unit:\n  wrong([2,1])\n  return ()\n', 'S077'),
+    'ordering-shared-reader': ('from "std/cmp" import sortBy,compare\nfn read(values:[i64])->i64:\n  return values[0]\nfn main()->unit ! TaskError:\n  values=[2,1]\n  try parallel:\n    task=spawn read(values)\n    sortBy(values,compare[i64])\n    try await task\n  return ()\n', 'S077'),
+})
 for name, (source, code) in negative.items():
-    if args.cases and name not in args.cases: continue
+    if args.cases and name not in args.cases and not ('ordering-all' in args.cases and name.startswith('ordering-')): continue
     root = output / name
     root.mkdir(exist_ok=True)
     path = root / 'main.k'
@@ -327,3 +391,27 @@ for name,(declarations,expected) in EQUALITY_DEVICE_CASES.items():
     run('equality-'+name,source,str(expected)+'\n',device=True)
 for name,(source,expected) in EQUALITY_HOST_CASES.items():
     run('equality-'+name,prelude+source,expected)
+
+from OrderingCases import DEVICE_CASES as ORDERING_DEVICE_CASES, HOST_CASES as ORDERING_HOST_CASES
+for name,(declarations,expected) in ORDERING_DEVICE_CASES.items():
+    expression = 'orderingRun()' if args.target=='cpu' else 'try parallel:\n    try await spawn orderingRun() on devices.gpu()'
+    source=prelude+declarations+main+'  result='+expression+'\n  try println(format("{}",result))\n  return ()\n'
+    run('ordering-'+name,source,str(expected)+'\n',device=True)
+for name,(source,expected) in ORDERING_HOST_CASES.items():
+    run('ordering-'+name,prelude+source,expected)
+
+placement = '' if args.target == 'cpu' else ' on devices.gpu()'
+scheduled = 'sortedBy(values,byRank)' if args.target == 'cpu' else 'copyWorker(values)'
+run('ordering-spawned-copy', prelude + '''from "std/cmp" import sortedBy,compare,Ordering
+fn byRank(a:i64,b:i64)->Ordering:
+  return compare(a/1000,b/1000)
+fn copyWorker(values:[i64])->[i64]:
+  return sortedBy(values,byRank)
+''' + main + '''  values=[2000,1001,2002,1003]
+  copied=try parallel:
+    try await spawn ''' + scheduled + placement + '''
+  result=if copied==[1001,1003,2000,2002] and values==[2000,1001,2002,1003]:42
+  else:0
+  try println(format("{}",result))
+  return ()
+''', '42\n', device=True)

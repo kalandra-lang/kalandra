@@ -840,18 +840,26 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       const bool boolean = isBooleanStorage(a) && a.builtin == b.builtin &&
                            (comparison->operation == ComparisonKind::Equal ||
                             comparison->operation == ComparisonKind::NotEqual);
-      const bool string = a.builtin == BuiltinValue::String && b.builtin == BuiltinValue::String &&
-                          (comparison->operation == ComparisonKind::Equal ||
-                           comparison->operation == ComparisonKind::NotEqual);
+      const bool string = a.builtin == BuiltinValue::String && b.builtin == BuiltinValue::String;
       if (target != NumericTarget::Cpu || !ordinary(a) || !ordinary(b) ||
-          !ordinary(expression.type) || expression.type.builtin != BuiltinValue::Bool ||
+          !ordinary(expression.type) ||
+          (comparison->threeWay ? !string || expression.type.builtin != BuiltinValue::Numeric ||
+                                      expression.type.element != NumericType::Int64
+                                : expression.type.builtin != BuiltinValue::Bool) ||
           (!numeric && !boolean && !string) ||
           static_cast<unsigned>(comparison->operation) >
               static_cast<unsigned>(ComparisonKind::GreaterEqual))
         return "unsupported scalar comparison IR";
     }
     if (const auto *convert = std::get_if<NumericConvert>(&expression.operation)) {
+      if (convert->input >= module.expressions.size())
+        return "numeric conversion references an invalid operand";
       const auto &source = module.expressions[convert->input].type;
+      if (convert->bitwise && (source.tensor || isInteger(source.element) ||
+                               expression.type.element != (source.element == NumericType::Float32
+                                                               ? NumericType::UInt32
+                                                               : NumericType::UInt64)))
+        return "comparison bit access requires a scalar float and matching unsigned width";
       if (target != NumericTarget::Cpu || source.builtin != BuiltinValue::Numeric || source.array ||
           expression.type.array || source.task || source.fallible || source.device ||
           expression.type.builtin != BuiltinValue::Numeric || expression.type.task ||
@@ -897,7 +905,9 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       if (store) {
         const auto &value = module.expressions[store->value].type;
         if (i.element != NumericType::Int64 ||
-            !sameFunctionValueType(value, recordArrayElement(a)) ||
+            (store->exchange ? value.builtin != BuiltinValue::Numeric ||
+                                   value.element != NumericType::Int64 || !scalar(value)
+                             : !sameFunctionValueType(value, recordArrayElement(a))) ||
             expression.type.builtin != BuiltinValue::Bool || !scalar(expression.type))
           return "array assignment changes its element identity or statement marker";
       } else if (expression.type.builtin != BuiltinValue::Numeric ||
@@ -1349,8 +1359,9 @@ std::string dumpTypedIR(const TypedModule &module) {
               out << "if %" << operation.condition << " then %" << operation.trueResult << " else %"
                   << operation.falseResult;
             else if constexpr (std::is_same_v<T, ScalarCompare>)
-              out << "compare " << static_cast<unsigned>(operation.operation) << " %"
-                  << operation.left << " %" << operation.right;
+              out << (operation.threeWay ? "string.order " : "compare ")
+                  << static_cast<unsigned>(operation.operation) << " %" << operation.left << " %"
+                  << operation.right;
             else if constexpr (std::is_same_v<T, Float64Literal>)
               out << "f64.bits 0x" << std::hex << std::setw(16) << std::setfill('0')
                   << operation.bits << std::dec;
@@ -1368,7 +1379,9 @@ std::string dumpTypedIR(const TypedModule &module) {
             else if constexpr (std::is_same_v<T, SymbolRead>)
               out << "read $" << operation.symbol;
             else if constexpr (std::is_same_v<T, NumericConvert>) {
-              out << "convert " << describeNumeric(node.type.element)->name << " checked ";
+              out << (operation.bitwise ? "bits " : "convert ")
+                  << describeNumeric(node.type.element)->name
+                  << (operation.bitwise ? " exact " : " checked ");
               value(operation.input);
             } else if constexpr (std::is_same_v<T, ScalarUnary>) {
               out << (operation.operation == TokenKind::Minus ? "neg." : "pos.");
@@ -1433,7 +1446,7 @@ std::string dumpTypedIR(const TypedModule &module) {
               out << (operation.copying ? "array.sorted fresh " : "array.sort in_place ");
               value(operation.input);
             } else if constexpr (std::is_same_v<T, ArrayStore>) {
-              out << "array.store checked ";
+              out << (operation.exchange ? "array.exchange checked " : "array.store checked ");
               value(operation.input);
               out << ", ";
               value(operation.index);

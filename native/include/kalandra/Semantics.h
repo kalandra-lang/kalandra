@@ -83,6 +83,9 @@ struct FunctionInvocationFlow {
 };
 [[nodiscard]] std::optional<FunctionInvocationFlow>
 functionInvocationFlow(const struct TypedModule &, std::size_t budget = 300000);
+// Replace proven noncapturing private standard-sorter calls, retaining dynamic
+// callbacks and effectful callee expressions on their general path.
+std::size_t specializeStandardComparators(struct TypedModule &, std::size_t budget = 300000);
 // Provenance of a transported value, even when it is never invoked on the CPU.
 // Aggregate values conservatively join their function-valued fields/elements.
 // Unknown sources remain explicit; neither an empty set nor budget exhaustion
@@ -259,6 +262,7 @@ struct BoolLiteral {
 struct ScalarCompare {
   ComparisonKind operation;
   ValueId left, right;
+  bool threeWay = false; // Compiler-owned String comparison returns signed i64.
 };
 struct ScalarBinary {
   TokenKind operation;
@@ -273,6 +277,7 @@ struct TensorBinary {
 };
 struct NumericConvert {
   ValueId input;
+  bool bitwise = false; // Compiler-owned same-width float/integer representation access.
 };
 struct TensorLiteral {
   std::vector<ValueId> elements;
@@ -312,6 +317,7 @@ struct ArrayBoundsCheck {
 }; // Normalize/validate the index before an element assignment's RHS runs.
 struct ArrayStore {
   ValueId input, index, value;
+  bool exchange = false; // value is a second normalized index; commit both stores together.
 }; // Statement-only; index is the result of ArrayBoundsCheck, never unchecked.
 struct TensorIndex {
   ValueId input;
@@ -564,6 +570,8 @@ struct TypedFunction {
   std::optional<std::size_t> publicationCollection = {};
   // Loader-proven std/iter identity, never inferred from a user's function name.
   bool standardIteratorTake = false;
+  // Loader-proven private std/cmp sorter; safe specialization scope only.
+  bool standardComparatorSort = false;
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.

@@ -2,6 +2,7 @@
 import ctypes
 from ctypes import wintypes
 import os
+import time
 from pathlib import Path
 
 
@@ -59,6 +60,7 @@ class EditorProcessScope:
     def settle_helpers(self):
         system = (Path(os.environ['SystemRoot']) / 'System32').resolve()
         handles = []
+        deadline = time.monotonic() + 5
         try:
             # Keep opened process handles through validation and termination;
             # a recycled PID cannot redirect cleanup to an unrelated process.
@@ -82,6 +84,12 @@ class EditorProcessScope:
                     raise ctypes.WinError(error)
                 executable = Path(image.value).resolve()
                 if executable.parent != system or executable.name.lower() not in ('wsl.exe', 'conhost.exe'):
+                    # The editor test host can exit just before Electron's
+                    # final child signals. Allow a bounded graceful exit on
+                    # this same handle; never terminate an editor/LSP child.
+                    remaining = max(0, int((deadline - time.monotonic()) * 1000))
+                    if self.kernel.WaitForSingleObject(handle, remaining) == 0:
+                        continue
                     raise RuntimeError(f'Unexpected surviving editor child {pid}: {executable}')
             for handle in handles:
                 if self.kernel.WaitForSingleObject(handle, 0) == 0:

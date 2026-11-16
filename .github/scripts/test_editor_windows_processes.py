@@ -81,11 +81,18 @@ class ProcessScopeTests(unittest.TestCase):
 
     def test_orphan_language_server_is_not_reaped(self):
         with tempfile.TemporaryDirectory() as folder:
-            root=Path(folder);scope,kernel=self.scope(root,image='kalandra-lsp.exe')
+            root=Path(folder);scope,kernel=self.scope(root,image='kalandra-lsp.exe',settles=False)
             with patch.dict(os.environ,SystemRoot=str(root)):
                 with self.assertRaisesRegex(RuntimeError,'Unexpected surviving editor child'):scope.settle_helpers()
             self.assertEqual(kernel.terminated,[])
             self.assertEqual(kernel.closed,[99])
+
+    def test_editor_child_finishes_gracefully_without_termination(self):
+        kernel = self.execute(image='Code.exe')
+        self.assertTrue(kernel.exited)
+        self.assertEqual(kernel.terminated, [])
+        self.assertEqual(kernel.closed, [99])
+        self.assertTrue(any(0 < wait <= 5000 for wait in kernel.waits))
 
     def test_surviving_job_descendant_still_fails(self):
         with tempfile.TemporaryDirectory() as folder:

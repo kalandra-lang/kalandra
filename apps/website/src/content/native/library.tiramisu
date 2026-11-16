@@ -91,3 +91,7 @@ Applications display output explicitly with std/io and return unit or std/proces
 list {
   link { url = "/docs/packages", "Using source packages" }
 }
+
+list {
+  link { url = "/docs/ordering", "Ordering and stable comparator-based sorting" }
+}

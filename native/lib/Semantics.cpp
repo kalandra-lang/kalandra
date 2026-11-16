@@ -248,6 +248,8 @@ public:
         error(diagnostic.code, diagnostic.message, diagnostic.span);
     if (!diagnostics_.empty())
       return {syntax_.source, {}, std::move(diagnostics_)};
+    if (!syntax_.editorOnly)
+      specializeStandardComparators(output_);
     recordImportOrigins();
     rememberGenericDeclarations();
     for (auto &[span, token] : sourceTokens_)
@@ -2219,6 +2221,11 @@ private:
         syntax_.functions[id].moduleIndex < syntax_.standardModules.size() &&
         syntax_.standardModules[syntax_.functions[id].moduleIndex] == StandardModule::Iteration &&
         name(syntax_.functions[id].name) == "take";
+    output_.functions[id].standardComparatorSort =
+        syntax_.functions[id].moduleIndex < syntax_.standardModules.size() &&
+        syntax_.standardModules[syntax_.functions[id].moduleIndex] == StandardModule::Comparison &&
+        (name(syntax_.functions[id].name) == "__sortIndices" ||
+         name(syntax_.functions[id].name) == "__sortedValues");
     auto result = standardFormat(id)     ? add(frame, *output_.functions[id].declaredResult,
                                                syntax_.functions[id].span, StringLiteral{std::string{}})
                   : standardIterator(id) ? iteratorBody(frame, id, *standardIterator(id))
@@ -6629,6 +6636,148 @@ private:
     }
     return result;
   }
+  std::pair<bool, std::optional<ValueId>>
+  primitiveComparatorSort(Frame &frame, FunctionId declaration,
+                          const std::vector<ValueId> &operands, SourceSpan span) {
+    const auto &function = syntax_.functions[declaration];
+    if (function.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[function.moduleIndex] != StandardModule::Comparison ||
+        (name(function.name) != "sortBy" && name(function.name) != "sortedBy") ||
+        operands.size() != 2)
+      return {false, {}};
+    const auto &type = node(operands[0]).type;
+    if (!mutableArrayType(type))
+      return {false, {}};
+    const auto *reference = std::get_if<FunctionReference>(&node(operands[1]).operation);
+    if (!reference || !reference->captures.empty())
+      return {false, {}};
+    const auto origin = genericOrigins_.find(reference->function);
+    if (origin == genericOrigins_.end())
+      return {false, {}};
+    const auto &callback = syntax_.functions[origin->second];
+    if (callback.moduleIndex >= syntax_.standardModules.size() ||
+        syntax_.standardModules[callback.moduleIndex] != StandardModule::Comparison)
+      return {false, {}};
+    const auto label = name(callback.name);
+    const bool integerOrder =
+        label == "compare" && (isBooleanStorage(type) ||
+                               (type.builtin == BuiltinValue::Numeric && isInteger(type.element)));
+    const bool floatOrder = label == "totalCompare" && type.builtin == BuiltinValue::Numeric &&
+                            !isInteger(type.element);
+    if (!integerOrder && !floatOrder)
+      return {false, {}};
+    // These sealed standard primitive comparisons are pure. Equal ranks have
+    // identical stored bits, so the existing key sort is observationally stable.
+    // All arguments have already been checked and evaluated once, in order.
+    return {true,
+            add(frame, type, span, ArraySort{operands[0], name(function.name) == "sortedBy"})};
+  }
+  bool comparisonIntrinsicAvailable(const Frame &frame, std::string_view callee) const {
+    // Anonymous typed functions do not necessarily have a source Function slot.
+    if (frame.function >= syntax_.functions.size() ||
+        syntax_.functions[frame.function].name.begin == syntax_.functions[frame.function].name.end)
+      return false;
+    const auto owner = syntax_.functions[frame.function].moduleIndex;
+    return owner < syntax_.standardModules.size() &&
+           syntax_.standardModules[owner] == StandardModule::Comparison &&
+           (callee == "__kalandra_cmp_ordering_code" || callee == "__kalandra_cmp_string_compare" ||
+            callee == "__kalandra_cmp_bits" || callee == "__kalandra_cmp_sign" ||
+            callee == "__kalandra_cmp_exchange");
+  }
+  std::optional<ValueId> comparisonIntrinsic(Frame &frame, SourceSpan span,
+                                             const std::string &callee,
+                                             const std::vector<ExprId> &arguments) {
+    if (callee == "__kalandra_cmp_ordering_code") {
+      if (arguments.size() != 1) {
+        error("S027", "Ordering discriminator access expects one value", span);
+        return {};
+      }
+      auto input = expression(frame, arguments[0]);
+      if (!input)
+        return {};
+      const auto type = node(*input).type;
+      if (type.builtin != BuiltinValue::Record || !type.record || type.task || type.fallible ||
+          type.tensor || type.array || type.device || *type.record >= output_.records.size() ||
+          output_.records[*type.record].name != "Ordering" ||
+          syntax_.standardModules[syntax_.source->partIndex(
+              output_.records[*type.record].declaration.begin)] != StandardModule::Comparison ||
+          output_.records[*type.record].fields.size() != 1 ||
+          output_.records[*type.record].variants.size() != 3) {
+        error("S055", "Ordering discriminator access requires canonical Ordering", span);
+        return {};
+      }
+      ValueType result;
+      result.element = NumericType::Int64;
+      return add(frame, result, span, RecordFieldRead{*input, 0});
+    }
+    if (callee == "__kalandra_cmp_string_compare") {
+      if (arguments.size() != 2) {
+        error("S027", "String ordering expects two strings", span);
+        return {};
+      }
+      ValueType string;
+      string.builtin = BuiltinValue::String;
+      auto left = expression(frame, arguments[0], string);
+      auto right = left ? expression(frame, arguments[1], string) : std::nullopt;
+      if (!left || !right)
+        return {};
+      ValueType result;
+      result.element = NumericType::Int64;
+      return add(frame, result, span, ScalarCompare{ComparisonKind::Less, *left, *right, true});
+    }
+    if (callee == "__kalandra_cmp_bits" || callee == "__kalandra_cmp_sign") {
+      if (arguments.size() != 1) {
+        error("S027", "comparison representation helper expects one float", span);
+        return {};
+      }
+      auto input = expression(frame, arguments[0]);
+      if (!input)
+        return {};
+      const auto type = node(*input).type;
+      if (type.builtin != BuiltinValue::Numeric || type.tensor || type.array || type.task ||
+          type.fallible || type.device || isInteger(type.element)) {
+        error("S055", "totalCompare requires matching f32 or f64 scalar operands", span);
+        return {};
+      }
+      ValueType result;
+      const bool narrow = type.element == NumericType::Float32;
+      result.element = narrow ? NumericType::UInt32 : NumericType::UInt64;
+      if (callee == "__kalandra_cmp_bits")
+        return add(frame, result, span, NumericConvert{*input, true});
+      if (narrow)
+        return add(frame, result, span, UInt32Literal{UINT32_C(0x80000000)});
+      return add(frame, result, span, UInt64Literal{UINT64_C(0x8000000000000000)});
+    }
+    if (callee == "__kalandra_cmp_exchange") {
+      if (arguments.size() != 3) {
+        error("S027", "comparison exchange helper expects an array and two indices", span);
+        return {};
+      }
+      auto input = expression(frame, arguments[0]);
+      if (!input)
+        return {};
+      if (!mutableArrayType(node(*input).type)) {
+        error("S078", "sortBy requires a mutable numeric or bool array", span);
+        return {};
+      }
+      ValueType indexType;
+      indexType.element = NumericType::Int64;
+      std::vector<ValueId> indices;
+      for (std::size_t i = 1; i != 3; ++i) {
+        auto index = expression(frame, arguments[i], indexType);
+        if (!index)
+          return {};
+        auto checked = add(frame, indexType, span, ArrayBoundsCheck{*input, *index});
+        if (!checked)
+          return {};
+        indices.push_back(*checked);
+      }
+      ValueType marker;
+      marker.builtin = BuiltinValue::Bool;
+      return add(frame, marker, span, ArrayStore{*input, indices[0], indices[1], true});
+    }
+    return {};
+  }
   std::optional<ValueId> invoke(Frame &frame, SourceSpan span, SourceSpan calleeSpan,
                                 const std::vector<ExprId> &arguments,
                                 const std::optional<ValueType> &expected,
@@ -6667,6 +6816,8 @@ private:
         error("S037", "placed spawn requires a statically named function", span);
         return {};
       }
+      if (comparisonIntrinsicAvailable(frame, callee))
+        return comparisonIntrinsic(frame, span, callee, arguments);
       if (auto numeric = resolveNumeric(callee))
         return conversion(frame, span, *numeric, arguments);
       if (callee == "array") {

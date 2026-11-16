@@ -181,6 +181,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Cross-toolchain validation failed' }
           python native/tests/ArithmeticPolicyTests.py --compiler build/windows/native/kalandra-test-observer.exe --output build/windows/arithmetic-policy
           if ($LASTEXITCODE -ne 0) { throw 'Arithmetic policy qualification failed' }
+          python native/tests/OrderingFloatTests.py --compiler build/windows/native/kalandra.exe --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" --output build/windows/ordering-float-references
+          if ($LASTEXITCODE -ne 0) { throw 'Representation ordering qualification failed' }
+          python native/tests/OrderingSortTests.py --compiler build/windows/native/kalandra.exe --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" --output build/windows/ordering-sort-references
+          if ($LASTEXITCODE -ne 0) { throw 'Comparator sort qualification failed' }
           python native/tests/FairBenchmarkTests.py
           if ($LASTEXITCODE -ne 0) { throw 'Benchmark reference qualification failed' }
           python native/third_party/mlx-steel/vendor.py

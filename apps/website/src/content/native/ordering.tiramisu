@@ -1,0 +1,117 @@
+meta { title = "Ordering and sorting", description = "Define ordering for your types and stably sort arrays with explicit comparators.", order = 13, group = "Library reference" }
+
+Use std/cmp to compare values by an explicit ordering and to sort arrays with a comparator. Existing numeric <, <=, > and >= expressions and the built-in sort and sorted functions keep their behavior.
+
+h2 { "Ordering" }
+
+Ordering has three variants: Ordering.Less, Ordering.Equal and Ordering.Greater. Equal means that two values have the same sorting rank. It does not call the Equal trait or require all their fields to be identical.
+
+h2 { "Order" }
+
+code { "trait Order: fn compare(left: Self, right: Self) -> Ordering" }
+
+Implement Order explicitly for a record or enum. The method reads both arguments and returns an infallible Ordering. The compiler checks the signature and conformance; it cannot prove mathematical ordering laws. Your implementation must give consistent results, reverse Less and Greater when arguments are reversed, and preserve transitivity. Equal ranks must behave consistently when compared with other values.
+
+Standard implementations cover the eight integer types, bool with false before true, and String in lexicographic Unicode scalar order. String ordering compares exact text without normalization, case folding or locale-dependent collation. Floats do not implement Order: IEEE comparisons leave NaNs unordered. Use totalCompare when you deliberately want a deterministic float sorting order.
+
+h2 { "compare" }
+
+code { "compare[T: Order](left: T, right: T) -> Ordering" }
+
+Call the canonical Order implementation for matching operand types. Arguments evaluate once, from left to right. Conformance and dispatch are static; no runtime trait lookup is introduced. Generic callers need an Order bound. Implementing Order does not add relational-operator overloads to your type.
+
+h2 { "sortedBy" }
+
+code { "sortedBy[T](values: [T], comparator: fn(T, T) -> Ordering) -> [T]" }
+
+Return a fresh, stably sorted array. A comparator returning Less puts its first argument before the second; Greater puts it after. Equal preserves the original relative order of the items. The input and its aliases are unchanged. Supported array elements include numeric values, bool, String and records; owned resource handles remain subject to the ordinary array element rules.
+
+codeblock { language = kalandra, """from "std/cmp" import Order, Ordering, compare, sortedBy
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+type Job:
+  priority: i64
+  id: i64
+
+impl Order for Job:
+  fn compare(left: Self, right: Self) -> Ordering:
+    return compare(left.priority, right.priority)
+
+fn byPriority(left: Job, right: Job) -> Ordering:
+  return compare(left, right)
+
+fn main() -> unit ! IoError:
+  jobs = [Job {priority: 2, id: 0}, Job {priority: 1, id: 1}, Job {priority: 2, id: 2}]
+  ranked = sortedBy(jobs, byPriority)
+  try println(format("{}:{}:{}", ranked[0].id, ranked[1].id, ranked[2].id))
+  return ()
+""" }
+
+This displays 1:0:2. Jobs 0 and 2 have equal priorities and retain their relative order. A comparator need not use Order: any function with the matching read-only signature can define the ranking.
+
+h2 { "sortBy" }
+
+code { "sortBy[T](mut values: [T], comparator: fn(T, T) -> Ordering) -> [T]" }
+
+Stably sort an existing numeric or bool array and return that same array. Aliases observe the changes. String and record arrays do not support element mutation; use sortedBy for those arrays. Shared task readers must finish before sortBy can acquire write access, just as for sort and element assignment.
+
+codeblock { language = kalandra, """from "std/cmp" import Ordering, compare, sortedBy, sortBy
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn descending(left: i64, right: i64) -> Ordering:
+  return compare(right, left)
+
+fn main() -> unit ! IoError:
+  values = [4, 1, 3, 1]
+  alias = values
+  ascending = sortedBy(values, compare[i64])
+  sortBy(values, descending)
+  try println(format("{}:{}:{}", alias[0], ascending[0], values[0]))
+  return ()
+""" }
+
+This displays 4:1:4. The independent ascending array keeps its order while values and alias share the descending order.
+
+h2 { "totalCompare" }
+
+code { "totalCompare[T](left: T, right: T) -> Ordering" }
+
+Compare matching f32 or f64 values by their exact representations, using the same deterministic order as built-in float sorting: negative NaNs, negative infinity, negative finite values, negative zero, positive zero, positive finite values, positive infinity, then positive NaNs. Negative NaN encodings sort by decreasing raw bits; positive NaN encodings sort by increasing raw bits, including payload and quiet/signaling bits.
+
+This operation uses integer representation keys, preserves the operands and does not perform floating-point arithmetic. It does not replace IEEE equality or approximate numerical comparison. In particular, totalCompare distinguishes signed zeros and can give equal sorting ranks to two identical NaN representations.
+
+codeblock { language = kalandra, """from "std/cmp" import Ordering, totalCompare
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! IoError:
+  nan = 0.0 / 0.0
+  try println(format("{}:{}", -0.0 == 0.0, totalCompare(-0.0, 0.0) == Ordering.Less))
+  try println(format("{}:{}", nan == nan, totalCompare(nan, nan) == Ordering.Equal))
+  return ()
+""" }
+
+This displays true:true and false:true on separate lines. Pass totalCompare[f32] or totalCompare[f64] as the comparator when sorting float arrays, including descending order through a wrapper that reverses the operands.
+
+h2 { "Comparator effects and resource use" }
+
+A comparator borrows its arguments without consuming or mutating them. It may capture readable values and perform ordinary effects, but must handle expected errors within its own body. Ordinary faults and cancellation propagate normally. Do not depend on a particular comparison count or comparison sequence; use a consistent comparator rather than changing the ranking during a sort.
+
+Empty and singleton arrays invoke no comparisons. Custom comparator sorting takes O(n log n) comparisons and O(n) temporary storage, and obeys the existing allocation limits. For numeric and bool arrays, sortedBy merges private copies of the values directly. Other element types use a stable merge of index permutations. For canonical primitive compare and totalCompare, the compiler can use the existing key-sort implementation; equal ranks then have identical stored representations, preserving observable stability. Even an inconsistent comparator cannot remove the algorithm's bounds or make invalid memory access legal; its final ranking is unspecified.
+
+sortedBy never writes the input. sortBy computes the permutation before changing the input, so a comparator fault leaves it unchanged. During the final in-place permutation, each swap commits both elements before the next cancellation checkpoint. A stopped operation can leave an intermediate ordering, but preserves the input elements and their exact bits.
+
+h2 { "CPU and GPU support" }
+
+Device-compatible comparisons and numeric/bool sorting run on supported CPU, Metal, Vulkan and CUDA paths. Compatible record arrays can be constructed, sorted and consumed inside device helpers. Existing host/device transport restrictions still apply; comparator sorting does not add record-array uploads or exports. totalCompare is representation access rather than f64 arithmetic; computations that create its inputs still follow the selected arithmetic policy.
+
+String comparisons and comparators using host services remain host operations. Mixed GPU programs may use them within the existing host continuation and transport rules. There is no implicit device-to-host fallback. GPU callbacks must satisfy the same device compatibility rules as ordinary GPU functions.
+
+list {
+  link { url = "/docs/equality", "Equality and explicit Equal conformance" },
+  link { url = "/docs/generics-traits", "Generic bounds and static traits" },
+  link { url = "/docs/arrays", "Array values, aliases and write access" },
+  link { url = "/docs/collection-functions#sort", "Built-in primitive sorting" }
+}

@@ -1,10 +1,17 @@
 #pragma once
 #include <cstdint>
 #include <expected>
+#include <filesystem>
 #include <span>
 #include <string>
 #include <vector>
 namespace kalandra::runtime::vulkan {
+// Compiler-generated control flow can exceed the old numerical-kernel 1 MiB
+// ceiling. Keep decoding bounded independently of tensor backing allocations.
+inline constexpr std::uint64_t MaxSpirvModuleBytes = 16 * 1024 * 1024;
+enum class SpirvFileError { Unavailable, Invalid };
+std::expected<std::vector<std::uint32_t>, SpirvFileError>
+readSpirvFile(const std::filesystem::path &path);
 // Reflection for the compiler-owned flat storage-buffer ABI. This is not a
 // general SPIR-V validator or an arbitrary user shader loading interface.
 struct SpirvInterface {

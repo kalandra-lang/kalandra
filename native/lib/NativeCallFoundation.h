@@ -141,6 +141,9 @@ inline void finalizeNativeCallResolvers(llvm::Module &module) {
   }
 }
 // Run after composing every execution engine that can produce source values.
+// Retry oversized generated plans after the existing semantics-preserving
+// checked simplifier, before applying the unchanged physical stack admission.
+void simplifyNativeStackAdmission(llvm::Function &function);
 std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module);
 // Windows ARM64 must retain stack cleanup when crossing between tailcc
 // (callee-pop) and ordinary C/fastcc (caller-pop) functions. Optional tail
@@ -326,9 +329,12 @@ inline void lowerAArch64CheckedRemainders(llvm::Module &module) {
 }
 
 // Inlining can remove the very call a physical guard was protecting. Retain
-// every guard whose accepted path can still grow a source frame. A call-free
-// path (including loops and terminal fault reporting) consumes only its already
-// admitted fixed frame, so its obsolete check and volatile SP read can go.
+// every guard whose accepted path can still grow a source frame. A source-call-free
+// path (including loops, allocation/cleanup, polling and terminal fault reporting)
+// consumes only its already admitted fixed source frame. Allocation/cleanup
+// enter the runtime, not another source frame; like their original lowering,
+// they use the runtime headroom reserved below the source stack limit. Do not
+// let a later free keep every inlined scalar callback's obsolete SP check.
 inline bool removeInlinedNativeStackGuards(llvm::Module &module) {
   using namespace llvm;
   SmallVector<CondBrInst *, 16> removable;
@@ -353,6 +359,10 @@ inline bool removeInlinedNativeStackGuards(llvm::Module &module) {
           if (auto *call = dyn_cast<CallBase>(&instruction)) {
             auto *target = call->getCalledFunction();
             if (!target || (!target->isIntrinsic() &&
+                target->getName() != "kalandra_alloc_v1" &&
+                target->getName() != "kalandra_free_v1" &&
+                target->getName() != "kalandra_poll_v1" &&
+                target->getName() != "kalandra_poll_slow_v1" &&
                 target->getName() != "kalandra_fault_v1" &&
                 target->getName() != "kalandra_source_abort_v2")) { leaf = false; break; }
             if (target->isIntrinsic() &&

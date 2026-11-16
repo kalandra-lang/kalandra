@@ -237,7 +237,7 @@ class Compiler {
         if (auto *unary = std::get_if<TensorUnary>(&op);
             unary && unary->operation == TokenKind::Relu)
           requiresDouble = false; // ReLU selects integer bits; no binary64 arithmetic.
-        if (auto *cast = std::get_if<NumericConvert>(&op))
+        if (auto *cast = std::get_if<NumericConvert>(&op); cast && !cast->bitwise)
           requiresDouble |= expression.type.element == NumericType::Float64 ||
                             cpu.expressions[cast->input].type.element == NumericType::Float64;
         if (auto *compare = std::get_if<ScalarCompare>(&op))
@@ -3605,6 +3605,14 @@ class Compiler {
                            args, span);
     if (const auto *binary = std::get_if<ScalarBinary>(&typed.operation))
       return arithmetic(binary->operation, args, span);
+    if (const auto *cast = std::get_if<NumericConvert>(&typed.operation); cast && cast->bitwise) {
+      field(scalarType(typed.type.element));
+      Value value{Value::Scalar, next - 1};
+      value.element = typed.type.element;
+      steps.push_back(ref(value) + "=std::bit_cast<" + scalarType(value.element) + ">(" +
+                      ref(args.at(0)) + ");\n");
+      return value;
+    }
     if (std::holds_alternative<NumericConvert>(typed.operation))
       return hostOperation(std::string(describeNumeric(typed.type.element)->sourceName), args,
                            span);

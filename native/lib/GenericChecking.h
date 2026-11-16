@@ -360,11 +360,30 @@ invokeGeneric(Frame &frame, SourceSpan span, SourceSpan callee, FunctionId decla
     if (!checkGenericTermBounds(frame, function.generics, terms, span))
       return {};
   }
-  auto specialized = specializeFunction(declaration, std::move(bindings), span);
-  if (!specialized)
-    return {};
-  auto result = invoke(frame, span, callee, arguments, expected, selection, checkedSelection,
-                       spawned, specialized, std::move(operands));
+  std::optional<FunctionId> specialized;
+  std::optional<ValueId> result;
+  auto fast = !spawned && !selection ? primitiveComparatorSort(frame, declaration, operands, span)
+                                     : std::pair<bool, std::optional<ValueId>>{false, {}};
+  if (fast.first)
+    result = fast.second;
+  else {
+    auto implementation = declaration;
+    // A fresh numeric/bool result can merge values directly. Keep the index
+    // permutation for reference elements and for in-place fault atomicity.
+    // Identity is the loader-owned standard module, never a user's spelling.
+    if (!selection && operands.size() == 2 && mutableArrayType(node(operands[0]).type) &&
+        function.moduleIndex < syntax_.standardModules.size() &&
+        syntax_.standardModules[function.moduleIndex] == StandardModule::Comparison &&
+        name(function.name) == "sortedBy") {
+      auto helper = functions_.find(functionKey(function.moduleIndex, "__sortedValues"));
+      if (helper != functions_.end()) implementation = helper->second;
+    }
+    specialized = specializeFunction(implementation, std::move(bindings), span);
+    if (!specialized)
+      return {};
+    result = invoke(frame, span, callee, arguments, expected, selection, checkedSelection, spawned,
+                    specialized, std::move(operands));
+  }
   if (result && genericContext(frame)) {
     auto term =
         function.result

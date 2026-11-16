@@ -342,18 +342,11 @@ std::expected<void, Error> makePipeline(State &state, Pipeline &p,
   return {};
 }
 std::expected<std::vector<std::uint32_t>, Error> readSpirv(const std::filesystem::path &path) {
-  std::ifstream input(path, std::ios::binary | std::ios::ate);
-  if (!input)
-    return std::unexpected(Error::Unavailable);
-  auto length = input.tellg();
-  if (length < 20 || length > 1024 * 1024 || length % 4)
-    return std::unexpected(Error::Invalid);
-  std::vector<std::uint32_t> code(static_cast<std::size_t>(length) / 4);
-  input.seekg(0);
-  input.read(reinterpret_cast<char *>(code.data()), length);
-  if (!input || code.front() != 0x07230203)
-    return std::unexpected(Error::Invalid);
-  return code;
+  auto words = readSpirvFile(path);
+  if (!words)
+    return std::unexpected(words.error() == SpirvFileError::Unavailable ? Error::Unavailable
+                                                                        : Error::Invalid);
+  return std::move(*words);
 }
 std::expected<void, Error> pipeline(State &state, Pipeline &p, const char *name,
                                     std::uint32_t bindings, std::uint32_t pushBytes,

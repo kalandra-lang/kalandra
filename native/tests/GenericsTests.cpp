@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <tuple>
 using namespace kalandra;
 namespace {
 void require(bool condition, const std::string &message) {
@@ -347,6 +348,89 @@ int main(int argc, char **argv) {
     require(invocationChecked, "adapter proof regression did not invoke a callback");
     adapter.module->functions[*entry].parameterOrigin = adapter.module->functions.size();
     require(!functionInvocationFlow(*adapter.module), "invalid adapter identity was trusted");
+    {
+      const SourceOverlay source{
+          "ordering-validation.k",
+          "from \"std/cmp\" import compare,totalCompare,sortBy,Ordering\n"
+          "fn comparator(a:f64,b:f64)->Ordering:\n  return totalCompare(a,b)\n"
+          "fn main()->unit:\n  values=[1.0,0.0]\n  sortBy(values,comparator)\n"
+          "  order=compare(\"a\",\"b\")\n  return ()\n"};
+      auto loaded = loadModules(source.path, {}, {}, {}, {&source, 1});
+      require(bool(loaded), "ordering flag source did not load");
+      auto checked = check(std::move(*loaded));
+      require(checked.ok(), "ordering flag source did not check");
+      auto &module = *checked.module;
+      require(!numericCapabilityError(module, NumericTarget::Cpu), "valid ordering flags rejected");
+      bool bits = false, exchange = false, stringOrder = false;
+      for (auto &node : module.expressions) {
+        if (const auto *convert = std::get_if<NumericConvert>(&node.operation);
+            convert && convert->bitwise) {
+          const auto type = node.type;
+          node.type.element = NumericType::Int64;
+          require(bool(numericCapabilityError(module, NumericTarget::Cpu)),
+                  "bit access accepted wrong result type");
+          node.type = type;
+          bits = true;
+        }
+        if (auto *write = std::get_if<ArrayStore>(&node.operation);
+            write && write->exchange &&
+            module.expressions[write->input].type.element == NumericType::Float64) {
+          write->exchange = false;
+          require(bool(numericCapabilityError(module, NumericTarget::Cpu)),
+                  "exchange index treated as stored float");
+          write->exchange = true;
+          exchange = true;
+        }
+        if (auto *order = std::get_if<ScalarCompare>(&node.operation); order && order->threeWay) {
+          order->threeWay = false;
+          require(bool(numericCapabilityError(module, NumericTarget::Cpu)),
+                  "String ordering result treated as bool");
+          order->threeWay = true;
+          stringOrder = true;
+        }
+      }
+      require(bits && exchange && stringOrder &&
+                  !numericCapabilityError(module, NumericTarget::Cpu),
+              "ordering validation coverage incomplete");
+    }
+    // Only the loader-owned sort helper may specialize a proven callback.
+    for (const auto &[label, declarations, expectedIndirect] :
+         std::vector<std::tuple<std::string, std::string, bool>>{
+             {"known",
+              "fn cmp(a:i64,b:i64)->Ordering:\n  return compare(a,b)\n"
+              "fn run()->[i64]:\n  return sortedBy([3,1,2],cmp)\n",
+              false},
+             {"captured",
+              "fn run()->[i64]:\n  direction:i64=-1\n"
+              "  cmp=fn(a:i64,b:i64):return compare(a*direction,b*direction)\n"
+              "  return sortedBy([3,1,2],cmp)\n",
+              true},
+             {"multiple",
+              "fn asc(a:i64,b:i64)->Ordering:\n  return compare(a,b)\n"
+              "fn desc(a:i64,b:i64)->Ordering:\n  return compare(b,a)\n"
+              "fn dispatch(f:fn(i64,i64)->Ordering)->[i64]:\n"
+              "  return sortedBy([3,1,2],f)\n"
+              "fn run()->[i64]:\n  first=dispatch(asc)\n  return dispatch(desc)\n",
+              true}}) {
+      const SourceOverlay source{"ordering-dispatch.k",
+                                 "from \"std/cmp\" import Ordering,compare,sortedBy\n" +
+                                     declarations +
+                                     "fn main()->unit:\n  values=run()\n  return ()\n"};
+      auto loaded = loadModules(source.path, {}, {}, {}, {&source, 1});
+      require(bool(loaded), "ordering dispatch source did not load: " + label);
+      auto checked = check(std::move(*loaded));
+      require(checked.ok(), "ordering dispatch source did not check: " + label);
+      bool helper = false, indirect = false;
+      for (const auto &function : checked.module->functions) {
+        if (!function.standardComparatorSort || function.compileTimeOnly)
+          continue;
+        helper = true;
+        for (auto id : function.expressions)
+          indirect |=
+              std::holds_alternative<FunctionInvoke>(checked.module->expressions[id].operation);
+      }
+      require(helper && indirect == expectedIndirect, "ordering callback proof mismatch: " + label);
+    }
     const std::string aliasedErrors =
         "error A:\n  Bad\nerror B:\n  Other\ntype Both=A | B\ntype Reverse=B | A\n"
         "trait Size:\n  fn size(value:Self)->i64\n";

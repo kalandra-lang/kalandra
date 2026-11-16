@@ -225,3 +225,7 @@ list {
   link { url = "/docs/parallelism", "Parallel array mapping" },
   link { url = "/docs/collection-functions", "Collection function reference" }
 }
+
+list {
+  link { url = "/docs/ordering", "Sort records and choose stable custom comparators" }
+}
