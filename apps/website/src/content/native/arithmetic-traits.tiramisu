@@ -4,14 +4,42 @@ Import traits from std/ops to define arithmetic for your own types or express th
 
 h2 { "Operator reference" }
 
-list {
-  "Add[Rhs] — left + right calls Add.add(left, right).",
-  "Sub[Rhs] — left - right calls Sub.sub(left, right).",
-  "Mul[Rhs] — left * right calls Mul.mul(left, right).",
-  "Div[Rhs] — left / right calls Div.div(left, right).",
-  "Rem[Rhs] — left % right calls Rem.rem(left, right).",
-  "Neg — -value calls Neg.neg(value)."
-}
+h2 { "Add[Rhs]" }
+
+code { "fn add(left: Self, right: Rhs) -> Self.Output" }
+
+Implement left + right. Built-in numeric addition uses the existing overflow and floating-point rules; String addition concatenates text on the host.
+
+h2 { "Sub[Rhs]" }
+
+code { "fn sub(left: Self, right: Rhs) -> Self.Output" }
+
+Implement left - right. Standard numeric subtraction keeps its checked integer behavior.
+
+h2 { "Mul[Rhs]" }
+
+code { "fn mul(left: Self, right: Rhs) -> Self.Output" }
+
+Implement left * right. Tensor multiplication remains elementwise; use matmul for a matrix product.
+
+h2 { "Div[Rhs]" }
+
+code { "fn div(left: Self, right: Rhs) -> Self.Output" }
+
+Implement left / right. Standard integer division truncates toward zero and faults on zero divisors or a signed division overflow. Floating division follows the selected arithmetic policy.
+
+h2 { "Rem[Rhs]" }
+
+code { "fn rem(left: Self, right: Rhs) -> Self.Output" }
+
+Implement left % right. Standard remainder accepts integers; its sign and checked faults follow the numeric arithmetic rules.
+
+h2 { "Neg" }
+
+code { "fn neg(value: Self) -> Self.Output" }
+
+Implement -value. Standard integer negation faults when the result is outside the destination type's range.
+
 
 Each trait declares an associated Output type. Self is the left operand type; Rhs is the right operand type. Neg has only Self. The result may differ from either operand. Unary + retains its existing numeric meaning; these traits do not overload assignment, comparison, logical operators or control flow.
 

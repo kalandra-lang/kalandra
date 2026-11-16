@@ -122,6 +122,7 @@ test("standard-module callables have individual public reference entries", async
     Option: "options",
     Iteration: "iteration",
     Comparison: "ordering",
+    Arithmetic: "arithmetic-traits",
   };
   let count = 0;
   for (const module of declarations.matchAll(
@@ -133,6 +134,12 @@ test("standard-module callables have individual public reference entries", async
       new URL(`${page}.tiramisu`, content),
       "utf8",
     );
+    if (module[1] === "Arithmetic") {
+      for (const trait of module[2]!.matchAll(
+        /export trait (\w+)(\[[^\n]*?\])?:/g,
+      ))
+        expect(reference).toContain(`h2 { "${trait[1]}${trait[2] ?? ""}" }`);
+    }
     for (const fn of module[2]!.matchAll(/export fn (\w+)(\[[^\n]*?\])?\(/g)) {
       ++count;
       expect(reference).toContain(`h2 { "${fn[1]}" }`);

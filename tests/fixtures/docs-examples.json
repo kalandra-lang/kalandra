@@ -450,17 +450,12 @@
     {
       "kind": "cpu",
       "expected": "argument: hello\nargument: two words",
-      "args": [
-        "hello",
-        "two words"
-      ]
+      "args": ["hello", "two words"]
     },
     {
       "kind": "cpu",
       "expected": "",
-      "args": [
-        "ready"
-      ]
+      "args": ["ready"]
     }
   ],
   "console": [
