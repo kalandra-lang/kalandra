@@ -10,6 +10,21 @@ fn byScore(left:SortPlayer,right:SortPlayer)->Ordering:
   return compare(left,right)
 '''
 DEVICE_CASES = {
+ 'swapped-array-layouts':(DECLARATIONS+'''fn orderingRun()->i64:
+  a=slice([0,9,2,7,0],1,4)
+  b=slice([0,0,6,5,4,3,2,0],2,7)
+  checksum:i64=0
+  for round in range(5):
+    checksum=checksum+length(a)*10+a[length(a)-1]+length(b)*100+b[0]
+    previous=a
+    a=b
+    b=previous
+  ranked=sortedBy(a,fn(left:i64,right:i64):return compare(left/2,right/2))
+  if checksum==2351 and length(a)==5 and length(b)==3:
+    if ranked==[3,2,5,4,6] and a==[6,5,4,3,2] and b==[9,2,7]:
+      return 42
+  return 0
+''',42),
  'stable-records':(DECLARATIONS+'''fn orderingRun()->i64:
   original=[SortPlayer {score:2,id:0},SortPlayer {score:1,id:1},SortPlayer {score:2,id:2},SortPlayer {score:1,id:3}]
   result=sortedBy(original,byScore)

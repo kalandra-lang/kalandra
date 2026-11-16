@@ -7,6 +7,7 @@
 #include "IntegerRanges.h"
 #include "LeafEntry.h"
 #include "LocalStorage.h"
+#include "NativeArrayPhis.h"
 #include "NativeCallFoundation.h"
 #include "NativeLayout.h"
 #include "NativeStack.h"
@@ -121,7 +122,8 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
                                                                llvm::ThinOrFullLTOPhase::None);
     simplify.run(fn, functions);
   };
-  if (removeInlinedNativeStackGuards(*candidate))
+  const bool scalarArrays = scalarizeNativeArrayPhis(*candidate);
+  if (removeInlinedNativeStackGuards(*candidate) || scalarArrays)
     for (auto &fn : *candidate)
       if (!fn.isDeclaration() && !fn.hasFnAttribute("kalandra.task.frame"))
         simplifyLeaf(fn, true);

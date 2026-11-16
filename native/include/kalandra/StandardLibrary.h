@@ -210,13 +210,15 @@ fn __sortIndices[T](values: [T], comparator: fn(T, T) -> Ordering) -> [i64]:
       right = middle
       output = start
       while left < middle and right < finish:
-        decision = comparator(values[positions[left]], values[positions[right]])
+        leftPosition = positions[left]
+        rightPosition = positions[right]
+        decision = comparator(values[leftPosition], values[rightPosition])
         before = decision != Ordering.Greater
         if before:
-          scratch[output] = positions[left]
+          scratch[output] = leftPosition
           left = left + 1
         else:
-          scratch[output] = positions[right]
+          scratch[output] = rightPosition
           right = right + 1
         output = output + 1
       while left < middle:

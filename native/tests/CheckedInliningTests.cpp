@@ -1,4 +1,5 @@
 #include "../lib/NativeStack.h"
+#include "../lib/NativeArrayPhis.h"
 #include "../lib/NativeCallFoundation.h"
 #include "../runtime/Runtime.h"
 #include "llvm/IR/IRBuilder.h"
@@ -389,6 +390,42 @@ int main(int argc, char **argv) {
     check(calls(*module.getFunction("retained"), "llvm.read_volatile_register.i64") == 1);
     check(!verifyModule(module, &errs()));
 
+    // An inlined callback can return to a loop which eventually allocates or
+    // frees scratch storage. These runtime calls do not grow the source chain.
+    // A real source/foreign call reachable afterwards must still retain guard
+    // admission, even when allocation and cleanup precede it.
+    auto *pointer = PointerType::getUnqual(context);
+    auto allocation = module.getOrInsertFunction("kalandra_alloc_v1", pointer, pointer, i64);
+    auto release = module.getOrInsertFunction("kalandra_free_v1", Type::getVoidTy(context),
+                                             pointer, pointer);
+    auto poll = module.getOrInsertFunction("kalandra_poll_slow_v1", i64, pointer);
+    for (bool call : {false, true}) {
+      auto *fn = Function::Create(signature, GlobalValue::ExternalLinkage,
+                                  call ? "cleanup-then-growing" : "cleanup-only", module);
+      IRBuilder<> at(BasicBlock::Create(context, "entry", fn));
+      auto *accepted = BasicBlock::Create(context, "accepted", fn);
+      auto *failed = BasicBlock::Create(context, "failed", fn);
+      auto *condition = at.CreateICmpUGT(kalandra::nativeStackPointer(at), fn->getArg(0));
+      auto *guard = at.CreateCondBr(condition, accepted, failed);
+      guard->setMetadata("kalandra.physical.guard", MDNode::get(context, {}));
+      at.SetInsertPoint(accepted);
+      auto *ctx = ConstantPointerNull::get(pointer);
+      auto *storage = at.CreateCall(allocation, {ctx, at.getInt64(8)});
+      at.CreateCall(release, {ctx, storage});
+      at.CreateCall(poll, {ctx});
+      at.CreateRet(call ? static_cast<Value *>(at.CreateCall(growing, {fn->getArg(0)}))
+                        : fn->getArg(0));
+      at.SetInsertPoint(failed);
+      at.CreateRet(at.getInt64(0));
+    }
+    check(kalandra::removeInlinedNativeStackGuards(module));
+    check(calls(*module.getFunction("cleanup-only"), "llvm.read_volatile_register.i64") == 0);
+    check(calls(*module.getFunction("cleanup-then-growing"), "llvm.read_volatile_register.i64") == 1);
+    check(calls(*module.getFunction("cleanup-only"), "kalandra_alloc_v1") == 1);
+    check(calls(*module.getFunction("cleanup-only"), "kalandra_free_v1") == 1);
+    check(calls(*module.getFunction("cleanup-only"), "kalandra_poll_slow_v1") == 1);
+    check(!verifyModule(module, &errs()));
+
     auto *fn = Function::Create(signature, GlobalValue::InternalLinkage,
                                 "loop.body.clear", module);
     IRBuilder<> ir(BasicBlock::Create(context, "entry", fn));
@@ -519,6 +556,53 @@ int main(int argc, char **argv) {
           barriers += call->hasFnAttr(Attribute::NoInline);
     const bool native = module->getTargetTriple().isOSDarwin() && module->getTargetTriple().isAArch64();
     check(barriers == unsigned(native)); // Helper-internal optimization remains allowed.
+  }
+  {
+    LLVMContext context;
+    Module module("swapped-array-layouts", context);
+    auto *i64 = Type::getInt64Ty(context);
+    auto *ptr = PointerType::getUnqual(context);
+    auto *axis = ArrayType::get(i64, 1);
+    auto *descriptor = StructType::get(context, {ptr, ptr, i64, axis, axis});
+    auto *type = FunctionType::get(i64, {descriptor, descriptor, i64}, false);
+    auto *fn = Function::Create(type, GlobalValue::ExternalLinkage, "swap", module);
+    IRBuilder<> ir(BasicBlock::Create(context, "entry", fn));
+    auto *entry = ir.GetInsertBlock();
+    auto *loop = BasicBlock::Create(context, "loop", fn);
+    auto *done = BasicBlock::Create(context, "done", fn);
+    ir.CreateBr(loop);
+    ir.SetInsertPoint(loop);
+    auto *a = ir.CreatePHI(descriptor, 2);
+    auto *b = ir.CreatePHI(descriptor, 2);
+    auto *index = ir.CreatePHI(i64, 2);
+    a->addIncoming(fn->getArg(0), entry);
+    b->addIncoming(fn->getArg(1), entry);
+    a->addIncoming(b, loop);
+    b->addIncoming(a, loop);
+    index->addIncoming(ir.getInt64(0), entry);
+    auto *next = ir.CreateAdd(index, ir.getInt64(1));
+    index->addIncoming(next, loop);
+    ir.CreateCondBr(ir.CreateICmpULT(next, fn->getArg(2)), loop, done);
+    ir.SetInsertPoint(done);
+    ir.CreateRet(ir.CreateAdd(ir.CreateExtractValue(a, {3, 0}),
+                             ir.CreateExtractValue(b, {4, 0})));
+    check(!verifyModule(module, &errs()));
+    check(kalandra::scalarizeNativeArrayPhis(module));
+    SmallVector<PHINode *, 16> phis;
+    for (auto &phi : loop->phis()) {
+      check(!phi.getType()->isAggregateType());
+      phis.push_back(&phi);
+    }
+    check(phis.size() == 11); // Five fields per descriptor, plus the loop index.
+    check(!kalandra::scalarizeNativeArrayPhis(module));
+    for (unsigned field = 0; field < 5; ++field) {
+      auto *left = phis[field];
+      auto *right = phis[field + 5];
+      check(left->getIncomingValue(1) == right && right->getIncomingValue(1) == left);
+      check(cast<ExtractValueInst>(left->getIncomingValue(0))->getAggregateOperand() == fn->getArg(0));
+      check(cast<ExtractValueInst>(right->getIncomingValue(0))->getAggregateOperand() == fn->getArg(1));
+    }
+    check(!verifyModule(module, &errs()));
   }
   std::cout << "Internal convention: boundary admission, native returns, uniform environments, "
                "mutual/indirect/aggregate/void tail calls, local-frame fallback and token checkpoints passed\n";
