@@ -450,12 +450,17 @@
     {
       "kind": "cpu",
       "expected": "argument: hello\nargument: two words",
-      "args": ["hello", "two words"]
+      "args": [
+        "hello",
+        "two words"
+      ]
     },
     {
       "kind": "cpu",
       "expected": "",
-      "args": ["ready"]
+      "args": [
+        "ready"
+      ]
     }
   ],
   "console": [
@@ -474,7 +479,7 @@
     },
     {
       "kind": "cpu",
-      "expected": "price=3.14, id=ff\n[   hello] [é       ]"
+      "expected": "price=3.14, id=ff\n[   hello] [\u00e9       ]"
     },
     {
       "kind": "cpu",
@@ -649,6 +654,16 @@
     {
       "kind": "cpu",
       "expected": "true:true\nfalse:true"
+    }
+  ],
+  "arithmetic-traits": [
+    {
+      "kind": "cpu",
+      "expected": "720"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42:42"
     }
   ]
 }

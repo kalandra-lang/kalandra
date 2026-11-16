@@ -93,6 +93,16 @@ list {
   link { url = "/docs/ordering", "Ordering and stable comparator sorting" }
 }
 
+h2 { "Traits with type parameters" }
+
+A trait can describe a relationship between different types. Declare its parameters after its name, such as trait Convert[Target], and implement the complete application with impl Convert[String] for Reading. A generic bound T: Convert[U] requires that relationship specifically; it does not imply Convert[V], even when U and V happen to specialize to the same type in one call.
+
+For an explicit method call or function value, write Trait[Self, Arguments...].method. For an associated type, write Trait[Self, Arguments...].Item. T.Item is available when the bounds on T identify one application providing Item. Multiple applications require the qualified form, even when their current results coincide. Qualified associated error types can appear after ! in function and callback signatures.
+
+list {
+  link { url = "/docs/arithmetic-traits", "Arithmetic traits — parameterized operators and complete examples" }
+}
+
 h2 { "Associated types" }
 
 An associated type names a type chosen by an implementation. Refer to it as Self.Item in a trait and as T.Item when T has the corresponding bound. Generic implementations can describe a whole family of types.
@@ -203,9 +213,9 @@ h2 { "Checking and implementation rules" }
 
 Concrete specializations are cached. Their bodies are checked when those specializations are needed, so an unused generic body's operations are not a guarantee that every possible type argument is valid. For reusable capability contracts, declare trait bounds explicitly. Named trait requirements remain explicit even when a concrete argument happens to have an implementation.
 
-An implementation belongs to the module that defines its trait or its outer target type. There can be only one applicable implementation of a trait for a type. The compiler rejects overlapping implementation patterns; bounds do not establish that two patterns are disjoint. Bare blanket implementations for an arbitrary type parameter are not supported.
+An implementation belongs to the module that defines its trait or an outer nominal operand type, including a trait argument. There can be only one applicable implementation for the complete tuple of trait, Self and trait arguments. The compiler rejects overlapping implementation patterns; bounds do not establish that two patterns are disjoint. Bare blanket implementations for an arbitrary type parameter are not supported.
 
-Type arguments are types, not arbitrary compile-time values or type constructors. Traits do not provide runtime trait objects, inheritance, default method bodies or generic methods inside trait declarations. Associated type projections use T.Item or Self.Item. Generic functions and nominal types share a bounded specialization budget; recursively producing new concrete types is diagnosed instead of growing compilation without limit.
+Type arguments are types, not arbitrary compile-time values or type constructors. Traits do not provide runtime trait objects, inheritance, default method bodies or generic methods inside trait declarations. Associated type projections use T.Item or Self.Item when unambiguous, or Trait[Self, Arguments...].Item to select a specific application. Generic functions and nominal types share a bounded specialization budget; recursively producing new concrete types is diagnosed instead of growing compilation without limit.
 
 list {
   link { url = "/docs/functions", "Function values, access contracts and recursion" },

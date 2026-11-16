@@ -76,6 +76,92 @@ def run(name, source, expected, *, device=False):
 
 
 run('portable', SOURCE, EXPECTED)
+from GenericsCases import ARITHMETIC_DECLARATIONS, ARITHMETIC_EXPECTED
+operator_body = '  value=arithmeticRun()\n' if args.target == 'cpu' else """  value=try parallel:
+    gpu=devices.gpu()
+    try await spawn arithmeticRun() on gpu
+"""
+run('arithmetic-operators', prelude + ARITHMETIC_DECLARATIONS + main + operator_body +
+    '  try println(format("{}",value))\n  return ()\n', f'{ARITHMETIC_EXPECTED}\n', device=True)
+
+primitive_ops = 'from "std/ops" import Add, Sub, Mul, Div, Rem, Neg\n'
+primitive_body = ''
+primitive_expected = ''
+for primitive in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
+    primitive_ops += f"""fn arithmetic{primitive}()->{primitive}:
+  a={primitive}(20)
+  b={primitive}(2)
+  sum=Add.add(a,b)
+  difference=Sub.sub(sum,b)
+  product=Mul.mul(difference,b)
+  quotient=Div.div(product,b)
+  zero=Neg.neg(Sub.sub(a,a))
+"""
+    if primitive.startswith(('i','u')):
+        primitive_ops += f'  return quotient+Rem.rem(a,{primitive}(3))+zero\n'
+    else:
+        primitive_ops += '  return quotient+zero\n'
+    if args.target == 'cpu':
+        primitive_body += f'  result{primitive}=arithmetic{primitive}()\n'
+    else:
+        primitive_body += f"""  result{primitive}=try parallel:
+    gpu=devices.gpu()
+    try await spawn arithmetic{primitive}() on gpu
+"""
+    primitive_body += f'  try println(format("{{}}",result{primitive}))\n'
+    primitive_expected += '22\n' if primitive.startswith(('i','u')) else '20\n'
+run('arithmetic-primitive-traits', prelude+primitive_ops+main+primitive_body+'  return ()\n',
+    primitive_expected, device=True)
+
+tensor_traits = 'from "std/ops" import Add, Mul, Sub, Div, Neg\n'
+for n,primitive in enumerate(('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64')):
+    tensor_traits += f"""fn tensorArithmetic{primitive}(a:Tensor[{primitive},?],b:Tensor[{primitive},?])->{primitive}:
+  sum=Add.add(a,b)
+  product=Mul.mul(sum,{primitive}(2))
+  quotient=Div.div(product,{primitive}(2))
+  result=Sub.sub(quotient,a)
+  return reduceSum(result)
+"""
+tensor_body=''
+for primitive in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
+    tensor_body+=f'  tensorA{primitive}={primitive}(tensor([1,2]))\n  tensorB{primitive}={primitive}(tensor([3,4]))\n'
+    if args.target=='cpu':tensor_body+=f'  tensorResult{primitive}=tensorArithmetic{primitive}(tensorA{primitive},tensorB{primitive})\n'
+    else:
+        tensor_body+=f"""  tensorResult{primitive}=try parallel:
+    gpu=devices.gpu()
+    a=try await transfer(tensorA{primitive},gpu)
+    b=try await transfer(tensorB{primitive},gpu)
+    try await spawn tensorArithmetic{primitive}(a,b) on gpu
+"""
+    tensor_body+=f'  try println(format("{{}}",tensorResult{primitive}))\n'
+run('arithmetic-tensor-traits',prelude+tensor_traits+main+tensor_body+'  return ()\n','7\n'*10,device=True)
+
+order_traits = """from "std/ops" import Add
+from "std/io" import println, IoError
+from "std/fmt" import format
+type Value:
+  n:i64
+fn emit(text:String)->unit:
+  println(text) catch fn(error):return ()
+  return ()
+impl Add[Value] for Value:
+  type Output=Value
+  fn add(left:Self,right:Value)->Self.Output:
+    emit("operator")
+    return Value {n:left.n+right.n}
+fn left()->Value:
+  emit("left")
+  return Value {n:20}
+fn right()->Value:
+  emit("right")
+  return Value {n:22}
+fn main()->unit ! IoError:
+  result=left()+right()
+  try println(format("{}",result.n))
+  return ()
+"""
+run('arithmetic-evaluation-order',order_traits,'left\nright\noperator\n42\n')
+
 # Actual device algorithms use traits and generic local records/enums, not just a host bridge.
 arithmetic = '''type Pair[T]:
   first: T

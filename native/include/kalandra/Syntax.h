@@ -8,6 +8,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -361,6 +362,8 @@ struct Module {
   // Populated only by the module loader, never inferred from source filenames.
   std::vector<std::optional<StandardModule>> standardModules;
   bool editorOnly = false; // Structural recovery and unresolved expression holes.
+  // Structured error projections retain their syntax; public error spans remain stable.
+  std::unordered_map<std::size_t, TypeSyntax> errorProjections;
 };
 struct ParseResult {
   Module module;

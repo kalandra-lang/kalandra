@@ -123,8 +123,13 @@ std::optional<std::size_t> specializeRecord(std::size_t declaration, GenericBind
   label += "]";
   if (auto found = recordSpecializations_.find(key); found != recordSpecializations_.end())
     return found->second;
-  if (!checkGenericBounds(original.generics, bindings, site))
-    return {};
+  {
+    auto owner = std::make_shared<GenericProofOwner>();
+    owner->parameters = original.generics;
+    GenericScope scope(*this, std::make_shared<const GenericBindings>(bindings), owner);
+    if (!checkGenericBounds(original.generics, bindings, site))
+      return {};
+  }
   if (++specializationCount_ > limits_.maxSpecializations) {
     error("S082", "generic nominal specialization budget exceeded", site);
     return {};

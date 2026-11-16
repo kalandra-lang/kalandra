@@ -557,7 +557,14 @@ private:
     return result;
   }
   std::optional<ValueType> resolveType(const TypeSyntax &syntax) {
+    if (auto projection = qualifiedTraitProjection(syntax); projection.first)
+      return projection.second;
     if (genericBindings_ && !syntax.function && !syntax.tensor) {
+      if (genericBindings_->contains("$ambiguous:" + associatedName(syntax))) {
+        error("S083", "ambiguous associated type; use Trait[Self, Arguments...].AssociatedType",
+              syntax.span);
+        return {};
+      }
       if (auto found = genericBindings_->find(associatedName(syntax));
           found != genericBindings_->end()) {
         auto result = found->second;
@@ -1032,6 +1039,20 @@ private:
   }
   std::optional<std::size_t> resolveError(SourceSpan member,
                                           std::unordered_set<std::size_t> &active) {
+    if (auto projection = syntax_.errorProjections.find(member.begin);
+        projection != syntax_.errorProjections.end()) {
+      auto value = type(projection->second);
+      if (!value)
+        return {};
+      if (!value->tensor && !value->array && !value->task && !value->fallible && !value->device) {
+        if (value->builtin == BuiltinValue::TaskError)
+          return taskFamily();
+        if (value->record && output_.records[*value->record].error)
+          return *value->record;
+      }
+      error("S072", "associated error channels require a declared error family", member);
+      return {};
+    }
     completeErrorTypes(member, active);
     if (qualifiedErrorName(member) == "never") {
       auto id = neverFamily();
@@ -2823,15 +2844,17 @@ private:
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const FieldExpr &read,
                                const std::optional<ValueType> &expected) {
-    if (const auto *owner = std::get_if<NameExpr>(&syntax_.expressions[read.input].value))
-      if (!lookupSymbol(frame, owner->name))
-        if (auto trait = traitNames_.find(functionKey(frame, name(owner->name)));
-            trait != traitNames_.end()) {
-          completeTraitMember(owner->name, read.field, trait->second);
-          error("S083", "trait functions require a qualified call; use Trait[Type].function(...)",
-                span);
-          return {};
-        }
+    {
+      const NameExpr *owner = std::get_if<NameExpr>(&syntax_.expressions[read.input].value);
+      std::vector<TypeSyntax> types;
+      if (const auto *indexed = std::get_if<IndexExpr>(&syntax_.expressions[read.input].value)) {
+        owner = std::get_if<NameExpr>(&syntax_.expressions[indexed->input].value);
+        types = indexed->typeArguments;
+      }
+      if (owner && !lookupSymbol(frame, owner->name) &&
+          traitNames_.contains(functionKey(frame, name(owner->name))))
+        return traitFunctionValue(frame, span, owner->name, read.field, types);
+    }
     const auto genericFamily = [&](SourceSpan family,
                                    std::vector<TypeSyntax> arguments) -> std::optional<ValueId> {
       auto found = genericRecords_.find(functionKey(frame, name(family)));
@@ -3162,10 +3185,18 @@ private:
             syntax_.source->slice(literal->literal).find_first_of(".eE") == std::string_view::npos)
           return intLiteral(frame, span, *literal, true,
                             expected ? expected->element : NumericType::Int64);
-    auto operand = expression(frame, unary.operand, expected);
+    auto operand =
+        expression(frame, unary.operand,
+                   literal_[unary.operand] && expected &&
+                           expected->builtin == BuiltinValue::Numeric && !expected->record
+                       ? expected
+                       : std::nullopt);
     if (!operand)
       return {};
     const auto type = node(*operand).type;
+    if (unary.operation == TokenKind::Minus && type.builtin != BuiltinValue::Numeric &&
+        !type.task && !type.fallible && !type.device)
+      return invokeArithmetic(frame, span, unary.operation, {unary.operand}, {*operand}, expected);
     if (type.task || type.fallible || type.array || type.builtin != BuiltinValue::Numeric) {
       error("S017", "arithmetic requires completed numeric values", span);
       return {};
@@ -3289,6 +3320,8 @@ private:
     }
     const auto operand = [&](ExprId id, std::optional<ValueType> context) {
       if (literal_[id]) {
+        if (context && (context->builtin != BuiltinValue::Numeric || context->record))
+          context.reset();
         if (context && context->tensor && context->builtin == BuiltinValue::Numeric) {
           const auto element = context->element;
           context = ValueType{};
@@ -3305,8 +3338,11 @@ private:
     };
     std::optional<ValueId> left, right;
     if (expected && !expected->tensor) {
-      left = expression(frame, binary.left, expected);
-      right = expression(frame, binary.right, expected);
+      left = operand(binary.left, expected);
+      if (left)
+        right = operand(binary.right, node(*left).type.builtin == BuiltinValue::Numeric
+                                          ? std::optional{node(*left).type}
+                                          : std::nullopt);
     } else if (literal_[binary.left] && !literal_[binary.right]) {
       right = operand(binary.right, expected);
       if (right)
@@ -3318,11 +3354,25 @@ private:
     }
     if (!left || !right)
       return {};
+    // A builtin operator's result context also constrains its operands. Custom
+    // operators may instead map different operand types to a distinct result.
+    if (context && !context->tensor && !node(*left).type.record && !node(*right).type.record) {
+      left = conform(frame, *left, *context, syntax_.expressions[binary.left].span);
+      if (!left)
+        return {};
+      right = conform(frame, *right, *context, syntax_.expressions[binary.right].span);
+      if (!right)
+        return {};
+    }
     const auto a = node(*left).type, b = node(*right).type;
     if (binary.operation == TokenKind::Plus && a.builtin == BuiltinValue::String &&
         b.builtin == BuiltinValue::String && !a.tensor && !b.tensor && !a.task && !b.task &&
         !a.fallible && !b.fallible && !a.device && !b.device)
       return add(frame, a, span, StringConcat{*left, *right});
+    if (!a.task && !b.task && !a.fallible && !b.fallible && !a.device && !b.device &&
+        (a.record || b.record))
+      return invokeArithmetic(frame, span, binary.operation, {binary.left, binary.right},
+                              {*left, *right}, context);
     if (binary.operation == TokenKind::Percent &&
         (!isInteger(a.element) || !isInteger(b.element))) {
       error("S019", "'%' requires integer operands", span);
@@ -4619,8 +4669,8 @@ private:
     const auto read = [&](SymbolId symbol) {
       return add(frame, output_.symbols[symbol].type, span, SymbolRead{symbol});
     };
-    const auto rangeCondition = [&](ValueId start, ValueId stop, ValueId step)
-        -> std::optional<ValueId> {
+    const auto rangeCondition = [&](ValueId start, ValueId stop,
+                                    ValueId step) -> std::optional<ValueId> {
       auto checked =
           add(frame, integer, span,
               IntegerRangeOperation{IntegerRangeOperation::Kind::Validate, start, stop, step});
@@ -6974,7 +7024,8 @@ private:
     const bool signatureQuery = queryingSignature(span);
     if (standardRange(id) && signatureQuery)
       return rangeSignature(frame, id, span, arguments);
-    if (standardRange(id) && !concreteArguments && !signatureQuery && !completingArgument(arguments)) {
+    if (standardRange(id) && !concreteArguments && !signatureQuery &&
+        !completingArgument(arguments)) {
       concreteArguments = rangeArguments(frame, span, arguments);
       if (!concreteArguments)
         return {};

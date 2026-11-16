@@ -13,7 +13,7 @@ void require(bool condition, const std::string &message) {
     throw std::runtime_error(message);
 }
 CheckResult analyze(std::string source, SemanticLimits limits = {}) {
-  if (source.find("yield ") != std::string::npos) {
+  if (source.find("yield ") != std::string::npos || source.find("std/ops") != std::string::npos) {
     const SourceOverlay overlay{"generics.k", std::move(source)};
     auto loaded = loadModules(overlay.path, {}, {}, {}, {&overlay, 1});
     require(bool(loaded), "cannot load generator generic fixture");
@@ -66,37 +66,203 @@ int main(int argc, char **argv) {
          "impl[T] Convert[String] for Box[T]:\n"
          "  fn size(value:Self,other:String)->i64:\n    return length(other)\n"
          "fn main()->i64:\n  return Convert.size(Box {value:1},\"answer\")\n");
-    bad("trait argument arity", "trait T[A]:\n  fn f(value:Self)->unit\n"
+    bad("trait argument arity",
+        "trait T[A]:\n  fn f(value:Self)->unit\n"
         "impl T for i64:\n  fn f(value:Self)->unit:\n    return ()\n"
-        "fn main()->unit:\n  return ()\n", "S083");
-    const std::string mix =
-        "trait Mix[R]:\n  fn mix(value:Self,other:R)->i64\n"
-        "impl Mix[i64] for i64:\n  fn mix(value:Self,other:i64)->i64:\n"
-        "    return value+other\n"
-        "impl Mix[f64] for i64:\n  fn mix(value:Self,other:f64)->i64:\n"
-        "    return value\n";
-    bad("a bound proves only its requested trait arguments", mix +
-        "fn wrong[T:Mix[i64]](value:T)->i64:\n"
-        "  return Mix[T,f64].mix(value,1.0)\n"
-        "fn main()->i64:\n  return wrong(1)\n", "S083");
-    bad("equal concrete arguments do not equate abstract trait parameters", mix +
-        "fn wrong[T:Mix[U],U,V](value:T,other:U,unrelated:V)->i64:\n"
-        "  return Mix.mix(value,unrelated)\n"
-        "fn main()->i64:\n  return wrong(1,2,3)\n", "S083");
-    bad("a concrete implementation does not cover an abstract RHS", mix +
-        "fn wrong[R](value:i64,other:R)->i64:\n  return Mix.mix(value,other)\n"
-        "fn main()->i64:\n  return wrong(1,2)\n", "S083");
-    const std::string correlated =
-        "type Box[T]:\n  value:T\n"
-        "trait Mix[R]:\n  fn mix(value:Self,other:R)->i64\n"
-        "impl[T] Mix[T] for Box[T]:\n"
-        "  fn mix(value:Self,other:T)->i64:\n    return 42\n";
-    good("tuple proofs preserve repeated generic parameters", correlated +
-        "fn correct[T](value:Box[T],other:T)->i64:\n  return Mix.mix(value,other)\n"
-        "fn main()->i64:\n  return correct(Box {value:1},2)\n");
-    bad("tuple proofs reject coincident unrelated parameters", correlated +
-        "fn wrong[A,B](value:Box[A],other:B)->i64:\n  return Mix.mix(value,other)\n"
-        "fn main()->i64:\n  return wrong(Box {value:1},2)\n", "S083");
+        "fn main()->unit:\n  return ()\n",
+        "S083");
+    const std::string mix = "trait Mix[R]:\n  fn mix(value:Self,other:R)->i64\n"
+                            "impl Mix[i64] for i64:\n  fn mix(value:Self,other:i64)->i64:\n"
+                            "    return value+other\n"
+                            "impl Mix[f64] for i64:\n  fn mix(value:Self,other:f64)->i64:\n"
+                            "    return value\n";
+    bad("a bound proves only its requested trait arguments",
+        mix + "fn wrong[T:Mix[i64]](value:T)->i64:\n"
+              "  return Mix[T,f64].mix(value,1.0)\n"
+              "fn main()->i64:\n  return wrong(1)\n",
+        "S083");
+    bad("equal concrete arguments do not equate abstract trait parameters",
+        mix + "fn wrong[T:Mix[U],U,V](value:T,other:U,unrelated:V)->i64:\n"
+              "  return Mix.mix(value,unrelated)\n"
+              "fn main()->i64:\n  return wrong(1,2,3)\n",
+        "S083");
+    bad("a concrete implementation does not cover an abstract RHS",
+        mix + "fn wrong[R](value:i64,other:R)->i64:\n  return Mix.mix(value,other)\n"
+              "fn main()->i64:\n  return wrong(1,2)\n",
+        "S083");
+    const std::string correlated = "type Box[T]:\n  value:T\n"
+                                   "trait Mix[R]:\n  fn mix(value:Self,other:R)->i64\n"
+                                   "impl[T] Mix[T] for Box[T]:\n"
+                                   "  fn mix(value:Self,other:T)->i64:\n    return 42\n";
+    good("tuple proofs preserve repeated generic parameters",
+         correlated + "fn correct[T](value:Box[T],other:T)->i64:\n  return Mix.mix(value,other)\n"
+                      "fn main()->i64:\n  return correct(Box {value:1},2)\n");
+    bad("tuple proofs reject coincident unrelated parameters",
+        correlated + "fn wrong[A,B](value:Box[A],other:B)->i64:\n  return Mix.mix(value,other)\n"
+                     "fn main()->i64:\n  return wrong(Box {value:1},2)\n",
+        "S083");
+    good("coherence unifies the whole tuple with correlated parameters",
+         "type Pair[A,B]:\n  a:A\n  b:B\n"
+         "trait Relation[R]:\n  fn code(value:Self,other:R)->i64\n"
+         "impl[T] Relation[T] for Pair[T,i64]:\n"
+         "  fn code(value:Self,other:T)->i64:\n    return 1\n"
+         "impl[U] Relation[f64] for Pair[i64,U]:\n"
+         "  fn code(value:Self,other:f64)->i64:\n    return 2\n"
+         "fn main()->i64:\n  p=Pair {a:1,b:2}\n"
+         "  return Relation.code(p,1)+Relation.code(p,1.0)\n");
+    bad("correlated tuple overlap is rejected",
+        correlated + "impl[U] Mix[Box[U]] for Box[Box[U]]:\n"
+                     "  fn mix(value:Self,other:Box[U])->i64:\n    return 1\n"
+                     "fn main()->unit:\n  return ()\n",
+        "S083");
+    good("occurs check recognizes disjoint finite-type implementations",
+         "type Box[T]:\n  value:T\n"
+         "trait Relation[R]:\n  fn code(value:Self,other:R)->i64\n"
+         "impl[T] Relation[Box[T]] for Box[T]:\n"
+         "  fn code(value:Self,other:Box[T])->i64:\n    return 1\n"
+         "impl[U] Relation[U] for Box[Box[U]]:\n"
+         "  fn code(value:Self,other:U)->i64:\n    return 2\n"
+         "fn main()->i64:\n  return Relation.code(Box {value:1},Box {value:2})\n");
+    bad("never channels cannot hide overlapping function implementations",
+        "trait F:\n  fn code(value:Self)->i64\n"
+        "impl F for fn()->i64:\n  fn code(value:Self)->i64:\n    return 1\n"
+        "impl F for fn()->i64 ! never:\n  fn code(value:Self)->i64:\n    return 2\n"
+        "fn main()->unit:\n  return ()\n",
+        "S083");
+    const std::string projections =
+        "type Value:\n  n:i64\n"
+        "trait Mapping[R]:\n  type Output\n"
+        "  fn get(value:Self,other:R)->Self.Output\n"
+        "impl Mapping[i64] for Value:\n  type Output=i64\n"
+        "  fn get(value:Self,other:i64)->Self.Output:\n    return value.n+other\n"
+        "impl Mapping[f64] for Value:\n  type Output=f64\n"
+        "  fn get(value:Self,other:f64)->Self.Output:\n    return other\n";
+    good("qualified projections distinguish results and survive forwarding",
+         projections + "fn read[T:Mapping[i64]+Mapping[f64]](value:T)->Mapping[T,i64].Output:\n"
+                       "  return Mapping[T,i64].get(value,1)\n"
+                       "fn forward[U:Mapping[i64]+Mapping[f64]](value:U)->Mapping[U,i64].Output:\n"
+                       "  return read(value)\n"
+                       "fn main()->i64:\n  return forward(Value {n:41})\n");
+    bad("unqualified projections reject ambiguous results",
+        projections + "fn wrong[T:Mapping[i64]+Mapping[f64]](value:T)->T.Output:\n"
+                      "  return Mapping[T,i64].get(value,1)\n"
+                      "fn main()->i64:\n  return wrong(Value {n:41})\n",
+        "S083");
+    bad("coincident specializations do not disambiguate associated results",
+        projections + "fn wrong[T:Mapping[A]+Mapping[B],A,B](value:T,a:A,b:B)->T.Output:\n"
+                      "  return Mapping[T,A].get(value,a)\n"
+                      "fn main()->i64:\n  return wrong(Value {n:40},1,2)\n",
+        "S083");
+    good("qualified projections retain abstract RHS provenance",
+         projections +
+             "fn read[T:Mapping[A]+Mapping[B],A,B](value:T,a:A,b:B)->Mapping[T,A].Output:\n"
+             "  return Mapping[T,A].get(value,a)\n"
+             "fn main()->i64:\n  return read(Value {n:41},1,2)\n");
+    const std::string repeatedArguments =
+        "type Value:\n  n:i64\ntrait Choose[R]:\n"
+        "  fn choose(value:Self,a:R,b:R)->i64\n"
+        "impl[R] Choose[R] for Value:\n"
+        "  fn choose(value:Self,a:R,b:R)->i64:\n    return value.n\n";
+    good("repeated method parameters preserve the same abstract type",
+         repeatedArguments + "fn choose[A](v:Value,a:A,b:A)->i64:\n  return Choose.choose(v,a,b)\n"
+                             "fn main()->i64:\n  return choose(Value {n:42},1,2)\n");
+    bad("repeated method parameters reject coincident unrelated types",
+        repeatedArguments + "fn choose[A,B](v:Value,a:A,b:B)->i64:\n  return Choose.choose(v,a,b)\n"
+                            "fn main()->i64:\n  return choose(Value {n:42},1,2)\n",
+        "S083");
+    good("generic nominal bounds carry trait arguments",
+         mix + "type Pair[T:Mix[R],R]:\n  value:T\n  other:R\n"
+               "fn build[A:Mix[B],B](a:A,b:B)->Pair[A,B]:\n"
+               "  return Pair[A,B] {value:a,other:b}\n"
+               "fn main()->i64:\n  p=build(40,2)\n  return Mix.mix(p.value,p.other)\n");
+    bad("generic nominal bounds reject unrelated coincident trait arguments",
+        mix + "type Pair[T:Mix[R],R]:\n  value:T\n  other:R\n"
+              "fn build[A:Mix[B],B,C](a:A,b:B,c:C)->Pair[A,C]:\n"
+              "  return Pair[A,C] {value:a,other:c}\n"
+              "fn main()->i64:\n  p=build(40,1,2)\n  return p.value\n",
+        "S083");
+    good("qualified own-trait associated return signatures",
+         "type Value:\n  n:i64\ntrait Mapping[R]:\n  type Output\n"
+         "  fn get(value:Self,other:R)->Mapping[Self,R].Output\n"
+         "impl Mapping[i64] for Value:\n  type Output=i64\n"
+         "  fn get(value:Self,other:i64)->Mapping[Self,i64].Output:\n"
+         "    return value.n+other\n"
+         "fn main()->i64:\n  return Mapping.get(Value {n:40},2)\n");
+    good("never is infallible in implementation signatures",
+         "trait Read:\n  fn read(value:Self)->i64\n"
+         "impl Read for i64:\n  fn read(value:Self)->i64 ! never:\n    return value\n"
+         "fn main()->i64:\n  return Read.read(42)\n");
+    good("qualified associated error channels preserve forwarding",
+         "error Invalid:\n  Bad\ntype Value:\n  n:i64\n"
+         "trait Read[R]:\n  type Error\n  fn read(value:Self,other:R)->i64 ! Self.Error\n"
+         "impl Read[i64] for Value:\n  type Error=Invalid\n"
+         "  fn read(value:Self,other:i64)->i64 ! Read[Self,i64].Error:\n    return value.n+other\n"
+         "fn read[T:Read[R],R](value:T,other:R)->i64 ! Read[T,R].Error:\n"
+         "  return try Read.read(value,other)\n"
+         "fn forward[U:Read[V],V](value:U,other:V)->i64 ! Read[U,V].Error:\n"
+         "  return try read(value,other)\n"
+         "fn main()->i64:\n  return forward(Value {n:40},2) catch fn(error):return 0\n");
+    good("arithmetic traits provide primitive conformance and generic bounds",
+         "from \"std/ops\" import Add, Neg\n"
+         "fn sum[T:Add[T]](left:T,right:T)->T.Output:\n  return Add.add(left,right)\n"
+         "fn main()->i64:\n  return sum(40,2)+Neg.neg(i64(-1))\n");
+    const std::string arithmetic =
+        "from \"std/ops\" import Add, Mul, Neg\n"
+        "type Value:\n  n:i64\n"
+        "impl Add[Value] for Value:\n  type Output=Value\n"
+        "  fn add(left:Self,right:Value)->Self.Output:\n    return Value {n:left.n+right.n}\n"
+        "impl Mul[i64] for Value:\n  type Output=i64\n"
+        "  fn mul(left:Self,right:i64)->Self.Output:\n    return left.n*right\n"
+        "impl Neg for Value:\n  type Output=Value\n"
+        "  fn neg(value:Self)->Self.Output:\n    return Value {n:-value.n}\n";
+    good("custom arithmetic supports mixed operands and distinct output types",
+         arithmetic + "fn main()->i64:\n  a=Value {n:20}\n  b=a+a\n  return b*2+(-a).n\n");
+    good("generic arithmetic operators preserve their associated result",
+         arithmetic +
+             "fn product[T:Mul[R],R](value:T,right:R)->Mul[T,R].Output:\n  return value*right\n"
+             "fn main()->i64:\n  return product(Value {n:21},2)\n");
+    bad("generic arithmetic cannot invent a trait bound",
+        arithmetic + "fn product[T,R](value:T,right:R)->i64:\n  return value*right\n"
+                     "fn main()->i64:\n  return product(Value {n:21},2)\n",
+        "S083");
+    good(
+        "qualified trait function values retain generic provenance",
+        arithmetic +
+            "fn product[T:Mul[R],R](value:T,right:R)->Mul[T,R].Output:\n"
+            "  callback=Mul[T,R].mul\n  return callback(value,right)\n"
+            "fn main()->i64:\n  add=Add[i64,i64].add\n  return product(Value {n:20},2)+add(1,1)\n");
+    bad("qualified trait function values cannot invent generic bounds",
+        arithmetic + "fn product[T,R](value:T,right:R)->i64:\n"
+                     "  callback=Mul[T,R].mul\n  return callback(value,right)\n"
+                     "fn main()->i64:\n  return product(Value {n:21},2)\n",
+        "S083");
+    bad("non-injective projections cannot determine implementation parameters",
+        "trait Source:\n  type Item\ntrait Target[R]:\n  fn target(value:Self,other:R)->i64\n"
+        "type Value:\n  n:i64\nimpl[T:Source] Target[T.Item] for Value:\n"
+        "  fn target(value:Self,other:T.Item)->i64:\n    return value.n\n"
+        "fn main()->i64:\n  return 0\n",
+        "S083");
+    const std::string projectedBounds =
+        "trait Measure[R]:\n  fn size(value:Self,other:R)->i64\n"
+        "impl Measure[i64] for i64:\n  fn size(value:Self,other:i64)->i64:\n    return "
+        "value+other\n"
+        "trait Source[R]:\n  type Item:Measure[R]\n  fn get(value:Self,other:R)->Self.Item\n"
+        "type Value:\n  n:i64\nimpl Source[i64] for Value:\n  type Item=i64\n"
+        "  fn get(value:Self,other:i64)->Self.Item:\n    return value.n\n";
+    good("associated bounds carry the trait application arguments",
+         projectedBounds + "fn use[T:Source[R],R](value:T,other:R)->i64:\n"
+                           "  item=Source.get(value,other)\n  return Measure.size(item,other)\n"
+                           "fn main()->i64:\n  return use(Value {n:40},2)\n");
+    bad("associated bounds cannot substitute coincident unrelated arguments",
+        projectedBounds + "fn use[T:Source[R],R,U](value:T,other:R,unrelated:U)->i64:\n"
+                          "  item=Source.get(value,other)\n  return Measure.size(item,unrelated)\n"
+                          "fn main()->i64:\n  return use(Value {n:40},1,2)\n",
+        "S083");
+    good("trait bounds resolve forward associated dependencies",
+         mix + "trait Source:\n  type Item\n"
+               "type Value:\n  n:i64\nimpl Source for Value:\n  type Item=i64\n"
+               "fn use[A:Mix[B.Item],B:Source](a:A,b:B)->i64:\n  return 42\n"
+               "fn main()->i64:\n  return use(1,Value {n:2})\n");
     good("inferred/explicit function specialization and values",
          "fn id[T](value:T)->T:\n  return value\n"
          "fn main()->i64:\n  f=id[i64]\n  a=id(12)\n  b=id[i32](7)\n  return f(a)+i64(b)\n");

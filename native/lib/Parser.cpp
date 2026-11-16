@@ -319,19 +319,20 @@ private:
     const bool grouped = consume(TokenKind::LeftParen);
     std::vector<SourceSpan> members;
     do {
-      auto member = expect(TokenKind::Identifier, "expected an error family");
-      if (!member)
+      auto annotation = parseType();
+      if (!annotation)
         return {};
-      auto span = member->span;
-      while (consume(TokenKind::Dot)) {
-        auto associated = expect(TokenKind::Identifier, "expected an associated error type");
-        if (!associated)
-          return {};
-        span.end = associated->span.end;
+      if (annotation->array || annotation->tensor || annotation->function ||
+          (!annotation->arguments.empty() && annotation->members.empty())) {
+        error("P006", "expected an error family or associated error type", annotation->span);
+        return {};
       }
+      const auto span = annotation->span;
+      if (!annotation->arguments.empty())
+        result_.module.errorProjections.emplace(span.begin, std::move(*annotation));
       members.push_back(span);
       if (members.size() > limits_.maxTokens) {
-        error("P006", "error union exceeds configured token budget", member->span);
+        error("P006", "error union exceeds configured token budget", span);
         return {};
       }
     } while (consume(TokenKind::Pipe));

@@ -14,6 +14,7 @@ h2 { "Standard modules" }
 Standard modules are explicit imports included with the compiler. They do not require package installation.
 
 list {
+  link { url = "/docs/arithmetic-traits", "std/ops — arithmetic operators and generic numerical contracts" },
   link { url = "/docs/iteration", "std/iter — ranges and owned cursors" },
   link { url = "/docs/options", "std/option — present and absent values" },
   link { url = "/docs/filesystem", "std/fs — owned files, byte and line I/O, buffering" },

@@ -14,9 +14,12 @@ enum class StandardModule {
   Time,
   Option,
   Iteration,
-  Comparison
+  Comparison,
+  Arithmetic
 };
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/ops")
+    return StandardModule::Arithmetic;
   if (name == "std/cmp")
     return StandardModule::Comparison;
   if (name == "std/iter")
@@ -45,6 +48,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Arithmetic:
+    return "kalandra-stdlib:std/ops.k";
   case StandardModule::Comparison:
     return "kalandra-stdlib:std/cmp.k";
   case StandardModule::Iteration:
@@ -73,6 +78,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Arithmetic))
+    return StandardModule::Arithmetic;
   if (path == standardModulePath(StandardModule::Comparison))
     return StandardModule::Comparison;
   if (path == standardModulePath(StandardModule::Iteration))
@@ -104,6 +111,38 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Arithmetic:
+    return R"k(export trait Add[Rhs]:
+  type Output
+  fn add(left: Self, right: Rhs) -> Self.Output
+fn __add[L, R](left: L, right: R):
+  return left + right
+export trait Sub[Rhs]:
+  type Output
+  fn sub(left: Self, right: Rhs) -> Self.Output
+fn __sub[L, R](left: L, right: R):
+  return left - right
+export trait Mul[Rhs]:
+  type Output
+  fn mul(left: Self, right: Rhs) -> Self.Output
+fn __mul[L, R](left: L, right: R):
+  return left * right
+export trait Div[Rhs]:
+  type Output
+  fn div(left: Self, right: Rhs) -> Self.Output
+fn __div[L, R](left: L, right: R):
+  return left / right
+export trait Rem[Rhs]:
+  type Output
+  fn rem(left: Self, right: Rhs) -> Self.Output
+fn __rem[L, R](left: L, right: R):
+  return left % right
+export trait Neg:
+  type Output
+  fn neg(value: Self) -> Self.Output
+fn __neg[T](value: T):
+  return -value
+)k";
   case StandardModule::Comparison:
     return R"k(export trait Equal:
   fn equal(left: Self, right: Self) -> bool
