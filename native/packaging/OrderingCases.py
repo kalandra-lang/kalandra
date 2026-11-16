@@ -43,9 +43,14 @@ DEVICE_CASES = {
       bits=[true,false,true,false]
       sortBy(bits,compare[bool])
       if bits==[false,false,true,true]:
-        fresh=sortedBy(bits,fn(a:bool,b:bool):return compare(b,a))
-        if fresh==[true,true,false,false] and bits==[false,false,true,true]:
-          return 42
+        return 42
+  return 0
+''',42),
+ 'bool-copy':(DECLARATIONS+'''fn orderingRun()->i64:
+  bits=[false,false,true,true]
+  fresh=sortedBy(bits,fn(a:bool,b:bool):return compare(b,a))
+  if fresh==[true,true,false,false] and bits==[false,false,true,true]:
+    return 42
   return 0
 ''',42),
  'empty-and-equal':(DECLARATIONS+'''fn orderingRun()->i64:
