@@ -79,4 +79,10 @@ if(BUILD_TESTING)
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordering-sort-references")
   set_tests_properties(native-ordering-sort-references PROPERTIES TIMEOUT 900
     LABELS "feature-frontend;feature-runtime;feature-control")
+  add_test(NAME native-ordering-copy-sort-references
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrderingCopySortTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordering-copy-sort-references")
+  set_tests_properties(native-ordering-copy-sort-references PROPERTIES TIMEOUT 900
+    LABELS "feature-frontend;feature-runtime;feature-control;feature-numerics")
 endif()

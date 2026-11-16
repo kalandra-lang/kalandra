@@ -399,3 +399,19 @@ for name,(declarations,expected) in ORDERING_DEVICE_CASES.items():
     run('ordering-'+name,source,str(expected)+'\n',device=True)
 for name,(source,expected) in ORDERING_HOST_CASES.items():
     run('ordering-'+name,prelude+source,expected)
+
+placement = '' if args.target == 'cpu' else ' on devices.gpu()'
+scheduled = 'sortedBy(values,byRank)' if args.target == 'cpu' else 'copyWorker(values)'
+run('ordering-spawned-copy', prelude + '''from "std/cmp" import sortedBy,compare,Ordering
+fn byRank(a:i64,b:i64)->Ordering:
+  return compare(a/1000,b/1000)
+fn copyWorker(values:[i64])->[i64]:
+  return sortedBy(values,byRank)
+''' + main + '''  values=[2000,1001,2002,1003]
+  copied=try parallel:
+    try await spawn ''' + scheduled + placement + '''
+  result=if copied==[1001,1003,2000,2002] and values==[2000,1001,2002,1003]:42
+  else:0
+  try println(format("{}",result))
+  return ()
+''', '42\n', device=True)

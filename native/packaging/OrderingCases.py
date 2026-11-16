@@ -43,7 +43,9 @@ DEVICE_CASES = {
       bits=[true,false,true,false]
       sortBy(bits,compare[bool])
       if bits==[false,false,true,true]:
-        return 42
+        fresh=sortedBy(bits,fn(a:bool,b:bool):return compare(b,a))
+        if fresh==[true,true,false,false] and bits==[false,false,true,true]:
+          return 42
   return 0
 ''',42),
  'empty-and-equal':(DECLARATIONS+'''fn orderingRun()->i64:
@@ -78,7 +80,31 @@ for numeric in ['f32','f64']:
     return 42
   return 0
 ''',42)
+ DEVICE_CASES['float-copy-'+numeric]=(DECLARATIONS+f'''fn orderingRun()->i64:
+  zero:{numeric}=0.0
+  negative:{numeric}=-zero
+  raw=zero/zero
+  nan=if totalCompare(raw,zero)==Ordering.Less:-raw
+  else:raw
+  infinity:{numeric}=1.0/zero
+  fresh=sortedBy([nan,infinity,zero,negative,-infinity,{numeric}(2),{numeric}(-2)],fn(a:{numeric},b:{numeric}):return totalCompare(a,b))
+  if fresh[0]!=-infinity or fresh[1]!={numeric}(-2) or fresh[4]!={numeric}(2) or fresh[5]!=infinity:
+    return 0
+  if totalCompare(fresh[2],negative)==Ordering.Equal and totalCompare(fresh[3],zero)==Ordering.Equal and fresh[6]!=fresh[6]:
+    return 42
+  return 0
+''',42)
 HOST_CASES = {
+ 'shadowed-sort':('''from "std/cmp" import compare,Ordering
+fn sortedBy[T](values:[T],comparator:fn(T,T)->Ordering)->[T]:
+  return values
+fn __sortedValues[T](values:[T],comparator:fn(T,T)->Ordering)->[T]:
+  return sorted(values)
+fn main()->unit ! IoError:
+  result=sortedBy([3,1,2],compare[i64])
+  try println(format("{}",result[0]))
+  return ()
+''','3\n'),
  'strings':('''from "std/cmp" import compare, sortedBy, Ordering
 fn main()->unit ! (IoError):
   values=sortedBy(["z","é","é","a","","😀"],compare[String])
@@ -158,5 +184,21 @@ DEVICE_CASES['stable-ranks']=(DECLARATIONS+'''fn orderingRun()->i64:
     if expected!=index or original[index].id!=index:
       return 0
     index=index+1
+  return 42
+''',42)
+
+DEVICE_CASES['stable-numeric-ranks']=(DECLARATIONS+'''fn orderingRun()->i64:
+  original=generate(65,fn(i):return ((i*31+7)%17)*1000+i)
+  values=sortedBy(original,fn(a:i64,b:i64):return compare(a/1000,b/1000))
+  for index in range(length(values)):
+    expected:i64=0
+    for other in range(length(original)):
+      if original[other]/1000<values[index]/1000:
+        expected=expected+1
+      else:
+        if original[other]/1000==values[index]/1000 and original[other]%1000<values[index]%1000:
+          expected=expected+1
+    if expected!=index or original[index]%1000!=index:
+      return 0
   return 42
 ''',42)

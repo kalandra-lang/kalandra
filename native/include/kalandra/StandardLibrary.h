@@ -239,6 +239,45 @@ fn __sortIndices[T](values: [T], comparator: fn(T, T) -> Ordering) -> [i64]:
 export fn sortedBy[T](values: [T], comparator: fn(T, T) -> Ordering) -> [T]:
   positions = __sortIndices(values, comparator)
   return generate(length(values), fn(i): return values[positions[i]])
+fn __sortedValues[T](values: [T], comparator: fn(T, T) -> Ordering) -> [T]:
+  count = length(values)
+  result = copy(values)
+  scratch = copy(values)
+  width: i64 = 1
+  while width < count:
+    start: i64 = 0
+    while start < count:
+      middle = if width < count - start: start + width
+      else: count
+      finish = if width < count - middle: middle + width
+      else: count
+      left = start
+      right = middle
+      output = start
+      while left < middle and right < finish:
+        decision = comparator(result[left], result[right])
+        if decision != Ordering.Greater:
+          scratch[output] = result[left]
+          left = left + 1
+        else:
+          scratch[output] = result[right]
+          right = right + 1
+        output = output + 1
+      while left < middle:
+        scratch[output] = result[left]
+        left = left + 1
+        output = output + 1
+      while right < finish:
+        scratch[output] = result[right]
+        right = right + 1
+        output = output + 1
+      start = finish
+    previous = result
+    result = scratch
+    scratch = previous
+    width = if width < count - width: width + width
+    else: count
+  return result
 fn __exchange[T](mut values: [T], left: i64, right: i64) -> unit:
   __kalandra_cmp_exchange(values, left, right)
   return ()

@@ -2224,7 +2224,8 @@ private:
     output_.functions[id].standardComparatorSort =
         syntax_.functions[id].moduleIndex < syntax_.standardModules.size() &&
         syntax_.standardModules[syntax_.functions[id].moduleIndex] == StandardModule::Comparison &&
-        name(syntax_.functions[id].name) == "__sortIndices";
+        (name(syntax_.functions[id].name) == "__sortIndices" ||
+         name(syntax_.functions[id].name) == "__sortedValues");
     auto result = standardFormat(id)     ? add(frame, *output_.functions[id].declaredResult,
                                                syntax_.functions[id].span, StringLiteral{std::string{}})
                   : standardIterator(id) ? iteratorBody(frame, id, *standardIterator(id))

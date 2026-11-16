@@ -153,22 +153,35 @@ int main() {
       context.settle();
     }
 #ifdef SORT_COPY
-    {
+    for (unsigned fail = 1; fail <= 4; ++fail) {
       std::array<Cell, 3> cells{Cell(3), Cell(1), Cell(2)}, before = cells;
       Array input{cells.data(), cells.data(), 0, {3}, {1}}, output{};
       Invocation context;
-      context.failAllocationAt(1);
+      context.failAllocationAt(fail);
       _mlir_ciface_kalandra_test_entry(&output, &input, &context);
-      require(context.status() == 2 && !output.allocated &&
-                  std::memcmp(cells.data(), before.data(), sizeof(cells)) == 0,
-              "failed sorted allocation modified its input or published output");
+      require(std::memcmp(cells.data(), before.data(), sizeof(cells)) == 0,
+              "sorted allocation failure changed its input");
+      if (context.status())
+        require(context.status() == 2 && !output.allocated,
+                "failed sorted allocation published output");
+      else
+        require(fail != 1 && output.sizes[0] == 3 && output.aligned[output.offset] == Cell(1) &&
+                    output.aligned[output.offset + output.strides[0]] == Cell(2) &&
+                    output.aligned[output.offset + 2 * output.strides[0]] == Cell(3),
+                "sorted failed or returned incorrect values without an allocation failure");
       context.settle();
       require(!context.live(), "failed sorted leaked storage");
     }
 #endif
     std::fesetenv(&saved);
     std::cout << "Array sort: " << cases
-              << " raw-bit/stride/pattern/FP-mode cases, no allocations, bounds/fault/cancel "
+              << " raw-bit/stride/pattern/FP-mode cases, "
+#ifdef SORT_COPY
+                 "copy isolation, "
+#else
+                 "no allocations, "
+#endif
+                 "bounds/fault/cancel "
                  "checks passed\n";
   } catch (const std::exception &error) {
     std::fesetenv(&saved);
