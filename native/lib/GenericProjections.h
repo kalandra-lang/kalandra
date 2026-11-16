@@ -9,6 +9,27 @@ struct GenericProjection {
 };
 std::unordered_map<std::string, GenericProjection> genericProjections_;
 std::unordered_map<std::string, std::string> genericProjectionKeys_;
+std::string genericVariableLabel(const std::string &variable, std::size_t depth = 0) const {
+  if (depth >= limits_.maxDepth)
+    return "associated type";
+  const auto dot = variable.find('.');
+  if (auto found = genericProjections_.find(variable.substr(0, dot));
+      found != genericProjections_.end()) {
+    const auto &projection = found->second;
+    const auto label = [&](const GenericTerm &term) {
+      return term.variables.size() == 1 ? genericVariableLabel(*term.variables.begin(), depth + 1)
+                                        : describeType(term.actual);
+    };
+    std::string result = name(syntax_.traits[projection.trait].name) + "[" + label(projection.self);
+    for (const auto &argument : projection.arguments)
+      result += ", " + label(argument);
+    return result + "]." + projection.member +
+           (dot == std::string::npos ? "" : variable.substr(dot));
+  }
+  if (variable.starts_with("$"))
+    return "derived generic type";
+  return variable;
+}
 std::string genericTermIdentityKey(const GenericTerm &term, std::size_t depth = 0) {
   if (depth >= limits_.maxDepth || !genericTermWork())
     return "$budget";

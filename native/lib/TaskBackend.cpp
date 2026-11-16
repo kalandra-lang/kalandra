@@ -1,13 +1,14 @@
+#include "../runtime/GeneratorFrame.h"
 #include "BufferLowering.h"
 #include "CollectionMetadata.h"
 #include "ConsoleLowering.h"
 #include "EnvironmentLowering.h"
 #include "ErrorFamilies.h"
 #include "FileLowering.h"
-#include "IteratorHostBridge.h"
 #include "IteratorFusion.h"
-#include "../runtime/GeneratorFrame.h"
+#include "IteratorHostBridge.h"
 #include "NativeCallFoundation.h"
+#include "NativeCallableIdentity.h"
 #include "NativeLayout.h"
 #include "NativeStack.h"
 #include "ParseLowering.h"
@@ -30,6 +31,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <algorithm>
 #include <map>
 #include <set>
@@ -360,6 +362,32 @@ public:
     finishRecordRetainers();
   }
   std::vector<llvm::GlobalVariable *> taskEntries() const { return entries; }
+  void emitSourceCallableIdentities() {
+    std::set<FunctionId> references;
+    for (const auto &expression : planner.input.expressions)
+      if (const auto *reference = std::get_if<FunctionReference>(&expression.operation))
+        references.insert(reference->function);
+    for (const auto &plan : planner.plans)
+      for (const auto &instruction : plan->code)
+        if (instruction.code == Code::FunctionReference)
+          references.insert(instruction.target);
+    for (auto id : references) {
+      if (coordinating.at(id))
+        continue;
+      Function *code = synchronousEntries[id];
+      if (!code)
+        if (auto imported = planner.importedFunctions.find(id);
+            imported != planner.importedFunctions.end())
+          code = module.getFunction("kalandra_callable_" + std::to_string(imported->second));
+      if (!code)
+        continue;
+      code->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::None);
+      auto *identity = llvm::GlobalAlias::create(
+          code->getValueType(), code->getAddressSpace(), llvm::GlobalValue::InternalLinkage,
+          "kalandra_source_callable_" + std::to_string(id), code, &module);
+      llvm::appendToCompilerUsed(module, {identity});
+    }
+  }
   void run(const std::optional<std::string> &testEntry,
            const std::vector<std::string> &exports = {}) {
     emitEntries(exports);
@@ -709,12 +737,11 @@ public:
               .getCallee());
       Function *nativeCode = nullptr;
       if (auto native = hostNativeTargets.find(id); native != hostNativeTargets.end()) {
-        nativeCode =
-            module.getFunction(std::string(target.resultType.fallible ? "kalandra_callable_plan_"
-                                                                      : "kalandra_callable_") +
-                               std::to_string(native->second));
+        nativeCode = sourceCallableCode(module, native->second, target.resultType.fallible);
         if (!nativeCode || nativeCode->isDeclaration())
-          throw std::runtime_error("host callable native projection is missing its checked code");
+          throw std::runtime_error(
+              "host callable native projection is missing checked code for source " +
+              std::to_string(native->second));
         nativeCode->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::None);
       }
       auto *matches =
@@ -1657,12 +1684,10 @@ private:
     };
     for (const auto &expression : planner.kernels.expressions)
       if (const auto *ref = std::get_if<FunctionReference>(&expression.operation)) {
-        const auto id = std::to_string(ref->function);
         const bool projectedFallible =
             (componentLayouts || planner.input.functions.empty()) &&
             planner.kernels.functions.at(ref->function).resultType.fallible;
-        auto *code = module.getFunction(
-            (projectedFallible ? "kalandra_callable_plan_" : "kalandra_callable_") + id);
+        auto *code = sourceCallableCode(module, ref->function, projectedFallible);
         accept(planner.kernels, *ref, expression.type, code);
       }
     if (!componentLayouts)
@@ -2135,9 +2160,9 @@ private:
                              retain);
         builder.SetInsertPoint(retain);
         if (isOwnedResource(planner.input, type)) {
-          auto *ok = call("kalandra_owned_copy_v1", boolean,
-                          {fn->getArg(0), fn->getArg(2),
-                           builder.CreateStructGEP(wrapper, fn->getArg(3), 1)});
+          auto *ok = call(
+              "kalandra_owned_copy_v1", boolean,
+              {fn->getArg(0), fn->getArg(2), builder.CreateStructGEP(wrapper, fn->getArg(3), 1)});
           builder.CreateCondBr(ok, ready, failed);
         } else {
           retainRecord(type, builder.CreateStructGEP(wrapper, fn->getArg(3), 1), fn, failed);
@@ -3873,7 +3898,9 @@ lowerTaskNativeImpl(const TypedModule &checked, std::optional<std::string> testE
     for (auto &fn : *module)
       if (!fn.isDeclaration())
         kernelFunctions.insert(&fn);
-    Emitter(*planner, *module).run(testEntry, exports);
+    Emitter emitter(*planner, *module);
+    emitter.run(testEntry, exports);
+    emitter.emitSourceCallableIdentities();
     if (!exports.empty()) {
       for (auto &fn : *module)
         if (!fn.isDeclaration() && !fn.getName().starts_with("_mlir_ciface_kalandra_cpu_"))

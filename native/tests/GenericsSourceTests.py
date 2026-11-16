@@ -136,6 +136,31 @@ for primitive in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
     tensor_body+=f'  try println(format("{{}}",tensorResult{primitive}))\n'
 run('arithmetic-tensor-traits',prelude+tensor_traits+main+tensor_body+'  return ()\n','7\n'*10,device=True)
 
+rank_traits='from "std/ops" import Add, Mul\n'
+rank_body=''
+for primitive in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
+    rank_traits+=f"""fn rankThree{primitive}(a:Tensor[{primitive},?,?,?],b:Tensor[{primitive},?,?,?])->{primitive}:
+  return reduceSum(Add.add(a,b))
+fn rankZero{primitive}(a:Tensor[{primitive}],b:Tensor[{primitive}])->{primitive}:
+  return reduceSum(Mul.mul(a,b))
+"""
+    rank_body+=f"""  highA{primitive}={primitive}(tensor([[[1,2]],[[3,4]]]))
+  highB{primitive}={primitive}(tensor([[[5,6]],[[7,8]]]))
+  zeroA{primitive}={primitive}(tensor(2))
+  zeroB{primitive}={primitive}(tensor(3))
+"""
+    for name,prefix in [('rankThree','high'),('rankZero','zero')]:
+        if args.target=='cpu':rank_body+=f'  {name}Result{primitive}={name}{primitive}({prefix}A{primitive},{prefix}B{primitive})\n'
+        else:
+            rank_body+=f"""  {name}Result{primitive}=try parallel:
+    gpu=devices.gpu()
+    a=try await transfer({prefix}A{primitive},gpu)
+    b=try await transfer({prefix}B{primitive},gpu)
+    try await spawn {name}{primitive}(a,b) on gpu
+"""
+    rank_body+=f'  try println(format("{{}}:{{}}",rankThreeResult{primitive},rankZeroResult{primitive}))\n'
+run('arithmetic-tensor-ranks',prelude+rank_traits+main+rank_body+'  return ()\n','36:6\n'*10,device=True)
+
 order_traits = """from "std/ops" import Add
 from "std/io" import println, IoError
 from "std/fmt" import format
@@ -155,12 +180,33 @@ fn left()->Value:
 fn right()->Value:
   emit("right")
   return Value {n:22}
-fn main()->unit ! IoError:
+fn main()->unit ! (IoError):
   result=left()+right()
   try println(format("{}",result.n))
   return ()
 """
 run('arithmetic-evaluation-order',order_traits,'left\nright\noperator\n42\n')
+
+callback_identities = """from "std/ops" import Add
+error Invalid:
+  Negative
+fn checked(value:i64)->i64 ! Invalid:
+  if value<0:
+    fail Invalid.Negative
+  return value
+fn retain(callback:fn(i64)->i64 ! Invalid):
+  return fn(value:i64)->i64 ! Invalid:return try callback(value)
+fn apply(value:i64,callback:fn(i64)->i64 ! Invalid)->i64 ! Invalid:
+  return try callback(value)
+fn main()->unit ! (IoError):
+  retained=retain(checked)
+  recovered=apply(-1,retained) catch fn(error):return 7
+  add=Add[i64,i64].add
+  result=add(20,22)
+  try println(format("{}:{}",recovered,result))
+  return ()
+"""
+run('arithmetic-callback-identities',prelude+callback_identities,'7:42\n')
 
 # Actual device algorithms use traits and generic local records/enums, not just a host bridge.
 arithmetic = '''type Pair[T]:

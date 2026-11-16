@@ -316,17 +316,6 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
       files[id].targets.push_back(*target);
       files[id].height = std::max(files[id].height, files[*target].height + 1);
     }
-    // Resolve operator capabilities by canonical module identity, not imported aliases.
-    if (!standard && std::ranges::any_of(parsed.module.expressions, [](const auto &expression) {
-          return std::holds_alternative<BinaryExpr>(expression.value) ||
-                 std::holds_alternative<UnaryExpr>(expression.value);
-        })) {
-      auto target = visit(fs::path(standardModulePath(StandardModule::Arithmetic)), 0, depth + 1,
-                          *source, {}, StandardModule::Arithmetic);
-      if (!target)
-        return {};
-      files[id].height = std::max(files[id].height, files[*target].height + 1);
-    }
     // Equality resolves one canonical capability without placing its name in
     // the user's import namespace. Primitive operators still lower directly.
     if (!standard && std::ranges::any_of(parsed.module.expressions, [](const auto &expression) {

@@ -1,3 +1,4 @@
+#include "../lib/NativeCallableIdentity.h"
 #include "../gpu-source/AggregateEntry.h"
 #include "../gpu-source/AggregateGraphSchema.h"
 #include "../gpu-source/AggregateNativeLayout.h"
@@ -1354,19 +1355,21 @@ class Compiler {
       }
       // Separate typed modules have their own private callable and function IDs.
       // Only the pointer-based bridges are shared with generated C++.
-      if (!stepsModule)
+      if (!stepsModule) {
         for (auto &function : *module)
           if (function.getName().starts_with("kalandra_callable_"))
             function.setName(prefix + function.getName().str());
+        for (auto &alias : module->aliases())
+          if (alias.getName().starts_with("kalandra_source_callable_"))
+            alias.setName(prefix + alias.getName().str());
+      }
       if (stepsModule) {
         const auto targetCode = [&](FunctionId original) {
           auto imported = continuationImports.find(original);
           if (imported == continuationImports.end())
             reject(span, "GPU closure target is missing from the host continuation projection");
           const bool fallible = placement.functions.at(original).resultType.fallible;
-          auto *code =
-              module->getFunction((fallible ? "kalandra_callable_plan_" : "kalandra_callable_") +
-                                  std::to_string(imported->second));
+          auto *code = sourceCallableCode(*module, imported->second, fallible);
           if (!code || code->isDeclaration())
             reject(span, "GPU closure target has no native host identity");
           code->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::None);

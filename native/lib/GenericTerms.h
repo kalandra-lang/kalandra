@@ -703,8 +703,8 @@ bool requireGenericTraitProof(const GenericProofOwner &owner, std::size_t trait,
                   variable.substr(0, variable.find(".$")) +
                   "'; name and constrain that type in the generic signature";
       else
-        message = "generic type '" + variable + "' requires a declared '" + required +
-                  "' trait bound with the requested arguments";
+        message = "generic type '" + genericVariableLabel(variable) + "' requires a declared '" +
+                  required + "' trait bound with the requested arguments";
       error("S083", std::move(message), site);
       return false;
     }
