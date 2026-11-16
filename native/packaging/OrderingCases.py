@@ -105,7 +105,7 @@ fn sortedBy[T](values:[T],comparator:fn(T,T)->Ordering)->[T]:
   return values
 fn __sortedValues[T](values:[T],comparator:fn(T,T)->Ordering)->[T]:
   return sorted(values)
-fn main()->unit ! IoError:
+fn main()->unit ! (IoError):
   result=sortedBy([3,1,2],compare[i64])
   try println(format("{}",result[0]))
   return ()
