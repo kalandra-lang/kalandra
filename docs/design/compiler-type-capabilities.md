@@ -84,3 +84,32 @@ Controlled performance checks retain load/stability failures and regressions.
 Complete the hosted package/cross-target matrix before review; physical GPU
 execution complements compile-only hosted GPU checks. Unsupported sanitizer
 modes and known driver/loader findings remain explicit.
+
+## Shared query interfaces
+
+TypeCapabilities.h provides a non-owning TypeFacts view of a live ValueType.
+The factory rejects temporary types, so a stored view cannot refer to a destroyed
+argument. completedHostScalar preserves the legacy completed-value profile;
+plainHostScalar additionally requires the absence of error-family metadata.
+The frontend map-signature prerequisite is named separately from normalized IR
+scalar validation, preserving parallel error channels and validation phases.
+
+ownedResourceKind in Semantics.h supplies the canonical resource identity used
+by isOwnedResource and its specific helpers. This fact does not certify that a
+particular wrapped, aggregate or malformed value can be moved or copied.
+
+numericTypeCapability receives the numeric type, CapabilityTarget,
+ArithmeticMode and NumericCapabilityOperation. Storage is distinct from
+arithmetic: Metal can transport f64 bits and perform a bit-selecting ReLU without
+claiming hardware f64 arithmetic. The hardware-arithmetic rejection retains its
+existing diagnostic. Accepted GPU requests carry requiresDeviceValidation;
+hardware f64 arithmetic also records requiresNativeFloat64 where supported by
+the target. Device float controls, kernel capabilities, shapes, operation
+contracts and actual feature admission remain with their existing validators.
+
+DeviceTypeStorage names the shared GPU layout prerequisites for scalar cells,
+flat local arrays, inline records, record arrays, callables and tensors. The
+aggregate planner, closure transport and checkpoint schemas continue to perform
+bounded field/layout/provenance analyses after these structural queries. Bool
+and unit can share a physical boolean cell while retaining different semantic
+builtin identities.

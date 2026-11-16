@@ -88,7 +88,9 @@ jobs:
           -DCMAKE_INSTALL_LIBDIR=lib -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Build native CPU toolchain
-        run: cmake --build build/linux --target native-cpu-toolchain kalandra -j2
+        run: |
+          cmake --build build/linux --target native-cpu-toolchain kalandra kalandra-type-capability-tests -j2
+          build/linux/native/kalandra-type-capability-tests
       - name: Qualify application entries, console I/O and formatting
         run: |
           cmake --build build/linux --target native-io-qualification -j2

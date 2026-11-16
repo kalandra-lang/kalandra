@@ -1,6 +1,6 @@
 #pragma once
 #include "../lib/RecordStorage.h"
-#include "kalandra/Semantics.h"
+#include "kalandra/TypeCapabilities.h"
 #include <algorithm>
 #include <expected>
 #include <map>
@@ -20,28 +20,22 @@ struct DeviceAggregateLayout {
 };
 using DeviceAggregateLayouts = std::map<std::size_t, DeviceAggregateLayout>;
 inline bool deviceScalarValue(const ValueType &type) {
-  return !type.tensor && !type.array && !type.task && !type.fallible &&
-         (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type));
+  return deviceTypeStorage(type, DeviceTypeStorage::Scalar);
 }
 inline bool deviceFlatArrayValue(const ValueType &type) {
-  return type.array && type.tensor && type.shape.size() == 1 && !type.task && !type.fallible &&
-         (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type));
+  return deviceTypeStorage(type, DeviceTypeStorage::FlatArray);
 }
 inline bool deviceInlineRecordValue(const ValueType &type) {
-  return type.record && type.builtin == BuiltinValue::Record && !type.tensor && !type.array &&
-         !type.task && !type.fallible;
+  return deviceTypeStorage(type, DeviceTypeStorage::InlineRecord);
 }
 inline bool deviceRecordArrayValue(const ValueType &type) {
-  return isRecordArray(type) && type.record && type.tensor && type.shape.size() == 1 &&
-         !type.task && !type.fallible;
+  return deviceTypeStorage(type, DeviceTypeStorage::RecordArray);
 }
 inline bool deviceCallableValue(const ValueType &type) {
-  return type.builtin == BuiltinValue::Function && !type.array && !type.tensor && !type.task &&
-         !type.fallible;
+  return deviceTypeStorage(type, DeviceTypeStorage::Callable);
 }
 inline bool deviceTensorValue(const ValueType &type) {
-  return type.tensor && !type.array && !type.task && !type.fallible &&
-         type.builtin == BuiltinValue::Numeric && type.shape.size() <= 8;
+  return deviceTypeStorage(type, DeviceTypeStorage::Tensor);
 }
 // Frame planning can use nominal storage decisions to terminate expansion at
 // arena handles. Flat boundary projections omit the storage plan.

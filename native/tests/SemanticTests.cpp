@@ -479,8 +479,10 @@ void limitsAndRobustness() {
   }
 }
 } // namespace
+void checkTypeCapabilities();
 int main(int argc, char **argv) {
   try {
+    checkTypeCapabilities();
     taskRecovery();
     taskTypesAndOwnership();
     literalContexts();

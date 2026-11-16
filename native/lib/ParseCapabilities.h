@@ -1,5 +1,5 @@
 #pragma once
-#include "kalandra/Semantics.h"
+#include "kalandra/TypeCapabilities.h"
 namespace kalandra {
 inline std::optional<std::string>
 parseCapabilityError(const TypedModule &module, const TypedExpr &expression, NumericTarget target) {
@@ -9,10 +9,10 @@ parseCapabilityError(const TypedModule &module, const TypedExpr &expression, Num
   const auto bad = [](const char *text) -> std::optional<std::string> {
     return std::string("text parsing ") + text;
   };
-  if (target != NumericTarget::Cpu)
+  if (!hostExecutionAvailable(target))
     return bad("requires host CPU execution");
   const auto plain = [](const ValueType &t) {
-    return !t.tensor && !t.array && !t.task && !t.fallible && !t.device && t.shape.empty();
+    return typeFacts(t).completedHostScalar();
   };
   if (unsigned(op->kind) < 1 || unsigned(op->kind) > 11 || op->input >= module.expressions.size())
     return bad("has an invalid scalar kind or input");

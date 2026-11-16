@@ -1,5 +1,5 @@
 #pragma once
-#include "kalandra/Semantics.h"
+#include "kalandra/TypeCapabilities.h"
 
 namespace kalandra {
 inline std::optional<std::string> environmentCapabilityError(const TypedModule &module,
@@ -8,11 +8,10 @@ inline std::optional<std::string> environmentCapabilityError(const TypedModule &
   const auto *lookup = std::get_if<EnvironmentLookup>(&expression.operation);
   if (!lookup)
     return {};
-  if (target != NumericTarget::Cpu)
+  if (!hostExecutionAvailable(target))
     return "environment lookup requires host CPU execution";
   const auto plain = [](const ValueType &type) {
-    return !type.tensor && !type.array && !type.task && !type.fallible && !type.device &&
-           !type.errorRecord && type.shape.empty();
+    return typeFacts(type).plainHostScalar();
   };
   const auto string = [&](const ValueType &type) {
     return plain(type) && type.builtin == BuiltinValue::String && !type.record;

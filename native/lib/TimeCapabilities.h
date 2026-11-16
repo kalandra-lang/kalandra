@@ -1,16 +1,15 @@
 #pragma once
-#include "kalandra/Semantics.h"
+#include "kalandra/TypeCapabilities.h"
 namespace kalandra {
 inline std::optional<std::string>
 timeCapabilityError(const TypedModule &module, const TypedExpr &expression, NumericTarget target) {
   const auto *operation = std::get_if<TimeOperation>(&expression.operation);
   if (!operation)
     return {};
-  if (target != NumericTarget::Cpu)
+  if (!hostExecutionAvailable(target))
     return "time operations require host CPU execution";
   const auto plain = [](const ValueType &type) {
-    return !type.task && !type.fallible && !type.errorRecord && !type.device && !type.array &&
-           !type.tensor && type.shape.empty();
+    return typeFacts(type).plainHostScalar();
   };
   const auto numeric = [&](const ValueType &type, NumericType numeric) {
     return plain(type) && !type.record && type.builtin == BuiltinValue::Numeric &&

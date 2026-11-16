@@ -1,10 +1,10 @@
 #pragma once
-#include "kalandra/Semantics.h"
+#include "kalandra/TypeCapabilities.h"
 namespace kalandra {
 inline std::optional<std::string>
 iteratorCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericTarget target) {
   if (const auto *generator = std::get_if<GeneratorCreate>(&expr.operation)) {
-    if (target != NumericTarget::Cpu)
+    if (!hostExecutionAvailable(target))
       return "generator frames require host execution";
     if (!isIterator(module, expr.type) || expr.type.fallible || expr.type.task ||
         expr.type.device || expr.type.array || expr.type.tensor || expr.type.errorRecord ||
@@ -49,7 +49,7 @@ iteratorCapabilityError(const TypedModule &module, const TypedExpr &expr, Numeri
   const auto *operation = std::get_if<IteratorOperation>(&expr.operation);
   if (!operation)
     return {};
-  if (target != NumericTarget::Cpu)
+  if (!hostExecutionAvailable(target))
     return "CPU iterator frames require host execution; device iteration needs device-local "
            "lowering";
   const auto bad = []() {
@@ -60,8 +60,7 @@ iteratorCapabilityError(const TypedModule &module, const TypedExpr &expr, Numeri
       operation->arguments.size() != 1 || operation->arguments[0] >= module.expressions.size())
     return bad();
   const auto scalar = [](const ValueType &type) {
-    return !type.task && !type.fallible && !type.device && !type.tensor && !type.array &&
-           !type.errorRecord && type.shape.empty();
+    return typeFacts(type).plainHostScalar();
   };
   const auto cursor = [&](const ValueType &type) -> const TypedRecord * {
     return scalar(type) && isIterator(module, type) &&

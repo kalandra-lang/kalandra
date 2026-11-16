@@ -1,5 +1,5 @@
 #pragma once
-#include "kalandra/Semantics.h"
+#include "kalandra/TypeCapabilities.h"
 namespace kalandra {
 inline std::optional<std::string>
 pathCapabilityError(const TypedModule &module, const TypedExpr &expression, NumericTarget target) {
@@ -9,14 +9,14 @@ pathCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
   const auto bad = [](const char *message) -> std::optional<std::string> {
     return std::string("path operations ") + message;
   };
-  if (target != NumericTarget::Cpu)
+  if (!hostExecutionAvailable(target))
     return bad("require host CPU execution");
   if (unsigned(op->action) < 1 || unsigned(op->action) > 5 ||
       op->input >= module.expressions.size())
     return bad("have an invalid action or input");
   const auto &input = module.expressions[op->input].type;
   const auto plain = [](const ValueType &type) {
-    return !type.task && !type.fallible && !type.errorRecord && !type.device;
+    return typeFacts(type).plainHostValue();
   };
   if (!plain(input) || input.builtin != BuiltinValue::String)
     return bad("require completed String input");
