@@ -535,6 +535,21 @@ void recordGenericValue(const Frame &frame, ValueId id) {
   if (dependentGenericTerm(term))
     genericValueTerms_[id] = finishGenericTerm(std::move(term));
 }
+// Enforce equations stated by a callable signature. An opaque callable F has
+// derived parameter types (F.$parameterN), rather than a declared equation to
+// another named parameter; its existing specialization rules still apply.
+bool namedGenericDependency(const GenericTerm &term, std::size_t depth = 0) const {
+  if (depth >= limits_.maxDepth)
+    return true;
+  for (const auto &variable : term.variables)
+    if (variable.find(".$") == std::string::npos && !variable.starts_with("$derived:"))
+      return true;
+  return std::ranges::any_of(
+             term.arguments,
+             [&](const auto &argument) { return namedGenericDependency(argument, depth + 1); }) ||
+         (term.error && namedGenericDependency(*term.error, depth + 1)) ||
+         (term.failure && namedGenericDependency(*term.failure, depth + 1));
+}
 bool sameGenericTermIdentity(const GenericTerm &a, const GenericTerm &b,
                              std::size_t depth = 0) const {
   if (depth >= limits_.maxDepth || genericTypeKey(a.actual) != genericTypeKey(b.actual) ||

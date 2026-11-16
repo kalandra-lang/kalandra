@@ -3561,6 +3561,19 @@ private:
       auto value = expression(frame, arguments[i], type.callable->parameters[i]);
       if (!value)
         return {};
+      if (genericContext(frame)) {
+        const auto callable = genericTerm(target);
+        const auto actual = genericTerm(*value);
+        if (i < callable.arguments.size() && namedGenericDependency(callable.arguments[i]) &&
+            dependentGenericTerm(actual) &&
+            !sameGenericTermIdentity(callable.arguments[i], actual)) {
+          error("S083",
+                "function arguments must preserve the abstract type relationships in the callable "
+                "signature",
+                syntax_.expressions[arguments[i]].span);
+          return {};
+        }
+      }
       values.push_back(*value);
     }
     // A callable signature promises a rank and any fixed extents, not a

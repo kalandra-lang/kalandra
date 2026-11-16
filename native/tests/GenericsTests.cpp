@@ -170,6 +170,11 @@ int main(int argc, char **argv) {
         repeatedArguments + "fn choose[A,B](v:Value,a:A,b:B)->i64:\n  return Choose.choose(v,a,b)\n"
                             "fn main()->i64:\n  return choose(Value {n:42},1,2)\n",
         "S083");
+    bad("trait function values preserve repeated abstract argument relationships",
+        repeatedArguments + "fn choose[A,B](v:Value,a:A,b:B)->i64:\n"
+                            "  callback=Choose[Value,A].choose\n  return callback(v,a,b)\n"
+                            "fn main()->i64:\n  return choose(Value {n:42},1,2)\n",
+        "S083");
     good("generic nominal bounds carry trait arguments",
          mix + "type Pair[T:Mix[R],R]:\n  value:T\n  other:R\n"
                "fn build[A:Mix[B],B](a:A,b:B)->Pair[A,B]:\n"

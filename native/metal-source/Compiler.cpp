@@ -1357,7 +1357,8 @@ class Compiler {
       // Only the pointer-based bridges are shared with generated C++.
       if (!stepsModule) {
         for (auto &function : *module)
-          if (function.getName().starts_with("kalandra_callable_"))
+          if (function.getName().starts_with("kalandra_callable_") ||
+              function.getName().starts_with("kalandra_source_callable_"))
             function.setName(prefix + function.getName().str());
         for (auto &alias : module->aliases())
           if (alias.getName().starts_with("kalandra_source_callable_"))
