@@ -50,6 +50,33 @@ static std::string text(const BufferBytes &bytes) {
                                       bytes.sizes[0])
                         : "";
 }
+// Join only after mutation: uniqueness must itself acquire the retired reader.
+static void readerRetirementOrdering() {
+  for (std::size_t size : {64u, 4096u}) {
+    for (unsigned round = 0; round < 32; ++round) {
+      Invocation context;
+      auto *payload = context.allocate(size);
+      CHECK(payload);
+      std::memset(payload, 0x73, size);
+      auto lease = context.lease(payload);
+      CHECK(lease);
+      context.settle();
+      CHECK(lease->uniquelyRetained());
+      auto pin = lease->retain();
+      CHECK(pin);
+      CHECK(!lease->uniquelyRetained());
+      std::thread reader([held = std::move(*pin)] {
+        for (auto byte : held.bytes())
+          CHECK(byte == std::byte{0x73});
+      });
+      while (!lease->uniquelyRetained())
+        std::this_thread::yield();
+      std::memset(payload, 0x39, size);
+      reader.join();
+      CHECK(lease->bytes()[0] == std::byte{0x39});
+    }
+  }
+}
 static void operations() {
   Invocation ctx;
   auto *scope = kalandra_file_scope_enter_v1(&ctx, nullptr, 0);
@@ -535,6 +562,7 @@ static void fileRoundTrip() {
   std::filesystem::remove(path);
 }
 int main() {
+  readerRetirementOrdering();
   operations();
   accounting();
   dynamicAccounting();

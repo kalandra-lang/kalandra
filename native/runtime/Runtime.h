@@ -25,6 +25,10 @@ public:
   std::span<const std::byte> bytes() const noexcept;
   // Private diagnostic snapshot, not a synchronization/uniqueness predicate.
   std::uint64_t referenceCount() const noexcept;
+  // Acquire retired readers' accesses before reusing an exclusively owned payload.
+  // The caller must separately prove mutation rights and exclude new retains
+  // while using this snapshot (for example, with the buffer resource mutex).
+  bool uniquelyRetained() const noexcept;
   std::optional<AllocationLease> retain() const noexcept;
   std::uint64_t reservationBytes() const noexcept;
   std::optional<AllocationLease> dependency(std::size_t index) const noexcept;

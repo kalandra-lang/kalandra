@@ -44,7 +44,7 @@ bool grow(Invocation &ctx, BufferState &s, std::uint64_t minimum, bool exact = f
   // checker separately proved exclusive mutation permission. A live payload
   // lease here can only be an earlier I/O pin; refcounts alone never grant
   // source mutation permission.
-  const bool pinned = protectPins && s.payload && s.payload.referenceCount() > 1;
+  const bool pinned = protectPins && s.payload && !s.payload.uniquelyRetained();
   if (minimum <= s.capacity && !pinned)
     return true;
   if (minimum > std::uint64_t(INT64_MAX)) {
@@ -277,7 +277,7 @@ extern "C" void kalandra_buffer_v1(Invocation *ctx, BufferResult *out, std::uint
     break;
   }
   case BufferAction::IntoArray:
-    if (s->payload && s->payload.referenceCount() == 1) {
+    if (s->payload && s->payload.uniquelyRetained()) {
       if (!ctx->retainLease(s->payload))
         return;
       out->bytes = view(*s);

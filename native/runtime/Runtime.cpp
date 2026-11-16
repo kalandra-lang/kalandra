@@ -615,6 +615,9 @@ std::span<const std::byte> AllocationLease::bytes() const noexcept {
 std::uint64_t AllocationLease::referenceCount() const noexcept {
   return backing_ ? backing_->references.load(std::memory_order_relaxed) : 0;
 }
+bool AllocationLease::uniquelyRetained() const noexcept {
+  return backing_ && backing_->references.load(std::memory_order_acquire) == 1;
+}
 std::optional<AllocationLease> AllocationLease::dependency(std::size_t index) const noexcept {
   if (!backing_ || index >= backing_->dependencyCount)
     return {};

@@ -113,3 +113,17 @@ aggregate planner, closure transport and checkpoint schemas continue to perform
 bounded field/layout/provenance analyses after these structural queries. Bool
 and unit can share a physical boolean cell while retaining different semantic
 builtin identities.
+
+## Buffer snapshot retirement
+
+Linux ARM64 ThreadSanitizer qualification exposed an existing buffer reuse race.
+A file worker can release its read-only allocation lease after cancellation has
+returned to the caller. Reusing the payload requires both exclusive ownership
+and synchronization with that retired reader. A relaxed diagnostic reference
+count is insufficient for the latter.
+
+AllocationLease::uniquelyRetained uses an acquire load, pairing with the reader's
+release decrement. Buffer operations call it while their resource mutex excludes
+new snapshot leases. This query does not grant mutation rights by itself. Pinned
+payloads still use copy-on-write; cancellation does not wait for a blocked native
+system call. Ownership, cancellation precedence and memory budgets are unchanged.
