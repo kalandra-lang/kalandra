@@ -32,7 +32,7 @@ list {
 h2 { "Alphabetical index" }
 
 list {
-  link { url = "/docs/collection-functions#array", "array — flatten a CPU tensor" },
+  link { url = "/docs/collection-functions#array", "array — collect an iterator or flatten a CPU tensor" },
   link { url = "/docs/collection-functions#bytelength", "byteLength — count UTF-8 bytes" },
   link { url = "/docs/collection-functions#concat", "concat — join arrays" },
   link { url = "/docs/collection-functions#copy", "copy — create independent array storage" },

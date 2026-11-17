@@ -1,0 +1,56 @@
+meta { title = "Kalandra 0.99.2 — CUDA and Vulkan", description = "Linux CUDA and Vulkan, experimental Windows GPU packages, and native call correctness fixes.", order = 1, group = "Release archive" }
+
+Kalandra 0.99.2 adds Linux CUDA and Vulkan compiler distributions and experimental Windows CUDA/Vulkan distributions. It is a GPU-delivery checkpoint before the next language-design work. Existing programs keep the immutable language model; the mutation and loop proposals are not part of this release.
+
+h2 { "One source language, three GPU backends" }
+
+Use the same placement, transfer and task APIs with --target metal, --target vulkan or --target cuda. Choose a compiler package that includes the selected backend. CPU-only packages do not gain a GPU backend from a flag alone. The GPU numerical subset covers ten numeric types, ranks zero through eight, resident tensor operations and supported function/control flow.
+
+Linux x86-64 Vulkan execution was qualified on NVIDIA RTX 5090 and Intel ARL. CUDA execution was qualified on RTX 5090. These are named hardware configurations, not a promise of compatibility with every GPU or driver. Linux ARM64 and Raspberry Pi remain CPU targets. macOS continues to use Metal on Apple silicon with macOS 26 or later.
+
+Hardware arithmetic is the default where supported; software arithmetic and hardware-with-software-fallback are explicit policies. Matrix products default to fixed-tree. Explicit optimized products permit full-float32 FMA and a different accumulation order, using reviewed permissively licensed kernels. No silent CPU, cuBLAS, TF32 or half-precision substitute is enabled.
+
+list {
+  link { url = "/docs/gpu", "GPU placement, compilation and numerical scope" },
+  link { url = "/docs/gpu-numerics", "Numerical policies and device limits" }
+}
+
+h2 { "Windows GPU support is experimental" }
+
+Windows x86-64 and ARM64 CUDA/Vulkan compiler packages pass build and installed-package checks: complete GPU source compilation, native CPU execution, relocation, secure driver lookup, PE dependency audits and reproducibility. Physical Windows GPU execution, numerical correctness, cancellation behavior and performance remain unqualified. An ARM64 compiler package does not establish NVIDIA ARM64 CUDA driver availability.
+
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/issues/276", "Track Windows GPU-passthrough VM testing" }
+}
+
+h2 { "Install 0.99.2" }
+
+Download from the GitHub release Assets section and verify the SHA-256 sidecar. For Linux x86-64, choose kalandra-native-cuda-standalone-linux-x86_64.tar.gz or kalandra-native-vulkan-standalone-linux-x86_64.tar.gz. Experimental Windows GPU archives use the corresponding cuda or vulkan backend and windows-x86_64 or windows-arm64 suffix. The signed, notarized and stapled macOS Metal DMG remains kalandra-native-metal-standalone.dmg. CPU and editor packages remain available.
+
+GPU compiler packages include all five CPU target runtime datasets and private host cross-linkers. Cross-platform builds cover CPU programs, not cross-target GPU applications. Linux requires system C++23 development headers. Windows requires matching Visual Studio C++ Build Tools and Windows SDK in a developer command prompt. Applications require a compatible GPU driver/system loader and their complete PTX or SPIR-V resource directory. Installed CUDA compilers need no CUDA toolkit, NVRTC or cuBLAS; CUDA applications need an NVIDIA driver supporting PTX 9.2.
+
+kalandra --version and the native language server report 0.99.2. Install kalandra-native.vsix from the same release; its independent extension version remains 0.1.0. Existing editor setup continues to work.
+
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.2", "Download Kalandra 0.99.2" },
+  link { url = "/docs/installation", "Installation and platform prerequisites" },
+  link { url = "/docs/tooling", "Set up your code editor" }
+}
+
+h2 { "Native call correctness and safety" }
+
+Windows stack admission now charges peak outgoing scalar argument storage rather than summing sequential calls. Large ARM64 stack-passed signatures use a conservative caller-pop convention, fixing O0 crashes on Linux and Windows. Register-only fast calls remain enabled; matching large signatures remain eligible for guaranteed tail calls, while differing large signatures may consume stack. Existing stack bounds and cancellation checks are retained.
+
+Qualification includes all twenty directed CPU platform pairs, O0/O2 wide-argument regressions, numerical references, ownership and cancellation tests, installed-package checks and reproducibility gates. Submitted GPU resources remain alive through confirmed completion. Cancellation does not reset the GPU or interrupt unrelated applications.
+
+Windows GPU sanitizers, cross-target GPU builds, distributed compute and user-written low-level kernels are not included. Local mutation and loop design work follows in a separate branch and release.
+
+h2 { "Changes since 0.99.1" }
+
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/273", "Vulkan backend" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/274", "Linux CUDA backend" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/275", "Windows CUDA and Vulkan delivery" },
+  link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.1...v0.99.2", "Full release comparison" },
+  link { url = "/docs/release-0-99-1", "Previous release: 0.99.1 — ARM64 and cross-compilation" }
+}
