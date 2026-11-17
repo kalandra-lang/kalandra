@@ -22,6 +22,9 @@ namespace m = raw::language;
 #include <new>
 #include <stdexcept>
 #include <vector>
+#if !defined(BENCH_METAL) && !defined(BENCH_CUDA) && defined(BENCH_WORKGROUP)
+#include "VulkanStencilCheck.h"
+#endif
 using namespace kalandra;
 using namespace kalandra::runtime;
 static void check(bool ok) {
@@ -74,6 +77,12 @@ int main(int argc, char **argv) {
       expected[i] = (input[i] + 1.0f) * 2.0f;
 #endif
     }
+#if !defined(BENCH_METAL) && !defined(BENCH_CUDA) && defined(BENCH_WORKGROUP)
+    std::vector<benchmark::StencilInterval> permitted(n);
+    for (std::size_t i = 0; i < n; ++i)
+      permitted[i] = benchmark::stencilInterval(input[i ? i - 1 : 0], input[i],
+                                                input[std::min(i + 1, n - 1)], expected[i]);
+#endif
     Invocation owner;
     const std::array shape{std::int64_t(n)};
     auto cpu = take(copyCpuTensor<NumericType::Float32, 1>(owner, NumericType::Float32,
@@ -144,18 +153,8 @@ int main(int argc, char **argv) {
         float actual;
         std::memcpy(&actual, bytes.data() + i * 4, 4);
 #if !defined(BENCH_METAL) && !defined(BENCH_CUDA) && defined(BENCH_WORKGROUP)
-        long double exact = (static_cast<long double>(input[i ? i - 1 : 0]) + input[i] +
-                             input[std::min(i + 1, n - 1)]) /
-                            3.0L;
-        int exponent = 0;
-        std::frexp(std::fabs(exact), &exponent);
-        auto ulp = std::ldexp(1.0L, exponent - 24);
-        if (std::fabs(exact) == std::ldexp(1.0L, exponent - 1))
-          ulp *= 0.5L;
-        check(std::isfinite(actual) &&
-              (exact == 0 ? std::bit_cast<std::uint32_t>(actual) ==
-                                std::bit_cast<std::uint32_t>(expected[i])
-                          : std::fabs(static_cast<long double>(actual) - exact) <= 2.5L * ulp));
+        const auto ordered = benchmark::orderedFloatBits(std::bit_cast<std::uint32_t>(actual));
+        check(ordered >= permitted[i][0] && ordered <= permitted[i][1]);
 #else
         check(std::bit_cast<std::uint32_t>(actual) == std::bit_cast<std::uint32_t>(expected[i]));
 #endif

@@ -17,8 +17,21 @@ prepared-output caching is disabled so every invocation performs the work. Each
 process has a fixed one-second warmup, followed by two reported warmup batches.
 Every batch's output is checked against an independent CPU reference outside its
 timing. Float32 outputs are bit-exact except Vulkan division, which is checked
-against its existing 2.5-ULP contract. Input values and sizes make both stencil
-additions exact. Every invocation checks task ownership retirement.
+against its existing 2.5-ULP contract. Its accepted float intervals are calculated
+before GPU warmup and rechecked at both endpoints and excluded neighbors against
+the original long-double predicate. Every batch still checks every output, with
+exact zero signs and no acceptance of NaNs or infinities. This avoids repeated
+libm calculations introducing long CPU-only gaps between GPU batches. Input
+values and sizes make both stencil additions exact. Every invocation checks task
+ownership retirement. `VulkanStencilCheckTests.cpp` compares the interval check
+against the original predicate for all 109 possible fixture sums, both zero
+signs, neighboring floats, infinities and NaNs:
+
+```sh
+clang++ -std=c++23 -O2 -ffp-contract=off \
+  native/benchmarks/cooperative/VulkanStencilCheckTests.cpp -o /tmp/stencil-check
+/tmp/stencil-check
+```
 
 The native stencil references have the same tile/halo, group size, padding,
 barrier and arithmetic sequence on valid inputs. They omit the compiler's general
