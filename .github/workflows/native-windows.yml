@@ -95,6 +95,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native CPU toolchain build failed' }
           & build/windows/native/kalandra-type-capability-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Type-capability contracts failed' }
+      - name: Qualify cooperative workgroup source and safety proofs
+        run: |
+          foreach ($suite in @('WorkgroupSafety', 'WorkgroupGeometry')) {
+            & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static -Inative/include "native/tests/${suite}Tests.cpp" "native/lib/${suite}.cpp" -o "build/windows/${suite}.exe"
+            if ($LASTEXITCODE -ne 0) { throw "$suite driver failed to compile" }
+            & "build/windows/${suite}.exe"
+            if ($LASTEXITCODE -ne 0) { throw "$suite contracts failed" }
+          }
+          python native/tests/WorkgroupSourceTests.py --checker build/windows/native/kalandra-check.exe --output build/windows/workgroup-source
+          if ($LASTEXITCODE -ne 0) { throw 'Cooperative source admission failed' }
       - name: Qualify native filesystem resource ownership
         run: |
           & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/FileSystemRuntimeTests.cpp native/tests/FileSystemUtilitiesTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/filesystem-runtime-tests.exe

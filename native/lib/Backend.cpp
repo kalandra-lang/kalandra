@@ -2923,6 +2923,8 @@ private:
               return arith::TruncIOp::create(builder_, loc, builder_.getI1Type(), result)
                   .getResult();
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
+          } else if constexpr (std::is_same_v<T, WorkgroupOperation>) {
+            throw LoweringFailure{"cooperative workgroup operations require a GPU-placed function"};
           } else if constexpr (std::is_same_v<T, ApplicationArguments>) {
             auto output = descriptorSlot(loc, type(node.type));
             func::CallOp::create(builder_, loc, "kalandra_application_arguments", TypeRange{},

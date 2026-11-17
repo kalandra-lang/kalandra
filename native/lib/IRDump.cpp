@@ -1250,6 +1250,23 @@ std::string dumpTypedIR(const TypedModule &module) {
                 out << " ";
                 value(capture);
               }
+            } else if constexpr (std::is_same_v<T, WorkgroupOperation>) {
+              static constexpr std::array names{"dispatch", "globalIndex", "localIndex", "shared",
+                                                 "barrier", "read", "write"};
+              const auto action = static_cast<std::size_t>(operation.metadata.action);
+              out << "workgroup." << (action < names.size() ? names[action] : "invalid");
+              for (auto arg : operation.arguments) {
+                out << " ";
+                value(arg);
+              }
+              if (operation.metadata.action == WorkgroupAction::Shared)
+                out << " count=" << operation.metadata.count;
+              if (operation.metadata.action == WorkgroupAction::Dispatch) {
+                out << " group=(";
+                for (std::size_t i = 0; i < operation.groupShape.size(); ++i)
+                  out << (i ? "," : "") << operation.groupShape[i];
+                out << ")";
+              }
             } else if constexpr (std::is_same_v<T, BufferOperation>) {
               out << "buffer." << unsigned(operation.action);
               for (auto arg : operation.arguments) {

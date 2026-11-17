@@ -144,6 +144,8 @@ std::optional<std::size_t> specializeRecord(std::size_t declaration, GenericBind
       header.standard = StandardRecord::Iterator;
     if (syntax_.standardModules[origin] == StandardModule::Option && spelling == "Option")
       header.standard = StandardRecord::Option;
+    if (syntax_.standardModules[origin] == StandardModule::Gpu && spelling == "Shared")
+      header.standard = StandardRecord::Shared;
   }
   output_.records.push_back(std::move(header));
   recordDeclarations_.resize(id);
@@ -198,6 +200,10 @@ std::optional<ValueType> genericNominalType(const TypeSyntax &syntax, std::size_
     return {};
   auto result = recordType(*record);
   if (syntax.array) {
+    if (workgroupCapability(output_, result)) {
+      error("S087", "workgroup capabilities cannot be stored in arrays", syntax.span);
+      return {};
+    }
     if (isOwnedResource(output_, result)) {
       error("S081", "owned resources cannot be stored in arrays", syntax.span);
       return {};
@@ -314,6 +320,10 @@ std::optional<ValueId> genericRecordValue(Frame &frame, SourceSpan span, const R
   if (!record)
     return {};
   const auto concrete = output_.records[*record];
+  if (workgroupCapability(output_, recordType(*record))) {
+    error("S087", "workgroup capabilities cannot be constructed by source code", span);
+    return {};
+  }
   std::vector<RecordFieldValue> assembled;
   for (const auto &[label, value] : values) {
     const auto field =

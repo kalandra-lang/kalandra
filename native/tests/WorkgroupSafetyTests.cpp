@@ -96,6 +96,36 @@ int main() {
     proof = proveWorkgroupSafety(typed, stencil);
     CHECK(proof && proof->scratchBytes == 258 * (description.bits <= 32 ? 4u : 8u));
   }
+  {
+    // Conditional local write/read pairs are safe on both paths, but cannot
+    // initialize a value for unconditional readers after the barrier.
+    std::vector<WorkgroupLaneAlternatives> lanes(2);
+    for (std::size_t lane = 0; lane < lanes.size(); ++lane) {
+      WorkgroupLane yes, no;
+      yes.phases = {{{{0, lane, true}, {0, lane, false}}, {}}};
+      no.phases.emplace_back();
+      lanes[lane].paths = {yes, no};
+    }
+    CHECK(proveWorkgroupAlternatives(scratch, lanes));
+    for (auto &lane : lanes)
+      for (auto &path : lane.paths) {
+        path.phases.front().barrier = 1;
+        path.phases.push_back({{{0, 0, false}}, {}});
+      }
+    CHECK(proveWorkgroupAlternatives(scratch, lanes).error().kind == Failure::UninitializedRead);
+    // Both branches initialize the same lane-owned slot, so publishing it at
+    // the barrier establishes initialization regardless of the selected path.
+    lanes[0].paths[1].phases[0].accesses = {{0, 0, true}};
+    CHECK(proveWorkgroupAlternatives(scratch, lanes));
+    lanes[1].paths[1].phases[0].accesses = {{0, 0, true}};
+    CHECK(proveWorkgroupAlternatives(scratch, lanes).error().kind == Failure::WriteRace);
+    lanes[1].paths[1].phases[0].accesses.clear();
+    lanes[1].paths[1].phases[0].barrier = 2;
+    CHECK(proveWorkgroupAlternatives(scratch, lanes).error().kind == Failure::DivergentBarrier);
+    WorkgroupProofLimits bounded;
+    bounded.pathsPerLane = 1;
+    CHECK(proveWorkgroupAlternatives(scratch, lanes, bounded).error().kind == Failure::Budget);
+  }
   WorkgroupProofLimits limits;
   limits.accesses = 2;
   CHECK(proveWorkgroupSafety(scratch, stencil, limits).error().kind == Failure::Budget);

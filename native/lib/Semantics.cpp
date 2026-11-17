@@ -6,7 +6,9 @@
 #include "RecordLayout.h"
 #include "RecordStorage.h"
 #include "RecursiveAdmission.h"
+#include "WorkgroupTypes.h"
 #include "kalandra/Continuation.h"
+#include "kalandra/WorkgroupAnalysis.h"
 #include "kalandra/StandardLibrary.h"
 #include "kalandra/StringLiteral.h"
 #include "llvm/ADT/APFloat.h"
@@ -236,6 +238,11 @@ public:
                       : "owned file handles require standalone ownership, not aggregate fields",
                   field.declaration);
       for (const auto &value : output_.expressions)
+        if (workgroupCapability(output_, value.type) &&
+            (value.type.array || value.type.task || value.type.tensor))
+          error("S087", "workgroup capabilities cannot be stored in arrays, tensors or tasks",
+                value.span);
+      for (const auto &value : output_.expressions)
         if (isOwnedResource(output_, value.type) && value.type.array)
           error("S081",
                 isIterator(output_, value.type) ? "owned Iterator cannot be stored in arrays"
@@ -244,6 +251,12 @@ public:
                     : "owned file handles cannot be stored in arrays",
                 value.span);
     }
+    if (!syntax_.editorOnly && diagnostics_.empty())
+      for (ValueId id = 0; id < output_.expressions.size(); ++id)
+        if (const auto *operation = std::get_if<WorkgroupOperation>(&output_.expressions[id].operation);
+            operation && operation->metadata.action == WorkgroupAction::Dispatch)
+          if (auto analysis = analyzeWorkgroup(output_, id); !analysis)
+            error(analysis.error().code, analysis.error().message, analysis.error().span);
     if (!syntax_.editorOnly && diagnostics_.empty())
       for (auto &diagnostic : arrayAccessDiagnostics(output_))
         error(diagnostic.code, diagnostic.message, diagnostic.span);
@@ -686,6 +699,10 @@ private:
         if (!registeringRecords_ && !populateRecord(id, syntax.span))
           return {};
         auto result = recordType(id);
+        if (syntax.array && workgroupCapability(output_, result)) {
+          error("S087", "workgroup capabilities cannot be stored in arrays", syntax.span);
+          return {};
+        }
         if (syntax.array && isOwnedResource(output_, result)) {
           error("S081",
                 isByteBuffer(output_, result) ? "owned ByteBuffer cannot be stored in arrays; pass "
@@ -1136,6 +1153,8 @@ private:
       header.error = record.error;
       const auto origin = syntax_.source->partIndex(record.name.begin);
       if (origin < syntax_.standardModules.size()) {
+        if (syntax_.standardModules[origin] == StandardModule::Gpu && label == "WorkItem")
+          header.standard = StandardRecord::WorkItem;
         if (syntax_.standardModules[origin] == StandardModule::Process && label == "ExitStatus")
           header.standard = StandardRecord::ExitStatus;
         if (syntax_.standardModules[origin] == StandardModule::Io && label == "IoError")
@@ -1283,6 +1302,11 @@ private:
           auto value = type(field.type);
           if (!value)
             continue;
+          if (workgroupCapability(output_, *value)) {
+            error("S087", "workgroup capabilities cannot be stored in aggregate fields",
+                  field.type.span);
+            continue;
+          }
           if (isOwnedResource(output_, *value)) {
             error("S081",
                   isByteBuffer(output_, *value)
@@ -1318,6 +1342,10 @@ private:
       auto fieldType = type(field.type);
       if (!fieldType)
         continue;
+      if (workgroupCapability(output_, *fieldType)) {
+        error("S087", "workgroup capabilities cannot be stored in aggregate fields", field.type.span);
+        continue;
+      }
       if ((fieldType->tensor && fieldType->builtin != BuiltinValue::Numeric &&
            !isBoolArray(*fieldType) && !isStringArray(*fieldType) && !isRecordArray(*fieldType) &&
            !isFunctionArray(*fieldType)) ||
@@ -2657,6 +2685,11 @@ private:
     if (!origin)
       return {};
     const auto capture = output_.symbols[*origin];
+    if (workgroupCapability(output_, capture.type)) {
+      error("S087", "workgroup capabilities cannot be captured; pass them as helper parameters",
+            span);
+      return {};
+    }
     if (isOwnedResource(output_, capture.type) && !frame.closure->generator) {
       error(
           "S081",
@@ -2796,6 +2829,10 @@ private:
       }
       result = recordType(found->second);
     }
+    if (workgroupCapability(output_, result)) {
+      error("S087", "workgroup capabilities cannot be constructed or updated by source code", span);
+      return {};
+    }
     if (isTimeValue(output_, result)) {
       error("S081", "time values are opaque; use std/time constructors", span);
       return {};
@@ -2897,6 +2934,10 @@ private:
     if (!output_.records[*type.record].variants.empty()) {
       error("S071", "enum payload fields are available only inside a matching variant branch",
             span);
+      return {};
+    }
+    if (workgroupCapability(output_, type)) {
+      error("S087", "workgroup capabilities are opaque; use their workgroup operations", read.field);
       return {};
     }
     if (isTimeValue(output_, type)) {
@@ -3429,6 +3470,14 @@ private:
                                           std::optional<ExprId> selection = {},
                                           std::optional<ValueId> *checkedSelection = nullptr,
                                           bool spawned = false) {
+    if (auto method = workgroupMethodSyntax(frame, call)) {
+      if (spawned || selection) {
+        error("S087", "WorkItem operations run inside a cooperative callback, not as spawn entries",
+              span);
+        return {};
+      }
+      return workgroupMethodCall(frame, span, *method, call.arguments);
+    }
     const auto *callee = std::get_if<NameExpr>(&syntax_.expressions[call.callee].value);
     if (!callee) {
       if (const auto *method = std::get_if<FieldExpr>(&syntax_.expressions[call.callee].value)) {
@@ -3850,6 +3899,8 @@ private:
     if (!input)
       return {};
     const auto array = node(*input).type;
+    if (plainWorkgroupCapability(output_, array, StandardRecord::Shared))
+      return workgroupIndex(frame, store.target, *input, store.index, store.value);
     if (isByteBuffer(output_, array) && !array.task && !array.fallible && !array.device) {
       auto index = bufferIndex(frame, store.target, *input, store.index, BufferAction::CheckIndex);
       if (!index)
@@ -3920,6 +3971,13 @@ private:
     if (!input)
       return {};
     const auto a = node(*input).type;
+    if (plainWorkgroupCapability(output_, a, StandardRecord::Shared)) {
+      if (read.indices.size() != 1) {
+        error("S087", "shared scratch indexing requires exactly one integer index", span);
+        return {};
+      }
+      return workgroupIndex(frame, span, *input, read.indices.front());
+    }
     if (isByteBuffer(output_, a) && !a.task && !a.fallible && !a.device) {
       if (read.indices.size() != 1) {
         error("S063", "ByteBuffer indexing requires exactly one integer index", span);
@@ -6988,6 +7046,13 @@ private:
       return {};
     }
     const auto id = concreteTarget.value_or(found == functions_.end() ? 0 : found->second);
+    if (standardWorkgroupDispatch(id)) {
+      if (spawned || selection) {
+        error("S087", "place a function containing dispatch on the GPU, not dispatch itself", span);
+        return {};
+      }
+      return workgroupDispatch(frame, span, arguments);
+    }
     if (!concreteTarget && !syntax_.functions[id].generics.empty())
       return invokeGeneric(frame, span, calleeSpan, id, {}, arguments, expected, selection,
                            checkedSelection, spawned);
@@ -7175,6 +7240,7 @@ private:
 #include "GenericChecking.h"
 #include "IterationChecking.h"
 #include "NeverChecking.h"
+#include "WorkgroupChecking.h"
   std::size_t nextLoop_ = 1;
   Module syntax_;
   SemanticLimits limits_;
