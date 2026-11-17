@@ -19,12 +19,14 @@ p.add_argument('--configuration',type=Path,required=True)
 p.add_argument('--protocol',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
 p.add_argument('--study',choices=('aa','frozen','repeat','cooperative-aa','reference','reference-repeat'),required=True)
+p.add_argument('--load-policy',choices=('idle','record'),default='idle')
 a=p.parse_args();assert not a.output.exists()
 cfg=json.loads(a.configuration.read_text())
 spec=importlib.util.spec_from_file_location('protocol',a.protocol);protocol=importlib.util.module_from_spec(spec);spec.loader.exec_module(protocol)
 sha=lambda path:hashlib.sha256(Path(path).read_bytes()).hexdigest()
 artifacts={path:sha(path) for path in dict.fromkeys(x for command in cfg['commands'].values() for x in command)}
 evidence=dict(study=a.study,configuration=cfg,configuration_sha256=sha(a.configuration),driver_protocol_sha256=sha(a.protocol),orchestrator_sha256=sha(__file__),artifacts=artifacts,utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),invocations=[],status='running')
+evidence['load_policy']=a.load_policy
 def save():a.output.write_text(json.dumps(evidence,indent=2)+'\n')
 previous_cpu={}
 previous_time=None
@@ -58,6 +60,7 @@ def load():
     return last_cpu_sample
 class LoadRejected(AssertionError):pass
 def require_idle(sample):
+    if a.load_policy=='record':return
     if not admitted(sample):raise LoadRejected('External CPU load exceeded the fixed gate; evidence retained.')
 def admitted(sample):return sample['total']<=200 and all(r['cpu']<=90 for r in sample['top'])
 try:
@@ -66,11 +69,11 @@ try:
         passed=True
         for _ in range(3):
             sample=load();sample['idle_attempt']=idle_attempt;evidence['idle_samples'].append(sample);save()
-            passed=passed and admitted(sample)
+            passed=passed and (a.load_policy=='record' or admitted(sample))
             if cfg['platform']=='linux':
                 gpu=subprocess.check_output(['nvidia-smi','--query-gpu=utilization.gpu','--format=csv,noheader,nounits'],text=True).strip()
                 evidence.setdefault('gpu_idle_samples',[]).append(gpu);save()
-                passed=passed and all(int(n.strip())<=2 for n in gpu.splitlines())
+                passed=passed and (a.load_policy=='record' or all(int(n.strip())<=2 for n in gpu.splitlines()))
             time.sleep(1)
         if passed:break
         if idle_attempt==4:raise LoadRejected('Initial CPU/GPU idle gate failed after five retained windows.')

@@ -15,6 +15,7 @@ p.add_argument("--driver", type=Path, required=True)
 p.add_argument("--output", type=Path, required=True)
 p.add_argument("--study", choices=("aa", "reference", "repeat"), required=True)
 p.add_argument("--control", type=Path)
+p.add_argument("--load-policy", choices=("idle", "record"), default="idle")
 a = p.parse_args()
 a.driver = a.driver.resolve()
 assert not a.output.exists()
@@ -28,6 +29,7 @@ artifacts = {
 evidence = dict(
     status="running",
     study=a.study,
+    loadPolicy=a.load_policy,
     configuration=cfg,
     configurationSHA256=sha(a.configuration),
     artifacts=artifacts,
@@ -47,6 +49,7 @@ try:
         assert a.control
         control = json.loads(a.control.read_text())
         assert control["status"] == "passed" and control["study"] == "aa"
+        assert control["loadPolicy"] == a.load_policy
         assert (
             control["configurationSHA256"] == evidence["configurationSHA256"]
             and control["artifacts"] == artifacts
@@ -56,14 +59,16 @@ try:
         for _ in range(3):
             sample = monitor.load()
             evidence["idle"].append(sample)
-            passed = passed and monitor.admitted(sample)
+            passed = passed and (a.load_policy == "record" or monitor.admitted(sample))
             if cfg["platform"] == "linux":
                 gpu = subprocess.check_output(
                     ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
                     text=True,
                 ).strip()
                 evidence.setdefault("gpuIdle", []).append(gpu)
-                passed = passed and all(int(n.strip()) <= 2 for n in gpu.splitlines())
+                passed = passed and (
+                    a.load_policy == "record" or all(int(n.strip()) <= 2 for n in gpu.splitlines())
+                )
             save()
             time.sleep(1)
         if passed:
@@ -89,7 +94,7 @@ try:
                 )
                 evidence["invocations"].append(record)
                 save()
-                if not monitor.admitted(record["load"][0]):
+                if a.load_policy == "idle" and not monitor.admitted(record["load"][0]):
                     record["loadRejected"] = True
                     save()
                     if attempt == 4:
@@ -116,7 +121,8 @@ try:
                 record.update(returncode=job.returncode, stdout=stdout, stderr=stderr)
                 save()
                 assert job.returncode == 0 and not stderr, (stdout, stderr)
-                if not all(monitor.admitted(s) for s in record["load"]):
+                record["contendedSamples"] = sum(not monitor.admitted(s) for s in record["load"])
+                if a.load_policy == "idle" and record["contendedSamples"]:
                     record["loadRejected"] = True
                     save()
                     if attempt == 4:

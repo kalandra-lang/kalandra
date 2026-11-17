@@ -124,6 +124,46 @@ CASES = {
     """, prefix="""fn slot(index: i64) -> i64:
   return (index + 1) % 4
 """), None),
+    "finite-numerical-helper-before-barrier": (kernel("""
+        lane = item.localIndex(0)
+        tile = item.shared[f32](4)
+        tile[lane] = f32(wrapped(lane))
+        item.barrier()
+        return tile[3 - lane]
+    """, prefix="""fn countUp(stop: i64) -> i64:
+  i = 0
+  while i < stop:
+    i = i + 1
+  return i
+fn wrapped(stop: i64) -> i64:
+  return countUp(stop)
+"""), None),
+    "unresolved-numerical-helper-loop": (kernel("""
+        return f32(countUp(stop))
+    """, parameters="stop: i64", prefix="""fn countUp(stop: i64) -> i64:
+  i = 0
+  while i < stop:
+    i = i + 1
+  return i
+"""), "finite control proof"),
+    "transitive-unresolved-helper-loop": (kernel("""
+        return f32(wrapped(stop))
+    """, parameters="stop: i64", prefix="""fn countUp(stop: i64) -> i64:
+  i = 0
+  while i < stop:
+    i = i + 1
+  return i
+fn wrapped(stop: i64) -> i64:
+  return countUp(stop)
+"""), "finite control proof"),
+    "nonterminating-numerical-helper": (kernel("""
+        return f32(spin())
+    """, prefix="""fn spin() -> i64:
+  i = 0
+  while i >= 0:
+    i = i + 0
+  return i
+"""), "proof iteration budget"),
     "range-nonzero-start": (kernel("""
         tile = item.shared[f32](4)
         if item.localIndex(0) == 0:

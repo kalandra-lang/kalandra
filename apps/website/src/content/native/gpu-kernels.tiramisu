@@ -110,7 +110,7 @@ code { "item.barrier() -> unit" }
 
 Wait until all invocations in this workgroup reach this barrier, and make their preceding shared writes visible. It does not synchronize different workgroups. Every participating lane must reach the same sequence of barrier sites, including through helper calls, branches, loops and early returns. Synchronizing control flow must have a finite proof; the compiler rejects code it cannot establish as convergent.
 
-Loops in cooperative callbacks need provable static bounds. Runtime input values may choose branches when every possible path preserves the required shared-memory access and barrier rules. A data-dependent loop with an unresolved trip count is rejected.
+Loops in cooperative callbacks need provable static bounds, including loops in called helpers. Runtime input values may choose branches when every possible path preserves the required shared-memory access and barrier rules. A data-dependent loop with an unresolved trip count is rejected.
 
 h2 { "Partial groups and failures" }
 

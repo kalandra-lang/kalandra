@@ -96,3 +96,14 @@ The 5% median and 10% worst-block limits and CPU/GPU admission gates are unchang
 Each process is limited to 180 seconds; output is recorded in files so collecting
 measurements cannot block on a full pipe. This experiment does not replace or
 erase failed fresh-context controls, and does not measure kernel-only time.
+
+For measurements alongside normal desktop work, both orchestrators accept
+`--load-policy record`. This profile records CPU/GPU activity without refusing,
+discarding or retrying a batch because of competing work. All measurements remain
+in the analysis, including contended batches. The numerical/ownership assertions,
+ABBA/BAAB ordering and fixed 5% median / 10% worst-block identical-build limits are
+unchanged. Reference comparisons require a passing control under the same profile
+and artifact hashes. Keep these results separate from idle-machine studies and
+label them as measurements under the observed workload, rather than uncontended
+GPU throughput. A failed timing control means the comparison is inconclusive; it
+does not justify selecting quieter results or asking users to stop their work.

@@ -72,6 +72,7 @@ fn shuffle(values: Tensor[{element}, 8]) -> Tensor[{element}, ?]:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
     from WorkgroupSourceTests import CASES
     controls = {
+        "finite-numerical-helper-before-barrier": [3, 2, 1, 0],
         "caught-lane-error-before-barrier": [3, 2, 1, 7],
         "caught-error-union-before-barrier": [23,22,21,30],
         "caught-error-payload": [7, 1, 2, 3],

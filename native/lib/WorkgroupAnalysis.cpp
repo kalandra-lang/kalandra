@@ -183,8 +183,8 @@ class Analyzer {
           return v.kind == Value::Kind::Item || v.kind == Value::Kind::Scratch;
         });
     if (!root && !effects[id] && !capability && !function.resultType.fallible) {
-      // Opaque numerical helpers may allocate or consume a lane-local call/work
-      // budget. Equal arguments alone do not establish uniform failure behavior.
+      // Opaque numerical values do not establish uniform failure behavior.
+      // Equal arguments alone are insufficient when evaluating a helper can fail.
       // Only a finite scalar leaf can be folded into a shared-address proof.
       const bool scalarLeaf = std::ranges::all_of(function.expressions, [&](ValueId expression) {
         const auto &operation = module.expressions[expression].operation;
@@ -427,7 +427,7 @@ class Analyzer {
         frame.cache.clear();
         const auto condition = evaluate(frame, op->condition);
         if (!condition.integer)
-          reject(id, "cooperative loop requires a finite control proof; move independent numerical work into a helper");
+          reject(id, "cooperative loop requires a finite control proof, including called helpers");
         if (!*condition.integer) {
           const auto previous = frame.uniformControl;
           frame.uniformControl &= condition.uniform;
@@ -650,7 +650,11 @@ public:
     for (std::size_t fn = 0; fn < module.functions.size(); ++fn)
       for (auto expression : module.functions[fn].expressions) {
         const auto &operation = module.expressions[expression].operation;
+        // A helper must terminate before its caller can reach a collective,
+        // even when the helper itself never accesses workgroup memory.
+        const auto *loop = std::get_if<WhileOperation>(&operation);
         effects[fn] = effects[fn] || std::holds_alternative<WorkgroupOperation>(operation) ||
+                      (loop && !loop->functionBoundary) ||
                       std::holds_alternative<FunctionInvoke>(operation) ||
                       std::holds_alternative<ConsoleOperation>(operation) ||
                       std::holds_alternative<FormatOperation>(operation) ||
