@@ -9,6 +9,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "native/packaging"))
 from PortablePackageTests import prepare_tests
+from FileSystemCases import EXPECTED as FILESYSTEM_EXPECTED
 
 
 class IsolatedHarnessTests(unittest.TestCase):
@@ -27,8 +28,7 @@ class IsolatedHarnessTests(unittest.TestCase):
                  "from VersionCheck import expected_version;"
                  "from ProtocolClient import expected_server_version;"
                  "import PortableCPUAcceptance;"
-                 "assert PortableCPUAcceptance.FILESYSTEM_EXPECTED == 'λ:2:206:9\\n';"
-                 "print(json.dumps([expected_version(),expected_server_version()]))", str(tests)],
+                 "print(json.dumps([expected_version(),expected_server_version(),PortableCPUAcceptance.FILESYSTEM_EXPECTED]))", str(tests)],
                 cwd=folder, capture_output=True, text=True, check=True)
             version = (ROOT / "VERSION").read_text().strip()
-            self.assertEqual(json.loads(result.stdout), [version, version])
+            self.assertEqual(json.loads(result.stdout), [version, version, FILESYSTEM_EXPECTED])

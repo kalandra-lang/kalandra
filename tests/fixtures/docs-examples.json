@@ -432,7 +432,12 @@
       "expected": "42"
     }
   ],
-  "release-notes": [],
+  "release-notes": [
+    {
+      "kind": "cpu",
+      "expected": "20"
+    }
+  ],
   "cross-compilation": [
     {
       "kind": "cpu",
@@ -660,5 +665,6 @@
       "kind": "cpu",
       "expected": "42:42"
     }
-  ]
+  ],
+  "release-0-99-2": []
 }

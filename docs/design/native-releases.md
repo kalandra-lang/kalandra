@@ -11,7 +11,7 @@ It does not publish npm packages, the website or the extension Marketplace.
   fail validation, including numeric identifiers with leading zeros.
 
 The root `VERSION` file is authoritative for the native toolchain. It currently
-contains `0.99.1`; CMake uses its numeric core as `PROJECT_VERSION` and embeds the
+contains `0.99.3`; CMake uses its numeric core as `PROJECT_VERSION` and embeds the
 full SemVer string in CLI tools, LSP `serverInfo` and installed `toolchain.json`
 metadata. LLVM and the VS Code extension retain their independent versions.
 
@@ -34,7 +34,7 @@ Linux x86-64/ARM64 and Windows x86-64/ARM64. CPU cross-compilation is qualified 
 The `notarize` job then signs staging copies of all three standalone bundles, repeats
 their runtime acceptance with hardened signatures, submits signed DMGs to Apple,
 staples tickets and assesses Gatekeeper acceptance. Tagged publication requires
-this job to pass and validates all 31 assets, checksum sidecars and accepted
+this job to pass and validates the complete asset manifest, checksum sidecars and accepted
 receipts before creating a release. Configure the publisher credentials using
 the [CI signing instructions](native-ci-signing.md). A native branch rehearsal
 requires repository variable `KALANDRA_NOTARIZE=true` and publishes no release.

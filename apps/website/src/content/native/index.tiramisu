@@ -55,7 +55,7 @@ list {
   link { url = "/docs/packages", "Install and update source dependencies" },
   link { url = "/docs/cross-compilation", "Build for another operating system or CPU architecture" },
   link { url = "/docs/troubleshooting", "Resolve common errors and setup problems" },
-  link { url = "/docs/release-notes", "Release notes — what changed in Kalandra 0.99.2" }
+  link { url = "/docs/release-notes", "Release notes — what changed in Kalandra 0.99.3" }
 }
 
 h2 { "A first program" }
