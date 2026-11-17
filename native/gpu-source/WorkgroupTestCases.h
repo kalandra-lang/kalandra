@@ -126,6 +126,22 @@ inline std::vector<WorkgroupTestCase> workgroupTestCases(bool controls) {
       test.expected.push_back(bits[7 - (i % 8)]);
     cases.push_back(std::move(test));
   }
+  for (unsigned rank = 0; rank <= 8; ++rank) {
+    WorkgroupTestCase test{
+        "coordinates-rank-" + std::to_string(rank), NumericType::Float32, {}, {}};
+    std::uint64_t count = 1;
+    for (unsigned axis = 0; axis < rank; ++axis) {
+      const auto extent = axis == 0 ? 5u : axis == 1 ? 7u : 3u;
+      test.launch.groupShape.push_back(axis == 1 ? 3u : 2u);
+      test.launch.shape.push_back({{WorkgroupShapeAction::Constant, extent}});
+      count *= extent;
+    }
+    // Independent row-major output oracle, including non-power-of-two group
+    // counts and padding on every axis. Positive values also expose unwritten cells.
+    for (std::uint64_t cell = 0; cell < count; ++cell)
+      test.expected.push_back(std::bit_cast<std::uint32_t>(float(cell + 1)));
+    cases.push_back(std::move(test));
+  }
   return cases;
 }
 } // namespace kalandra::qualification

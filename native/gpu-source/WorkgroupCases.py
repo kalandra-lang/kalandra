@@ -30,6 +30,20 @@ fn shuffle() -> Tensor[{element}{dimensions}]:
     return source, shape, group
 
 
+def coordinates(rank):
+    shape = [5 if axis == 0 else 7 if axis == 1 else 3 for axis in range(rank)]
+    group = [3 if axis == 1 else 2 for axis in range(rank)]
+    dimensions = ", " + ", ".join(["?"] * rank) if rank else ""
+    body = "    offset = 0\n"
+    for axis, extent in enumerate(shape):
+        body += f"    offset = offset * {extent} + item.globalIndex({axis})\n"
+    source = ('from "std/gpu" import dispatch, WorkItem\n'
+              f'fn shuffle() -> Tensor[f32{dimensions}]:\n'
+              f'  return dispatch({shape}, {group}, fn(item: WorkItem) -> f32:\n'
+              + body + '    return f32(offset + 1)\n  )\n')
+    return source, shape, group
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--emitter", type=Path, required=True)
@@ -67,8 +81,18 @@ fn shuffle(values: Tensor[{element}, 8]) -> Tensor[{element}, ?]:
         (args.output/(name+".log")).write_text(result.stdout+result.stderr)
         assert result.returncode==0,(name,result.stdout,result.stderr)
         cases.append(dict(name=name,type=element,rank=1,shape=[9],group=[8]))
+    for rank in range(9):
+        name = f"coordinates-rank-{rank}"
+        source, shape, group = coordinates(rank)
+        path = args.output / (name + ".k")
+        path.write_text(source)
+        result = subprocess.run([str(args.emitter.resolve()), str(path), "shuffle",
+            str(args.output / (name + ".mlir")), args.backend], capture_output=True, text=True)
+        (args.output / (name + ".log")).write_text(result.stdout + result.stderr)
+        assert result.returncode == 0, (name, result.stdout, result.stderr)
+        cases.append(dict(name=name, type="f32", rank=rank, shape=shape, group=group))
     (args.output / "cases.json").write_text(json.dumps(cases, indent=2) + "\n")
-    print(f"PASS: {len(cases)} shared-memory shuffle kernels emitted for {args.backend}")
+    print(f"PASS: {len(cases)} numeric/shared-memory/coordinate kernels emitted for {args.backend}")
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
     from WorkgroupSourceTests import CASES
     controls = {

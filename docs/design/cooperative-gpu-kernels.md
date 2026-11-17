@@ -83,6 +83,8 @@ Windows GPU packages remain experimental until their separate hardware qualifica
 
 Cooperative launches use their own versioned descriptor and entry-point family. The launch planner verifies the returned dispatch's provenance and checks host-known metadata arithmetic even for empty domains. It diagnoses unsupported surrounding graph stages instead of discarding them. Shared narrow integers use 32-bit carriers; 64-bit integers and f64 use 64-bit carriers.
 
+Coordinate decoding uses the validated product of logical group counts. After decoding trailing axes, a valid flattened group index's remaining quotient is already within the leading axis, so that axis needs no remainder. Whole extra physical groups are masked uniformly and empty domains do not launch. This removes compiler-generated coordinate work without relaxing source arithmetic, tensor bounds, barrier or cancellation rules.
+
 The pinned MLIR GPU-to-SPIR-V conversion cannot directly handle workgroup attribution arguments. A bounded bridge validates load/store-only scalar scratch and creates real SPIR-V Workgroup globals before the normal conversion pipeline. CUDA retains native GPU workgroup attributions. Neither route serializes source invocations.
 
 Physical fixtures cover ten numeric types, ranks zero through eight, padding and bit-pattern preservation, including signed extrema, negative zero, infinities, NaN payloads and subnormals. Caught-error and payload-match fixtures exercise control flow before barriers. Stencil and tiled-product tests use independent CPU references. Vulkan division is checked against its existing 2.5-ULP contract rather than assumed bit-identical to CPU arithmetic. Measurements and retained adverse results belong in the implementing PR's qualification evidence.

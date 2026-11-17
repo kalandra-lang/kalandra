@@ -911,10 +911,15 @@ public:
                                                        c(plan.launch.groupShape[axis] - 1)),
                                  groupWidth);
       locals[axis] = arith::RemUIOp::create(builder, loc(), laneId, groupWidth);
+      // For valid groups, decoding the trailing axes leaves groupId < groups
+      // on the leading axis. The launch packet establishes the product bound;
+      // run() masks whole extra physical groups uniformly. Avoid a redundant
+      // dynamic 64-bit remainder without changing any source arithmetic check.
+      Value coordinateGroup = groupId;
+      if (axis)
+        coordinateGroup = arith::RemUIOp::create(builder, loc(), groupId, groups);
       globals[axis] = arith::AddIOp::create(
-          builder, loc(),
-          arith::MulIOp::create(
-              builder, loc(), arith::RemUIOp::create(builder, loc(), groupId, groups), groupWidth),
+          builder, loc(), arith::MulIOp::create(builder, loc(), coordinateGroup, groupWidth),
           locals[axis]);
       laneId = arith::DivUIOp::create(builder, loc(), laneId, groupWidth);
       groupId = arith::DivUIOp::create(builder, loc(), groupId, groups);

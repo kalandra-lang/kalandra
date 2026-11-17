@@ -89,10 +89,12 @@ int main(int argc, char **argv) {
       }
       ++verified;
     }
-    std::cout << "PASS: " << verified
-              << (argc == 3 ? " bit-exact Metal cooperative caught-error/control fixtures\n"
-                            : " bit-exact Metal shared-memory shuffle kernels, all ten numeric "
-                              "types and ranks 0..8 with padding\n");
+    std::cout
+        << "PASS: " << verified
+        << (argc == 3
+                ? " bit-exact Metal cooperative caught-error/control fixtures\n"
+                : " bit-exact Metal numeric/shared-memory/coordinate kernels, all ten numeric "
+                  "types and ranks 0..8 with padding\n");
     return 0;
   }
 }

@@ -89,9 +89,10 @@ int main(int argc, char **argv) {
       ++verified;
     }
     std::cout << "PASS: " << verified
-              << (argc == 3 ? " bit-exact cooperative caught-error/control fixtures\n"
-                            : " bit-exact shared-memory shuffle kernels, all ten numeric types and "
-                              "ranks 0..8 with padding\n");
+              << (argc == 3
+                      ? " bit-exact cooperative caught-error/control fixtures\n"
+                      : " bit-exact numeric/shared-memory/coordinate kernels, all ten types and "
+                        "ranks 0..8 with padding\n");
     return 0;
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';
