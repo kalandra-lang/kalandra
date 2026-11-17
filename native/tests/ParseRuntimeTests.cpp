@@ -162,28 +162,45 @@ int main(int argc, char **argv) {
   // Cancel after scanning has begun, rather than testing only a cancelled entry.
   // The counter is an existing runtime probe, not a wall-clock sleep heuristic.
   {
-    Invocation ctx;
-    const std::string text(16 * 1024 * 1024, '0');
-    StringDescriptor input;
-    kalandra_string_literal_v1(&ctx, &input, text.data(), text.size());
-    std::atomic<std::uint64_t> polls{0};
-    std::atomic<bool> cancelled{false}, finished{false};
-    ctx.watchPolls(&polls);
-    ctx.bindCancellation(&cancelled);
-    std::thread cancel([&] {
-      while (polls.load(std::memory_order_acquire) < 64 &&
-             !finished.load(std::memory_order_acquire))
+    const std::string text(16 * 1024 * 1024, '1');
+    CHECK(value(10, text).status == ParseStatus::OutOfRange);
+    bool interrupted = false;
+    for (unsigned attempt = 0; attempt < 8 && !interrupted; ++attempt) {
+      Invocation ctx;
+      StringDescriptor input;
+      kalandra_string_literal_v1(&ctx, &input, text.data(), text.size());
+      std::atomic<std::uint64_t> polls{0};
+      std::atomic<bool> cancelled{false}, finished{false}, ready{false};
+      ctx.watchPolls(&polls);
+      ctx.bindCancellation(&cancelled);
+      std::thread cancel([&] {
+        ready.store(true, std::memory_order_release);
+        while (polls.load(std::memory_order_acquire) < 64 &&
+               !finished.load(std::memory_order_acquire))
+          std::this_thread::yield();
+        cancelled.store(true, std::memory_order_release);
+      });
+      while (!ready.load(std::memory_order_acquire))
         std::this_thread::yield();
-      cancelled.store(true, std::memory_order_release);
-    });
-    ParseScalarResult result;
-    kalandra_parse_scalar_v1(&ctx, &result, 10, &input);
-    finished.store(true, std::memory_order_release);
-    cancel.join();
-    CHECK(ctx.poll() && !ctx.status() && !result.bits);
-    CHECK(polls < text.size() / 1024);
-    ctx.settle();
-    CHECK(!ctx.live());
+      ParseScalarResult result;
+      kalandra_parse_scalar_v1(&ctx, &result, 10, &input);
+      finished.store(true, std::memory_order_release);
+      cancel.join();
+      const auto observed = polls.load(std::memory_order_acquire);
+      if (observed >= text.size() / 1024) {
+        // Scheduling can let the scan finish before its observer runs. Like
+        // the compiled-worker tests, do not count that as an interruption.
+        ctx.settle();
+        CHECK(!ctx.live());
+        continue;
+      }
+      CHECK(observed >= 64 && ctx.poll() && !ctx.status() && !result.bits &&
+            result.status == ParseStatus::Success);
+      ctx.settle();
+      CHECK(!ctx.live());
+      interrupted = true;
+    }
+    CHECK(interrupted);
   }
   for (auto kind : {0u, 12u, UINT32_MAX}) {
     Invocation ctx;
