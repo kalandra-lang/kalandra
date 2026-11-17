@@ -54,6 +54,7 @@ inline std::vector<WorkgroupTestCase> workgroupTestCases(bool controls) {
   if (controls) {
     for (const auto &[name, values] : std::vector<std::pair<std::string, std::vector<float>>>{
              {"caught-lane-error-before-barrier", {3, 2, 1, 7}},
+             {"caught-error-union-before-barrier", {23, 22, 21, 30}},
              {"caught-error-payload", {7, 1, 2, 3}},
              {"caught-conditional-error-value", {3, 7, 1, 7}},
              {"failed-argument-skips-shared-helper", {11, 10, 9, 8}},

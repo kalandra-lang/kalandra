@@ -60,11 +60,15 @@ h2 { "dispatch" }
 
 code { "dispatch(outputShape: [i64], groupShape: [i64], callback: fn(WorkItem) -> T) -> Tensor[T, ...]" }
 
+code { "dispatch(outputShape: [i64], groupShape: [i64], callback: fn(WorkItem) -> T ! E) -> Tensor[T, ...] ! E" }
+
 Construct a tensor by running callback once per participating GPU invocation. T must be a numeric primitive: i8, i16, i32, i64, u8, u16, u32, u64, f32 or f64. Each in-domain invocation owns exactly one output element. The callback's return value supplies that element.
 
 outputShape and groupShape have the same statically known length, from zero through eight. Output extents are nonnegative i64 values computed from host-known scalar parameters, constants or captured tensor shapes. Group extents are positive compile-time constants. Their product is the number of invocations in a workgroup and must fit the selected device's limits. Captures can include numeric or bool scalars and resident numeric tensors.
 
 Shapes and results use row-major order. An empty shape, [], describes a rank-zero tensor with one element and one invocation. A shape containing a zero extent produces an empty tensor and launches no groups.
+
+A cooperative function returns one dispatch result, directly or through an alias or helper. Keep its surrounding code to host-known shape and capture calculations. Compose it with other GPU stages by awaiting its resident result and passing that result to another GPU task; no CPU transfer is needed between those stages. Tensor graph operations around dispatch are rejected rather than folded into the callback.
 
 h2 { "WorkItem" }
 
@@ -105,6 +109,8 @@ h2 { "WorkItem.barrier" }
 code { "item.barrier() -> unit" }
 
 Wait until all invocations in this workgroup reach this barrier, and make their preceding shared writes visible. It does not synchronize different workgroups. Every participating lane must reach the same sequence of barrier sites, including through helper calls, branches, loops and early returns. Synchronizing control flow must have a finite proof; the compiler rejects code it cannot establish as convergent.
+
+Loops in cooperative callbacks need provable static bounds. Runtime input values may choose branches when every possible path preserves the required shared-memory access and barrier rules. A data-dependent loop with an unresolved trip count is rejected.
 
 h2 { "Partial groups and failures" }
 

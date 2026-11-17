@@ -14,6 +14,7 @@ struct WorkgroupPlan {
   WorkgroupLaunch launch;
   WorkgroupAnalysis proof;
   std::vector<WorkgroupCapture> captures;
+  std::optional<std::size_t> errorFamily{};
 };
 bool containsWorkgroupDispatch(const TypedModule &, FunctionId);
 std::expected<WorkgroupPlan, Diagnostic> planWorkgroup(const TypedModule &, FunctionId);

@@ -284,6 +284,28 @@ fn early(item: WorkItem, tile: Shared[f32]) -> f32 ! Bad:
   else:
     2
 '''), None),
+    "caught-error-union-before-barrier": (kernel('''
+        lane=item.localIndex(0)
+        value=choose(lane) catch fn(error):
+          return match error:
+            First.One: 10
+            First.Other: 20
+            Second.Only: 30
+        tile=item.shared[f32](4)
+        tile[lane]=f32(value+lane)
+        item.barrier()
+        return tile[3-lane]
+    ''', prefix='error First:\n  One\n  Other\nerror Second:\n  Only\nfn choose(lane:i64)->i64 ! (First | Second):\n  if lane==0:\n    fail Second.Only\n  fail First.Other\n'), None),
+    "error-union-tag-must-not-hide-varying-barrier": (kernel('''
+        value=choose(item.localIndex(0)) catch fn(error):
+          return match error:
+            First.One: 10
+            First.Other: 20
+            Second.Only:
+              item.barrier()
+              30
+        return f32(value)
+    ''', prefix='error First:\n  One\n  Other\nerror Second:\n  Only\nfn choose(lane:i64)->i64 ! (First | Second):\n  if lane==0:\n    fail Second.Only\n  fail First.Other\n'), "barrier"),
     "caught-lane-error-before-barrier": (kernel('''
         lane = item.localIndex(0)
         value = checked(lane) catch fn(error): return f32(7)

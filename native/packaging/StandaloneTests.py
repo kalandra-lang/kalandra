@@ -30,7 +30,9 @@ def cooperative_applications(compiler, runtime, repository, execute, metal_execu
     applications = []
     for fixture, expected in (
             ("workgroup-error-export.k", "ok 0 0\nok 4 4\nerror 5 3\nerror 5 3"),
-            ("workgroup-error-payloads.k", "ok 3\nempty\n-7 true 1.25 18446744073709551615")):
+            ("workgroup-error-payloads.k", "ok 3\nempty\n-7 true 1.25 18446744073709551615"),
+            ("workgroup-error-union.k", "ok 3\nempty\n-7 true 1.25 18446744073709551615\nother -123"),
+            ("workgroup-error-upcast.k", "ok 3\nempty\n-7 true 1.25 18446744073709551615")):
         source.write_bytes((repository / "native/gpu-source" / fixture).read_bytes())
         for mode, flags in (("normal", []), ("optimized", ["-O2"]),
                             ("sanitized", ["--sanitize"]),

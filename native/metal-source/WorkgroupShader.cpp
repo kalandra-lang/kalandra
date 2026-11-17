@@ -1,3 +1,4 @@
+#include "../lib/ErrorFamilies.h"
 #include "NumericShader.h"
 #include "WorkgroupPlan.h"
 #include "kalandra/GpuConversion.h"
@@ -265,6 +266,47 @@ class Emitter {
     return value;
   }
   void assign(const DeviceValue &destination, const DeviceValue &source, ValueId site) {
+    if (destination.type.record && source.type.record &&
+        destination.type.record != source.type.record &&
+        input.records.at(*destination.type.record).error &&
+        input.records.at(*source.type.record).error) {
+      const auto fromId = *source.type.record, toId = *destination.type.record;
+      const auto &from = input.records.at(fromId), &to = input.records.at(toId);
+      const auto charge = from.variants.size() + to.variants.size() + to.fields.size();
+      if (charge > 300000 - std::min<std::size_t>(steps, 300000))
+        reject(site, "cooperative error conversion exceeds its work budget");
+      steps += charge;
+      if (source.elements.size() != from.fields.size() ||
+          destination.elements.size() != to.fields.size() || source.elements.empty())
+        reject(site, "cooperative error conversion has an invalid record layout");
+      // A union has its own tag numbering and inactive payload slots. Copy
+      // only the selected original variant, leaving every other slot zero.
+      assign(destination, zero(destination.type, site), site);
+      std::map<std::pair<std::size_t, std::size_t>, std::size_t> variants;
+      for (std::size_t v = 0; v < to.variants.size(); ++v)
+        variants.emplace(errorOrigin(input, toId, v), v);
+      auto matched = c(0, 1);
+      for (std::size_t v = 0; v < from.variants.size(); ++v) {
+        auto found = variants.find(errorOrigin(input, fromId, v));
+        if (found == variants.end())
+          continue;
+        const auto target = found->second;
+        const auto &fields = from.variants[v].fields;
+        const auto &targetFields = to.variants[target].fields;
+        if (fields.size() != targetFields.size())
+          reject(site, "cooperative error variants disagree on payload fields");
+        auto selected = cmp(arith::CmpIPredicate::eq, source.elements.front().bits, c(v + 1));
+        matched = either(matched, selected);
+        when(selected, [&] {
+          assign(destination.elements.front(), scalar(c(target + 1)), site);
+          for (std::size_t field = 0; field < fields.size(); ++field)
+            assign(destination.elements.at(targetFields[field]), source.elements.at(fields[field]),
+                   site);
+        });
+      }
+      checked(matched);
+      return;
+    }
     if (destination.slot) {
       if (!source.bits)
         reject(site, "cooperative control value does not match its scalar layout");
@@ -640,6 +682,11 @@ class Emitter {
       }
       for (const auto &field : operation->fields)
         out.elements.at(field.field) = evaluate(frame, field.value);
+    } else if (auto operation = std::get_if<ErrorNarrow>(&node.operation)) {
+      auto value = evaluate(frame, operation->input);
+      auto narrowed = persist(zero(node.type, id));
+      when(running(frame), [&] { assign(narrowed, value, id); });
+      out = materialize(narrowed);
     } else if (auto operation = std::get_if<RecordFieldRead>(&node.operation)) {
       out = evaluate(frame, operation->input).elements.at(operation->field);
     } else if (auto operation = std::get_if<FailOperation>(&node.operation)) {
@@ -909,7 +956,18 @@ public:
         if (!plan.launch.errorWords || result.errors.size() != 1)
           reject(plan.dispatch, "cooperative expected-error export has no matching envelope");
         std::vector<Value> leaves;
-        errorLeaves(result.errors.front(), leaves);
+        auto error = materialize(result.errors.front());
+        if (!plan.errorFamily)
+          reject(plan.dispatch, "cooperative expected-error export requires a declared family");
+        if (error.type.record != plan.errorFamily) {
+          ValueType type;
+          type.builtin = BuiltinValue::Record;
+          type.record = plan.errorFamily;
+          auto converted = persist(zero(type, plan.dispatch));
+          when(nonzero(result.failed), [&] { assign(converted, error, plan.dispatch); });
+          error = materialize(converted);
+        }
+        errorLeaves(error, leaves);
         if (leaves.size() != plan.launch.errorWords)
           reject(plan.dispatch,
                  "cooperative expected-error payload differs from its export layout");

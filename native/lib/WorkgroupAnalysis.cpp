@@ -1,4 +1,5 @@
 #include "kalandra/WorkgroupAnalysis.h"
+#include "ErrorFamilies.h"
 #include "WorkgroupTypes.h"
 #include "kalandra/WorkgroupGeometry.h"
 #include <algorithm>
@@ -27,6 +28,7 @@ struct Value {
   // A checked fallible value carries either success data or one error value.
   // Expected failure does not become an implicit device fault.
   std::vector<Value> errors;
+  std::optional<std::size_t> errorFamily{};
 };
 struct ControlExit {
   std::size_t loop;
@@ -39,6 +41,7 @@ struct Frame {
   std::optional<ControlExit> transfer;
   std::optional<Value> failure;
   bool uniformControl = true;
+  std::optional<std::size_t> errorFamily{};
 };
 class Analyzer {
   const TypedModule &module;
@@ -67,6 +70,8 @@ class Analyzer {
   Value unknown(const ValueType &type, bool uniform) const {
     Value value;
     value.uniform = uniform;
+    if (type.record && module.records.at(*type.record).error)
+      value.errorFamily = type.record;
     value.mutableBacking = type.array || type.builtin == BuiltinValue::Function ||
         (type.builtin == BuiltinValue::Record && !workgroupCapability(module, type));
     if (workgroupCapability(module, type) == StandardRecord::WorkItem)
@@ -78,6 +83,37 @@ class Analyzer {
     else if (type.tensor || type.array)
       value.kind = Value::Kind::Collection;
     return value;
+  }
+  Value convertError(Value value, std::optional<std::size_t> target, ValueId site) {
+    if (value.errorFamily == target)
+      return value;
+    if (!target || !value.errorFamily)
+      reject(site, "cooperative error conversion requires established error families");
+    const auto source = *value.errorFamily;
+    const auto &from = module.records.at(source), &to = module.records.at(*target);
+    for (std::size_t i = 0; i < to.fields.size() + to.variants.size() + from.variants.size(); ++i)
+      step(site);
+    if (value.elements.empty() || !value.elements.front().integer ||
+        *value.elements.front().integer < 1 ||
+        *value.elements.front().integer > from.variants.size())
+      reject(site, "cooperative error conversion requires an established variant");
+    const auto variant = static_cast<std::size_t>(*value.elements.front().integer - 1);
+    const auto origin = errorOrigin(module, source, variant);
+    for (std::size_t v = 0; v < to.variants.size(); ++v)
+      if (errorOrigin(module, *target, v) == origin) {
+        Value result;
+        result.uniform = value.uniform;
+        result.errorFamily = target;
+        result.elements.resize(to.fields.size());
+        result.elements.front() = integer(v + 1);
+        const auto &fields = from.variants[variant].fields, &targetFields = to.variants[v].fields;
+        if (fields.size() != targetFields.size())
+          reject(site, "cooperative error variants disagree on payload fields");
+        for (std::size_t f = 0; f < fields.size(); ++f)
+          result.elements.at(targetFields[f]) = value.elements.at(fields[f]);
+        return result;
+      }
+    reject(site, "cooperative error variant is outside its declared family");
   }
   static void invalidateBacking(Value &value) {
     if (!value.mutableBacking)
@@ -179,6 +215,7 @@ class Analyzer {
     if (++depth > limits.callDepth)
       reject(site, "cooperative helper expansion exceeds its proof depth budget");
     Frame frame;
+    frame.errorFamily = function.resultType.errorRecord;
     for (std::size_t i = 0; i < arguments.size(); ++i)
       frame.symbols[function.parameters[i]] = std::move(arguments[i]);
     const auto previous = context;
@@ -484,12 +521,12 @@ class Analyzer {
       if (frame.transfer || frame.failure)
         return value;
       error.uniform &= frame.uniformControl;
-      frame.failure = std::move(error);
+      frame.failure = convertError(std::move(error), frame.errorFamily, id);
     } else if (const auto *op = std::get_if<TaskOperation>(&node.operation);
                op && op->prefix == TaskPrefix::Try && !node.type.task) {
       value = evaluate(frame, op->operand);
       if (!value.errors.empty()) {
-        frame.failure = value.errors.front();
+        frame.failure = convertError(value.errors.front(), frame.errorFamily, id);
         frame.failure->uniform &= frame.uniformControl && value.uniform;
       }
       value.errors.clear();
@@ -519,6 +556,8 @@ class Analyzer {
         value.uniform = true;
         value.elements.resize(module.records[*node.type.record].fields.size());
       }
+      if (node.type.record && module.records.at(*node.type.record).error)
+        value.errorFamily = node.type.record;
       if (op->variant && !value.elements.empty())
         value.elements.front() = integer(*op->variant + 1);
       for (const auto &field : op->fields) {
@@ -528,6 +567,8 @@ class Analyzer {
         value.elements[field.field] = member;
         value.uniform &= member.uniform;
       }
+    } else if (const auto *op = std::get_if<ErrorNarrow>(&node.operation)) {
+      value = convertError(evaluate(frame, op->input), node.type.record, id);
     } else if (const auto *op = std::get_if<RecordFieldRead>(&node.operation)) {
       const auto record = evaluate(frame, op->input);
       value.uniform = record.uniform;

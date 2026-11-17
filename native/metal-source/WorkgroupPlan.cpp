@@ -231,7 +231,8 @@ public:
     if (result.dispatch && launches == 1) {
       result.dispatch->launch.checked = std::move(launch.checked);
       const auto &callback = module.functions.at(result.dispatch->callback).resultType;
-      if (callback.fallible && callback.errorRecord != function.resultType.errorRecord)
+      if (callback.fallible &&
+          !errorSubset(module, callback.errorRecord, function.resultType.errorRecord))
         reject(function.result,
                "cooperative error export requires the callback's declared error family");
       if (function.resultType.fallible) {
@@ -248,6 +249,7 @@ public:
           reject(function.result,
                  "cooperative application-error export requires a bounded inline numeric payload");
         result.dispatch->launch.errorWords = layout.words;
+        result.dispatch->errorFamily = families.front();
       }
       return std::move(*result.dispatch);
     }
