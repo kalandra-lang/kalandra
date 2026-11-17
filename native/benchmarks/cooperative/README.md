@@ -83,3 +83,16 @@ A process rejected by the CPU-load gate is retained and retried at most five
 times, with a two-second pause; correctness and timing-control failures are never
 retried this way. Do not delete unfavorable outcomes or lower thresholds after
 seeing results.
+
+`PairedDriver.cpp` and `paired_reference.py` provide an additional native-reference
+experiment when creating a fresh driver context for each variant is unstable.
+The driver loads both kernels into one runtime and alternates them in three
+ABBA/BAAB blocks, using the same resident input and task lifecycle. Each size has
+three independent process replications. Compile with the same backend definition
+and archives as the ordinary driver. Run `--study aa`
+first, then `--study reference` and `--study repeat`, passing the accepted control
+with `--control`. Configuration, driver, shader and monitor hashes must match.
+The 5% median and 10% worst-block limits and CPU/GPU admission gates are unchanged.
+Each process is limited to 180 seconds; output is recorded in files so collecting
+measurements cannot block on a full pipe. This experiment does not replace or
+erase failed fresh-context controls, and does not measure kernel-only time.

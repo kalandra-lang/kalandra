@@ -4,7 +4,7 @@
 
 Approved by the project lead on 2026-11-17. Use ordinary Kalandra functions plus `std/gpu`, preserving `spawn … on gpu`, explicit transfers, resident results and the existing numerical/error/ownership contracts. No new kernel keyword or foreign shader language.
 
-Proposed public surface:
+Public surface:
 
 - `dispatch(outputShape, groupShape, callback)` constructs a numeric tensor. Both shapes have the same statically known rank (up to eight); output extents may be dynamic, group extents must be positive compile-time constants within physical device limits.
 - The callback takes a non-escaping `WorkItem` and returns one numeric element. `globalIndex(axis)` and `localIndex(axis)` return logical i64 indices.
@@ -45,14 +45,14 @@ fn smooth(values: Tensor[f32, ?]) -> Tensor[f32, ?]:
 
 `[3,6,9,12]` produces `[4,6,9,11]`. This is true cooperative device execution, not serial callback emulation or silently running on CPU.
 
-## Completion boundary
+## Qualification requirements
 
-- [ ] Compiler/type checking, race and barrier-convergence diagnostics, typed IR and actual cooperative lowering for Metal, Vulkan and CUDA.
-- [ ] Device/shape/scratch/workgroup resource admission, checked arithmetic/indexing, typed errors/fault precedence, bounded execution and cancellation/settlement, including padding lanes and error-before-barrier cases.
-- [ ] Independent numerical CPU references for gather/stencil and cooperative tiled/reuse cases; all ten numeric types and logical ranks zero through eight; shape/resource/unsupported-capability diagnostics.
-- [ ] Real Metal and Linux Vulkan/CUDA execution: empty/partial/multiple groups, divergent control, scratch ownership and initialization, helper calls, loops/early exits, errors, concurrency, cleanup, isolation and relocation. Windows GPU hardware remains experimental.
-- [ ] Honest frozen paired/control/replication performance comparisons against equivalent direct kernels and existing Kalandra paths; preserve regressions and investigate material regressions. No overlapping timing/build/test/profile jobs; monitor host/GPU load.
-- [ ] Runnable user documentation, public API coverage and editor support; hosted qualification and accurate PR evidence.
+- Compiler/type checking, race and barrier-convergence diagnostics, typed IR and actual cooperative lowering for Metal, Vulkan and CUDA.
+- Device/shape/scratch/workgroup resource admission, checked arithmetic/indexing, typed errors/fault precedence, bounded execution and cancellation/settlement, including padding lanes and error-before-barrier cases.
+- Independent numerical CPU references for gather/stencil and cooperative tiled/reuse cases; all ten numeric types and logical ranks zero through eight; shape/resource/unsupported-capability diagnostics.
+- Real Metal and Linux Vulkan/CUDA execution: empty/partial/multiple groups, divergent control, scratch ownership and initialization, helper calls, loops/early exits, errors, concurrency, cleanup, isolation and relocation. Windows GPU hardware remains experimental.
+- Honest frozen paired/control/replication performance comparisons against equivalent direct kernels and existing Kalandra paths; preserve regressions and investigate material regressions. No overlapping timing/build/test/profile jobs; monitor host/GPU load.
+- Runnable user documentation, public API coverage and editor support; hosted qualification and accurate PR evidence.
 
 Prerequisite #266 and #279 work has been completed. Portability is explicit: physical limits/capabilities may reject a launch, never silently change its layout or substitute CPU execution. In-flight cancellation is cooperative and resource retirement waits for actual completion; this does not promise arbitrary immediate GPU preemption. Any architectural or contract change discovered during implementation must be documented explicitly.
 
@@ -85,15 +85,14 @@ Cooperative launches use their own versioned descriptor and entry-point family. 
 
 The pinned MLIR GPU-to-SPIR-V conversion cannot directly handle workgroup attribution arguments. A bounded bridge validates load/store-only scalar scratch and creates real SPIR-V Workgroup globals before the normal conversion pipeline. CUDA retains native GPU workgroup attributions. Neither route serializes source invocations.
 
-Initial hardware qualification covers 270 bit-exact shared-memory shuffles: ten numeric types and ranks zero through eight on Metal, Linux Vulkan and Linux CUDA. Additional caught-error/payload-match fixtures execute on all three backends. The stencil has independent CPU references, partial groups, empty domains, cancellation and capture-retirement checks. Vulkan FDiv is evaluated against its existing 2.5-ULP contract; the retained initial bit-exact control failed by one ULP. A separate Decimal audit checked 135,650 output values, with a maximum observed error of two-thirds ULP from the exact rational result.
-
-These are implementation milestones, not final acceptance. Final package/relocation checks, exact-head hosted qualification and frozen paired/control/replication performance acceptance remain required before this PR is ready.
-
+Physical fixtures cover ten numeric types, ranks zero through eight, padding and bit-pattern preservation, including signed extrema, negative zero, infinities, NaN payloads and subnormals. Caught-error and payload-match fixtures exercise control flow before barriers. Stencil and tiled-product tests use independent CPU references. Vulkan division is checked against its existing 2.5-ULP contract rather than assumed bit-identical to CPU arithmetic. Measurements and retained adverse results belong in the implementing PR's qualification evidence.
 
 ### Application-error transport
 
 Fallible cooperative kernels append a bounded error envelope to their invocation-private parameter packet. A 32-bit atomic claim selects one failing invocation, which writes its complete inline payload. No invocation spins or reads another invocation's payload; the host observes it only after dispatch completion. Several failures report one unspecified error, including failures in padding invocations. Arithmetic/bounds faults take precedence over application errors. This is an explicit contract for the new parallel API, rather than a change to existing graph error transport.
 
 Inline numeric, Bool and nested-record payloads are validated against their native layout before publication. Owned array/tensor/string payloads diagnose. Successful results remain resident: no graph download/re-upload is needed. Infallible entry names and packets are unchanged. Cancellation still retains all submitted backing through completion.
+
+Error unions have their own tag and payload layout. The convergence analyzer and shader emitter both map variants by their original family identity when widening or narrowing an error. Inactive payload slots remain zero. The callback's error family may be a subset of the wrapper's declared family; the exported envelope uses the wrapper's layout. Conversion work is charged to the compiler's finite proof/emission budgets.
 
 All three physical backends pass typed-error isolation/concurrency, many simultaneous failures before a common barrier, fault precedence and empty-domain checks. A two-stage tiled matrix product reuses shared storage across barriers, with an independent straight-dot-product oracle and padded two-dimensional groups; all three backends produce bit-exact results.
