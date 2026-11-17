@@ -127,5 +127,27 @@ int main() {
         WorkgroupLaunchError::Invalid);
   CHECK(prepareWorkgroupLaunch({}, {}, {}, {}, 1, 1, 1, 0)->parameters ==
         (std::vector<std::uint32_t>{1, UINT32_MAX}));
+  WorkgroupLaunch fallible;
+  fallible.errorWords = 3;
+  packet = prepareWorkgroupLaunch(fallible, {}, {}, {}, 1, 1, 1, 0);
+  CHECK(packet && packet->parameters.size() == 9);
+  CHECK(readWorkgroupError(fallible, {}, packet->parameters)->empty());
+  packet->parameters[1] = 1;
+  packet->parameters[2] = 1;
+  packet->parameters[4] = 5;
+  packet->parameters[6] = 0x40400000;
+  CHECK(readWorkgroupError(fallible, {}, packet->parameters) ==
+        std::vector<std::uint64_t>({1, 5, 0x40400000}));
+  packet->parameters[1] = 2;
+  CHECK(!readWorkgroupError(fallible, {}, packet->parameters));
+  packet->parameters[1] = 0;
+  CHECK(!readWorkgroupError(fallible, {}, packet->parameters));
+  packet->parameters[1] = 1;
+  packet->parameters.back() = 0;
+  CHECK(!readWorkgroupError(fallible, {}, packet->parameters));
+  packet->parameters.pop_back();
+  CHECK(!readWorkgroupError(fallible, {}, packet->parameters));
+  fallible.errorWords = 1025;
+  CHECK(!workgroupParameterWords(fallible, {}));
   std::puts("Logical workgroup geometry, padding, exact output coverage and bounds passed");
 }

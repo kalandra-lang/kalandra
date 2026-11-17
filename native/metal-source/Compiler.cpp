@@ -1,4 +1,3 @@
-#include "../lib/NativeCallableIdentity.h"
 #include "../gpu-source/AggregateEntry.h"
 #include "../gpu-source/AggregateGraphSchema.h"
 #include "../gpu-source/AggregateNativeLayout.h"
@@ -15,6 +14,7 @@
 #include "../gpu-source/Supervisor.h"
 #include "../gpu-source/TimeHostBridge.h"
 #include "../lib/IteratorHostBridge.h"
+#include "../lib/NativeCallableIdentity.h"
 #include "../lib/NativeLayout.h"
 #include "../lib/TaskValueCopy.h"
 #include "../metal/ElementwiseLayout.h"
@@ -23,6 +23,7 @@
 #include "MatmulTiles.h"
 #include "NumericProgram.h"
 #include "NumericShader.h"
+#include "WorkgroupPlan.h"
 #include "kalandra/Application.h"
 #include "kalandra/Backend.h"
 #include "kalandra/Continuation.h"
@@ -1340,7 +1341,72 @@ class Compiler {
     std::set<std::string> sharedNominalKeys;
     auto append = [&](const TypedModule &source, std::vector<std::string> exports,
                       const std::string &prefix, bool stepsModule) {
-      auto lowered = lowerNative(source, {}, exports, arithmetic_);
+      // Native callable reachability is intentionally conservative for open
+      // function values. Its host projection must not accidentally compile
+      // device-only capabilities as potential CPU callbacks. Check all actual
+      // host call/reference edges before masking these inert device bodies.
+      std::optional<TypedModule> host;
+      std::vector<bool> deviceOnly(source.functions.size());
+      for (FunctionId id = 0; id < source.functions.size(); ++id)
+        deviceOnly[id] = std::ranges::any_of(source.functions[id].expressions, [&](ValueId value) {
+          return std::holds_alternative<WorkgroupOperation>(source.expressions.at(value).operation);
+        });
+      if (std::ranges::any_of(deviceOnly, [](bool value) { return value; })) {
+        std::vector<FunctionId> pending;
+        std::vector<bool> visited(source.functions.size());
+        for (FunctionId id = 0; id < exports.size(); ++id)
+          if (!exports[id].empty())
+            pending.push_back(id);
+        while (!pending.empty()) {
+          const auto id = pending.back();
+          pending.pop_back();
+          if (visited.at(id))
+            continue;
+          visited[id] = true;
+          if (deviceOnly[id])
+            reject(source.functions[id].declaration, "cooperative workgroup operations require GPU "
+                                                     "placement and cannot become host callbacks");
+          for (auto value : source.functions[id].expressions) {
+            const auto &operation = source.expressions.at(value).operation;
+            if (const auto *call = std::get_if<FunctionCall>(&operation))
+              pending.push_back(call->function);
+            else if (const auto *reference = std::get_if<FunctionReference>(&operation))
+              pending.push_back(reference->function);
+            else if (const auto *map = std::get_if<ArrayMap>(&operation))
+              pending.push_back(map->function);
+          }
+        }
+        host = source;
+        ValueType unit;
+        unit.builtin = BuiltinValue::Unit;
+        std::vector<bool> retained(source.expressions.size());
+        for (FunctionId id = 0; id < source.functions.size(); ++id) {
+          auto &function = host->functions[id];
+          if (deviceOnly[id]) {
+            function.compileTimeOnly = true;
+            function.parameters.clear();
+            function.captureCount = 0;
+            function.resultType = unit;
+            function.declaredResult = unit;
+            function.preconditions.clear();
+            function.body.clear();
+            function.expressions.clear();
+          } else
+            for (auto value : function.expressions)
+              retained[value] = true;
+        }
+        for (ValueId id = 0; id < source.expressions.size(); ++id)
+          if (!retained[id]) {
+            host->expressions[id].type = unit;
+            host->expressions[id].operation = BoolLiteral{false};
+          }
+        for (auto &symbol : host->symbols)
+          if (deviceOnly.at(symbol.owner)) {
+            symbol.type = unit;
+            symbol.parameter = symbol.mutableAccess = symbol.owned = symbol.reassignable = false;
+          }
+      }
+      auto lowered = lowerNative(host ? *host : source, {}, exports, arithmetic_);
       if (!lowered)
         reject(span, lowered.error());
       outputs[stepsModule ? "cpu-steps.mlir" : "cpu.mlir"] = lowered->mlir;
@@ -2153,8 +2219,8 @@ class Compiler {
   std::string graphCapturePolicy(const ValueType &type, SourceSpan span,
                                  std::span<const ValueType> joined = {}, FunctionId function = {},
                                  const ClosureGraphSchema *closure = nullptr,
-                                 const TypedModule *source = nullptr,
-                                 bool residentOutcome = false) {
+                                 const TypedModule *source = nullptr, bool residentOutcome = false,
+                                 bool cooperativeOutcome = false) {
     const auto id = closure ? function : *type.record;
     const auto name = closure          ? "GpuClosureCapture" + std::to_string(function)
                       : joined.empty() ? "GpuGraphCapture" + std::to_string(id)
@@ -2392,6 +2458,69 @@ class Compiler {
           code += "if(descriptor.sizes[" + std::to_string(axis) + "]!=" + number(*extent) +
                   ")return std::nullopt;\n";
       code += "return descriptor;}\n";
+      if (cooperativeOutcome) {
+        code += "static bool acceptsWorkgroupOutcome(const kalandra::WorkgroupOutcome &outcome){"
+                "return outcome.type==" +
+                elementName(value.element) +
+                " && outcome.rank==" + std::to_string(value.shape.size());
+        for (std::size_t axis = 0; axis < value.shape.size(); ++axis)
+          if (auto extent = value.shape[axis].constant)
+            code += " && outcome.dimensions[" + std::to_string(axis) + "]==" + number(*extent);
+        code += ";}\n";
+        const auto error = source->records.at(id).fields.at(2).type;
+        auto projection =
+            projectDeviceAggregates(*source, std::span(&error, 1), aggregateEntryWorkRemaining);
+        if (!projection)
+          reject(span, projection.error());
+        auto layouts = planDeviceAggregateLayouts(*source, std::span(&error, 1));
+        if (!layouts || !layouts->at(*error.record).owned.empty())
+          reject(span, "cooperative errors require bounded inline numeric payloads");
+        const auto words = layouts->at(*error.record).words;
+        std::vector<std::uint64_t> offsets(projection->nodes.size(), abi.at(2).nativeOffset);
+        std::vector<std::string> activity(projection->nodes.size(), "true");
+        code +=
+            "static bool decodeWorkgroupError(std::span<const std::uint64_t> words,Record &record){"
+            "if(words.size()!=" +
+            number(words) +
+            ")return false;record={};"
+            "const std::int64_t outcomeTag=2;std::memcpy(record.data.data()+" +
+            number(abi.at(0).nativeOffset) + ",&outcomeTag,sizeof(outcomeTag));\n";
+        for (std::size_t i = 0; i < projection->nodes.size(); ++i) {
+          const auto &node = projection->nodes[i];
+          if (node.parent != DeviceAggregateOccurrence::none) {
+            const auto &parent = projection->nodes.at(node.parent);
+            const auto &field =
+                nativeAggregateLayouts->at(*parent.type.record).fields.at(node.field);
+            if (field.storage == RecordFieldStorage::ManagedReference)
+              reject(span, "cooperative errors require inline native payload storage");
+            offsets[i] = offsets[node.parent] + field.nativeOffset;
+            activity[i] = activity[node.parent];
+            if (node.activeTag)
+              activity[i] += " && words[" +
+                             number(projection->nodes.at(parent.children.at(0)).deviceWord) +
+                             "]==" + number(node.activeTag);
+          }
+          if (deviceInlineRecordValue(node.type))
+            continue;
+          if (!deviceScalarValue(node.type))
+            reject(span, "cooperative errors require numeric or Bool leaf payloads");
+          const auto width =
+              isBooleanStorage(node.type) ? 8 : describeNumeric(node.type.element)->bits;
+          auto valid = isBooleanStorage(node.type) ? std::string("bits<=1")
+                       : width == 64               ? std::string("true")
+                                                   : "(bits>>" + std::to_string(width) + ")==0";
+          if (node.discriminator) {
+            const auto &parent = projection->nodes.at(node.parent);
+            valid = "bits>=1 && bits<=" +
+                    number(source->records.at(*parent.type.record).variants.size());
+          }
+          code += "{const auto bits=words[" + number(node.deviceWord) + "];if(" + activity[i] +
+                  "){if(!(" + valid + "))return false;std::memcpy(record.data.data()+" +
+                  number(offsets[i]) + ",&bits," + std::to_string(width / 8) +
+                  ");}else if(bits)return false;}\n";
+        }
+        code += "return true;}\n";
+      }
     }
     aggregateDeclarations += code + "};\n";
     return name;
@@ -2549,7 +2678,9 @@ class Compiler {
           errorOutcome &&
           deviceTensorValue(cpu.records.at(*fn.resultType.record).fields.at(1).type);
       graphResultPolicy =
-          graphCapturePolicy(fn.resultType, span, {}, {}, nullptr, &cpu, residentOutcome);
+          graphCapturePolicy(fn.resultType, span, {}, {}, nullptr, &cpu, residentOutcome,
+                             residentOutcome && fn.deviceErrorEntry &&
+                                 containsWorkgroupDispatch(cpu, *fn.deviceErrorEntry));
       resultLayouts = graphExportLayouts.at(*fn.resultType.record);
     }
     const auto emit = [&](const TypedModule &module, FunctionId entry) {
@@ -2631,6 +2762,10 @@ class Compiler {
         parameterTypes.push_back(&cpu.symbols.at(symbol).type);
     }
     const auto &program = found->second;
+    const bool cooperativeOutcome =
+        errorOutcome && program.code.size() == 1 &&
+        program.code.front().kind == NumericProgramKind::Workgroup &&
+        program.kernels.at(program.code.front().kernel).workgroup->errorWords;
     std::vector<Value> tensors, scalars;
     for (std::size_t i = 0; i < inputs.size(); ++i) {
       const auto &type = *parameterTypes.at(i);
@@ -2802,6 +2937,7 @@ class Compiler {
         expressions(launch.shape);
         descriptor += "," + std::to_string(launch.scratchBytes) + "ull,";
         expressions(launch.checked);
+        descriptor += "," + std::to_string(launch.errorWords) + "u";
         descriptor += '}';
         code += "auto " + name + "=r.loadWorkgroupKernel(f.directory+\"/" + path + "\",*target," +
                 elementName(kernel.element) + "," + schema(kernel.tensorTypes) + "," +
@@ -2859,7 +2995,9 @@ class Compiler {
     }
     code += "}};\nauto prepared=r.prepareNumericProgram(" + std::to_string(tensors.size()) +
             "u,code," + std::to_string(program.result) + "u," +
-            elementName(result.array || result.record ? NumericType::UInt64 : result.element) +
+            elementName(cooperativeOutcome ? program.kernels.at(program.code.front().kernel).element
+                        : result.array || result.record ? NumericType::UInt64
+                                                        : result.element) +
             "," + (result.scalarTask ? "true" : "false") + (result.booleanTask ? ",true" : "") +
             (backend_ != GpuBackend::Metal ? ",*target" : "") + ");if(!prepared){" +
             error("prepared.error()") + "}f." + executable + "=*prepared;\n}\n";

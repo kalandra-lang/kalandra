@@ -129,6 +129,7 @@ int main(int argc, char **argv) {
                              {"inputRanks", indices(kernel.workgroup->inputRanks)},
                              {"shape", expressions(kernel.workgroup->shape)},
                              {"checked", expressions(kernel.workgroup->checked)},
+                             {"errorWords", std::int64_t(kernel.workgroup->errorWords)},
                              {"scratchBytes", std::to_string(kernel.workgroup->scratchBytes)}};
     }
     kernels.push_back(std::move(metadata));

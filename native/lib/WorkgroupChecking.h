@@ -134,6 +134,26 @@ std::optional<ValueId> workgroupMethodCall(Frame &frame, SourceSpan span,
 }
 std::optional<ValueId> workgroupDispatch(Frame &frame, SourceSpan span,
                                          const std::vector<ExprId> &arguments) {
+  if (queryingSignature(span)) {
+    ValueType extents;
+    extents.element = NumericType::Int64;
+    extents.tensor = extents.array = true;
+    extents.shape = {{{}, 0}};
+    const auto prefix = options_.signature->argumentIndex.value_or(arguments.size());
+    for (std::size_t i = 0; i < std::min(prefix, arguments.size()); ++i)
+      if (i >= 3 || !expression(frame, arguments[i], i < 2 ? std::optional(extents) : std::nullopt))
+        return {};
+    captureSignature(frame, FunctionSignature{{extents, extents}, ValueType{}},
+                     {"outputShape", "groupShape"});
+    if (options_.signature->snapshot)
+      options_.signature->snapshot->sourceSignature =
+          std::make_shared<const SourceCallableSignature>(SourceCallableSignature{
+              "",
+              {"outputShape: [i64]", "groupShape: [i64]", "callback: fn(WorkItem) -> T"},
+              " -> Tensor[T, ...]"});
+    error("S027", "editing cooperative dispatch argument requires a signature snapshot", span);
+    return {};
+  }
   if (arguments.size() != 3) {
     error("S087", "dispatch requires output shape, group shape and a WorkItem callback", span);
     return {};
@@ -186,8 +206,17 @@ std::optional<ValueId> workgroupDispatch(Frame &frame, SourceSpan span,
   }
   result.tensor = true;
   result.shape.clear();
-  for (std::uint64_t axis = 0; axis < *shapeType.shape.front().constant; ++axis)
+  const auto *outputShape = std::get_if<TensorLiteral>(&node(*shape).operation);
+  for (std::uint64_t axis = 0; axis < *shapeType.shape.front().constant; ++axis) {
+    if (outputShape && axis < outputShape->elements.size()) {
+      const auto known = intConstants_.find(outputShape->elements[axis]);
+      if (known != intConstants_.end() && known->second >= 0 && known->second <= INT64_MAX) {
+        result.shape.push_back({static_cast<std::uint64_t>(known->second), 0});
+        continue;
+      }
+    }
     result.shape.push_back({{}, nextExtent_++});
+  }
   WorkgroupOperation operation{{WorkgroupAction::Dispatch, result.element},
                                {*shape, *group, *callback}, std::move(groupShape)};
   return add(frame, std::move(result), span, std::move(operation));

@@ -87,4 +87,13 @@ The pinned MLIR GPU-to-SPIR-V conversion cannot directly handle workgroup attrib
 
 Initial hardware qualification covers 270 bit-exact shared-memory shuffles: ten numeric types and ranks zero through eight on Metal, Linux Vulkan and Linux CUDA. Additional caught-error/payload-match fixtures execute on all three backends. The stencil has independent CPU references, partial groups, empty domains, cancellation and capture-retirement checks. Vulkan FDiv is evaluated against its existing 2.5-ULP contract; the retained initial bit-exact control failed by one ULP. A separate Decimal audit checked 135,650 output values, with a maximum observed error of two-thirds ULP from the exact rational result.
 
-These are implementation milestones, not final acceptance. Unhandled application-error export, final package/relocation checks, exact-head hosted qualification and frozen paired/control/replication performance acceptance remain required before this PR is ready.
+These are implementation milestones, not final acceptance. Final package/relocation checks, exact-head hosted qualification and frozen paired/control/replication performance acceptance remain required before this PR is ready.
+
+
+### Application-error transport
+
+Fallible cooperative kernels append a bounded error envelope to their invocation-private parameter packet. A 32-bit atomic claim selects one failing invocation, which writes its complete inline payload. No invocation spins or reads another invocation's payload; the host observes it only after dispatch completion. Several failures report one unspecified error, including failures in padding invocations. Arithmetic/bounds faults take precedence over application errors. This is an explicit contract for the new parallel API, rather than a change to existing graph error transport.
+
+Inline numeric, Bool and nested-record payloads are validated against their native layout before publication. Owned array/tensor/string payloads diagnose. Successful results remain resident: no graph download/re-upload is needed. Infallible entry names and packets are unchanged. Cancellation still retains all submitted backing through completion.
+
+All three physical backends pass typed-error isolation/concurrency, many simultaneous failures before a common barrier, fault precedence and empty-domain checks. A two-stage tiled matrix product reuses shared storage across barriers, with an independent straight-dot-product oracle and padded two-dimensional groups; all three backends produce bit-exact results.

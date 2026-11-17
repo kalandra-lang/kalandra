@@ -20,13 +20,27 @@ int main(int argc, char **argv) {
       const auto description = *describeNumeric(test.type);
       const auto rank = test.launch.shape.size();
       const auto &launch = test.launch;
-      const auto packet = prepareWorkgroupLaunch(launch, {}, {}, {}, 1024, UINT32_MAX, UINT32_MAX,
-                                                 device.maxThreadgroupMemoryLength);
+      std::vector<NumericType> tensorTypes;
+      std::vector<std::span<const std::uint64_t>> shapes;
+      std::vector<id<MTLBuffer>> inputs;
+      for (const auto &input : test.inputs) {
+        const auto bytes = qualification::workgroupInputBytes(input);
+        auto buffer = [device newBufferWithBytes:bytes.data()
+                                          length:bytes.size()
+                                         options:MTLResourceStorageModeShared];
+        if (!buffer)
+          return 1;
+        inputs.push_back(buffer);
+        tensorTypes.push_back(input.type);
+        shapes.push_back(input.shape);
+      }
+      const auto packet = prepareWorkgroupLaunch(launch, {}, {}, shapes, 1024, UINT32_MAX,
+                                                 UINT32_MAX, device.maxThreadgroupMemoryLength);
       if (!packet)
         return 1;
       const auto path = std::filesystem::path(argv[1]) / (test.name + ".metallib");
       NSError *error = nil;
-      const auto name = workgroupKernelName(description.type, {}, {}, launch);
+      const auto name = workgroupKernelName(description.type, tensorTypes, {}, launch);
       auto library = [device
           newLibraryWithURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:path.c_str()]]
                       error:&error];
@@ -46,8 +60,10 @@ int main(int argc, char **argv) {
       auto command = [queue commandBuffer];
       auto encoder = [command computeCommandEncoder];
       [encoder setComputePipelineState:pipeline];
-      [encoder setBuffer:output offset:0 atIndex:0];
-      [encoder setBuffer:parameters offset:0 atIndex:1];
+      for (std::size_t i = 0; i < inputs.size(); ++i)
+        [encoder setBuffer:inputs[i] offset:0 atIndex:i];
+      [encoder setBuffer:output offset:0 atIndex:inputs.size()];
+      [encoder setBuffer:parameters offset:0 atIndex:inputs.size() + 1];
       [encoder dispatchThreadgroups:MTLSizeMake(packet->geometry.groups, 1, 1)
               threadsPerThreadgroup:MTLSizeMake(packet->geometry.localSize, 1, 1)];
       [encoder endEncoding];

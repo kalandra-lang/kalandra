@@ -12,6 +12,7 @@ struct TensorValue {
   // Private array transport: dimensions describe payload words, not source length.
   // It is never a numerical tensor operand or an ordinary tensor transfer.
   std::optional<DeviceArrayResultMetadata> arrayResult{};
+  std::shared_ptr<const WorkgroupOutcome> workgroupOutcome{};
   explicit operator bool() const noexcept { return bool(data) || bool(host); }
   bool onDevice() const noexcept { return bool(data) && !host; }
   NumericType format() const noexcept { return type; }

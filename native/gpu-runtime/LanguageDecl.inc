@@ -101,6 +101,9 @@ public:
   static std::optional<DeviceArrayResultMetadata> arrayResult(const Buffer &value) noexcept {
     return value.arrayResult;
   }
+  static std::shared_ptr<const WorkgroupOutcome> workgroupOutcome(const Buffer &value) noexcept {
+    return value.workgroupOutcome;
+  }
   TaskHandle downloadArrayPage(Task &, GroupHandle, const Buffer &, std::uint64_t, std::uint64_t) noexcept;
   TaskHandle download(TaskCore &, GroupHandle, Buffer) noexcept;
   TaskHandle download(Task &, GroupHandle, Buffer) noexcept;

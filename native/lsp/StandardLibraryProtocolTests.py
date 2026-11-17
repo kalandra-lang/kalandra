@@ -278,6 +278,11 @@ fn main()->Tensor[i64,4]:
     diagnostics=publications(client.barrier())[path.as_uri()]['diagnostics']
     assert not diagnostics,diagnostics
     assert 'export fn dispatch' in client.rpc('kalandra/standardLibrary',{'uri':'kalandra-stdlib:std/gpu.k'})['result']
+    line=text.splitlines()[2]
+    hover=client.hover(path,2,line.index('dispatch')+1)['result']
+    assert hover and 'callback' in str(hover) and 'outputShape' in str(hover) and '[S, G, F]' not in str(hover),hover
+    signature=client.signature(path,2,line.index('(')+1)['result']
+    assert signature and 'callback' in str(signature) and 'outputShape' in str(signature),signature
     for row,word,wanted in [(3,'localIndex','i64'),(4,'shared','Shared[i64]'),(6,'barrier','unit')]:
         line=text.splitlines()[row]
         hover=client.hover(path,row,line.index(word)+1)['result']
@@ -299,5 +304,10 @@ fn main()->Tensor[i64,4]:
     client.barrier()
     items=client.completion(path,0,11)['result']['items']
     assert any(item['label']=='std/gpu' for item in items),items
+    changed='from "std/gpu" import dispatch as launch, WorkItem\nfn main()->unit:\n  launch('
+    client.change(path,changed,5)
+    client.barrier()
+    signature=client.signature(path,2,len(changed.splitlines()[2]))['result']
+    assert signature and 'fn launch(' in str(signature) and 'callback' in str(signature) and '[S, G, F]' not in str(signature),signature
     client.finish()
 print('PASS: cooperative capability completion, opaque fields, method hover and signature guidance')

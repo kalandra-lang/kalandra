@@ -52,6 +52,7 @@ class Emitter {
   std::set<FunctionId> active;
   std::size_t steps = 0;
   std::uint32_t words;
+  Frame *checkingFrame = nullptr;
 
   Location loc() { return builder.getUnknownLoc(); }
   [[noreturn]] void reject(ValueId id, const char *message) {
@@ -102,6 +103,8 @@ class Emitter {
   void checked(Value valid) {
     // Sticky fault state affects publication, never later uniform calculations
     // or participation in barriers. Checked primitives supply defined bits.
+    if (checkingFrame)
+      valid = either(negate(running(*checkingFrame)), valid);
     store(both(load(fault), widen(valid)), fault);
   }
   DeviceValue scalar(Value value, NumericType element = NumericType::Int64) {
@@ -286,6 +289,12 @@ class Emitter {
     return frame.failed ? both(live, cmp(arith::CmpIPredicate::eq, load(frame.failed), c(0)))
                         : live;
   }
+  void errorLeaves(const DeviceValue &value, std::vector<Value> &leaves) {
+    if (value.bits)
+      leaves.push_back(value.bits);
+    for (const auto &field : value.elements)
+      errorLeaves(field, leaves);
+  }
   void bind(Frame &frame, SymbolId symbol, DeviceValue value) {
     auto found = frame.symbols.find(symbol);
     frame.symbols[symbol] =
@@ -345,6 +354,14 @@ class Emitter {
     context = previous;
     active.erase(id);
     return result;
+  }
+  DeviceValue call(Frame &caller, FunctionId function, const std::vector<DeviceValue> &arguments,
+                   ValueId site) {
+    // An argument may itself return, break or propagate an expected error.
+    // Entering the callee is a later source effect and needs its own guard.
+    auto result = persist(zero(input.expressions.at(site).type, site));
+    when(running(caller), [&] { assign(result, invoke(function, arguments, site), site); });
+    return materialize(std::move(result));
   }
   DeviceValue capture(const WorkgroupCapture &source, ValueId site) {
     if (source.tensor)
@@ -429,7 +446,7 @@ class Emitter {
         const auto type = cast<MemRefType>(storage.getType());
         const auto selected = cmp(arith::CmpIPredicate::eq, source.bits, c(slot + 1));
         matched = either(matched, selected);
-        when(selected, [&] {
+        when(both(running(frame), selected), [&] {
           if (action == A::Read)
             store(widen(memref::LoadOp::create(builder, loc(), storage,
                                                ValueRange{index(position.bits)})),
@@ -452,7 +469,9 @@ class Emitter {
     if (auto found = frame.values.find(id); found != frame.values.end())
       return found->second;
     const auto &node = input.expressions.at(id);
-    if (node.type.fallible) {
+    const bool privateRecord = node.type.builtin == BuiltinValue::Record && !node.type.tensor &&
+                               !node.type.array && !node.type.task && !node.type.device;
+    if (node.type.fallible || privateRecord) {
       auto result = persist(zero(node.type, id));
       const auto cache = frame.values;
       when(running(frame), [&] { assign(result, expression(frame, id), id); });
@@ -492,6 +511,12 @@ class Emitter {
     return out;
   }
   DeviceValue expression(Frame &frame, ValueId id) {
+    struct CheckingScope {
+      Frame *&current;
+      Frame *previous;
+      ~CheckingScope() { current = previous; }
+    } checking{checkingFrame, checkingFrame};
+    checkingFrame = &frame;
     if (++steps > 300000)
       reject(id, "cooperative shader expansion exceeds its work budget");
     if (auto found = frame.values.find(id); found != frame.values.end())
@@ -576,7 +601,8 @@ class Emitter {
       checked(valid);
       // A false predicate must not issue even a speculative out-of-bounds read,
       // including the empty-input case. Barriers remain outside this branch.
-      auto branch = scf::IfOp::create(builder, loc(), TypeRange{builder.getI64Type()}, valid, true);
+      auto branch = scf::IfOp::create(builder, loc(), TypeRange{builder.getI64Type()},
+                                      both(running(frame), valid), true);
       {
         OpBuilder::InsertionGuard guard(builder);
         builder.setInsertionPointToStart(&branch.getThenRegion().front());
@@ -591,7 +617,7 @@ class Emitter {
       std::vector<DeviceValue> arguments;
       for (auto value : operation->arguments)
         arguments.push_back(evaluate(frame, value));
-      out = invoke(operation->function, arguments, id);
+      out = call(frame, operation->function, arguments, id);
     } else if (auto operation = std::get_if<FunctionReference>(&node.operation)) {
       out.function = operation->function;
       for (auto value : operation->captures)
@@ -604,7 +630,7 @@ class Emitter {
       for (auto value : operation->arguments)
         arguments.push_back(evaluate(frame, value));
       arguments.insert(arguments.end(), function.elements.begin(), function.elements.end());
-      out = invoke(*function.function, arguments, id);
+      out = call(frame, *function.function, arguments, id);
     } else if (auto operation = std::get_if<RecordValue>(&node.operation)) {
       out = operation->base ? evaluate(frame, *operation->base) : zero(node.type, id);
       if (operation->variant) {
@@ -620,15 +646,17 @@ class Emitter {
       auto error = evaluate(frame, operation->error);
       if (!frame.failed)
         reject(id, "cooperative failure is outside a declared error channel");
-      assign(frame.error, error, id);
-      store(c(1), frame.failed);
+      when(running(frame), [&] {
+        assign(frame.error, error, id);
+        store(c(1), frame.failed);
+      });
       out = zero(node.type, id);
     } else if (auto operation = std::get_if<TaskOperation>(&node.operation);
                operation && operation->prefix == TaskPrefix::Try && !node.type.task) {
       out = evaluate(frame, operation->operand);
       if (!out.failed || out.errors.size() != 1 || !frame.failed)
         reject(id, "cooperative try requires matching application-error storage");
-      when(nonzero(out.failed), [&] {
+      when(both(running(frame), nonzero(out.failed)), [&] {
         assign(frame.error, out.errors.front(), id);
         store(c(1), frame.failed);
       });
@@ -686,16 +714,13 @@ class Emitter {
     } else if (auto operation = std::get_if<ConditionalOperation>(&node.operation)) {
       auto condition = evaluate(frame, operation->condition);
       auto saved = frame;
-      auto branch = scf::IfOp::create(builder, loc(), TypeRange{builder.getI64Type()},
-                                      nonzero(condition.bits), true);
-      auto arm = [&](Region &region, const std::vector<TypedStatement> &body, ValueId result) {
+      auto result = persist(zero(node.type, id));
+      auto branch = scf::IfOp::create(builder, loc(), nonzero(condition.bits), true);
+      auto arm = [&](Region &region, const std::vector<TypedStatement> &body, ValueId value) {
         builder.setInsertionPointToStart(&region.front());
         frame = saved;
         suite(frame, body);
-        auto value = evaluate(frame, result);
-        if (!value.bits || value.data || !value.elements.empty())
-          reject(id, "cooperative branch result requires a numeric value");
-        scf::YieldOp::create(builder, loc(), ValueRange{value.bits});
+        assign(result, evaluate(frame, value), id);
       };
       {
         OpBuilder::InsertionGuard guard(builder);
@@ -703,15 +728,17 @@ class Emitter {
         arm(branch.getElseRegion(), operation->whenFalse, operation->falseResult);
       }
       frame = std::move(saved);
-      out.bits = branch.getResult(0);
+      out = materialize(std::move(result));
     } else if (auto operation = std::get_if<LoopTransferOperation>(&node.operation)) {
       auto value = operation->value ? evaluate(frame, *operation->value) : literal(0);
       if (!frame.results.contains(operation->loop))
         reject(id, "cooperative control transfer has no enclosing loop");
-      assign(frame.results.at(operation->loop), value, id);
-      store(c(operation->continuing ? -std::int64_t(operation->loop + 1)
-                                    : std::int64_t(operation->loop + 1)),
-            frame.control);
+      when(running(frame), [&] {
+        assign(frame.results.at(operation->loop), value, id);
+        store(c(operation->continuing ? -std::int64_t(operation->loop + 1)
+                                      : std::int64_t(operation->loop + 1)),
+              frame.control);
+      });
       out.bits = c(0);
     } else if (auto operation = std::get_if<WhileOperation>(&node.operation)) {
       auto result = persist(zero(node.type, id));
@@ -878,9 +905,30 @@ public:
         arguments.push_back(std::move(value));
       }
       auto result = invoke(plan.callback, arguments, plan.dispatch);
-      if (result.failed)
-        reject(plan.dispatch,
-               "unhandled cooperative callback errors require an expected-error export envelope");
+      if (result.failed) {
+        if (!plan.launch.errorWords || result.errors.size() != 1)
+          reject(plan.dispatch, "cooperative expected-error export has no matching envelope");
+        std::vector<Value> leaves;
+        errorLeaves(result.errors.front(), leaves);
+        if (leaves.size() != plan.launch.errorWords)
+          reject(plan.dispatch,
+                 "cooperative expected-error payload differs from its export layout");
+        const auto begin = words - 2 - 2 * plan.launch.errorWords;
+        when(nonzero(result.failed), [&] {
+          // Only failing invocations contend. Atomic OR elects exactly one
+          // writer without spinning or depending on invocation count/order.
+          // No peer reads the payload; the host waits for the entire dispatch.
+          auto previous = memref::AtomicRMWOp::create(builder, loc(), arith::AtomicRMWKind::ori,
+                                                      c(1, 32), parameters, ValueRange{at(begin)});
+          when(cmp(arith::CmpIPredicate::eq, previous, c(0, 32)), [&] {
+            for (std::size_t i = 0; i < leaves.size(); ++i) {
+              store(narrow(leaves[i], 32), parameters, begin + 1 + 2 * i);
+              store(narrow(arith::ShRUIOp::create(builder, loc(), leaves[i], c(32)), 32),
+                    parameters, begin + 2 + 2 * i);
+            }
+          });
+        });
+      }
       auto activeLane = c(1, 1), offset = c(0);
       for (std::size_t axis = 0; axis < dimensions.size(); ++axis) {
         activeLane =

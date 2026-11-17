@@ -113,6 +113,7 @@ class Builder {
       append(launch.groupShape);
       append(launch.inputRanks);
       key += "w" + std::to_string(launch.scratchBytes);
+      key += "e" + std::to_string(launch.errorWords);
       for (const auto *expressions : {&launch.shape, &launch.checked}) {
         key += '#';
         for (const auto &extent : *expressions) {
@@ -368,7 +369,7 @@ class Builder {
     const auto graph = &fn == &root ? graphParameter_ : std::nullopt;
     if (containsWorkgroupDispatch(input, function)) {
       auto shader = emitWorkgroupShader(
-          input, function,
+          input, fn.deviceErrorEntry.value_or(function),
           {.arithmetic = arithmetic_, .nativeFloat64Conversions = nativeFloat64Conversions_});
       if (!shader)
         throw Rejected{shader.error()};

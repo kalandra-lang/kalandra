@@ -1,4 +1,5 @@
 #include "WorkgroupPlan.h"
+#include "../gpu-source/DeviceErrorLayout.h"
 #include <map>
 #include <set>
 
@@ -76,6 +77,11 @@ class Planner {
       for (auto value : call->arguments)
         arguments.push_back(evaluate(frame, value));
       out = invoke(call->function, std::move(arguments), id);
+    } else if (auto operation = std::get_if<TaskOperation>(&node.operation);
+               operation && operation->prefix == TaskPrefix::Try && !node.type.task) {
+      out = evaluate(frame, operation->operand);
+      if (!out.dispatch)
+        reject(id, "cooperative launch prelude cannot discard an expected-error operation");
     } else if (auto boundary = std::get_if<WhileOperation>(&node.operation);
                boundary && boundary->functionBoundary) {
       suite(frame, boundary->initial);
@@ -224,6 +230,25 @@ public:
     auto result = invoke(id, std::move(arguments), function.result);
     if (result.dispatch && launches == 1) {
       result.dispatch->launch.checked = std::move(launch.checked);
+      const auto &callback = module.functions.at(result.dispatch->callback).resultType;
+      if (callback.fallible && callback.errorRecord != function.resultType.errorRecord)
+        reject(function.result,
+               "cooperative error export requires the callback's declared error family");
+      if (function.resultType.fallible) {
+        if (!function.resultType.errorRecord)
+          reject(function.result,
+                 "cooperative error export requires a declared application-error family");
+        const std::array families{*function.resultType.errorRecord};
+        auto layouts = planDeviceErrorPayloadLayouts(module, families);
+        if (!layouts)
+          reject(function.result,
+                 "cooperative application errors require a device-compatible layout");
+        const auto &layout = layouts->at(families.front());
+        if (!layout.words || layout.words > 1024 || !layout.owned.empty())
+          reject(function.result,
+                 "cooperative application-error export requires a bounded inline numeric payload");
+        result.dispatch->launch.errorWords = layout.words;
+      }
       return std::move(*result.dispatch);
     }
     reject(function.result, "cooperative wrapper does not return its dispatch result");

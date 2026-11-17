@@ -204,15 +204,19 @@ class Analyzer {
     if (operation.arguments.size() != arity)
       reject(id, "invalid cooperative intrinsic argument layout");
     const auto receiver = evaluate(frame, operation.arguments[0]);
+    if (frame.transfer || frame.failure)
+      return unknown(module.expressions[id].type, false);
     if (action == Action::Read || action == Action::Write) {
       if (receiver.kind != Value::Kind::Scratch || receiver.identity >= result.scratch.size())
         reject(id, "shared scratch provenance is not established");
       auto index = evaluate(frame, operation.arguments[1]);
+      if (frame.transfer || frame.failure)
+        return unknown(module.expressions[id].type, false);
       if (!index.integer || *index.integer < 0 || *index.integer > UINT64_MAX)
         reject(id, "cannot prove shared scratch bounds and lane ownership for this index");
       if (action == Action::Write)
         evaluate(frame, operation.arguments[2]);
-      if (frame.transfer)
+      if (frame.transfer || frame.failure)
         return unknown(module.expressions[id].type, false);
       lane.phases.back().accesses.push_back({receiver.identity,
           static_cast<std::uint64_t>(*index.integer), action == Action::Write, true, id});
@@ -249,6 +253,8 @@ class Analyzer {
       return unknown(module.expressions[id].type, true);
     }
     auto axis = evaluate(frame, operation.arguments[1]);
+    if (frame.transfer || frame.failure)
+      return unknown(module.expressions[id].type, false);
     if (!axis.integer || *axis.integer < 0 || *axis.integer >= geometry.rank)
       reject(id, "workgroup index axis must be constant and inside the logical launch rank");
     const auto dimension = static_cast<std::size_t>(*axis.integer);
@@ -430,6 +436,8 @@ class Analyzer {
     } else if (const auto *op = std::get_if<LoopTransferOperation>(&node.operation)) {
       if (op->value)
         value = evaluate(frame, *op->value);
+      if (frame.transfer || frame.failure)
+        return value;
       value.uniform &= frame.uniformControl;
       frame.transfer = ControlExit{op->loop, op->continuing, value};
     } else if (const auto *op = std::get_if<TensorLiteral>(&node.operation)) {
@@ -473,6 +481,8 @@ class Analyzer {
       invalidateBackings(frame);
     } else if (const auto *op = std::get_if<FailOperation>(&node.operation)) {
       auto error = evaluate(frame, op->error);
+      if (frame.transfer || frame.failure)
+        return value;
       error.uniform &= frame.uniformControl;
       frame.failure = std::move(error);
     } else if (const auto *op = std::get_if<TaskOperation>(&node.operation);
@@ -485,7 +495,7 @@ class Analyzer {
       value.errors.clear();
     } else if (const auto *op = std::get_if<CatchOperation>(&node.operation)) {
       value = evaluate(frame, op->operand);
-      if (!value.errors.empty() && !frame.failure) {
+      if (!value.errors.empty() && !frame.failure && !frame.transfer) {
         const auto previous = frame.uniformControl;
         frame.uniformControl &= value.errors.front().uniform && value.uniform;
         frame.symbols[op->parameter] = value.errors.front();
@@ -526,6 +536,8 @@ class Analyzer {
       value.uniform &= record.uniform;
     } else if (const auto *op = std::get_if<MatchOperation>(&node.operation)) {
       const auto subject = evaluate(frame, op->subject);
+      if (frame.transfer || frame.failure)
+        return value;
       if (subject.elements.empty() || !subject.elements.front().integer)
         reject(id, "cooperative variant matching requires an established private enum tag");
       bool matched = false;

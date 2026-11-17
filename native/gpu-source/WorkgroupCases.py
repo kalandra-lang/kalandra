@@ -56,6 +56,10 @@ if __name__ == "__main__":
     controls = {
         "caught-lane-error-before-barrier": [3, 2, 1, 7],
         "caught-error-payload": [7, 1, 2, 3],
+        "caught-conditional-error-value": [3, 7, 1, 7],
+        "failed-argument-skips-shared-helper": [11, 10, 9, 8],
+        "varying-failed-argument-skips-store": [106, 198, 198, 100],
+        "nested-return-skips-divide-fault": [7, 5, 5, 5],
     }
     for name in controls:
         source, diagnostic = CASES[name]
@@ -67,6 +71,26 @@ if __name__ == "__main__":
         (args.output / (name + ".log")).write_text(result.stdout + result.stderr)
         assert result.returncode == 0, (name, result.stdout, result.stderr)
     (args.output / "control-cases.json").write_text(json.dumps(controls, indent=2) + "\n")
+    tiled=args.output/'tiled.k'
+    tiled.write_text((Path(__file__).parent/'workgroup-tiled.k').read_text())
+    result=subprocess.run([str(args.emitter.resolve()),str(tiled),'tiled',
+        str(args.output/'tiled.mlir'),args.backend],capture_output=True,text=True)
+    (args.output/'tiled.log').write_text(result.stdout+result.stderr)
+    assert result.returncode==0,('tiled',result.stdout,result.stderr)
+    error_source = (Path(__file__).parent / "workgroup-error-export.k").read_text()
+    error_source = error_source[:error_source.index('fn report')]
+    uniform_source = error_source.replace('    lane = item.localIndex(0)', '''    if count >= 3:
+      fail Bad.Failed {index: item.globalIndex(0), observed: f32(item.globalIndex(0) % 7)}
+    lane = item.localIndex(0)''')
+    fault_source = uniform_source.replace('    if count >= 3:',
+        '    ignored = 1 / (count - count)\n    if count >= 3:')
+    for name, source in {'error-export': error_source, 'error-uniform': uniform_source,
+                         'error-fault-precedence': fault_source}.items():
+        path=args.output/(name+'.k');path.write_text(source)
+        result=subprocess.run([str(args.emitter.resolve()),str(path),'risky',
+            str(args.output/(name+'.mlir')),args.backend],capture_output=True,text=True)
+        (args.output/(name+'.log')).write_text(result.stdout+result.stderr)
+        assert result.returncode==0,(name,result.stdout,result.stderr)
     dispatch = 'dispatch([4],[4],fn(item: WorkItem)->f32:return f32(1))'
     planning = {
         "transformed-dispatch": ('from "std/gpu" import dispatch, WorkItem\n'

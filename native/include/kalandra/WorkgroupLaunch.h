@@ -30,6 +30,15 @@ struct WorkgroupLaunch {
   std::vector<WorkgroupShapeExpression> shape;
   std::uint64_t scratchBytes = 0;
   std::vector<WorkgroupShapeExpression> checked{};
+  std::uint32_t errorWords = 0;
+};
+// Private, fence-complete expected-error publication. An empty payload denotes
+// success. It is not an execution fault or a numerical tensor backing.
+struct WorkgroupOutcome {
+  NumericType type;
+  std::array<std::uint64_t, 8> dimensions{};
+  std::uint32_t rank = 0;
+  std::vector<std::uint64_t> error;
 };
 inline std::optional<std::int64_t>
 evaluateWorkgroupShape(std::span<const WorkgroupShapeStep> expression,
@@ -95,7 +104,7 @@ evaluateWorkgroupShape(std::span<const WorkgroupShapeStep> expression,
 inline std::optional<std::uint32_t> workgroupParameterWords(const WorkgroupLaunch &launch,
                                                             std::span<const NumericType> scalars) {
   if (launch.groupShape.size() > 8 || launch.shape.size() != launch.groupShape.size() ||
-      launch.inputRanks.size() > 62 || scalars.size() > 1024)
+      launch.inputRanks.size() > 62 || scalars.size() > 1024 || launch.errorWords > 1024)
     return {};
   std::uint32_t words = 2 + 2 * launch.groupShape.size();
   std::uint64_t local = 1;
@@ -115,7 +124,32 @@ inline std::optional<std::uint32_t> workgroupParameterWords(const WorkgroupLaunc
       return {};
     words += desc->bits == 64 ? 2 : 1;
   }
+  if (launch.errorWords)
+    words += 1 + 2 * launch.errorWords;
   return words;
+}
+inline std::optional<std::vector<std::uint64_t>>
+readWorkgroupError(const WorkgroupLaunch &launch, std::span<const NumericType> scalarTypes,
+                   std::span<const std::uint32_t> parameters) {
+  const auto words = workgroupParameterWords(launch, scalarTypes);
+  if (!words || !launch.errorWords || parameters.size() != *words ||
+      parameters.back() != UINT32_MAX)
+    return {};
+  const auto begin = *words - 2 - 2 * launch.errorWords;
+  if (parameters[begin] > 1)
+    return {};
+  std::vector<std::uint64_t> error;
+  if (parameters[begin])
+    error.resize(launch.errorWords);
+  for (std::size_t i = 0; i < launch.errorWords; ++i) {
+    const auto bits = std::uint64_t(parameters[begin + 1 + 2 * i]) |
+                      (std::uint64_t(parameters[begin + 2 + 2 * i]) << 32);
+    if (!error.empty())
+      error[i] = bits;
+    else if (bits)
+      return {};
+  }
+  return error;
 }
 inline std::optional<std::uint64_t> workgroupMetadataBytes(const WorkgroupLaunch &launch) {
   if (launch.groupShape.size() > 8 || launch.shape.size() != launch.groupShape.size() ||
@@ -147,6 +181,8 @@ inline std::string workgroupKernelName(NumericType result, std::span<const Numer
   name += "_g";
   for (auto extent : launch.groupShape)
     name += std::to_string(extent) + "x";
+  if (launch.errorWords)
+    name += "_e" + std::to_string(launch.errorWords);
   return name;
 }
 enum class WorkgroupLaunchError { Invalid, Arithmetic, Shape, Resource };
@@ -212,6 +248,8 @@ prepareWorkgroupLaunch(const WorkgroupLaunch &launch, std::span<const NumericTyp
       append(extent);
   for (std::size_t i = 0; i < scalars.size(); ++i)
     append(scalars[i], describeNumeric(scalarTypes[i])->bits == 64);
+  if (launch.errorWords)
+    result.parameters.resize(result.parameters.size() + 1 + 2 * launch.errorWords, 0);
   result.parameters.push_back(UINT32_MAX);
   return result;
 }

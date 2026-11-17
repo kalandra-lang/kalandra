@@ -581,6 +581,8 @@ struct TypedFunction {
   bool standardIteratorTake = false;
   // Loader-proven private std/cmp sorter; safe specialization scope only.
   bool standardComparatorSort = false;
+  // Private expected-error export adapter; never inferred from source spelling.
+  std::optional<FunctionId> deviceErrorEntry = {};
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.

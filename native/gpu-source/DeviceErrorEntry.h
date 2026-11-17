@@ -64,6 +64,7 @@ appendDeviceErrorEntry(TypedModule &module, FunctionId function, std::size_t &bu
   };
   auto inner = create(innerId, fallibleOutcome, ".pack");
   auto outer = create(outerId, outcome, ".export");
+  outer.deviceErrorEntry = function;
   const auto add = [&](TypedFunction &wrapper, const ValueType &type, auto operation) {
     const auto id = module.expressions.size();
     module.expressions.push_back({span, type, std::move(operation)});

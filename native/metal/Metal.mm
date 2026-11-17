@@ -283,6 +283,7 @@ struct Storage {
   std::uint32_t rank = 0, deviceIndex = 0;
   Format format = Format::Float32;
   std::optional<DeviceArrayResultMetadata> arrayResult{};
+  std::shared_ptr<const WorkgroupOutcome> workgroupOutcome{};
   bool device = false;
   std::uint64_t size = 0, hostReserved = 0;
   std::vector<std::byte> host;
@@ -617,6 +618,10 @@ struct Bridge {
           return std::unexpected(Error::Budget);
         cooperativeBytes += *bytes;
       }
+      if (op.kind == K::Workgroup &&
+          (!kernel || !kernel->workgroup || op.target || op.workPerElement ||
+           op.inputs.size() != kernel->workgroup->inputRanks.size()))
+        return std::unexpected(Error::Invalid);
       bool valid = false;
       switch (op.kind) {
       case K::DeviceControl:
@@ -647,10 +652,6 @@ struct Bridge {
         controlSlots = std::max(controlSlots, std::uint64_t(op.scalars.size()));
         [[fallthrough]];
       case K::Workgroup:
-        if (!kernel || !kernel->workgroup || op.target || op.workPerElement ||
-            op.inputs.size() != kernel->workgroup->inputRanks.size())
-          return std::unexpected(Error::Invalid);
-        [[fallthrough]];
       case K::Map:
         valid = kernel && (op.kind == K::Workgroup) == bool(kernel->workgroup) &&
                 kernel->numericType && kernel->signature && kernel->elementwise &&
@@ -1295,6 +1296,7 @@ struct Bridge {
     float scalar = 0;
     std::unique_ptr<ReductionScratch> scratch;
     std::shared_ptr<MetalAllocation> staging, resources;
+    std::shared_ptr<WorkgroupOutcome> workgroupOutcome;
     Error error = Error::Device;
     bool succeeded = false, started = false, active = false;
     bool copyingUpload = false, arenaAcknowledging = false, exportAcknowledging = false;
@@ -2148,6 +2150,11 @@ struct Bridge {
         return nil;
       }
       f.result = Buffer(*output);
+      if (launch.errorWords) {
+        f.workgroupOutcome = std::make_shared<WorkgroupOutcome>(WorkgroupOutcome{
+            *kernel.numericType, packet->geometry.shape, packet->geometry.rank, {}});
+        (*output)->workgroupOutcome = f.workgroupOutcome;
+      }
       if (!packet->geometry.groups) {
         empty = true;
         return nil;
@@ -2497,6 +2504,27 @@ struct Bridge {
     auto &p = *f.packet.numericProgram;
     const auto lastIndex = f.numericFused ? numericPostIndex(p) : p.pc;
     const auto &last = p.code[lastIndex];
+    if (last.kind == NumericInstructionKind::Workgroup &&
+        last.kernel.state_->workgroup->errorWords) {
+      if (!f.workgroupOutcome)
+        return std::unexpected(Error::Invalid);
+      if (f.staging) {
+        try {
+          const auto &kernel = *last.kernel.state_;
+          auto error = readWorkgroupError(
+              *kernel.workgroup, kernel.scalarTypes,
+              std::span(static_cast<const std::uint32_t *>(f.staging->contents()),
+                        kernel.parameterWords()));
+          if (!error)
+            return std::unexpected(Error::Invalid);
+          f.workgroupOutcome->error = std::move(*error);
+        } catch (const std::bad_alloc &) {
+          return std::unexpected(Error::Allocation);
+        }
+      } else if (f.result.bytes())
+        return std::unexpected(Error::Invalid);
+      f.workgroupOutcome.reset();
+    }
     if (isGpuControlKind(last.kind)) {
       const auto *words = static_cast<const std::uint32_t *>(f.staging->contents());
       const auto next = std::uint64_t(words[1]) | (std::uint64_t(words[2]) << 32);
@@ -4617,6 +4645,9 @@ bool Buffer::onDevice() const noexcept { return storage_ && storage_->device; }
 Format Buffer::format() const noexcept { return storage_ ? storage_->format : Format::Float32; }
 std::optional<DeviceArrayResultMetadata> Buffer::arrayResult() const noexcept {
   return storage_ ? storage_->arrayResult : std::optional<DeviceArrayResultMetadata>{};
+}
+std::shared_ptr<const WorkgroupOutcome> Buffer::workgroupOutcome() const noexcept {
+  return storage_ ? storage_->workgroupOutcome : nullptr;
 }
 std::expected<std::span<const std::byte>, Error> Buffer::hostBytes() const noexcept {
   if (!storage_)

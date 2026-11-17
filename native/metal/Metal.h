@@ -157,6 +157,7 @@ public:
   bool onDevice() const noexcept;
   Format format() const noexcept;
   std::optional<DeviceArrayResultMetadata> arrayResult() const noexcept;
+  std::shared_ptr<const WorkgroupOutcome> workgroupOutcome() const noexcept;
   std::expected<std::span<const std::byte>, Error> hostBytes() const noexcept;
 
 private:
@@ -275,6 +276,9 @@ public:
   }
   static std::optional<DeviceArrayResultMetadata> arrayResult(const Buffer &value) noexcept {
     return value.arrayResult();
+  }
+  static std::shared_ptr<const WorkgroupOutcome> workgroupOutcome(const Buffer &value) noexcept {
+    return value.workgroupOutcome();
   }
   TaskHandle downloadArrayPage(Task &, GroupHandle, const Buffer &, std::uint64_t offset,
                                std::uint64_t words) noexcept;

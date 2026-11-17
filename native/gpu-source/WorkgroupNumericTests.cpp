@@ -34,15 +34,31 @@ int main(int argc, char **argv) {
       backend::ProgramKernel schema;
       schema.type = description.type;
       schema.workgroup = launch;
+      std::vector<backend::TensorValue> inputs;
+      std::vector<std::uint32_t> operands;
+      for (const auto &input : test.inputs) {
+        const auto bytes = qualification::workgroupInputBytes(input);
+        backend::TensorValue value{take(runtime->uploadBytes(bytes), "upload tiled input"),
+                                   input.type};
+        value.rank = static_cast<std::uint8_t>(input.shape.size());
+        std::copy(input.shape.begin(), input.shape.end(), value.dimensions.begin());
+        operands.push_back(inputs.size());
+        inputs.push_back(std::move(value));
+        schema.tensorTypes.push_back(input.type);
+        schema.scalarBuffers.push_back(0);
+      }
       const auto path = std::filesystem::path(argv[1]) / (test.name + extension);
       const auto contract =
           take(backend::kernelContract(schema, NumericProgramKind::Workgroup), "contract");
       schema.kernel = take(runtime->loadKernel(path, &contract), "load shared shuffle");
-      backend::ProgramInstruction instruction{NumericProgramKind::Workgroup, schema, {}, {}, {}, 0};
-      const auto program = take(backend::Program::prepare(*runtime, 0, std::span(&instruction, 1),
-                                                          0, description.type, false),
-                                "prepare shared shuffle");
-      auto invocation = take(program.start(*runtime, {}, {}), "start shared shuffle");
+      const auto resultId = static_cast<std::uint32_t>(inputs.size());
+      backend::ProgramInstruction instruction{
+          NumericProgramKind::Workgroup, schema, operands, {}, {}, resultId};
+      const auto program =
+          take(backend::Program::prepare(*runtime, resultId, std::span(&instruction, 1), resultId,
+                                         description.type, false),
+               "prepare shared shuffle");
+      auto invocation = take(program.start(*runtime, inputs, {}), "start shared shuffle");
       while (!invocation.finished()) {
         auto next = take(invocation.next(*runtime), "next shared shuffle");
         if (!next)

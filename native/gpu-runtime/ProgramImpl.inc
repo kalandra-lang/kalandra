@@ -574,6 +574,9 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
           auto empty = runtime.blankBytes(0);
           if (!empty) return fail(empty.error());
           output_.data = std::move(*empty);
+          if (schema.workgroup->errorWords)
+            output_.workgroupOutcome = std::make_shared<const WorkgroupOutcome>(
+                WorkgroupOutcome{output_.type, output_.dimensions, output_.rank, {}});
           values_[op.output] = std::move(output_);
           for (auto input : op.inputs) release(input);
           ++pc_;
@@ -831,6 +834,19 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
       result.output.bytes() != std::uint64_t(*size) * describeNumeric(output_.type)->bytes())
     return fail(Error::Invalid);
   output_.data = std::move(result.output);
+  const auto &instruction = definition_->code[pc_];
+  if (instruction.kind == K::Workgroup && instruction.kernel->workgroup->errorWords) {
+    try {
+      auto error = readWorkgroupError(*instruction.kernel->workgroup,
+                                      instruction.kernel->scalarTypes, result.parameters);
+      if (!error)
+        return fail(Error::Invalid);
+      output_.workgroupOutcome = std::make_shared<const WorkgroupOutcome>(
+          WorkgroupOutcome{output_.type, output_.dimensions, output_.rank, std::move(*error)});
+    } catch (const std::bad_alloc &) {
+      return fail(Error::Allocation);
+    }
+  }
   pending_ = false;
   if (isGpuControlKind(definition_->code[pc_].kind)) {
     if (result.parameters.size() < 4 || result.parameters[0] != 1)

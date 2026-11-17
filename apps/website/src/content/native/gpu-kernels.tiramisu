@@ -113,3 +113,50 @@ The output shape need not be divisible by the group shape. Padding invocations r
 Checked arithmetic and bounds faults fail the whole task. Padding lanes participate in these checks too. GPU arithmetic follows the selected backend's numerical contract: Vulkan hardware division, for example, need not be bit-identical to CPU division. Metal f64 arithmetic requires an explicit software-fallback policy.
 
 A barrier is not a cancellation point. Cancellation retains submitted buffers until GPU completion, then settles the task using the normal task contract. Scratch and owned results cannot outlive their invocation or be released while the device still uses them.
+
+h2 { "Application errors" }
+
+A callback may declare an error type. Use try dispatch in a function that declares that error, then handle it using the same try, catch and match expressions as other GPU tasks. Exported error payloads may contain numeric primitives, bool values and nested records of those values. Owned arrays, tensors and strings are not supported in cooperative error payloads.
+
+codeblock { language = kalandra, """from "std/gpu" import dispatch, WorkItem
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+error Negative:
+  Found:
+    index: i64
+    value: f32
+
+fn checked(values: Tensor[f32, ?]) -> Tensor[f32, ?] ! Negative:
+  n = shape(values)[0]
+  return try dispatch([n], [4], fn(item: WorkItem) -> f32 ! Negative:
+    index = item.globalIndex(0)
+    position = if index < n: index
+    else: n - 1
+    value = values[position]
+    if value < f32(0):
+      fail Negative.Found {index: index, value: value}
+    return value * f32(2)
+  )
+
+fn example() -> String ! (TaskError | Negative):
+  return try parallel:
+    gpu = devices.gpu()
+    input: Tensor[f32, 4] = tensor([1, -2, 3, 4])
+    values = try await transfer(input, gpu)
+    output = try await spawn checked(values) on gpu
+    cpu = try await transfer(output, devices.cpu())
+    format("{}", array(cpu)[0])
+
+fn main() -> unit ! IoError:
+  text = example() catch fn(error):
+    return match error:
+      Negative.Found {index: index, value: value}: format("negative at {}: {}", index, value)
+      _: "unexpected task fault"
+  try println(text)
+  return ()
+""" }
+
+This prints negative at 1: -2. If several invocations fail, the task reports one of their errors; which invocation wins is unspecified. Padding invocations can fail too. No partial output tensor is published on failure. An arithmetic or bounds fault takes precedence over an application error from the same completed dispatch.
+
+Errors do not waive barrier convergence. A lane cannot fail before a barrier that other lanes still need to reach. Catching an error locally and continuing to a common barrier is allowed when the checker can prove the shared-memory accesses and collective schedule safe.

@@ -236,6 +236,54 @@ fn checked(value: i64) -> f32 ! Bad:
   return f32(value)
 '''
 CASES.update({
+    "varying-failed-argument-skips-store": (kernel('''
+        lane = item.localIndex(0)
+        tile = item.shared[f32](4)
+        tile[lane] = f32(lane + 1)
+        value = early(item, tile) catch fn(error): return f32(7)
+        item.barrier()
+        return tile[3 - lane] + value
+    ''', prefix=ERROR_HELPERS+'''fn publish(item: WorkItem, tile: Shared[f32], value: f32) -> Shared[f32]:
+  tile[item.localIndex(0)] = f32(99)
+  return tile
+fn early(item: WorkItem, tile: Shared[f32]) -> f32 ! Bad:
+  lane = item.localIndex(0)
+  return publish(item, tile, try checked(lane))[lane]
+'''), None),
+    "caught-conditional-error-value": (kernel('''
+        lane = item.localIndex(0)
+        outcome = if lane % 2 == 0: checked(0)
+        else: checked(lane)
+        value = outcome catch fn(error): return f32(7)
+        tile = item.shared[f32](4)
+        tile[lane] = value
+        item.barrier()
+        return tile[3 - lane]
+    ''', prefix=ERROR_HELPERS), None),
+    "failed-argument-skips-shared-helper": (kernel('''
+        lane = item.localIndex(0)
+        tile = item.shared[f32](4)
+        tile[lane] = f32(lane + 1)
+        value = early(item, tile) catch fn(error): return f32(7)
+        item.barrier()
+        return tile[3 - lane] + value
+    ''', prefix=ERROR_HELPERS+'''fn publish(item: WorkItem, tile: Shared[f32], value: f32) -> Shared[f32]:
+  tile[item.localIndex(0)] = f32(99)
+  item.barrier()
+  return tile
+fn early(item: WorkItem, tile: Shared[f32]) -> f32 ! Bad:
+  return publish(item, tile, try checked(0))[0]
+'''), None),
+    "nested-return-skips-divide-fault": (kernel('''
+        value = f32(early(item.localIndex(0)))
+        item.barrier()
+        return value
+    ''', prefix='''fn early(lane: i64) -> i64:
+  return 10 / if lane == 0:
+    return 7
+  else:
+    2
+'''), None),
     "caught-lane-error-before-barrier": (kernel('''
         lane = item.localIndex(0)
         value = checked(lane) catch fn(error): return f32(7)

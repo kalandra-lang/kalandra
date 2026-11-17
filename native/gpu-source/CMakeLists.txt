@@ -196,6 +196,13 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
+  add_executable(kalandra-workgroup-error-compiler-tests WorkgroupErrorCompilerTests.cpp)
+  target_link_libraries(kalandra-workgroup-error-compiler-tests PRIVATE kalandra-gpu-supervisor)
+  target_compile_options(kalandra-workgroup-error-compiler-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME frontend-workgroup-error-compiler COMMAND kalandra-workgroup-error-compiler-tests
+    "${CMAKE_CURRENT_SOURCE_DIR}/workgroup-error-export.k"
+    "${CMAKE_CURRENT_SOURCE_DIR}/workgroup-error-payloads.k")
+  set_tests_properties(frontend-workgroup-error-compiler PROPERTIES TIMEOUT 180)
   add_executable(kalandra-workgroup-emitter-tests EXCLUDE_FROM_ALL ../metal-source/WorkgroupEmitterTests.cpp)
   target_link_libraries(kalandra-workgroup-emitter-tests PRIVATE kalandra-gpu-source-ir kalandra-syntax)
   target_compile_options(kalandra-workgroup-emitter-tests PRIVATE -Wall -Wextra -Werror)
