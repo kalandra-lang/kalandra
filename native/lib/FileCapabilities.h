@@ -1,5 +1,5 @@
 #pragma once
-#include "kalandra/Semantics.h"
+#include "kalandra/TypeCapabilities.h"
 #include <algorithm>
 namespace kalandra {
 inline std::optional<std::string>
@@ -11,7 +11,7 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
     return std::string("filesystem I/O ") + message;
   };
   const auto scalar = [](const ValueType &t) {
-    return !t.tensor && !t.array && !t.task && !t.fallible && !t.device && t.shape.empty();
+    return typeFacts(t).completedHostScalar();
   };
   const auto nominal = [&](const ValueType &t, StandardRecord record) {
     return t.builtin == BuiltinValue::Record && t.record && *t.record < module.records.size() &&
@@ -25,7 +25,7 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
     return scalar(t) && t.builtin == BuiltinValue::Numeric && t.element == NumericType::UInt64;
   };
   auto result = expression.type;
-  if (target != NumericTarget::Cpu || result.task || result.device || !result.fallible ||
+  if (!hostExecutionAvailable(target) || result.task || result.device || !result.fallible ||
       !result.errorRecord || *result.errorRecord >= module.records.size() ||
       module.records[*result.errorRecord].standard != StandardRecord::FsError)
     return bad("requires host execution and its nominal FsError channel");

@@ -1,5 +1,5 @@
 #pragma once
-#include "kalandra/Semantics.h"
+#include "kalandra/TypeCapabilities.h"
 namespace kalandra {
 inline std::optional<std::string>
 bufferCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericTarget target) {
@@ -10,11 +10,10 @@ bufferCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericT
     return std::optional<std::string>("ByteBuffer operations require completed host values and "
                                       "their declared result/error types");
   };
-  if (target != NumericTarget::Cpu || unsigned(op->action) > unsigned(BufferAction::WriteByte))
+  if (!hostExecutionAvailable(target) || unsigned(op->action) > unsigned(BufferAction::WriteByte))
     return bad();
   const auto scalar = [](const ValueType &t) {
-    return !t.array && !t.tensor && !t.task && !t.fallible && !t.errorRecord && !t.device &&
-           t.shape.empty();
+    return typeFacts(t).plainHostScalar();
   };
   const auto bytes = [](const ValueType &t) {
     return t.array && t.tensor && t.builtin == BuiltinValue::Numeric &&

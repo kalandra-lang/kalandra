@@ -606,25 +606,37 @@ struct TypedModule {
   bool applicationEntry =
       false; // Explicit application wrapper; test/library entries stay separate.
 };
+// Canonical resource identity is independent of storage validity. Callers
+// retain their scalar/wrapper/layout checks; names never establish identity.
+enum class OwnedResourceKind { None, File, BufferedReader, BufferedWriter, ByteBuffer, Iterator };
+inline OwnedResourceKind ownedResourceKind(const TypedModule &module, const ValueType &type) {
+  if (!type.record || *type.record >= module.records.size())
+    return OwnedResourceKind::None;
+  const auto standard = module.records[*type.record].standard;
+  if (!standard)
+    return OwnedResourceKind::None;
+  switch (*standard) {
+  case StandardRecord::File: return OwnedResourceKind::File;
+  case StandardRecord::BufferedReader: return OwnedResourceKind::BufferedReader;
+  case StandardRecord::BufferedWriter: return OwnedResourceKind::BufferedWriter;
+  case StandardRecord::ByteBuffer: return OwnedResourceKind::ByteBuffer;
+  case StandardRecord::Iterator: return OwnedResourceKind::Iterator;
+  default: return OwnedResourceKind::None;
+  }
+}
 inline bool isByteBuffer(const TypedModule &module, const ValueType &type) {
-  return type.record && *type.record < module.records.size() &&
-         module.records[*type.record].standard == StandardRecord::ByteBuffer;
+  return ownedResourceKind(module, type) == OwnedResourceKind::ByteBuffer;
 }
 inline bool isFileResource(const TypedModule &module, const ValueType &type) {
-  if (!type.record || *type.record >= module.records.size())
-    return false;
-  const auto standard = module.records[*type.record].standard;
-  return standard == StandardRecord::File || standard == StandardRecord::BufferedReader ||
-         standard == StandardRecord::BufferedWriter;
+  const auto kind = ownedResourceKind(module, type);
+  return kind == OwnedResourceKind::File || kind == OwnedResourceKind::BufferedReader ||
+         kind == OwnedResourceKind::BufferedWriter;
 }
 inline bool isOwnedResource(const TypedModule &module, const ValueType &type) {
-  return isFileResource(module, type) || isByteBuffer(module, type) ||
-         (type.record && *type.record < module.records.size() &&
-          module.records[*type.record].standard == StandardRecord::Iterator);
+  return ownedResourceKind(module, type) != OwnedResourceKind::None;
 }
 inline bool isIterator(const TypedModule &module, const ValueType &type) {
-  return type.record && *type.record < module.records.size() &&
-         module.records[*type.record].standard == StandardRecord::Iterator;
+  return ownedResourceKind(module, type) == OwnedResourceKind::Iterator;
 }
 
 struct SemanticLimits {

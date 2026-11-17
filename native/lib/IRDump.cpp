@@ -833,7 +833,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       const auto &a = module.expressions[comparison->left].type;
       const auto &b = module.expressions[comparison->right].type;
       const auto ordinary = [](const ValueType &t) {
-        return !t.tensor && !t.task && !t.fallible && !t.device;
+        return !typeFacts(t).tensor() && typeFacts(t).completedHostValue();
       };
       const bool numeric = a.builtin == BuiltinValue::Numeric &&
                            b.builtin == BuiltinValue::Numeric && a.element == b.element;
@@ -896,7 +896,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       const auto &a = module.expressions[input].type;
       const auto &i = module.expressions[index].type;
       const auto scalar = [](const ValueType &t) {
-        return !t.tensor && !t.array && !t.task && !t.fallible && !t.device && t.shape.empty();
+        return typeFacts(t).completedHostScalar();
       };
       if (target != NumericTarget::Cpu || !a.array || !a.tensor || a.shape.size() != 1 || a.task ||
           a.fallible || a.device || (a.builtin != BuiltinValue::Numeric && !isBooleanStorage(a)) ||
@@ -921,8 +921,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       const auto &i = module.expressions[read->index].type;
       const auto &r = expression.type;
       const auto scalar = [](const ValueType &t) {
-        return t.builtin == BuiltinValue::Numeric && !t.tensor && !t.array && t.shape.empty() &&
-               !t.task && !t.fallible && !t.device;
+        return typeFacts(t).numeric() && typeFacts(t).completedHostScalar();
       };
       if (target != NumericTarget::Cpu || !a.array || !a.tensor || a.shape.size() != 1 ||
           (a.builtin != BuiltinValue::Numeric && !isOwnedArray(a)) || a.task || a.fallible ||
@@ -941,8 +940,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       const auto &a = module.expressions[read->input].type;
       const auto &r = expression.type;
       const auto scalar = [](const ValueType &t) {
-        return t.builtin == BuiltinValue::Numeric && !t.tensor && !t.array && t.shape.empty() &&
-               !t.task && !t.fallible && !t.device;
+        return typeFacts(t).numeric() && typeFacts(t).completedHostScalar();
       };
       if (target != NumericTarget::Cpu || !a.tensor || a.array ||
           a.builtin != BuiltinValue::Numeric || a.task || a.fallible || a.device ||
@@ -1062,8 +1060,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
         return (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Record ||
                 isBooleanStorage(type) || type.builtin == BuiltinValue::String ||
                 type.builtin == BuiltinValue::Function) &&
-               !type.tensor && !type.task && !type.fallible && !type.device && !type.array &&
-               type.shape.empty();
+               typeFacts(type).completedHostScalar();
       };
       for (auto parameter : fn.parameters)
         if (parameter >= module.symbols.size())

@@ -90,7 +90,11 @@ jobs:
           -DKALANDRA_LLVM_ROOT="$env:KALANDRA_LLVM_ROOT"
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Build native CPU toolchain
-        run: cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized -j2 -- -k 0
+        run: |
+          cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized kalandra-type-capability-tests -j2 -- -k 0
+          if ($LASTEXITCODE -ne 0) { throw 'Native CPU toolchain build failed' }
+          & build/windows/native/kalandra-type-capability-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Type-capability contracts failed' }
       - name: Qualify native filesystem resource ownership
         run: |
           & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/FileSystemRuntimeTests.cpp native/tests/FileSystemUtilitiesTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/filesystem-runtime-tests.exe

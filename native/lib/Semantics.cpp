@@ -1,4 +1,5 @@
 #include "kalandra/Semantics.h"
+#include "kalandra/TypeCapabilities.h"
 #include "ArrayAccess.h"
 #include "ErrorFamilies.h"
 #include "NonCompleting.h"
@@ -6392,10 +6393,7 @@ private:
         return {};
       const auto targetType = node(*target).type;
       const auto scalar = [parallel](const ValueType &type) {
-        return !type.tensor && !type.task && (!type.fallible || parallel) && !type.device &&
-               (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type) ||
-                type.builtin == BuiltinValue::String || type.builtin == BuiltinValue::Record ||
-                type.builtin == BuiltinValue::Function);
+        return hostMapElementPrerequisite(type, parallel);
       };
       if (targetType.builtin != BuiltinValue::Function || targetType.tensor ||
           targetType.fallible || targetType.task || !targetType.callable ||
@@ -6465,10 +6463,7 @@ private:
     const auto id = found->second;
     const auto &fn = output_.functions[id];
     const auto scalar = [parallel](const ValueType &type) {
-      return (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Record ||
-              isBooleanStorage(type) || type.builtin == BuiltinValue::String ||
-              type.builtin == BuiltinValue::Function) &&
-             !type.tensor && !type.task && (!type.fallible || parallel) && !type.device;
+      return hostMapElementPrerequisite(type, parallel);
     };
     const auto result = fn.declaredResult.value_or(fn.resultType);
     if (fn.parameters.size() != 1 || !scalar(result) ||

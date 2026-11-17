@@ -209,7 +209,8 @@ class Compiler {
       const auto &fn = cpu.functions[function];
       const auto supported = [&](const ValueType &type) {
         if (type.builtin == BuiltinValue::Numeric &&
-            !numericArithmeticAvailable(type.element, NumericTarget::AppleGpu))
+            !numericTypeCapability(type.element, capabilityTarget(backend_), arithmetic_,
+                                   NumericCapabilityOperation::Storage).accepted())
           reject(fn.declaration, "GPU kernel numeric type is not implemented");
         if (type.fallible && type.errorRecord)
           errorFamilies.insert(*type.errorRecord);
@@ -243,9 +244,13 @@ class Compiler {
                             cpu.expressions[cast->input].type.element == NumericType::Float64;
         if (auto *compare = std::get_if<ScalarCompare>(&op))
           requiresDouble |= cpu.expressions[compare->left].type.element == NumericType::Float64;
-        if (requiresDouble && backend_ == GpuBackend::Metal)
-          reject(expression.span, "Metal has no hardware f64 arithmetic; explicitly select "
-                                  "--arithmetic hardware-with-software-fallback or software");
+        if (requiresDouble) {
+          const auto capability = numericTypeCapability(
+              NumericType::Float64, capabilityTarget(backend_), arithmetic_,
+              NumericCapabilityOperation::ScalarArithmetic);
+          if (capability.failure == CapabilityFailure::MetalHardwareFloat64)
+            reject(expression.span, std::string(capabilityFailureMessage(capability.failure)));
+        }
       }
     }
     if (!errorFamilies.empty()) {

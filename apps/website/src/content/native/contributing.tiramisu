@@ -21,6 +21,14 @@ The lexer, parser, semantic analysis, typed IR and CPU lowering live under nativ
 
 Read the implementation and relevant tests together. Preserve source locations, value and mutation rules, checked failures and task ownership. Compiler allocation strategies and ABI details are implementation concerns, not automatically language features.
 
+h2 { "Type facts and capabilities" }
+
+Compiler type facts describe storage, numeric family, wrappers and residence. Canonical resource identities, explicit trait conformance and operation eligibility are separate questions. Use the shared queries when changing validation rules, and preserve the distinction between completed host values and plain scalars. GPU storage eligibility also needs the existing layout, capture, provenance and actual-device checks.
+
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/blob/develop/docs/design/compiler-type-capabilities.md", "Compiler type-capability model and validation profiles" }
+}
+
 h2 { "Choose useful tests" }
 
 Add a regression reproducer for a bug fix. For a language feature, cover accepted programs, rejected programs, result values and failure behavior. Use debug and optimized modes when lowering is affected. GPU changes need numerical checks on supported hardware; a successful host build alone does not verify GPU execution. Use the repository's sanitizer configurations for relevant ownership or concurrency changes.

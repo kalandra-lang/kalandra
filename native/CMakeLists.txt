@@ -110,8 +110,14 @@ target_compile_options(kalandra-semantics PRIVATE -Wall -Wextra -Werror)
 add_executable(kalandra-check tools/check.cpp)
 target_link_libraries(kalandra-check PRIVATE kalandra-semantics kalandra-packages)
 target_compile_options(kalandra-check PRIVATE -Wall -Wextra -Werror)
+# A header-only contract driver also works in package jobs with BUILD_TESTING=OFF.
+# Keep it independent of backend libraries so sanitizer annotations never mix.
+add_executable(kalandra-type-capability-tests EXCLUDE_FROM_ALL
+  tests/TypeCapabilitiesTests.cpp tests/TypeCapabilitiesMain.cpp)
+target_include_directories(kalandra-type-capability-tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_options(kalandra-type-capability-tests PRIVATE -Wall -Wextra -Werror)
 if(BUILD_TESTING)
-  add_executable(kalandra-semantic-tests tests/SemanticTests.cpp)
+  add_executable(kalandra-semantic-tests tests/SemanticTests.cpp tests/TypeCapabilitiesTests.cpp)
   target_link_libraries(kalandra-semantic-tests PRIVATE kalandra-semantics)
   target_compile_options(kalandra-semantic-tests PRIVATE -Wall -Wextra -Werror)
   add_test(NAME frontend-semantics COMMAND kalandra-semantic-tests
@@ -121,7 +127,7 @@ if(BUILD_TESTING)
   target_link_libraries(kalandra-semantics-sanitized PUBLIC kalandra-syntax-sanitized PRIVATE LLVM)
   target_compile_options(kalandra-semantics-sanitized PRIVATE -Wall -Wextra -Werror
     -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
-  add_executable(kalandra-semantic-tests-sanitized tests/SemanticTests.cpp)
+  add_executable(kalandra-semantic-tests-sanitized tests/SemanticTests.cpp tests/TypeCapabilitiesTests.cpp)
   target_link_libraries(kalandra-semantic-tests-sanitized PRIVATE kalandra-semantics-sanitized)
   target_compile_options(kalandra-semantic-tests-sanitized PRIVATE -Wall -Wextra -Werror
     -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
