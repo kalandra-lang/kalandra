@@ -2755,7 +2755,8 @@ class Compiler {
       for (auto value : op.constants)
         bindings += std::to_string(value) + "ull,";
       bindings += "};\n";
-      if (op.kind == NumericProgramKind::Map || isGpuControlKind(op.kind))
+      if (op.kind == NumericProgramKind::Map || op.kind == NumericProgramKind::Workgroup ||
+          isGpuControlKind(op.kind))
         for (std::size_t j = 0; j < op.scalarSources.size() + op.constants.size(); ++j) {
           captureList += "scalars" + suffix + "[" + std::to_string(j) + "],";
           ++captureCount;
@@ -2775,6 +2776,39 @@ class Compiler {
       if (instruction == program.code.end())
         reject(span, "unreferenced typed numerical program kernel");
       const auto kind = instruction->kind;
+      if (kernel.workgroup) {
+        const auto &launch = *kernel.workgroup;
+        auto vector = [&](const auto &values) {
+          auto text = indices(values, "std::uint32_t");
+          return "std::vector<std::uint32_t>" + text.substr(text.find('{'));
+        };
+        std::string descriptor = "kalandra::WorkgroupLaunch{" + vector(launch.groupShape) + "," +
+                                 vector(launch.inputRanks) + ",";
+        constexpr std::array actions{"Constant", "Scalar", "Extent",    "Add",   "Subtract",
+                                     "Multiply", "Divide", "Remainder", "Negate"};
+        auto expressions = [&](const auto &values) {
+          descriptor += '{';
+          for (const auto &extent : values) {
+            descriptor += '{';
+            for (const auto &step : extent)
+              descriptor += "{kalandra::WorkgroupShapeAction::" +
+                            std::string(actions.at(unsigned(step.action))) + "," +
+                            std::to_string(step.value) + "ull," + std::to_string(step.input) +
+                            "u," + std::to_string(step.axis) + "u},";
+            descriptor += "},";
+          }
+          descriptor += '}';
+        };
+        expressions(launch.shape);
+        descriptor += "," + std::to_string(launch.scratchBytes) + "ull,";
+        expressions(launch.checked);
+        descriptor += '}';
+        code += "auto " + name + "=r.loadWorkgroupKernel(f.directory+\"/" + path + "\",*target," +
+                elementName(kernel.element) + "," + schema(kernel.tensorTypes) + "," +
+                schema(kernel.scalarTypes) + "," + descriptor + ");if(!" + name + "){" +
+                error(name + ".error()") + "}\n";
+        continue;
+      }
       if (kernel.transform) {
         const char *label = *kernel.transform == TensorTransformKind::Transpose     ? "Transpose"
                             : *kernel.transform == TensorTransformKind::SoftmaxRows ? "SoftmaxRows"
@@ -2802,7 +2836,8 @@ class Compiler {
     }
     constexpr std::array names{"Map",         "Reduce",     "Matmul",        "Branch",
                                "Jump",        "Alias",      "EqualShape",    "Extent",
-                               "MatrixShape", "ShapeFault", "ScalarControl", "DeviceControl"};
+                               "MatrixShape", "ShapeFault", "ScalarControl", "DeviceControl",
+                               "Workgroup"};
     for (std::size_t i = 0; i < program.code.size(); ++i) {
       const auto &op = program.code[i];
       const auto suffix = std::to_string(i);

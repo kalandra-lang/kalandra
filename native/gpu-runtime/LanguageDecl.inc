@@ -110,6 +110,8 @@ public:
                                                       std::span<const NumericType>,
                                                       std::span<const std::uint32_t>,
                                                       std::span<const std::uint8_t>) noexcept;
+  std::expected<Kernel, Error> loadWorkgroupKernel(std::string_view, Device, NumericType,
+      std::span<const NumericType>, std::span<const NumericType>, const WorkgroupLaunch &) noexcept;
   std::expected<Kernel, Error> loadNumericReductionKernel(std::string_view, Device,
                                                           NumericType) noexcept;
   std::expected<Kernel, Error> loadNumericMatmulKernel(std::string_view, Device,

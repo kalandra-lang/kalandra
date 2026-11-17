@@ -29,6 +29,7 @@ struct ProgramKernel {
   std::optional<std::vector<std::uint32_t>> reads{};
   std::optional<TensorTransformKind> transform{};
   Kernel matmulTranspose{};
+  std::shared_ptr<const WorkgroupLaunch> workgroup{};
 };
 std::expected<KernelContract, Error> kernelContract(const ProgramKernel &, NumericProgramKind);
 struct ProgramInstruction {

@@ -1,8 +1,9 @@
 #pragma once
 #include "../include/kalandra/GpuProgram.h"
 #include "../include/kalandra/TensorTransform.h"
-#include "../runtime/Tasks.h"
+#include "../include/kalandra/WorkgroupLaunch.h"
 #include "../runtime/DeviceArrayABI.h"
+#include "../runtime/Tasks.h"
 #include "../runtime/Tensor.h"
 #include "ElementwiseLayout.h"
 #include <cstddef>
@@ -307,6 +308,10 @@ public:
       std::string_view, Device, NumericType, ElementwiseSignature,
       std::span<const NumericType> tensorTypes, std::span<const NumericType> scalarTypes,
       std::span<const std::uint32_t> reads, std::span<const std::uint8_t> scalarBuffers) noexcept;
+  std::expected<Kernel, Error> loadWorkgroupKernel(std::string_view, Device, NumericType,
+                                                   std::span<const NumericType>,
+                                                   std::span<const NumericType>,
+                                                   const WorkgroupLaunch &) noexcept;
   std::expected<NumericExecutable, Error> prepareNumericProgram(std::uint32_t inputCount,
                                                                 std::span<const NumericInstruction>,
                                                                 std::uint32_t result, NumericType,
@@ -455,13 +460,14 @@ private:
   std::expected<void *, Error> exportCpu(Invocation &, const Buffer &, NumericType,
                                          std::span<std::int64_t> sizes,
                                          std::span<std::int64_t> strides) noexcept;
-  std::expected<Kernel, Error>
-  loadKernel(std::string_view, Device, bool elementwise,
-             std::optional<ElementwiseSignature> signature = {}, bool reduction = false,
-             bool matrix = false, std::optional<std::span<const std::uint32_t>> reads = {},
-             std::optional<NumericType> numericType = {},
-             std::span<const NumericType> tensorTypes = {},
-             std::span<const NumericType> scalarTypes = {},
-             std::span<const std::uint8_t> scalarBuffers = {}) noexcept;
+  std::expected<Kernel, Error> loadKernel(std::string_view, Device, bool elementwise,
+                                          std::optional<ElementwiseSignature> signature = {},
+                                          bool reduction = false, bool matrix = false,
+                                          std::optional<std::span<const std::uint32_t>> reads = {},
+                                          std::optional<NumericType> numericType = {},
+                                          std::span<const NumericType> tensorTypes = {},
+                                          std::span<const NumericType> scalarTypes = {},
+                                          std::span<const std::uint8_t> scalarBuffers = {},
+                                          const WorkgroupLaunch *workgroup = nullptr) noexcept;
 };
 } // namespace kalandra::runtime::metal

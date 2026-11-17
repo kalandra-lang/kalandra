@@ -1,7 +1,8 @@
 #pragma once
+#include "DeviceClosureImport.h"
 #include "kalandra/Arithmetic.h"
 #include "kalandra/Semantics.h"
-#include "DeviceClosureImport.h"
+#include "kalandra/WorkgroupLaunch.h"
 #include <expected>
 #include <span>
 namespace kalandra {
@@ -20,6 +21,7 @@ struct NumericShader {
   bool noArithmeticFault = false;
   bool deviceStorage = false;
   bool checkpointedTensorArithmetic = false;
+  std::optional<WorkgroupLaunch> workgroup = {};
 };
 // Typed map and primitive shaders use integer bit carriers at the task boundary.
 std::string numericReductionShader(NumericType);
@@ -41,4 +43,6 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                                                                std::span<const DeviceClosureImport> closureImports = {});
 std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &, FunctionId,
                                                            const NumericShaderOptions & = {});
+std::expected<NumericShader, Diagnostic> emitWorkgroupShader(const TypedModule &, FunctionId,
+                                                             const NumericShaderOptions & = {});
 } // namespace kalandra

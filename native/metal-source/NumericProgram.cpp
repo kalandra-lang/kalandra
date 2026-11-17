@@ -2,6 +2,7 @@
 #include "../gpu-source/AggregateLayout.h"
 #include "DeviceTensorResultMap.h"
 #include "TensorTransformShader.h"
+#include "WorkgroupPlan.h"
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -107,6 +108,21 @@ class Builder {
     append(shader.scalarBuffers);
     append(shader.reads);
     key += shader.scalar ? "s" : "t";
+    if (shader.workgroup) {
+      const auto &launch = *shader.workgroup;
+      append(launch.groupShape);
+      append(launch.inputRanks);
+      key += "w" + std::to_string(launch.scratchBytes);
+      for (const auto *expressions : {&launch.shape, &launch.checked}) {
+        key += '#';
+        for (const auto &extent : *expressions) {
+          key += ':';
+          for (const auto &step : extent)
+            key += std::to_string(unsigned(step.action)) + ',' + std::to_string(step.value) + ',' +
+                   std::to_string(step.input) + ',' + std::to_string(step.axis) + ';';
+        }
+      }
+    }
     auto [entry, inserted] = kernelCache.emplace(std::move(key), program.kernels.size());
     if (inserted)
       program.kernels.push_back(std::move(shader));
@@ -350,6 +366,32 @@ class Builder {
     const bool aggregate =
         aggregateEnvelope_ && &fn == &root && deviceInlineRecordValue(fn.resultType);
     const auto graph = &fn == &root ? graphParameter_ : std::nullopt;
+    if (containsWorkgroupDispatch(input, function)) {
+      auto shader = emitWorkgroupShader(
+          input, function,
+          {.arithmetic = arithmetic_, .nativeFloat64Conversions = nativeFloat64Conversions_});
+      if (!shader)
+        throw Rejected{shader.error()};
+      NumericProgramInstruction operation{NumericProgramKind::Workgroup};
+      for (std::size_t i = 0; i < arguments.size(); ++i) {
+        auto argument = arguments[i];
+        if (input.symbols.at(fn.parameters[i]).type.tensor) {
+          operation.inputs.push_back(*force(argument).buffer);
+        } else {
+          const auto &node = normalized.expressions.at(argument.expression);
+          if (const auto *read = std::get_if<SymbolRead>(&node.operation);
+              read && hostScalars.contains(read->symbol) && operation.constants.empty())
+            operation.scalarSources.push_back(hostScalars.at(read->symbol));
+          else
+            reject(node.span, "cooperative launch scalar captures require host scalar parameters");
+        }
+      }
+      operation.kernel = kernel(std::move(*shader));
+      operation.output = value();
+      program.code.push_back(std::move(operation));
+      active.erase(function);
+      return resident(fn.resultType, program.code.back().output);
+    }
     if (fn.resultType.array || aggregate || graph || usesScalarControl(input, function)) {
       const bool tensorResult = fn.resultType.tensor && !fn.resultType.array;
       auto shader = emitScalarControlShader(

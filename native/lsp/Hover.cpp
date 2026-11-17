@@ -439,10 +439,15 @@ std::optional<SignatureInfo> signatureInfo(ParseResult syntax, std::string_view 
   const auto &call = std::get<CallExpr>(syntax.module.expressions[*selected].value);
   const auto callArgumentCount = call.arguments.size();
   const auto &callee = syntax.module.expressions[call.callee];
+  const Expr *unwrapped = &callee;
+  if (const auto *indexed = std::get_if<IndexExpr>(&callee.value);
+      indexed && !indexed->typeArguments.empty() &&
+      std::holds_alternative<FieldExpr>(syntax.module.expressions[indexed->input].value))
+    unwrapped = &syntax.module.expressions[indexed->input];
   std::optional<SourceSpan> token;
-  if (const auto *name = std::get_if<NameExpr>(&callee.value))
+  if (const auto *name = std::get_if<NameExpr>(&unwrapped->value))
     token = name->name;
-  else if (const auto *field = std::get_if<FieldExpr>(&callee.value))
+  else if (const auto *field = std::get_if<FieldExpr>(&unwrapped->value))
     token = field->field;
   auto target = token ? sourceLocation(syntax.module.source, *token) : std::nullopt;
   if (token && !target)

@@ -1,5 +1,8 @@
 if(BUILD_TESTING)
   add_custom_target(native-workgroup-qualification)
+  if(TARGET kalandra-workgroup-emitter-tests)
+    add_dependencies(native-workgroup-qualification kalandra-workgroup-emitter-tests)
+  endif()
   foreach(suite IN ITEMS safety geometry)
     if(suite STREQUAL "safety")
       set(source WorkgroupSafety)

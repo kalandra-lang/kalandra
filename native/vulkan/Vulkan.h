@@ -91,6 +91,7 @@ struct KernelResult {
 struct KernelContract {
   std::string entry;
   std::uint64_t inputs = 0, parameterWords = 0;
+  std::uint32_t localSize = 0;
 };
 class Runtime final {
 public:

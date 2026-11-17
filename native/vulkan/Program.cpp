@@ -9,6 +9,7 @@ inline std::string backendTransformKernelName(TensorTransformKind kind, NumericT
   return vulkanTransformKernelName(kind, type);
 }
 constexpr const char *backendKernelSuffix = "_vk_flat_v1";
+constexpr const char *backendWorkgroupSuffix = "_vk_groups_v1";
 }
 #include "../gpu-runtime/ProgramImpl.inc"
 } // namespace kalandra::runtime::vulkan

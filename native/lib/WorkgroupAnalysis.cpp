@@ -24,6 +24,9 @@ struct Value {
   bool mutableBacking = false;
   std::size_t identity = SIZE_MAX;
   std::vector<Value> elements;
+  // A checked fallible value carries either success data or one error value.
+  // Expected failure does not become an implicit device fault.
+  std::vector<Value> errors;
 };
 struct ControlExit {
   std::size_t loop;
@@ -34,6 +37,7 @@ struct Frame {
   std::map<SymbolId, Value> symbols;
   std::map<ValueId, Value> cache;
   std::optional<ControlExit> transfer;
+  std::optional<Value> failure;
   bool uniformControl = true;
 };
 class Analyzer {
@@ -120,7 +124,7 @@ class Analyzer {
   }
   void suite(Frame &frame, const std::vector<TypedStatement> &body) {
     for (const auto &statement : body) {
-      if (frame.transfer)
+      if (frame.transfer || frame.failure)
         break;
       auto value = evaluate(frame, statement.value);
       if (statement.binding) {
@@ -142,7 +146,7 @@ class Analyzer {
         std::ranges::any_of(arguments, [](const Value &v) {
           return v.kind == Value::Kind::Item || v.kind == Value::Kind::Scratch;
         });
-    if (!root && !effects[id] && !capability) {
+    if (!root && !effects[id] && !capability && !function.resultType.fallible) {
       // Opaque numerical helpers may allocate or consume a lane-local call/work
       // budget. Equal arguments alone do not establish uniform failure behavior.
       // Only a finite scalar leaf can be folded into a shared-address proof.
@@ -181,7 +185,11 @@ class Analyzer {
     context += "/" + std::to_string(site) + "@" + std::to_string(id);
     suite(frame, function.body);
     auto value = evaluate(frame, function.result);
-    if (frame.transfer)
+    if (frame.failure) {
+      value = unknown(function.resultType, frame.failure->uniform);
+      value.errors.push_back(*frame.failure);
+    }
+    if (frame.transfer && !frame.failure)
       reject(site, "cooperative helper has an unresolved early exit");
     context = previous;
     --depth;
@@ -281,7 +289,7 @@ class Analyzer {
     step(id);
     if (id >= module.expressions.size())
       reject(id, "invalid cooperative expression identity");
-    if (frame.transfer)
+    if (frame.transfer || frame.failure)
       return unknown(module.expressions[id].type, false);
     if (auto found = frame.cache.find(id); found != frame.cache.end())
       return found->second;
@@ -327,13 +335,13 @@ class Analyzer {
         value.integer.reset();
     } else if (const auto *op = std::get_if<ConditionalOperation>(&node.operation)) {
       const auto condition = evaluate(frame, op->condition);
-      if (frame.transfer)
+      if (frame.transfer || frame.failure)
         return value;
       const bool taken = choose(id, condition);
       const auto previous = frame.uniformControl;
       frame.uniformControl &= condition.uniform;
       suite(frame, taken ? op->whenTrue : op->whenFalse);
-      if (!frame.transfer)
+      if (!frame.transfer && !frame.failure)
         value = evaluate(frame, taken ? op->trueResult : op->falseResult);
       value.uniform &= condition.uniform;
       frame.uniformControl = previous;
@@ -341,7 +349,7 @@ class Analyzer {
       std::vector<Value> arguments;
       for (auto input : op->arguments)
         arguments.push_back(evaluate(frame, input));
-      if (!frame.transfer)
+      if (!frame.transfer && !frame.failure)
         value = invoke(op->function, std::move(arguments), id);
       if (mutatesBacking(op->function))
         invalidateBackings(frame);
@@ -363,13 +371,13 @@ class Analyzer {
       for (auto input : op->arguments)
         arguments.push_back(evaluate(frame, input));
       arguments.insert(arguments.end(), function.elements.begin(), function.elements.end());
-      if (!frame.transfer)
+      if (!frame.transfer && !frame.failure)
         value = invoke(function.identity, std::move(arguments), id);
       if (mutatesBacking(function.identity))
         invalidateBackings(frame);
     } else if (const auto *op = std::get_if<WhileOperation>(&node.operation)) {
       suite(frame, op->initial);
-      if (frame.transfer)
+      if (frame.transfer || frame.failure)
         return value;
       bool completed = false;
       for (std::size_t turn = 0; turn < limits.loopIterations; ++turn) {
@@ -397,6 +405,10 @@ class Analyzer {
         suite(frame, op->iteration);
         suite(frame, op->body);
         iteration = oldIteration;
+        if (frame.failure) {
+          frame.uniformControl = oldControl;
+          return value;
+        }
         if (frame.transfer) {
           if (frame.transfer->loop != op->identity) {
             frame.uniformControl = oldControl;
@@ -459,6 +471,37 @@ class Analyzer {
       evaluate(frame, op->index);
       evaluate(frame, op->value);
       invalidateBackings(frame);
+    } else if (const auto *op = std::get_if<FailOperation>(&node.operation)) {
+      auto error = evaluate(frame, op->error);
+      error.uniform &= frame.uniformControl;
+      frame.failure = std::move(error);
+    } else if (const auto *op = std::get_if<TaskOperation>(&node.operation);
+               op && op->prefix == TaskPrefix::Try && !node.type.task) {
+      value = evaluate(frame, op->operand);
+      if (!value.errors.empty()) {
+        frame.failure = value.errors.front();
+        frame.failure->uniform &= frame.uniformControl && value.uniform;
+      }
+      value.errors.clear();
+    } else if (const auto *op = std::get_if<CatchOperation>(&node.operation)) {
+      value = evaluate(frame, op->operand);
+      if (!value.errors.empty() && !frame.failure) {
+        const auto previous = frame.uniformControl;
+        frame.uniformControl &= value.errors.front().uniform && value.uniform;
+        frame.symbols[op->parameter] = value.errors.front();
+        suite(frame, op->body);
+        value = evaluate(frame, op->result);
+        value.uniform &= frame.uniformControl;
+        frame.uniformControl = previous;
+      }
+    } else if (const auto *op = std::get_if<GuardOperation>(&node.operation)) {
+      const auto condition = evaluate(frame, op->condition);
+      if (!frame.failure && !frame.transfer && choose(id, condition)) {
+        const auto previous = frame.uniformControl;
+        frame.uniformControl &= condition.uniform;
+        suite(frame, op->body);
+        frame.uniformControl = previous;
+      }
     } else if (const auto *op = std::get_if<RecordValue>(&node.operation)) {
       if (op->base)
         value = evaluate(frame, *op->base);
@@ -466,6 +509,8 @@ class Analyzer {
         value.uniform = true;
         value.elements.resize(module.records[*node.type.record].fields.size());
       }
+      if (op->variant && !value.elements.empty())
+        value.elements.front() = integer(*op->variant + 1);
       for (const auto &field : op->fields) {
         auto member = evaluate(frame, field.value);
         if (field.field >= value.elements.size())
@@ -479,6 +524,24 @@ class Analyzer {
       if (op->field < record.elements.size())
         value = record.elements[op->field];
       value.uniform &= record.uniform;
+    } else if (const auto *op = std::get_if<MatchOperation>(&node.operation)) {
+      const auto subject = evaluate(frame, op->subject);
+      if (subject.elements.empty() || !subject.elements.front().integer)
+        reject(id, "cooperative variant matching requires an established private enum tag");
+      bool matched = false;
+      for (const auto &arm : op->cases)
+        if (!arm.tag || *arm.tag == *subject.elements.front().integer) {
+          matched = true;
+          const auto previous = frame.uniformControl;
+          frame.uniformControl &= subject.uniform;
+          suite(frame, arm.body);
+          value = evaluate(frame, arm.result);
+          value.uniform &= frame.uniformControl;
+          frame.uniformControl = previous;
+          break;
+        }
+      if (!matched)
+        reject(id, "cooperative variant match has no established arm");
     } else if (const auto *op = std::get_if<IntegerRangeOperation>(&node.operation)) {
       const auto current = evaluate(frame, op->current), stop = evaluate(frame, op->stop),
                  stride = evaluate(frame, op->step);
@@ -493,8 +556,7 @@ class Analyzer {
         } else
           value.integer = *current.integer;
       }
-    }
-    else if (const auto *op = std::get_if<ArrayIndex>(&node.operation)) {
+    } else if (const auto *op = std::get_if<ArrayIndex>(&node.operation)) {
       const auto array = evaluate(frame, op->input), index = evaluate(frame, op->index);
       value.uniform = array.uniform && index.uniform;
       if (index.integer && *index.integer >= 0 &&
@@ -535,20 +597,21 @@ public:
     for (std::size_t fn = 0; fn < module.functions.size(); ++fn)
       for (auto expression : module.functions[fn].expressions) {
         const auto &operation = module.expressions[expression].operation;
-        effects[fn] = effects[fn] ||
-            std::holds_alternative<WorkgroupOperation>(operation) ||
-            std::holds_alternative<FunctionInvoke>(operation) ||
-            std::holds_alternative<ConsoleOperation>(operation) ||
-            std::holds_alternative<FormatOperation>(operation) ||
-            std::holds_alternative<FileOperation>(operation) ||
-            std::holds_alternative<BufferOperation>(operation) ||
-            std::holds_alternative<IteratorOperation>(operation) ||
-            std::holds_alternative<TimeOperation>(operation) ||
-            std::holds_alternative<EnvironmentLookup>(operation) ||
-            std::holds_alternative<TaskOperation>(operation) ||
-            std::holds_alternative<Transfer>(operation) ||
-            std::holds_alternative<ParallelOperation>(operation) ||
-            std::holds_alternative<YieldOperation>(operation);
+        effects[fn] = effects[fn] || std::holds_alternative<WorkgroupOperation>(operation) ||
+                      std::holds_alternative<FunctionInvoke>(operation) ||
+                      std::holds_alternative<ConsoleOperation>(operation) ||
+                      std::holds_alternative<FormatOperation>(operation) ||
+                      std::holds_alternative<FileOperation>(operation) ||
+                      std::holds_alternative<BufferOperation>(operation) ||
+                      std::holds_alternative<IteratorOperation>(operation) ||
+                      std::holds_alternative<TimeOperation>(operation) ||
+                      std::holds_alternative<EnvironmentLookup>(operation) ||
+                      std::holds_alternative<TaskOperation>(operation) ||
+                      std::holds_alternative<FailOperation>(operation) ||
+                      std::holds_alternative<CatchOperation>(operation) ||
+                      std::holds_alternative<Transfer>(operation) ||
+                      std::holds_alternative<ParallelOperation>(operation) ||
+                      std::holds_alternative<YieldOperation>(operation);
       }
     for (std::size_t turn = 0; turn < module.functions.size(); ++turn) {
       bool changed = false;

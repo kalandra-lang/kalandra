@@ -1,4 +1,5 @@
 #include "kalandra/WorkgroupGeometry.h"
+#include "kalandra/WorkgroupLaunch.h"
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
@@ -80,5 +81,51 @@ int main() {
   CHECK(makeWorkgroupGeometry({}, {}, 0, 1, 1).error() == Error::LocalLimit);
   CHECK(makeWorkgroupGeometry({}, {}, 1, 0, 1).error() == Error::OutputLimit);
   CHECK(makeWorkgroupGeometry({}, {}, 1, 1, 0).error() == Error::GroupLimit);
+  // The installed host launch evaluator must preserve exact metadata and
+  // checked i64 arithmetic, rather than trusting wrapped GPU launch sizes.
+  WorkgroupLaunch launch{{4},
+                         {1},
+                         {{{WorkgroupShapeAction::Extent, 0, 0, 0},
+                           {WorkgroupShapeAction::Scalar, 0, 0, 0},
+                           {WorkgroupShapeAction::Add}}},
+                         24};
+  const std::uint64_t dimensions[]{7}, captures[]{2};
+  const std::span<const std::uint64_t> shapes[]{dimensions};
+  const NumericType types[]{NumericType::Int64};
+  auto packet = prepareWorkgroupLaunch(launch, types, captures, shapes, 4, 100, 100, 24);
+  CHECK(packet && packet->geometry.elements == 9 && packet->geometry.groups == 3);
+  CHECK(packet->parameters == (std::vector<std::uint32_t>{3, 9, 0, 7, 0, 2, 0, UINT32_MAX}));
+  CHECK(workgroupParameterWords(launch, types) == 8);
+  CHECK(prepareWorkgroupLaunch(launch, types, captures, shapes, 3, 100, 100, 24).error() ==
+        WorkgroupLaunchError::Resource);
+  CHECK(prepareWorkgroupLaunch(launch, types, captures, shapes, 4, 100, 100, 23).error() ==
+        WorkgroupLaunchError::Resource);
+  const std::uint64_t negativeCapture[]{std::bit_cast<std::uint64_t>(INT64_C(-8))};
+  CHECK(prepareWorkgroupLaunch(launch, types, negativeCapture, shapes, 4, 100, 100, 24).error() ==
+        WorkgroupLaunchError::Shape);
+  const std::uint64_t overflowing[]{INT64_MAX};
+  CHECK(prepareWorkgroupLaunch(launch, types, overflowing, shapes, 4, 100, 100, 24).error() ==
+        WorkgroupLaunchError::Arithmetic);
+  launch.shape[0] = {{WorkgroupShapeAction::Constant, 1},
+                     {WorkgroupShapeAction::Constant, 0},
+                     {WorkgroupShapeAction::Divide}};
+  CHECK(prepareWorkgroupLaunch(launch, types, captures, shapes, 4, 100, 100, 24).error() ==
+        WorkgroupLaunchError::Arithmetic);
+  launch.shape[0] = {{WorkgroupShapeAction::Extent, 0, 0, 1}};
+  CHECK(prepareWorkgroupLaunch(launch, types, captures, shapes, 4, 100, 100, 24).error() ==
+        WorkgroupLaunchError::Invalid);
+  launch.shape[0] = {{WorkgroupShapeAction::Constant, 0}};
+  packet = prepareWorkgroupLaunch(launch, types, captures, shapes, 4, 0, 0, 24);
+  CHECK(packet && !packet->geometry.groups && !packet->geometry.elements);
+  launch.checked = {{{WorkgroupShapeAction::Constant, 1},
+                     {WorkgroupShapeAction::Constant, 0},
+                     {WorkgroupShapeAction::Divide}}};
+  CHECK(prepareWorkgroupLaunch(launch, types, captures, shapes, 4, 0, 0, 24).error() ==
+        WorkgroupLaunchError::Arithmetic);
+  launch.checked = {{{WorkgroupShapeAction::Scalar, 0, 1}}};
+  CHECK(prepareWorkgroupLaunch(launch, types, captures, shapes, 4, 0, 0, 24).error() ==
+        WorkgroupLaunchError::Invalid);
+  CHECK(prepareWorkgroupLaunch({}, {}, {}, {}, 1, 1, 1, 0)->parameters ==
+        (std::vector<std::uint32_t>{1, UINT32_MAX}));
   std::puts("Logical workgroup geometry, padding, exact output coverage and bounds passed");
 }

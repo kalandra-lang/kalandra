@@ -1,4 +1,5 @@
 #include "kalandra/StrictFloat.h"
+#include "kalandra/WorkgroupSpirv.h"
 #include "mlir/AsmParser/AsmParser.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -19,6 +20,8 @@ int main(int argc, char **argv) {
   mlir::MLIRContext context(registry);
   auto module = mlir::parseSourceFile<mlir::ModuleOp>(argv[1], &context);
   if (!module || mlir::failed(mlir::verify(*module)))
+    return 1;
+  if (mlir::failed(kalandra::lowerWorkgroupSpirv(*module)))
     return 1;
   if (argc == 4) {
     if (mlir::failed(kalandra::lowerMetalHardwareFloat(*module, std::string_view(argv[3]) ==

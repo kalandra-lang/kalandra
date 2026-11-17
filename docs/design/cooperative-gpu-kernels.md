@@ -78,3 +78,13 @@ Lower common checked device IR to real workgroup memory and barriers for SPIR-V/
 6. Complete runnable user documentation, editor/API coverage, source/installed-package/relocation checks, hosted CI and final PR evidence.
 
 Windows GPU packages remain experimental until their separate hardware qualification. Linux remote qualification uses only existing tools and a task-owned directory that is removed after evidence is collected; no system installation or changes to unrelated projects are authorized.
+
+## Lowering and qualification notes
+
+Cooperative launches use their own versioned descriptor and entry-point family. The launch planner verifies the returned dispatch's provenance and checks host-known metadata arithmetic even for empty domains. It diagnoses unsupported surrounding graph stages instead of discarding them. Shared narrow integers use 32-bit carriers; 64-bit integers and f64 use 64-bit carriers.
+
+The pinned MLIR GPU-to-SPIR-V conversion cannot directly handle workgroup attribution arguments. A bounded bridge validates load/store-only scalar scratch and creates real SPIR-V Workgroup globals before the normal conversion pipeline. CUDA retains native GPU workgroup attributions. Neither route serializes source invocations.
+
+Initial hardware qualification covers 270 bit-exact shared-memory shuffles: ten numeric types and ranks zero through eight on Metal, Linux Vulkan and Linux CUDA. Additional caught-error/payload-match fixtures execute on all three backends. The stencil has independent CPU references, partial groups, empty domains, cancellation and capture-retirement checks. Vulkan FDiv is evaluated against its existing 2.5-ULP contract; the retained initial bit-exact control failed by one ULP. A separate Decimal audit checked 135,650 output values, with a maximum observed error of two-thirds ULP from the exact rational result.
+
+These are implementation milestones, not final acceptance. Unhandled application-error export, final package/relocation checks, exact-head hosted qualification and frozen paired/control/replication performance acceptance remain required before this PR is ready.

@@ -1,0 +1,86 @@
+"""Generate real shared-memory shuffle cases for every numeric type and rank."""
+import argparse
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+TYPES = ("i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64")
+
+
+def shuffle(element, rank):
+    dimensions = ", " + ", ".join(["?"] * rank) if rank else ""
+    shape = [3] + [2] * (rank - 1) if rank else []
+    group = [2] * rank
+    lanes = 1 << rank
+    lane = " + ".join(f"item.localIndex({axis}) * {1 << (rank - axis - 1)}"
+                      for axis in range(rank)) if rank else "0"
+    other = f"{lanes - 1} - lane"
+    source = f'''from "std/gpu" import dispatch, WorkItem
+
+fn shuffle() -> Tensor[{element}{dimensions}]:
+  return dispatch({shape}, {group}, fn(item: WorkItem) -> {element}:
+    lane = {lane}
+    tile = item.shared[{element}]({lanes})
+    tile[lane] = {element}(lane % 3 + 1)
+    item.barrier()
+    return tile[{other}]
+  )
+'''
+    return source, shape, group
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--emitter", type=Path, required=True)
+    parser.add_argument("--backend", choices=("metal", "vulkan", "cuda"), required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    args.output.mkdir(parents=True, exist_ok=True)
+    cases = []
+    for element in TYPES:
+        for rank in range(9):
+            name = f"{element}-rank-{rank}"
+            source, shape, group = shuffle(element, rank)
+            path = args.output / (name + ".k")
+            path.write_text(source)
+            result = subprocess.run([str(args.emitter.resolve()), str(path), "shuffle",
+                str(args.output / (name + ".mlir")), args.backend], capture_output=True, text=True)
+            (args.output / (name + ".log")).write_text(result.stdout + result.stderr)
+            assert result.returncode == 0, (name, result.stdout, result.stderr)
+            cases.append({"name": name, "type": element, "rank": rank, "shape": shape, "group": group})
+    (args.output / "cases.json").write_text(json.dumps(cases, indent=2) + "\n")
+    print(f"PASS: {len(cases)} shared-memory shuffle kernels emitted for {args.backend}")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
+    from WorkgroupSourceTests import CASES
+    controls = {
+        "caught-lane-error-before-barrier": [3, 2, 1, 7],
+        "caught-error-payload": [7, 1, 2, 3],
+    }
+    for name in controls:
+        source, diagnostic = CASES[name]
+        assert diagnostic is None
+        path = args.output / (name + ".k")
+        path.write_text(source)
+        result = subprocess.run([str(args.emitter.resolve()), str(path), "test",
+            str(args.output / (name + ".mlir")), args.backend], capture_output=True, text=True)
+        (args.output / (name + ".log")).write_text(result.stdout + result.stderr)
+        assert result.returncode == 0, (name, result.stdout, result.stderr)
+    (args.output / "control-cases.json").write_text(json.dumps(controls, indent=2) + "\n")
+    dispatch = 'dispatch([4],[4],fn(item: WorkItem)->f32:return f32(1))'
+    planning = {
+        "transformed-dispatch": ('from "std/gpu" import dispatch, WorkItem\n'
+            'fn test()->Tensor[f32,?]:\n  return '+dispatch+'+f32(1)\n', 'unsupported host operation'),
+        "multiple-dispatches": ('from "std/gpu" import dispatch, WorkItem\n'
+            'fn test()->Tensor[f32,?]:\n  first='+dispatch+'\n  return '+dispatch+'\n', 'one returned dispatch'),
+        "returned-other-value": ('from "std/gpu" import dispatch, WorkItem\n'
+            'fn test()->Tensor[f32,?]:\n  first='+dispatch+'\n  return tensor([1,2,3,4])\n', 'does not return'),
+    }
+    for name, (source, diagnostic) in planning.items():
+        path = args.output / (name+'.k')
+        path.write_text(source)
+        result = subprocess.run([str(args.emitter.resolve()),str(path),'test',
+            str(args.output/(name+'.mlir')),args.backend],capture_output=True,text=True)
+        (args.output/(name+'.log')).write_text(result.stdout+result.stderr)
+        assert result.returncode==1 and diagnostic in result.stderr,(name,result.stdout,result.stderr)
+    print(f"PASS: caught application-error emission and launch-result provenance for {args.backend}")

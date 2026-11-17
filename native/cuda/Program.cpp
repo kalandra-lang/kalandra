@@ -10,6 +10,7 @@ inline std::string backendTransformKernelName(TensorTransformKind kind, NumericT
          "_" + std::string(describeNumeric(type)->name) + "_cuda_desc_v1";
 }
 constexpr const char *backendKernelSuffix = "_cuda_desc_v1";
+constexpr const char *backendWorkgroupSuffix = "_cuda_desc_v1";
 } // namespace
 #include "../gpu-runtime/ProgramImpl.inc"
 } // namespace kalandra::runtime::cuda

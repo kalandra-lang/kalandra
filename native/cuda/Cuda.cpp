@@ -146,7 +146,7 @@ struct State {
   bool enableFloat64 = true, enableTiled = true;
   std::atomic<std::uint64_t> nativeMatmuls{0}, fixedMatmuls{0}, splitMatmuls{0},
       scratchFreeMatmuls{0}, bandedMatmuls{0};
-  int chip = 0, maxThreads = 0, maxGrid = 0, maxGridY = 0;
+  int chip = 0, maxThreads = 0, maxGrid = 0, maxGridY = 0, maxShared = 0;
   std::atomic<unsigned> modules{0};
   unsigned maxModules = 0;
   bool poisoned = false;
@@ -262,7 +262,10 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
                        "max grid"))
     return std::unexpected(Error::Unavailable);
   if (!driverSucceeded(d.attribute(&state->maxGridY, CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_Y, device),
-                       "max grid y"))
+                       "max grid y") ||
+      !driverSucceeded(
+          d.attribute(&state->maxShared, CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK, device),
+          "max shared memory"))
     return std::unexpected(Error::Unavailable);
   CUuuid selectedUuid{};
   if (!driverSucceeded(d.uuid(&selectedUuid, device), "selected UUID") ||
@@ -438,7 +441,8 @@ std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &pa
     return std::unexpected(Error::Invalid);
   if (contract &&
       (contract->entry != artifact->entry || contract->inputs != artifact->buffers.size() - 2 ||
-       contract->parameterWords != std::uint64_t(artifact->buffers.back().extent)))
+       contract->parameterWords != std::uint64_t(artifact->buffers.back().extent) ||
+       (contract->localSize && contract->localSize != artifact->threads)))
     return std::unexpected(Error::Invalid);
   if (artifact->nativeFloat64 && !state_->enableFloat64)
     return std::unexpected(Error::Unsupported);
@@ -484,6 +488,12 @@ std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &pa
         return true;
       };
       valid = reflected(kernel->function);
+      if (valid && contract && contract->localSize) {
+        int shared = -1;
+        valid = state_->driver.functionAttribute(&shared, CU_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES,
+                                                 kernel->function) == CUDA_SUCCESS &&
+                shared >= 0 && shared <= state_->maxShared;
+      }
       if (kernel->artifact.catalog) {
         constexpr std::array suffixes{"_large", "_reduce", "_no_scratch"};
         for (unsigned i = 0; valid && i < suffixes.size(); ++i)

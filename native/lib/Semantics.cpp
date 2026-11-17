@@ -2937,6 +2937,9 @@ private:
       return {};
     }
     if (workgroupCapability(output_, type)) {
+      if (plainWorkgroupCapability(output_, type, StandardRecord::WorkItem))
+        completeMembers(read.field, {"globalIndex", "localIndex", "shared", "barrier"},
+                        ScopeNameKind::Function);
       error("S087", "workgroup capabilities are opaque; use their workgroup operations", read.field);
       return {};
     }

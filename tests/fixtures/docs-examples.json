@@ -479,7 +479,7 @@
     },
     {
       "kind": "cpu",
-      "expected": "price=3.14, id=ff\n[   hello] [\u00e9       ]"
+      "expected": "price=3.14, id=ff\n[   hello] [é       ]"
     },
     {
       "kind": "cpu",
@@ -666,5 +666,11 @@
       "expected": "42:42"
     }
   ],
-  "release-0-99-2": []
+  "release-0-99-2": [],
+  "gpu-kernels": [
+    {
+      "kind": "gpu",
+      "expected": "4 6 9 11"
+    }
+  ]
 }

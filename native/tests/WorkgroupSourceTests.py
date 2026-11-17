@@ -227,6 +227,53 @@ CASES = {
     "axis-outside-rank": (kernel("return f32(item.localIndex(1))"), "logical launch rank"),
 }
 
+ERROR_HELPERS = '''error Bad:
+  Zero:
+    value: i64
+fn checked(value: i64) -> f32 ! Bad:
+  if value == 0:
+    fail Bad.Zero {value: value}
+  return f32(value)
+'''
+CASES.update({
+    "caught-lane-error-before-barrier": (kernel('''
+        lane = item.localIndex(0)
+        value = checked(lane) catch fn(error): return f32(7)
+        tile = item.shared[f32](4)
+        tile[lane] = value
+        item.barrier()
+        return tile[3 - lane]
+    ''', prefix=ERROR_HELPERS), None),
+    "caught-error-payload": (kernel('''
+        lane = item.localIndex(0)
+        value = checked(lane) catch fn(error):
+          return match error:
+            Bad.Zero {value: value}: f32(value + 7)
+        item.barrier()
+        return value
+    ''', prefix=ERROR_HELPERS), None),
+    "varying-failure-skips-helper-barrier": (kernel('''
+        value = checked(item) catch fn(error): return f32(7)
+        return value
+    ''', prefix='''error Bad:
+  Zero
+fn checked(item: WorkItem) -> f32 ! Bad:
+  if item.localIndex(0) == 0:
+    fail Bad.Zero
+  item.barrier()
+  return f32(1)
+'''), "barrier"),
+    "caught-failure-skips-initialization": (kernel('''
+        lane = item.localIndex(0)
+        tile = item.shared[f32](4)
+        value = checked(lane) catch fn(error): return f32(7)
+        if value == f32(7):
+          tile[lane] = value
+        item.barrier()
+        return tile[3 - lane]
+    ''', prefix=ERROR_HELPERS), "initialization"),
+})
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

@@ -170,7 +170,7 @@ target_include_directories(kalandra-strict-float SYSTEM PUBLIC ${MLIR_INCLUDE_DI
 target_compile_options(kalandra-strict-float PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(kalandra-strict-float PUBLIC MLIR LLVM)
 
-add_library(kalandra-gpu-numeric STATIC lib/GpuInteger.cpp lib/GpuConversion.cpp)
+add_library(kalandra-gpu-numeric STATIC lib/GpuInteger.cpp lib/GpuConversion.cpp lib/WorkgroupSpirv.cpp)
 target_include_directories(kalandra-gpu-numeric PUBLIC include)
 target_include_directories(kalandra-gpu-numeric SYSTEM PUBLIC ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
 target_compile_options(kalandra-gpu-numeric PRIVATE -Wall -Wextra -Werror)

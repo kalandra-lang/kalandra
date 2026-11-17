@@ -1071,9 +1071,11 @@ std::expected<Kernel, Error> Runtime::createKernel(std::span<const std::uint32_t
     // alternative instead of reporting a malformed primary artifact.
     if (contract && (interface->entry != contract->entry || interface->buffers < 2 ||
                      std::uint64_t(interface->buffers - 2) != contract->inputs ||
-                     interface->parameterWords != contract->parameterWords))
+                     interface->parameterWords != contract->parameterWords ||
+                     (contract->localSize && interface->localSize != contract->localSize)))
       return std::unexpected(Error::Invalid);
     if (interface->buffers < 2 || interface->buffers > state_->maxDescriptors ||
+        interface->workgroupBytes > state_->properties.limits.maxComputeSharedMemorySize ||
         interface->localSize > state_->properties.limits.maxComputeWorkGroupSize[0] ||
         interface->localSize > state_->properties.limits.maxComputeWorkGroupInvocations ||
         (interface->int8 && !state_->int8) || (interface->int16 && !state_->features.shaderInt16) ||

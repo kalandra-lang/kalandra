@@ -37,12 +37,14 @@ std::optional<ValueId> workgroupMethodCall(Frame &frame, SourceSpan span,
                                            const WorkgroupMethodSyntax &method,
                                            const std::vector<ExprId> &arguments) {
   const auto member = name(method.member);
+  completeMembers(method.member, {"globalIndex", "localIndex", "shared", "barrier"},
+                  ScopeNameKind::Function);
   const bool shared = member == "shared", barrier = member == "barrier";
   if (!shared && !barrier && member != "globalIndex" && member != "localIndex") {
     error("S087", "unknown WorkItem operation '" + member + "'", method.member);
     return {};
   }
-  if (arguments.size() != (barrier ? 0u : 1u) || method.types.size() != (shared ? 1u : 0u)) {
+  if (method.types.size() != (shared ? 1u : 0u)) {
     error("S087", "WorkItem operation has the wrong value or type argument count", span);
     return {};
   }
@@ -58,19 +60,63 @@ std::optional<ValueId> workgroupMethodCall(Frame &frame, SourceSpan span,
   result.element = NumericType::Int64;
   if (barrier)
     result.builtin = BuiltinValue::Unit;
-  else {
-    auto argument = expression(frame, arguments.front(), result);
+  else if (shared) {
+    auto element = type(method.types.front());
+    if (!element || element->builtin != BuiltinValue::Numeric || element->tensor ||
+        element->array || element->task || element->fallible || element->device ||
+        !describeNumeric(element->element)) {
+      error("S087", "shared scratch requires a numeric primitive element type", span);
+      return {};
+    }
+    operation.metadata.element = element->element;
+    std::optional<std::size_t> declaration;
+    for (std::size_t id = 0; id < syntax_.records.size(); ++id) {
+      const auto &record = syntax_.records[id];
+      const auto origin = syntax_.source->partIndex(record.name.begin);
+      if (origin < syntax_.standardModules.size() &&
+          syntax_.standardModules[origin] == StandardModule::Gpu &&
+          syntax_.source->slice(record.name) == "Shared") {
+        declaration = id;
+        break;
+      }
+    }
+    if (!declaration) {
+      error("S087", "missing canonical std/gpu scratch declaration", span);
+      return {};
+    }
+    const auto &parameter = syntax_.records[*declaration].generics.front();
+    auto record = specializeRecord(*declaration, {{name(parameter.name), *element}}, span);
+    if (!record)
+      return {};
+    result = recordType(*record);
+  }
+  ValueType integer;
+  integer.element = NumericType::Int64;
+  FunctionSignature signature{{}, result};
+  std::vector<std::string> names;
+  if (!barrier) {
+    signature.parameters.push_back(integer);
+    names.push_back(shared ? "count" : "axis");
+  }
+  if (queryingSignature(span) && !barrier) {
+    const auto prefix = options_.signature->argumentIndex.value_or(arguments.size());
+    for (std::size_t i = 0; i < std::min(prefix, arguments.size()); ++i)
+      if (i >= signature.parameters.size() || !expression(frame, arguments[i], integer))
+        return {};
+    captureSignature(frame, signature, names);
+    error("S027", "editing workgroup argument requires a signature snapshot", span);
+    return {};
+  }
+  if (arguments.size() != signature.parameters.size()) {
+    error("S087", "WorkItem operation has the wrong value argument count", span);
+    return {};
+  }
+  if (!barrier) {
+    auto argument = expression(frame, arguments.front(), integer);
     if (!argument)
       return {};
     operation.arguments.push_back(*argument);
     if (shared) {
-      auto element = type(method.types.front());
-      if (!element || element->builtin != BuiltinValue::Numeric || element->tensor ||
-          element->array || element->task || element->fallible || element->device ||
-          !describeNumeric(element->element)) {
-        error("S087", "shared scratch requires a numeric primitive element type", span);
-        return {};
-      }
       const auto count = intConstants_.find(*argument);
       if (count == intConstants_.end() || count->second <= 0 || count->second > 1000000) {
         error("S087", "shared scratch size must be a positive constant within the proof budget",
@@ -78,29 +124,12 @@ std::optional<ValueId> workgroupMethodCall(Frame &frame, SourceSpan span,
         return {};
       }
       operation.metadata.count = static_cast<std::uint64_t>(count->second);
-      operation.metadata.element = element->element;
-      std::optional<std::size_t> declaration;
-      for (std::size_t id = 0; id < syntax_.records.size(); ++id) {
-        const auto &record = syntax_.records[id];
-        const auto origin = syntax_.source->partIndex(record.name.begin);
-        if (origin < syntax_.standardModules.size() &&
-            syntax_.standardModules[origin] == StandardModule::Gpu &&
-            syntax_.source->slice(record.name) == "Shared") {
-          declaration = id;
-          break;
-        }
-      }
-      if (!declaration) {
-        error("S087", "missing canonical std/gpu scratch declaration", span);
-        return {};
-      }
-      const auto &parameter = syntax_.records[*declaration].generics.front();
-      auto record = specializeRecord(*declaration, {{name(parameter.name), *element}}, span);
-      if (!record)
-        return {};
-      result = recordType(*record);
     }
   }
+  ValueType callable;
+  callable.builtin = BuiltinValue::Function;
+  callable.callable = std::make_shared<const FunctionSignature>(signature);
+  rememberSourceToken({method.member, {}, callable, {}});
   return add(frame, result, span, std::move(operation));
 }
 std::optional<ValueId> workgroupDispatch(Frame &frame, SourceSpan span,
