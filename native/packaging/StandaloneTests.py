@@ -24,6 +24,27 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def cooperative_applications(compiler, runtime, repository, execute, metal_execute):
+    """Installed cooperative scratch/barriers and typed errors in every host mode."""
+    source = runtime / "cooperative.k"
+    applications = []
+    for fixture, expected in (
+            ("workgroup-error-export.k", "ok 0 0\nok 4 4\nerror 5 3\nerror 5 3"),
+            ("workgroup-error-payloads.k", "ok 3\nempty\n-7 true 1.25 18446744073709551615")):
+        source.write_bytes((repository / "native/gpu-source" / fixture).read_bytes())
+        for mode, flags in (("normal", []), ("optimized", ["-O2"]),
+                            ("sanitized", ["--sanitize"]),
+                            ("thread-sanitized", ["--thread-sanitize"])):
+            cooperative = runtime / (fixture + " " + mode)
+            execute([compiler, source, "--target", "metal", "--arithmetic",
+                     "hardware-with-software-fallback", "-o", cooperative, *flags])
+            if not flags or flags == ["-O2"]:
+                applications.append((cooperative, expected))
+            if metal_execute:
+                assert execute([cooperative / "program"]).stdout.strip() == expected
+    return applications
+
+
 def qualify(archive, kind, runtime, build=None, metal_execute=False):
     archive = archive.resolve()
     assert archive.with_suffix(".gz.sha256").read_text().split()[0] == digest(archive)
@@ -186,6 +207,7 @@ fn main()->f64 ! TaskError:
         applications.append((app, "[42d40000,431c0000,43710000,43b10000]"))
         if metal_execute:
             assert execute([app / "program"]).stdout.strip() == applications[-1][1]
+        applications.extend(cooperative_applications(compiler, runtime, repository, execute, metal_execute))
         prior = digest(app / "program")
         for missing in (prefix / "libexec/kalandra/mlir-opt",
                         prefix / "lib/kalandra/native/kalandra-metal-strict64"):
@@ -218,6 +240,7 @@ fn main()->f64 ! TaskError:
                    "generated ordinary programs run without compiler bundle"]
     if kind == "metal":
         checks += ["all ten GPU types/rank-eight/worker bridges in four host modes",
+                   "cooperative scratch/barriers and typed error payloads in four host modes",
                    "resident matrix graph", "missing shader tools and wrong Apple compiler rejection"]
         if metal_execute:
             checks.append("GPU execution and moved applications without compiler bundle")

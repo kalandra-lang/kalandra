@@ -96,6 +96,34 @@ inline std::vector<WorkgroupTestCase> workgroupTestCases(bool controls) {
       }
       cases.push_back(std::move(test));
     }
+  for (auto description : numericTypes) {
+    const auto width = description.bits;
+    const auto mask = width == 64 ? UINT64_MAX : (std::uint64_t(1) << width) - 1;
+    const auto sign = std::uint64_t(1) << (width - 1);
+    std::vector<std::uint64_t> bits;
+    if (description.type == NumericType::Float32)
+      bits = {0, 0x80000000, 0x3f800000, 0xbf800000, 0x7f800000, 0xff800000, 0x7fc12345, 1};
+    else if (description.type == NumericType::Float64)
+      bits = {0,
+              0x8000000000000000ULL,
+              0x3ff0000000000000ULL,
+              0xbff0000000000000ULL,
+              0x7ff0000000000000ULL,
+              0xfff0000000000000ULL,
+              0x7ff8123456789abcULL,
+              1};
+    else
+      bits = {0, mask, sign, sign - 1, 1, 2, mask - 1, sign / 2};
+    WorkgroupTestCase test{
+        std::string(description.sourceName) + "-bit-patterns",
+        description.type,
+        {{8}, {1}, {{{WorkgroupShapeAction::Constant, 9}}}, 8 * (width == 64 ? 8u : 4u)},
+        {}};
+    test.inputs.push_back({description.type, {8}, bits});
+    for (unsigned i = 0; i < 9; ++i)
+      test.expected.push_back(bits[7 - (i % 8)]);
+    cases.push_back(std::move(test));
+  }
   return cases;
 }
 } // namespace kalandra::qualification

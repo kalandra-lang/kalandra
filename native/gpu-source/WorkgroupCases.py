@@ -49,6 +49,24 @@ if __name__ == "__main__":
             (args.output / (name + ".log")).write_text(result.stdout + result.stderr)
             assert result.returncode == 0, (name, result.stdout, result.stderr)
             cases.append({"name": name, "type": element, "rank": rank, "shape": shape, "group": group})
+    for element in TYPES:
+        name = f"{element}-bit-patterns"
+        source = f'''from "std/gpu" import dispatch, WorkItem
+fn shuffle(values: Tensor[{element}, 8]) -> Tensor[{element}, ?]:
+  return dispatch([9], [8], fn(item: WorkItem) -> {element}:
+    lane = item.localIndex(0)
+    tile = item.shared[{element}](8)
+    tile[lane] = values[lane]
+    item.barrier()
+    return tile[7 - lane]
+  )
+'''
+        path=args.output/(name+".k");path.write_text(source)
+        result=subprocess.run([str(args.emitter.resolve()),str(path),"shuffle",
+            str(args.output/(name+".mlir")),args.backend],capture_output=True,text=True)
+        (args.output/(name+".log")).write_text(result.stdout+result.stderr)
+        assert result.returncode==0,(name,result.stdout,result.stderr)
+        cases.append(dict(name=name,type=element,rank=1,shape=[9],group=[8]))
     (args.output / "cases.json").write_text(json.dumps(cases, indent=2) + "\n")
     print(f"PASS: {len(cases)} shared-memory shuffle kernels emitted for {args.backend}")
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
