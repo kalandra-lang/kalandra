@@ -399,7 +399,8 @@ class Builder {
       active.erase(function);
       return resident(fn.resultType, program.code.back().output);
     }
-    if (fn.resultType.array || aggregate || graph || usesScalarControl(input, function)) {
+    if (fn.resultType.array || fn.resultType.builtin == BuiltinValue::String || aggregate ||
+        graph || usesScalarControl(input, function)) {
       const bool tensorResult = fn.resultType.tensor && !fn.resultType.array;
       auto shader = emitScalarControlShader(
           input, function, arithmetic_, nativeFloat64Conversions_, aggregate, graph,
@@ -606,8 +607,10 @@ public:
     normalized.source = input.source;
   }
   NumericProgram run(FunctionId id) {
+    const bool textResult =
+        root.resultType.builtin == BuiltinValue::String && !root.resultType.array;
     if (!(aggregateEnvelope_ && deviceInlineRecordValue(root.resultType)) &&
-        ((root.resultType.builtin != BuiltinValue::Numeric &&
+        ((!textResult && root.resultType.builtin != BuiltinValue::Numeric &&
           !(isBooleanStorage(root.resultType) &&
             (!root.resultType.tensor || root.resultType.array))) ||
          (root.resultType.array && root.resultType.shape.size() != 1) || root.resultType.task ||
@@ -633,8 +636,10 @@ public:
         args.push_back(resident(wire, value()));
         continue;
       }
-      if (type.builtin == BuiltinValue::String && !type.task && !type.fallible &&
-          containsWorkgroupDispatch(input, id)) {
+      if (type.builtin == BuiltinValue::String && !type.task && !type.fallible && !type.device) {
+        const auto &parameter = input.symbols.at(root.parameters[i]);
+        if (parameter.mutableAccess || parameter.owned)
+          reject(root.declaration, "GPU text inputs require an immutable borrow");
         args.push_back(resident(type, value()));
         continue;
       }

@@ -586,9 +586,30 @@ fn main() -> i64 ! TaskError:
   return try parallel:
     try await spawn apply(f, 40) on devices.gpu()
 ''', 42)
+cases['device-string-body'] = ('''fn work(n:i64)->i64:
+  message="text"
+  return length(message)+n
+fn main()->i64 ! TaskError:
+  return try parallel:
+    try await spawn work(1) on devices.gpu()
+''', 5)
+cases['device-string-result'] = ('''fn trim(rows:[String], end:i64)->String:
+  return slice(rows[1],1,end) + "🧪"
+fn same(text:String)->String:
+  return text
+fn empty(text:String)->String:
+  return slice(text,length(text),length(text))
+fn main()->i64 ! TaskError:
+  return try parallel:
+    part=try await spawn trim(["", "سé猫"],3) on devices.gpu()
+    text=try await spawn same(part) on devices.gpu()
+    suffix=try await spawn empty(text) on devices.gpu()
+    if text == "é猫🧪" and suffix == "": 42
+    else: 0
+''', 42)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
-known |= {'reject-device-string-body','reject-device-host-only-record-result',
+known |= {'reject-device-host-only-record-result',
           'reject-closure-write', 'reject-closure-sort', 'reject-closure-string-capture'}
 if set(a.case)-known:
     p.error('unknown case: '+', '.join(sorted(set(a.case)-known)))
@@ -631,6 +652,10 @@ for name,(source,expected) in cases.items():
         assert "NumericInstructionKind::DeviceControl" in host, name
     elif name in ('device-application-handler-fault', 'device-application-error-indirect'):
         assert 'NumericInstructionKind::DeviceControl' in host, name
+    elif name.startswith('device-string-'):
+        assert 'NumericInstructionKind::DeviceControl' in host, name
+        if name == 'device-string-result':
+            assert 'DeviceTextResultJob<' in host, name
     elif name == "host-closure":
         assert "NativeCallable" in host and "kalandra_gpu_callable_layout_" in host, name
         assert "HostArrayScopes" in host and "HostArrayWork" in host, name
@@ -687,7 +712,6 @@ for mutation in ('values[0]=99', 'sort(values)'):
     print(name, 'rejected S077', flush=True)
 for name,source in {
     'closure-string-capture':'fn make()->fn(i64)->i64:\n  text="hello"\n  return fn(n:i64):return length(text)+n\nfn work(callback:fn(i64)->i64)->i64:\n  return callback(1)\nfn main()->i64 ! TaskError:\n  callback=make()\n  return try parallel:\n    try await spawn work(callback) on devices.gpu()\n',
-    'device-string-body':'fn work(n:i64)->i64:\n  message="text"\n  return length(message)+n\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn work(1) on devices.gpu()\n',
     'device-host-only-record-result':'''type Message:
   text:String
 fn device()->Message:

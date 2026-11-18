@@ -14,6 +14,7 @@
 #include "DeviceResidentTensorImport.h"
 #include "DeviceTensorDynamic.h"
 #include "DeviceTensorReturn.h"
+#include "DeviceTextControl.h"
 #include "MatmulShader.h"
 #include "kalandra/Continuation.h"
 #include "kalandra/GpuConversion.h"
@@ -1044,7 +1045,8 @@ bool usesScalarControl(const TypedModule &input, FunctionId function) {
              fn.expressions,
              [&](auto id) {
                const auto &op = input.expressions.at(id).operation;
-               if (input.expressions.at(id).type.array || input.expressions.at(id).type.record ||
+               if (input.expressions.at(id).type.builtin == BuiltinValue::String ||
+                   input.expressions.at(id).type.array || input.expressions.at(id).type.record ||
                    (!fn.resultType.tensor && std::holds_alternative<TensorIndex>(op)))
                  return true;
                if (std::holds_alternative<WhileOperation>(op))
@@ -1102,6 +1104,10 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
     return type.array && type.tensor && type.shape.size() == 1 && !type.task && !type.fallible &&
            (type.builtin == BuiltinValue::Numeric || isBooleanStorage(type));
   };
+  const auto text = [](const ValueType &type) {
+    return type.builtin == BuiltinValue::String && !type.task && !type.fallible && !type.device;
+  };
+  const auto arrayInput = [&](const ValueType &type) { return flatArray(type) || text(type); };
   const auto localTensor = [](const ValueType &type) {
     return type.tensor && !type.array && !type.task && !type.fallible &&
            type.builtin == BuiltinValue::Numeric && type.shape.size() <= 8;
@@ -1139,14 +1145,15 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
     }
   }
   if (callFrames && !std::ranges::all_of(layoutTypes, [&](const auto &type) {
-        return scalar(type) || callable(type) || flatArray(type) || localTensor(type) ||
+        return scalar(type) || callable(type) || arrayInput(type) || localTensor(type) ||
                deviceInlineRecordValue(type) || deviceRecordArrayValue(type);
       }))
     return reject("GPU recursive calls require supported device frame values");
   bool storage = callFrames || std::ranges::any_of(plan.slots, [&](const auto &type) {
-                   return flatArray(type) || localTensor(type);
+                   return arrayInput(type) || localTensor(type);
                  });
-  const bool arrayResult = flatArray(root.resultType);
+  const bool textResult = text(root.resultType) && !root.resultType.array;
+  const bool arrayResult = flatArray(root.resultType) || textResult;
   const bool aggregateResult = deviceInlineRecordValue(root.resultType);
   const bool graphResult = aggregateResult && !graphResultLayouts.empty();
   if (aggregateResult && !aggregateEnvelope)
@@ -1180,14 +1187,19 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
   if ((!scalar(root.resultType) && !exportResult) ||
       std::ranges::any_of(root.parameters, [&](auto symbol) {
         return !graphSymbols.contains(symbol) && !scalar(input.symbols.at(symbol).type) &&
-               !flatArray(input.symbols.at(symbol).type) &&
+               !arrayInput(input.symbols.at(symbol).type) &&
                !localTensor(input.symbols.at(symbol).type);
       }))
     return reject(
         "GPU checkpointed entry requires scalar, flat array or resident tensor inputs and "
         "scalar, flat array or inline aggregate results");
   for (auto &type : layoutTypes)
-    if (localTensor(type)) {
+    if (localTensor(type) || text(type)) {
+      if (text(type)) {
+        type.builtin = BuiltinValue::Numeric;
+        type.element = NumericType::UInt32;
+        type.tensor = true;
+      }
       type.array = true;
       type.shape = {{std::nullopt, 1}};
     }
@@ -1211,7 +1223,7 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
   };
   std::set<std::size_t> boxTypes, arrayTypes;
   const auto localArray = [&](const ValueType &type) {
-    return flatArray(type) || deviceRecordArrayValue(type) || localTensor(type);
+    return arrayInput(type) || deviceRecordArrayValue(type) || localTensor(type);
   };
   const auto arrayIdentity = [&](const ValueType &type) -> unsigned {
     if (localTensor(type))
@@ -1468,6 +1480,10 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
   const auto boxStep = frameWords;
   if (!traceTypes.empty())
     frameWords += 2; // Record construction field and multiword read cursor.
+  const auto textState = frameWords;
+  const bool hasText = std::ranges::any_of(plan.slots, text);
+  if (hasText)
+    frameWords += DeviceTextControl::Cells;
   const auto graphCursor = frameWords;
   if (graphParameter)
     ++frameWords;
@@ -1501,7 +1517,7 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
   for (std::size_t i = 0; i < root.parameters.size(); ++i) {
     const auto parameter = root.parameters[i];
     const auto &type = input.symbols.at(parameter).type;
-    if (parameter == graphSymbol || flatArray(type))
+    if (parameter == graphSymbol || arrayInput(type))
       ++footerWords;
     else if (localTensor(type)) {
       residentParameters.push_back(i);
@@ -1587,7 +1603,8 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
   if (storage)
     for (std::size_t i = 0; i < plan.code.size(); ++i) {
       const auto &op = plan.code[i];
-      if ((op.code == C::Kernel || op.code == C::CollectAppend || op.code == C::MapInit) &&
+      if ((op.code == C::Kernel || op.code == C::CollectAppend || op.code == C::MapInit ||
+           (op.code == C::Literal && text(plan.slots.at(op.output)))) &&
           localArray(plan.slots.at(op.output)))
         allocationRoots.push_back({i + 1, liveRoots[i]});
       if (op.code == C::Kernel) {
@@ -1624,6 +1641,12 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
     const auto &node = input.expressions.at(op.source);
     return localTensor(node.type) && (std::holds_alternative<TensorBinary>(node.operation) ||
                                       std::holds_alternative<TensorUnary>(node.operation));
+  };
+  const auto textOperation = [&](const auto &op) {
+    if (!hasText || (op.code != C::Kernel && op.code != C::Literal))
+      return false;
+    return text(plan.slots.at(op.output)) ||
+           std::ranges::any_of(op.args, [&](auto slot) { return text(plan.slots.at(slot)); });
   };
   const auto arrayOperation = [&](const auto &op) {
     if (!storage || op.code != C::Kernel)
@@ -1715,6 +1738,18 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
   auto code = planned->kernels;
   std::vector<std::optional<FunctionId>> kernels;
   for (const auto &op : plan.code) {
+    const bool collection = op.code == C::MapInit || op.code == C::MapCheck ||
+                            op.code == C::MapLoad || op.code == C::MapStore ||
+                            op.code == C::MapAdvance || op.code == C::CollectInit ||
+                            op.code == C::CollectAppend || op.code == C::CollectFinish;
+    if (hasText && collection &&
+        ((op.output < plan.slots.size() && text(plan.slots.at(op.output))) ||
+         std::ranges::any_of(op.args, [&](auto slot) { return text(plan.slots.at(slot)); })))
+      return reject("GPU text batches support read-only indexing and length");
+    if (textOperation(op)) {
+      kernels.push_back({});
+      continue;
+    }
     if (tensorArithmetic(op)) {
       auto node = input.expressions.at(op.source);
       auto laneType = node.type;
@@ -1813,12 +1848,12 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
       continue;
     kernelArguments[i] = inputs.size();
     const auto &t = input.symbols.at(parameter).type;
-    inputs.push_back(t.array || parameter == graphSymbol ? NumericType::UInt64
-                     : isBooleanStorage(t)               ? NumericType::UInt8
-                                                         : t.element);
-    roles.push_back(parameter == graphSymbol || flatArray(t) ? 2
-                    : localTensor(t)                         ? InputABI::FirstRole + t.shape.size()
-                                                             : 1);
+    inputs.push_back(t.array || parameter == graphSymbol || text(t) ? NumericType::UInt64
+                     : isBooleanStorage(t)                          ? NumericType::UInt8
+                                                                    : t.element);
+    roles.push_back(parameter == graphSymbol || arrayInput(t) ? 2
+                    : localTensor(t)                          ? InputABI::FirstRole + t.shape.size()
+                                                              : 1);
   }
   if (storage)
     inputs.push_back(NumericType::UInt64);
@@ -1907,9 +1942,11 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
     const auto &type = input.symbols.at(root.parameters[i]).type;
     if (i == graphParameter)
       graphLengthSlot = footer++;
-    else if (flatArray(type))
+    else if (arrayInput(type))
       captures.push_back({kernel.getArgument(kernelArguments[i]), load(footer++),
-                          isBooleanStorage(type) ? 11 : unsigned(type.element) + 1});
+                          text(type)               ? unsigned(NumericType::UInt32) + 1
+                          : isBooleanStorage(type) ? 11
+                                                   : unsigned(type.element) + 1});
     else if (localTensor(type)) {
       residentMetadata[i] = footer;
       footer += 1 + type.shape.size();
@@ -1929,7 +1966,7 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
       if (graphSymbols.contains(root.parameters[i]) ||
           localTensor(input.symbols.at(root.parameters[i]).type))
         continue;
-      if (flatArray(input.symbols.at(root.parameters[i]).type)) {
+      if (arrayInput(input.symbols.at(root.parameters[i]).type)) {
         store(offsets.at(plan.parameters[i]),
               constant(runtime::DeviceArrayWireABI::ExternalHandle | ++capture));
         continue;
@@ -2153,8 +2190,9 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
         emitDeviceTensorReturn(*heap, b, load(offsets.at(plan.result)), root.resultType);
       if (arrayResult)
         emitDeviceArrayReturn(*heap, b, load(offsets.at(plan.result)),
-                              isBooleanStorage(root.resultType) ? NumericType::UInt8
-                                                                : root.resultType.element,
+                              textResult                          ? NumericType::UInt32
+                              : isBooleanStorage(root.resultType) ? NumericType::UInt8
+                                                                  : root.resultType.element,
                               isBooleanStorage(root.resultType), graphParameter.has_value());
       if (graphResult) {
         using A = runtime::detail::ControlArenaABI;
@@ -2766,6 +2804,59 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
         });
         const Value finished = arith::AndIOp::create(b, loc, appendReady, last);
         next = arith::SelectOp::create(b, loc, finished, next, pc);
+      } else if (textOperation(op)) {
+        const auto &node = input.expressions.at(op.source);
+        DeviceTextControl textControl(b, *heap, static_cast<unsigned>(textState));
+        const auto publish = [&](Value value) { store(offsets.at(op.output), value); };
+        const auto argument = [&](std::size_t index) {
+          return load(offsets.at(op.args.at(index)));
+        };
+        const auto indexArgument = [&](std::size_t index) -> Value {
+          auto value = argument(index);
+          const auto type = plan.slots.at(op.args.at(index)).element;
+          const auto numeric = describeNumeric(type);
+          if (numeric && numeric->bits < 64 && numeric->family == NumericFamily::SignedInteger) {
+            auto low = arith::TruncIOp::create(b, loc, b.getIntegerType(numeric->bits), value);
+            return arith::ExtSIOp::create(b, loc, b.getI64Type(), low);
+          }
+          return value;
+        };
+        Value done = yes;
+        if (const auto *query = std::get_if<StringQuery>(&node.operation)) {
+          if (query->kind == StringQueryKind::ByteLength)
+            publish(textControl.byteLength(argument(0)));
+          else
+            done = textControl.length(argument(0), publish);
+        } else if (const auto *query = std::get_if<CollectionQuery>(&node.operation);
+                   query && query->kind == CollectionQueryKind::Length &&
+                   isStringArray(plan.slots.at(op.args.at(0)))) {
+          publish(textControl.batchLength(argument(0)));
+        } else if (const auto *literal = std::get_if<StringLiteral>(&node.operation)) {
+          chargeAggregate(literal->value.size());
+          done = textControl.literal(literal->value, publish);
+        } else if (std::holds_alternative<StringSlice>(node.operation)) {
+          done = textControl.slice(argument(0), indexArgument(1), indexArgument(2), false, publish);
+        } else if (std::holds_alternative<StringIndex>(node.operation)) {
+          auto start = indexArgument(1);
+          auto end = arith::AddIOp::create(b, loc, start, constant(1));
+          done = textControl.slice(argument(0), start, end, true, publish);
+        } else if (std::holds_alternative<StringConcat>(node.operation)) {
+          done = textControl.concat(argument(0), argument(1), publish);
+        } else if (const auto *compare = std::get_if<ScalarCompare>(&node.operation);
+                   compare && !compare->threeWay &&
+                   (compare->operation == ComparisonKind::Equal ||
+                    compare->operation == ComparisonKind::NotEqual) &&
+                   !isStringArray(plan.slots.at(op.args.at(0)))) {
+          done = textControl.equal(argument(0), argument(1),
+                                   compare->operation == ComparisonKind::NotEqual, publish);
+        } else if (std::holds_alternative<ArrayIndex>(node.operation) &&
+                   isStringArray(plan.slots.at(op.args.at(0)))) {
+          done = textControl.row(argument(0), indexArgument(1), publish);
+        } else {
+          throw Rejected{{"G001", "GPU text supports read-only batches and String value operations",
+                          node.span}};
+        }
+        next = arith::SelectOp::create(b, loc, done, next, pc);
       } else if (arrayOperation(op)) {
         const auto &node = input.expressions.at(op.source);
         const auto condition = [&](Value predicate, auto body) {

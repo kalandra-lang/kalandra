@@ -68,10 +68,15 @@ static void failedImports() {
     Invocation context;
     auto result = string(context, "prior");
     const auto baseline = context.live();
-    CHECK(!unpackGpuText(context, words, result));
+    CHECK(!unpackGpuText(context, std::span{words}, result));
     CHECK(context.status() == 3 && context.live() == baseline);
     CHECK(!result.allocated && !result.data && result.byteLength == 0);
   }
+  constexpr std::array<std::uint64_t, 5> upperBits{1, 4, 0, 4, UINT64_C(0x164636261)};
+  Invocation wide;
+  StringDescriptor value;
+  CHECK(!unpackGpuText(wide, std::span{upperBits}, value));
+  CHECK(wide.status() == 3 && wide.live() == 0 && !value.allocated);
 }
 
 static void failuresAndCancellation() {
@@ -88,7 +93,8 @@ static void failuresAndCancellation() {
   CHECK(!packGpuText(cancelled, StringDescriptor{}).allocated && cancelled.status() == 0);
   constexpr std::array<std::uint32_t, 5> words{1, 1, 0, 1, 97};
   StringDescriptor result;
-  CHECK(!unpackGpuText(cancelled, words, result) && !result.allocated && cancelled.status() == 0);
+  CHECK(!unpackGpuText(cancelled, std::span{words}, result) && !result.allocated &&
+        cancelled.status() == 0);
   CHECK(cancelled.live() == 0);
 }
 

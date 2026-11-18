@@ -723,8 +723,10 @@ class Emitter {
       auto value = evaluate(frame, operation->input), position = evaluate(frame, operation->index);
       if (isStringArray(value.type)) {
         auto rows = value.elements[1].bits, source = value.elements[0].bits;
-        auto row = select(cmp(arith::CmpIPredicate::slt, position.bits, c(0)),
-                          add(position.bits, rows), position.bits);
+        auto row = position.bits;
+        const auto type = describeNumeric(position.type.element);
+        if (type->family == NumericFamily::SignedInteger && type->bits < 64)
+          row = arith::ExtSIOp::create(builder, loc(), builder.getI64Type(), narrow(row, type->bits));
         auto valid = cmp(arith::CmpIPredicate::ult, row, rows);
         checked(valid);
         auto branch =

@@ -116,8 +116,11 @@ inline GpuTextWords packGpuText(Invocation &context, const StringArrayDescriptor
 // Decode a single variable-length device result. The caller keeps a lease on
 // the downloaded words through the call. No output descriptor is published
 // until the header, UTF-8 and invocation state have all been checked.
-inline bool unpackGpuText(Invocation &context, std::span<const std::uint32_t> words,
-                          StringDescriptor &result) noexcept {
+template <class Word, std::size_t Extent>
+bool unpackGpuText(Invocation &context, std::span<Word, Extent> words,
+                   StringDescriptor &result) noexcept {
+  static_assert(std::is_same_v<std::remove_const_t<Word>, std::uint32_t> ||
+                std::is_same_v<std::remove_const_t<Word>, std::uint64_t>);
   result = {};
   if (context.poll() || !context.usable())
     return false;
@@ -126,7 +129,7 @@ inline bool unpackGpuText(Invocation &context, std::span<const std::uint32_t> wo
     return false;
   };
   constexpr auto start = GpuTextWire::payloadStart(1);
-  if (words.size() < start || words[0] != 1 ||
+  if (words.size() < start || words[0] != 1 || words[1] > UINT32_MAX ||
       GpuTextWire::wordCount(1, words[1]) != words.size() || words[2] != 0 || words[3] != words[1])
     return invalid();
   const auto bytes = words[1];
@@ -144,18 +147,23 @@ inline bool unpackGpuText(Invocation &context, std::span<const std::uint32_t> wo
       return false;
     }
     const auto chunk = std::min<std::uint64_t>(1024, bytes - i);
-    if constexpr (std::endian::native == std::endian::little) {
+    if constexpr (sizeof(Word) == 4 && std::endian::native == std::endian::little) {
       std::memcpy(buffer + i, reinterpret_cast<const char *>(payload) + i, chunk);
     } else {
       for (std::uint64_t j = 0; j < chunk; ++j) {
         const auto offset = i + j;
-        const auto byte = static_cast<unsigned char>(payload[offset / 4] >> (8 * (offset % 4)));
+        const auto word = payload[offset / 4];
+        if (word > UINT32_MAX) {
+          context.release(buffer);
+          return invalid();
+        }
+        const auto byte = static_cast<unsigned char>(word >> (8 * (offset % 4)));
         std::memcpy(buffer + offset, &byte, 1);
       }
     }
     i += chunk;
   }
-  const StringDescriptor value{buffer, buffer, bytes};
+  const StringDescriptor value{buffer, buffer, static_cast<std::int64_t>(bytes)};
   if (!validateString(context, value)) {
     context.release(buffer);
     return false;

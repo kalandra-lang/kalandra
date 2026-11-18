@@ -207,11 +207,16 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/workgroup-text.k"
         "${CMAKE_CURRENT_BINARY_DIR}/text-${BACKEND}" hardware application)
       set_tests_properties(frontend-gpu-text-${BACKEND} PROPERTIES TIMEOUT 60)
+      add_test(NAME frontend-gpu-text-result-${BACKEND} COMMAND kalandra-${BACKEND}-supervisor
+        "${CMAKE_CURRENT_SOURCE_DIR}/device-text-result.k"
+        "${CMAKE_CURRENT_BINARY_DIR}/text-result-${BACKEND}" hardware application)
+      set_tests_properties(frontend-gpu-text-result-${BACKEND} PROPERTIES TIMEOUT 60)
     endif()
   endforeach()
   if(KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
     add_test(NAME native-gpu-text-metal COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/workgroup-text.k"
+      "-DRESULT_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/device-text-result.k"
       "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/text-metal"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyMetalText.cmake")
     set_tests_properties(native-gpu-text-metal PROPERTIES TIMEOUT 120

@@ -51,13 +51,34 @@ This displays Kala: slice(text, 0, 3) is Kal, and text[7] is a. Indexes are zero
 
 h2 { "Equality and lifetime" }
 
-== and != compare exact scalar sequences. No normalization or locale-dependent collation is inserted. Strings can be used in CPU workers, closures, arrays and supported record or enum fields. Their text remains valid while those values need it. GPU numerical functions do not accept Strings.
+== and != compare exact scalar sequences. No normalization or locale-dependent collation is inserted. Strings can be used in CPU workers, closures, arrays and supported record or enum fields. Their text remains valid while those values need it.
 
 Escapes include a quoted double quote, a backslash, newline, carriage return, tab, zero and Unicode-scalar escapes. Invalid UTF-8 and invalid escapes are diagnosed. String interpolation and raw multiline strings are not supported. Convert numeric and Boolean text with std/parse; use std/path for lexical path operations.
+
+h2 { "Process text on a GPU" }
+
+Pass a String or a read-only array of Strings directly to a function spawned on Metal, Vulkan or CUDA. The task uploads the text and runs scalar indexing, slicing, length queries, exact equality and concatenation on the device. The same Unicode scalar and bounds rules apply. Awaiting a String result gives you an owned CPU String, ready to print, store or pass to another task.
+
+codeblock { language = kalandra, """from "std/io" import println, IoError
+
+fn label(text: String) -> String:
+  return "First scalar: " + slice(text, 0, 1)
+
+fn main() -> unit ! (TaskError | IoError):
+  result = try parallel:
+    try await spawn label("سلام") on devices.gpu()
+  try println(result)
+  return ()
+""" }
+
+This displays First scalar: س. Input uploads and result downloads count toward the device and task memory limits. File access and console output run on the host.
+
+A GPU function can read a String array's length and index its rows. String arrays enter as immutable batches. Returning a String array, embedding a String in a GPU payload record, and capturing a String in a CPU-created closure sent to the GPU are outside the supported device text operations.
 
 list {
   link { url = "/docs/parsing", "Convert text to numbers and booleans" },
   link { url = "/docs/paths", "Work with path strings" },
   link { url = "/docs/arrays", "Store and transform String arrays" },
+  link { url = "/docs/gpu-kernels#inspect-a-batch-of-strings", "Filter a batch of strings with a cooperative kernel" },
   link { url = "/docs/collection-functions", "Collection function reference" }
 }
