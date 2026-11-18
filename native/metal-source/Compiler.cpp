@@ -2784,6 +2784,12 @@ class Compiler {
           tensors.push_back(value);
         continue;
       }
+      if (type.builtin == BuiltinValue::String) {
+        if (value.kind != (type.array ? Value::TextArray : Value::Text) || value.gpu)
+          reject(span, "GPU text requires a completed host String or String array");
+        tensors.push_back(value);
+        continue;
+      }
       const bool boolean = isBooleanStorage(type) && !type.tensor && !type.array;
       if ((!boolean && !isBoolArray(type) &&
            (type.builtin != BuiltinValue::Numeric || value.element != type.element)) ||
@@ -2811,11 +2817,12 @@ class Compiler {
           continue;
         }
         const auto &type = *parameterTypes[i];
-        if (!type.tensor)
+        if (!type.tensor && type.builtin != BuiltinValue::String)
           continue;
-        for (unsigned axis = 0; axis < type.shape.size(); ++axis)
-          if (!extent.constant && type.shape[axis].identity == extent.identity)
-            return {tensor, axis};
+        if (type.builtin != BuiltinValue::String)
+          for (unsigned axis = 0; axis < type.shape.size(); ++axis)
+            if (!extent.constant && type.shape[axis].identity == extent.identity)
+              return {tensor, axis};
         ++tensor;
       }
       reject(span, "typed numerical program shape contract cannot be mapped to an input");
@@ -2883,16 +2890,24 @@ class Compiler {
     for (std::size_t i = 0; i < program.code.size(); ++i) {
       const auto &op = program.code[i];
       const auto suffix = std::to_string(i);
-      bindings += "auto scalars" + suffix + "=std::array<std::uint64_t," +
-                  std::to_string(op.scalarSources.size() + op.constants.size()) + ">{";
+      const auto count =
+          op.scalarSources.size() + op.constants.size() + op.textRowsFromInputs.size();
+      bindings +=
+          "auto scalars" + suffix + "=std::array<std::uint64_t," + std::to_string(count) + ">{";
       for (auto source : op.scalarSources)
         bindings += capture(scalars.at(source)) + ",";
+      for (auto source : op.textRowsFromInputs) {
+        const auto &value = tensors.at(source);
+        if (value.kind != Value::TextArray)
+          reject(span, "GPU text batch shape requires a host String array");
+        bindings += "std::uint64_t(" + ref(value) + ".size),";
+      }
       for (auto value : op.constants)
         bindings += std::to_string(value) + "ull,";
       bindings += "};\n";
       if (op.kind == NumericProgramKind::Map || op.kind == NumericProgramKind::Workgroup ||
           isGpuControlKind(op.kind))
-        for (std::size_t j = 0; j < op.scalarSources.size() + op.constants.size(); ++j) {
+        for (std::size_t j = 0; j < count; ++j) {
           captureList += "scalars" + suffix + "[" + std::to_string(j) + "],";
           ++captureCount;
         }
@@ -3001,8 +3016,9 @@ class Compiler {
             "," + (result.scalarTask ? "true" : "false") + (result.booleanTask ? ",true" : "") +
             (backend_ != GpuBackend::Metal ? ",*target" : "") + ");if(!prepared){" +
             error("prepared.error()") + "}f." + executable + "=*prepared;\n}\n";
-    const bool arrayInputs =
-        std::ranges::any_of(tensors, [](const auto &v) { return v.kind == Value::Array; });
+    const bool arrayInputs = std::ranges::any_of(tensors, [](const auto &v) {
+      return v.kind == Value::Array || v.kind == Value::Text || v.kind == Value::TextArray;
+    });
     if (arrayInputs || graphParameter || result.array || result.record) {
       std::string arguments;
       for (const auto &value : tensors) {
@@ -3010,6 +3026,9 @@ class Compiler {
           arguments += ",DeviceGraphArgument<" + graphPolicy + ">";
         else if (value.kind == Value::Tensor)
           arguments += ",DeviceResidentArgument<m::Runtime,m::Buffer>";
+        else if (value.kind == Value::Text || value.kind == Value::TextArray)
+          arguments += value.kind == Value::Text ? ",DeviceTextArgument<false>"
+                                                 : ",DeviceTextArgument<true>";
         else
           arguments += ",DeviceArrayArgument<" + elementName(value.element) + "," +
                        (value.booleanArray ? "true" : "false") + ">";
@@ -3215,7 +3234,10 @@ class Compiler {
               SourceSpan span) {
     if (!target.gpu)
       return cpuCall(function, inputs, span, false, true);
-    if (backend_ != GpuBackend::Metal || cpu.functions.at(function).resultType.record)
+    if (backend_ != GpuBackend::Metal || cpu.functions.at(function).resultType.record ||
+        std::ranges::any_of(inputs, [](const auto &value) {
+          return value.kind == Value::Text || value.kind == Value::TextArray;
+        }))
       return spawnNumericProgram(function, inputs, target, span);
     bool mixed = false;
     bool conditional = false, primitive = false, transform = false, control = false;

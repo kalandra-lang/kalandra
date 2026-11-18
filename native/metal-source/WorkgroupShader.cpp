@@ -3,6 +3,7 @@
 #include "WorkgroupPlan.h"
 #include "kalandra/GpuConversion.h"
 #include "kalandra/GpuInteger.h"
+#include "kalandra/GpuTextWire.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -47,6 +48,7 @@ class Emitter {
   Value fault, parameters, output, block, thread;
   std::vector<Value> globals, locals, dimensions;
   std::vector<DeviceValue> tensors, scalars;
+  std::vector<std::pair<std::uint64_t, Value>> textBuffers;
   std::map<std::string, std::size_t> scratch;
   std::vector<Value> scratchStorage;
   std::string context;
@@ -126,6 +128,86 @@ class Emitter {
     return wide ? either(low, arith::ShLIOp::create(builder, loc(),
                                                     widen(load(parameters, offset + 1)), c(32)))
                 : low;
+  }
+  Value textWord(Value source, Value position) {
+    Value result = c(0);
+    for (const auto &[id, buffer] : textBuffers) {
+      auto branch = scf::IfOp::create(builder, loc(), TypeRange{builder.getI64Type()},
+                                      cmp(arith::CmpIPredicate::eq, source, c(id)), true);
+      OpBuilder::InsertionGuard guard(builder);
+      builder.setInsertionPointToStart(&branch.getThenRegion().front());
+      auto word = memref::LoadOp::create(builder, loc(), buffer, ValueRange{index(position)});
+      scf::YieldOp::create(builder, loc(), ValueRange{widen(word)});
+      builder.setInsertionPointToStart(&branch.getElseRegion().front());
+      scf::YieldOp::create(builder, loc(), ValueRange{result});
+      result = branch.getResult(0);
+    }
+    return result;
+  }
+  Value textByte(Value source, Value position) {
+    auto offset = arith::ShRUIOp::create(builder, loc(), position, c(2));
+    auto shift = arith::ShLIOp::create(builder, loc(), both(position, c(3)), c(3));
+    return both(arith::ShRUIOp::create(builder, loc(), textWord(source, offset), shift), c(255));
+  }
+  Value add(Value a, Value b) { return arith::AddIOp::create(builder, loc(), a, b); }
+  Value subtract(Value a, Value b) { return arith::SubIOp::create(builder, loc(), a, b); }
+  DeviceValue text(Value source, Value begin, Value end) {
+    DeviceValue value;
+    value.type.builtin = BuiltinValue::String;
+    value.elements = {scalar(source), scalar(begin), scalar(end)};
+    return value;
+  }
+  Value textEqual(const DeviceValue &left, const DeviceValue &right) {
+    auto a = left.elements[1].bits, b = right.elements[1].bits;
+    auto size = subtract(left.elements[2].bits, a);
+    auto sameSize = cmp(arith::CmpIPredicate::eq, size, subtract(right.elements[2].bits, b));
+    auto loop = scf::WhileOp::create(
+        builder, loc(), TypeRange{builder.getI64Type(), builder.getI1Type()},
+        ValueRange{c(0), sameSize},
+        [&](OpBuilder &, Location at, ValueRange args) {
+          auto more = cmp(arith::CmpIPredicate::ult, args[0], size);
+          scf::ConditionOp::create(builder, at, both(more, args[1]), args);
+        },
+        [&](OpBuilder &, Location at, ValueRange args) {
+          auto x = textByte(left.elements[0].bits, add(a, args[0]));
+          auto y = textByte(right.elements[0].bits, add(b, args[0]));
+          scf::YieldOp::create(builder, at,
+                               ValueRange{add(args[0], c(1)), cmp(arith::CmpIPredicate::eq, x, y)});
+        });
+    return loop.getResult(1);
+  }
+  // Inputs contain validated UTF-8. Counting lead bytes preserves scalar
+  // indexing and the cursor only advances by the width of a complete scalar.
+  std::pair<Value, Value> seekText(Value source, Value begin, Value end, Value target) {
+    auto loop = scf::WhileOp::create(
+        builder, loc(), TypeRange{builder.getI64Type(), builder.getI64Type()},
+        ValueRange{begin, c(0)},
+        [&](OpBuilder &, Location at, ValueRange args) {
+          auto more = both(cmp(arith::CmpIPredicate::ult, args[0], end),
+                           cmp(arith::CmpIPredicate::ult, args[1], target));
+          scf::ConditionOp::create(builder, at, more, args);
+        },
+        [&](OpBuilder &, Location at, ValueRange args) {
+          auto byte = textByte(source, args[0]);
+          auto width =
+              select(cmp(arith::CmpIPredicate::ult, byte, c(0x80)), c(1),
+                     select(cmp(arith::CmpIPredicate::ult, byte, c(0xe0)), c(2),
+                            select(cmp(arith::CmpIPredicate::ult, byte, c(0xf0)), c(3), c(4))));
+          scf::YieldOp::create(builder, at, ValueRange{add(args[0], width), add(args[1], c(1))});
+        });
+    return {loop.getResult(0), loop.getResult(1)};
+  }
+  DeviceValue textSlice(const DeviceValue &inputText, Value start, Value end, bool single) {
+    auto source = inputText.elements[0].bits, limit = inputText.elements[2].bits;
+    auto [begin, seen] = seekText(source, inputText.elements[1].bits, limit, start);
+    auto count = single ? c(1) : subtract(end, start);
+    auto [finish, found] = seekText(source, begin, limit, count);
+    auto valid = both(cmp(arith::CmpIPredicate::eq, seen, start),
+                      cmp(arith::CmpIPredicate::eq, found, count));
+    if (!single)
+      valid = both(valid, cmp(arith::CmpIPredicate::ule, start, end));
+    checked(valid);
+    return text(source, begin, select(valid, finish, begin));
   }
   DeviceValue arithmetic(DeviceValue a, DeviceValue b, TokenKind operation, ValueId site) {
     const auto type = a.type.element;
@@ -236,14 +318,18 @@ class Emitter {
     return value;
   }
   DeviceValue zero(ValueType type, ValueId site, unsigned depth = 0) {
-    if (depth > 32 || type.tensor || type.array || type.task || type.device)
+    const bool textValue = type.builtin == BuiltinValue::String;
+    if (depth > 32 || (!textValue && (type.tensor || type.array)) || type.task || type.device)
       reject(site,
              "cooperative private error/control payload requires a finite inline numeric layout");
     DeviceValue value;
     value.type = type;
-    if (type.builtin == BuiltinValue::Record && type.record &&
-        (input.records.at(*type.record).standard == StandardRecord::WorkItem ||
-         input.records.at(*type.record).standard == StandardRecord::Shared))
+    if (textValue) {
+      for (unsigned i = 0; i < (type.array ? 2u : 3u); ++i)
+        value.elements.push_back(scalar(c(0)));
+    } else if (type.builtin == BuiltinValue::Record && type.record &&
+               (input.records.at(*type.record).standard == StandardRecord::WorkItem ||
+                input.records.at(*type.record).standard == StandardRecord::Shared))
       value.bits = c(0);
     else if (type.builtin == BuiltinValue::Record && type.record) {
       for (const auto &field : input.records.at(*type.record).fields)
@@ -575,7 +661,28 @@ class Emitter {
       out = arithmetic(left, right, operation->operation, id);
     } else if (auto operation = std::get_if<ScalarCompare>(&node.operation)) {
       auto left = evaluate(frame, operation->left), right = evaluate(frame, operation->right);
-      out = comparison(left, right, operation->operation);
+      if (left.type.builtin == BuiltinValue::String && !left.type.array) {
+        if (operation->threeWay || (operation->operation != ComparisonKind::Equal &&
+                                    operation->operation != ComparisonKind::NotEqual))
+          reject(id, "cooperative text comparisons support exact equality and inequality");
+        auto equal = textEqual(left, right);
+        out.bits = widen(operation->operation == ComparisonKind::Equal ? equal : negate(equal));
+      } else
+        out = comparison(left, right, operation->operation);
+    } else if (auto operation = std::get_if<StringQuery>(&node.operation)) {
+      auto inputText = evaluate(frame, operation->input);
+      auto begin = inputText.elements[1].bits, end = inputText.elements[2].bits;
+      out.bits = operation->kind == StringQueryKind::ByteLength
+                     ? subtract(end, begin)
+                     : seekText(inputText.elements[0].bits, begin, end, c(UINT64_MAX)).second;
+    } else if (auto operation = std::get_if<StringIndex>(&node.operation)) {
+      auto inputText = evaluate(frame, operation->input);
+      auto offset = evaluate(frame, operation->index);
+      out = textSlice(inputText, offset.bits, c(0), true);
+    } else if (auto operation = std::get_if<StringSlice>(&node.operation)) {
+      auto inputText = evaluate(frame, operation->input);
+      auto start = evaluate(frame, operation->start), end = evaluate(frame, operation->end);
+      out = textSlice(inputText, start.bits, end.bits, false);
     } else if (auto operation = std::get_if<NumericConvert>(&node.operation)) {
       auto value = evaluate(frame, operation->input);
       if (operation->bitwise)
@@ -603,7 +710,9 @@ class Emitter {
     } else if (auto operation = std::get_if<CollectionQuery>(&node.operation)) {
       auto value = evaluate(frame, operation->input);
       if (operation->kind == CollectionQueryKind::Length)
-        out.bits = value.shape.empty() ? c(value.elements.size()) : value.shape.front();
+        out.bits = isStringArray(value.type) ? value.elements[1].bits
+                   : value.shape.empty()     ? c(value.elements.size())
+                                             : value.shape.front();
       else
         for (auto extent : value.shape)
           out.elements.push_back(scalar(extent));
@@ -612,17 +721,41 @@ class Emitter {
         out.elements.push_back(evaluate(frame, value));
     } else if (auto operation = std::get_if<ArrayIndex>(&node.operation)) {
       auto value = evaluate(frame, operation->input), position = evaluate(frame, operation->index);
-      auto normalized =
-          select(cmp(arith::CmpIPredicate::slt, position.bits, c(0)),
-                 arith::AddIOp::create(builder, loc(), position.bits, c(value.elements.size())),
-                 position.bits);
-      checked(cmp(arith::CmpIPredicate::ult, normalized, c(value.elements.size())));
-      out.bits = c(0);
-      for (std::size_t element = 0; element < value.elements.size(); ++element) {
-        if (!value.elements[element].bits)
-          reject(id, "cooperative private metadata requires numeric elements");
-        out.bits = select(cmp(arith::CmpIPredicate::eq, normalized, c(element)),
-                          value.elements[element].bits, out.bits);
+      if (isStringArray(value.type)) {
+        auto rows = value.elements[1].bits, source = value.elements[0].bits;
+        auto row = select(cmp(arith::CmpIPredicate::slt, position.bits, c(0)),
+                          add(position.bits, rows), position.bits);
+        auto valid = cmp(arith::CmpIPredicate::ult, row, rows);
+        checked(valid);
+        auto branch =
+            scf::IfOp::create(builder, loc(), TypeRange{builder.getI64Type(), builder.getI64Type()},
+                              both(running(frame), valid), true);
+        {
+          OpBuilder::InsertionGuard guard(builder);
+          builder.setInsertionPointToStart(&branch.getThenRegion().front());
+          auto offset = add(c(GpuTextWire::HeaderWords), row);
+          auto payload = arith::ShLIOp::create(builder, loc(),
+                                               add(rows, c(GpuTextWire::HeaderWords + 1)), c(2));
+          scf::YieldOp::create(builder, loc(),
+                               ValueRange{add(payload, textWord(source, offset)),
+                                          add(payload, textWord(source, add(offset, c(1))))});
+          builder.setInsertionPointToStart(&branch.getElseRegion().front());
+          scf::YieldOp::create(builder, loc(), ValueRange{c(0), c(0)});
+        }
+        out = text(source, branch.getResult(0), branch.getResult(1));
+      } else {
+        auto normalized =
+            select(cmp(arith::CmpIPredicate::slt, position.bits, c(0)),
+                   arith::AddIOp::create(builder, loc(), position.bits, c(value.elements.size())),
+                   position.bits);
+        checked(cmp(arith::CmpIPredicate::ult, normalized, c(value.elements.size())));
+        out.bits = c(0);
+        for (std::size_t element = 0; element < value.elements.size(); ++element) {
+          if (!value.elements[element].bits)
+            reject(id, "cooperative private metadata requires numeric elements");
+          out.bits = select(cmp(arith::CmpIPredicate::eq, normalized, c(element)),
+                            value.elements[element].bits, out.bits);
+        }
       }
     } else if (auto operation = std::get_if<TensorIndex>(&node.operation)) {
       auto source = evaluate(frame, operation->input);
@@ -935,13 +1068,38 @@ public:
     }
     for (auto parameter : input.functions.at(root).parameters) {
       const auto &type = input.symbols[parameter].type;
-      if (type.tensor)
+      if (type.tensor || type.builtin == BuiltinValue::String)
         continue;
       const auto numeric = type.builtin == BuiltinValue::Bool ? NumericType::UInt8 : type.element;
       auto value = scalar(word64(word, describeNumeric(numeric)->bits == 64), numeric);
       value.type = type;
       word += describeNumeric(numeric)->bits == 64 ? 2 : 1;
       scalars.push_back(value);
+    }
+    std::size_t tensor = 0;
+    for (auto parameter : input.functions.at(root).parameters) {
+      const auto &type = input.symbols[parameter].type;
+      if (!type.tensor && type.builtin != BuiltinValue::String)
+        continue;
+      if (type.builtin == BuiltinValue::String) {
+        auto &value = tensors.at(tensor);
+        auto source = c(tensor + 1);
+        textBuffers.emplace_back(tensor + 1, value.data);
+        if (type.array) {
+          auto rows = word64(word);
+          word += 2;
+          value.elements = {scalar(source), scalar(rows)};
+          scalars.push_back(scalar(rows));
+        } else {
+          auto start = c(4 * GpuTextWire::payloadStart(1));
+          auto finish = add(start, textWord(source, c(1)));
+          value.elements = {scalar(source), scalar(start), scalar(finish)};
+        }
+        value.data = {};
+        value.shape.clear();
+        value.type = type;
+      }
+      ++tensor;
     }
   }
   void run() {
@@ -1027,16 +1185,21 @@ std::expected<NumericShader, Diagnostic> emitWorkgroupShader(const TypedModule &
        narrow16 = describeNumeric(result.element)->bits == 16;
   for (auto parameter : root.parameters) {
     const auto &type = input.symbols[parameter].type;
-    if (type.tensor) {
-      result.tensorTypes.push_back(type.element);
+    if (type.tensor || type.builtin == BuiltinValue::String) {
+      const auto element =
+          type.builtin == BuiltinValue::String ? NumericType::UInt32 : type.element;
+      result.tensorTypes.push_back(element);
       result.scalarBuffers.push_back(0);
       result.reads.push_back(result.reads.size());
-      narrow8 |= describeNumeric(type.element)->bits == 8;
-      narrow16 |= describeNumeric(type.element)->bits == 16;
+      narrow8 |= describeNumeric(element)->bits == 8;
+      narrow16 |= describeNumeric(element)->bits == 16;
     } else
       result.scalarTypes.push_back(type.builtin == BuiltinValue::Bool ? NumericType::UInt8
                                                                       : type.element);
   }
+  for (auto parameter : root.parameters)
+    if (isStringArray(input.symbols[parameter].type))
+      result.scalarTypes.push_back(NumericType::Int64);
   const auto words = workgroupParameterWords(*result.workgroup, result.scalarTypes);
   if (!words)
     return std::unexpected(Diagnostic{

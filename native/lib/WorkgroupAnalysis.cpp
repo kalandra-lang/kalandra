@@ -609,6 +609,15 @@ class Analyzer {
         } else
           value.integer = *current.integer;
       }
+    } else if (const auto *op = std::get_if<StringQuery>(&node.operation)) {
+      value.uniform = evaluate(frame, op->input).uniform;
+    } else if (const auto *op = std::get_if<StringIndex>(&node.operation)) {
+      const auto input = evaluate(frame, op->input), index = evaluate(frame, op->index);
+      value.uniform = input.uniform && index.uniform;
+    } else if (const auto *op = std::get_if<StringSlice>(&node.operation)) {
+      const auto input = evaluate(frame, op->input), start = evaluate(frame, op->start),
+                 end = evaluate(frame, op->end);
+      value.uniform = input.uniform && start.uniform && end.uniform;
     } else if (const auto *op = std::get_if<ArrayIndex>(&node.operation)) {
       const auto array = evaluate(frame, op->input), index = evaluate(frame, op->index);
       value.uniform = array.uniform && index.uniform;

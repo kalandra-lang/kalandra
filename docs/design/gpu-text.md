@@ -1,0 +1,9 @@
+# GPU text
+
+GPU text keeps the existing immutable, well-formed UTF-8 `String` and Unicode scalar indexing rules. Text enters a GPU task as read-only bytes. A `[String]` input is a batch with one offset per row plus a terminal offset, so empty rows and embedded NUL bytes need no special encoding. The runtime validates the original descriptors and accounts for the packed storage before uploading. Device code never receives native CPU pointers.
+
+The private packet is a rank-one `u32` buffer containing the row count, byte count, offsets and UTF-8 payload. Bytes within each word are ordered from its least significant byte. A scalar `String` has one row, including for empty text. Device views carry the buffer and half-open byte bounds of a validated scalar range. Slicing and indexing can reuse those bytes within one dispatch.
+
+Cooperative callbacks can inspect a text input using `byteLength`, `length`, scalar indexing, `slice`, `==` and `!=`. The launch planner can use a batch's length for output sizing. Each input row may have at most 16 KiB of UTF-8 in this path, since a cooperative callback cannot yield during a string scan. Lane-dependent indexing stays checked even for padding lanes. Comparison is exact and performs no normalization. Unicode scalar indexes and slice endpoints follow the CPU rules, including the empty slice at the end.
+
+Ordinary device functions need checkpointed scans and allocation for variable-length text. The planned result path measures UTF-8 byte size before allocating in the task arena, writes only a complete result, then verifies downloaded metadata and UTF-8 before publishing an owned CPU `String`. This keeps chunked cancellation and resource settlement in the existing GPU task lifecycle.

@@ -376,8 +376,14 @@ class Builder {
       NumericProgramInstruction operation{NumericProgramKind::Workgroup};
       for (std::size_t i = 0; i < arguments.size(); ++i) {
         auto argument = arguments[i];
-        if (input.symbols.at(fn.parameters[i]).type.tensor) {
-          operation.inputs.push_back(*force(argument).buffer);
+        const auto &type = input.symbols.at(fn.parameters[i]).type;
+        if (type.tensor || type.builtin == BuiltinValue::String) {
+          if (type.builtin == BuiltinValue::String && !argument.buffer)
+            reject(fn.declaration, "cooperative text requires a packed host input");
+          const auto slot = *force(argument).buffer;
+          operation.inputs.push_back(slot);
+          if (isStringArray(type))
+            operation.textRowsFromInputs.push_back(slot);
         } else {
           const auto &node = normalized.expressions.at(argument.expression);
           if (const auto *read = std::get_if<SymbolRead>(&node.operation);
@@ -625,6 +631,11 @@ public:
         wire.array = wire.tensor = true;
         wire.shape = {{std::nullopt, 1}};
         args.push_back(resident(wire, value()));
+        continue;
+      }
+      if (type.builtin == BuiltinValue::String && !type.task && !type.fallible &&
+          containsWorkgroupDispatch(input, id)) {
+        args.push_back(resident(type, value()));
         continue;
       }
       if ((type.builtin != BuiltinValue::Numeric &&

@@ -1,12 +1,40 @@
 #pragma once
-#include "DeviceArrayResultWire.h"
 #include "DeviceAggregateResult.h"
-#include "DeviceGraphResult.h"
+#include "DeviceArrayResultWire.h"
 #include "DeviceArrayWire.h"
+#include "DeviceGraphResult.h"
+#include "GpuText.h"
 #include "HostArrays.h"
 #include <tuple>
 #include <variant>
 namespace kalandra::runtime {
+extern "C" const ValueLayout kalandra_gpu_string_layout;
+extern "C" const ValueLayout kalandra_gpu_string_array_layout;
+
+template <bool Batch> struct DeviceTextArgument {
+  static constexpr bool graph = false;
+  static constexpr bool resident = false;
+  using Descriptor = std::conditional_t<Batch, StringArrayDescriptor, StringDescriptor>;
+  static const ValueLayout &layout() noexcept {
+    return Batch ? kalandra_gpu_string_array_layout : kalandra_gpu_string_layout;
+  }
+  struct Capture {
+    Invocation *context = nullptr;
+    GpuTextWords words;
+    bool initialize(Invocation &invocation, const Descriptor &text, std::uint64_t) noexcept {
+      context = &invocation;
+      words = packGpuText(invocation, text, GpuTextWire::MaxCooperativeRowBytes);
+      return bool(words.allocated);
+    }
+    bool origin() const noexcept { return bool(words.allocated); }
+    bool advance() const noexcept { return origin(); }
+    const GpuTextWords *wire() const noexcept { return &words; }
+    void retireWire() noexcept {
+      context->release(words.allocated);
+      words = {};
+    }
+  };
+};
 template <NumericType Element, bool Boolean = false> struct DeviceArrayArgument {
   static constexpr auto element = Element;
   static constexpr bool boolean = Boolean;
@@ -174,7 +202,7 @@ private:
     // origin IDs without allocating an uncharged hash table.
     if constexpr (!(Arguments::graph || ...)) {
       each([&]<std::size_t I>() {
-        if constexpr (!resident<ArgumentAt<I>>()) {
+        if constexpr (requires { ArgumentAt<I>::element; }) {
           each([&]<std::size_t J>() {
             if constexpr (J < I && std::is_same_v<std::tuple_element_t<I, std::tuple<Arguments...>>,
                                                   std::tuple_element_t<J, std::tuple<Arguments...>>>) {
