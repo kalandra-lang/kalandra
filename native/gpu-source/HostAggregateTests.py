@@ -586,9 +586,30 @@ fn main() -> i64 ! TaskError:
   return try parallel:
     try await spawn apply(f, 40) on devices.gpu()
 ''', 42)
+cases['device-string-body'] = ('''fn work(n:i64)->i64:
+  message="text"
+  return length(message)+n
+fn main()->i64 ! TaskError:
+  return try parallel:
+    try await spawn work(1) on devices.gpu()
+''', 5)
+cases['device-string-result'] = ('''fn trim(rows:[String], end:i64)->String:
+  return slice(rows[1],1,end) + "🧪"
+fn same(text:String)->String:
+  return text
+fn empty(text:String)->String:
+  return slice(text,length(text),length(text))
+fn main()->i64 ! TaskError:
+  return try parallel:
+    part=try await spawn trim(["", "سé猫"],3) on devices.gpu()
+    text=try await spawn same(part) on devices.gpu()
+    suffix=try await spawn empty(text) on devices.gpu()
+    if text == "é猫🧪" and suffix == "": 42
+    else: 0
+''', 42)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
-known |= {'reject-device-string-body','reject-device-host-only-record-result',
+known |= {'reject-device-host-only-record-result',
           'reject-closure-write', 'reject-closure-sort', 'reject-closure-string-capture'}
 if set(a.case)-known:
     p.error('unknown case: '+', '.join(sorted(set(a.case)-known)))
@@ -604,7 +625,8 @@ for name,(source,expected) in cases.items():
     cpu = root/'cpu.k'
     if name == 'device-mutual-recursion':
         # Compare the identical recursive functions through the ordinary CPU call ABI.
-        cpu.write_text(source[:source.index('fn main()')]+'fn main()->i64:\n  return even(1000)\n')
+        cpu.write_text(source[:source.index('fn main()')]+'fn main()->i64:\n  return even(1000)\n',
+                       encoding='utf-8')
     else:
         cpu_source = source.replace(' on devices.gpu()', '').replace(' on devices.cpu()', '')
         if name.startswith(('device-tensor-resident-', 'device-tensor-return-', 'gpu-host-closure-resident-')):
@@ -613,17 +635,17 @@ for name,(source,expected) in cases.items():
         if name == 'graph-result-resident-tensor-outcome':
             for value in ('first', 'second'):
                 cpu_source = cpu_source.replace(f'try await transfer({value}, devices.cpu())', value)
-        cpu.write_text(cpu_source)
+        cpu.write_text(cpu_source, encoding='utf-8')
     reference = root/('cpu'+suffix)
     run([a.compiler, '--test-entry', 'main',cpu,*flags,'-o',reference])
     assert int(run([reference])) == expected, (name,'CPU',expected)
     gpu = root/'gpu.k'
-    gpu.write_text(source)
+    gpu.write_text(source, encoding='utf-8')
     bundle = root/'device'
     fallback = name == 'entry-f64' or (name in ('device-closure-float64','device-tensor-return-f64','gpu-host-closure-tensor-f64') and a.backend == 'metal')
     policy = ['--arithmetic','hardware-with-software-fallback'] if fallback else []
     run([a.compiler, '--test-entry', 'main',gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
-    host = (bundle/'host.cpp').read_text()
+    host = (bundle/'host.cpp').read_text(encoding='utf-8')
     if name.startswith(('local-recursive-', 'device-mutual-recursion', 'device-recursive-', 'device-nested-closure', 'device-array-closure', 'device-closure-float64', 'device-tensor-')):
         assert 'NumericInstructionKind::DeviceControl' in host, name
     elif name.startswith("gpu-host-closure"):
@@ -631,6 +653,10 @@ for name,(source,expected) in cases.items():
         assert "NumericInstructionKind::DeviceControl" in host, name
     elif name in ('device-application-handler-fault', 'device-application-error-indirect'):
         assert 'NumericInstructionKind::DeviceControl' in host, name
+    elif name.startswith('device-string-'):
+        assert 'NumericInstructionKind::DeviceControl' in host, name
+        if name == 'device-string-result':
+            assert 'DeviceTextResultJob<' in host, name
     elif name == "host-closure":
         assert "NativeCallable" in host and "kalandra_gpu_callable_layout_" in host, name
         assert "HostArrayScopes" in host and "HostArrayWork" in host, name
@@ -644,7 +670,7 @@ for name,(source,expected) in cases.items():
         assert 'DeviceGraphArgument<' in host and 'NumericInstructionKind::DeviceControl' in host, name
     if name.startswith('graph-result-'):
         assert 'GpuGraphCapture' in host and 'DeviceAggregateResultJob<' in host, name
-    assert any('gpu.func' in f.read_text() for f in bundle.glob('*.mlir')), name
+    assert any('gpu.func' in f.read_text(encoding='utf-8') for f in bundle.glob('*.mlir')), name
     outputs = []
     if not a.compile_only:
         for workers in ('1','4'):
@@ -687,7 +713,6 @@ for mutation in ('values[0]=99', 'sort(values)'):
     print(name, 'rejected S077', flush=True)
 for name,source in {
     'closure-string-capture':'fn make()->fn(i64)->i64:\n  text="hello"\n  return fn(n:i64):return length(text)+n\nfn work(callback:fn(i64)->i64)->i64:\n  return callback(1)\nfn main()->i64 ! TaskError:\n  callback=make()\n  return try parallel:\n    try await spawn work(callback) on devices.gpu()\n',
-    'device-string-body':'fn work(n:i64)->i64:\n  message="text"\n  return length(message)+n\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn work(1) on devices.gpu()\n',
     'device-host-only-record-result':'''type Message:
   text:String
 fn device()->Message:

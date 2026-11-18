@@ -196,6 +196,33 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
+  add_executable(kalandra-gpu-text-wire-tests ../tests/GpuTextWireTests.cpp ../runtime/String.cpp)
+  target_link_libraries(kalandra-gpu-text-wire-tests PRIVATE kalandra-native-runtime)
+  target_compile_options(kalandra-gpu-text-wire-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME native-gpu-text-wire COMMAND kalandra-gpu-text-wire-tests)
+  set_tests_properties(native-gpu-text-wire PROPERTIES TIMEOUT 30)
+  foreach(BACKEND IN ITEMS vulkan cuda)
+    if(TARGET kalandra-${BACKEND}-supervisor)
+      add_test(NAME frontend-gpu-text-${BACKEND} COMMAND kalandra-${BACKEND}-supervisor
+        "${CMAKE_CURRENT_SOURCE_DIR}/workgroup-text.k"
+        "${CMAKE_CURRENT_BINARY_DIR}/text-${BACKEND}" hardware application)
+      set_tests_properties(frontend-gpu-text-${BACKEND} PROPERTIES TIMEOUT 60)
+      add_test(NAME frontend-gpu-text-result-${BACKEND} COMMAND kalandra-${BACKEND}-supervisor
+        "${CMAKE_CURRENT_SOURCE_DIR}/device-text-result.k"
+        "${CMAKE_CURRENT_BINARY_DIR}/text-result-${BACKEND}" hardware application)
+      set_tests_properties(frontend-gpu-text-result-${BACKEND} PROPERTIES TIMEOUT 60)
+    endif()
+  endforeach()
+  if(KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
+    add_test(NAME native-gpu-text-metal COMMAND "${CMAKE_COMMAND}"
+      "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/workgroup-text.k"
+      "-DRESULT_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/device-text-result.k"
+      "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/text-metal"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyMetalText.cmake")
+    set_tests_properties(native-gpu-text-metal PROPERTIES TIMEOUT 120
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endif()
+
   add_executable(kalandra-workgroup-error-compiler-tests WorkgroupErrorCompilerTests.cpp)
   target_link_libraries(kalandra-workgroup-error-compiler-tests PRIVATE kalandra-gpu-supervisor)
   target_compile_options(kalandra-workgroup-error-compiler-tests PRIVATE -Wall -Wextra -Werror)

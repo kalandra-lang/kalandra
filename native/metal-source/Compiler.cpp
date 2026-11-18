@@ -2762,9 +2762,10 @@ class Compiler {
         parameterTypes.push_back(&cpu.symbols.at(symbol).type);
     }
     const auto &program = found->second;
+    const bool cooperative =
+        program.code.size() == 1 && program.code.front().kind == NumericProgramKind::Workgroup;
     const bool cooperativeOutcome =
-        errorOutcome && program.code.size() == 1 &&
-        program.code.front().kind == NumericProgramKind::Workgroup &&
+        errorOutcome && cooperative &&
         program.kernels.at(program.code.front().kernel).workgroup->errorWords;
     std::vector<Value> tensors, scalars;
     for (std::size_t i = 0; i < inputs.size(); ++i) {
@@ -2782,6 +2783,12 @@ class Compiler {
           reject(span, "GPU graph capture requires a completed native nominal value");
         if (i == graphParameter)
           tensors.push_back(value);
+        continue;
+      }
+      if (type.builtin == BuiltinValue::String) {
+        if (value.kind != (type.array ? Value::TextArray : Value::Text) || value.gpu)
+          reject(span, "GPU text requires a completed host String or String array");
+        tensors.push_back(value);
         continue;
       }
       const bool boolean = isBooleanStorage(type) && !type.tensor && !type.array;
@@ -2811,11 +2818,12 @@ class Compiler {
           continue;
         }
         const auto &type = *parameterTypes[i];
-        if (!type.tensor)
+        if (!type.tensor && type.builtin != BuiltinValue::String)
           continue;
-        for (unsigned axis = 0; axis < type.shape.size(); ++axis)
-          if (!extent.constant && type.shape[axis].identity == extent.identity)
-            return {tensor, axis};
+        if (type.builtin != BuiltinValue::String)
+          for (unsigned axis = 0; axis < type.shape.size(); ++axis)
+            if (!extent.constant && type.shape[axis].identity == extent.identity)
+              return {tensor, axis};
         ++tensor;
       }
       reject(span, "typed numerical program shape contract cannot be mapped to an input");
@@ -2848,11 +2856,13 @@ class Compiler {
     const auto base = "kernel" + std::to_string(entry->second);
     auto out = field("TaskHandle");
     Value result{Value::Task, next - 1, true, target.device};
+    const bool textResult = program.type.builtin == BuiltinValue::String && !program.type.array;
+    hostText |= textResult;
     result.array = program.type.array;
     result.record = program.type.record;
     result.booleanArray = isBoolArray(program.type);
-    result.gpu = !result.array && !result.record;
-    result.scalarTask = !program.type.tensor && !result.array && !result.record;
+    result.gpu = !textResult && !result.array && !result.record;
+    result.scalarTask = !textResult && !program.type.tensor && !result.array && !result.record;
     result.booleanTask = isBooleanStorage(program.type) && !program.type.tensor;
     result.element =
         result.booleanTask || result.booleanArray ? NumericType::UInt8 : program.type.element;
@@ -2883,16 +2893,24 @@ class Compiler {
     for (std::size_t i = 0; i < program.code.size(); ++i) {
       const auto &op = program.code[i];
       const auto suffix = std::to_string(i);
-      bindings += "auto scalars" + suffix + "=std::array<std::uint64_t," +
-                  std::to_string(op.scalarSources.size() + op.constants.size()) + ">{";
+      const auto count =
+          op.scalarSources.size() + op.constants.size() + op.textRowsFromInputs.size();
+      bindings +=
+          "auto scalars" + suffix + "=std::array<std::uint64_t," + std::to_string(count) + ">{";
       for (auto source : op.scalarSources)
         bindings += capture(scalars.at(source)) + ",";
+      for (auto source : op.textRowsFromInputs) {
+        const auto &value = tensors.at(source);
+        if (value.kind != Value::TextArray)
+          reject(span, "GPU text batch shape requires a host String array");
+        bindings += "std::uint64_t(" + ref(value) + ".size),";
+      }
       for (auto value : op.constants)
         bindings += std::to_string(value) + "ull,";
       bindings += "};\n";
       if (op.kind == NumericProgramKind::Map || op.kind == NumericProgramKind::Workgroup ||
           isGpuControlKind(op.kind))
-        for (std::size_t j = 0; j < op.scalarSources.size() + op.constants.size(); ++j) {
+        for (std::size_t j = 0; j < count; ++j) {
           captureList += "scalars" + suffix + "[" + std::to_string(j) + "],";
           ++captureCount;
         }
@@ -2996,26 +3014,32 @@ class Compiler {
     code += "}};\nauto prepared=r.prepareNumericProgram(" + std::to_string(tensors.size()) +
             "u,code," + std::to_string(program.result) + "u," +
             elementName(cooperativeOutcome ? program.kernels.at(program.code.front().kernel).element
-                        : result.array || result.record ? NumericType::UInt64
-                                                        : result.element) +
+                        : result.array || result.record || textResult ? NumericType::UInt64
+                                                                      : result.element) +
             "," + (result.scalarTask ? "true" : "false") + (result.booleanTask ? ",true" : "") +
             (backend_ != GpuBackend::Metal ? ",*target" : "") + ");if(!prepared){" +
             error("prepared.error()") + "}f." + executable + "=*prepared;\n}\n";
-    const bool arrayInputs =
-        std::ranges::any_of(tensors, [](const auto &v) { return v.kind == Value::Array; });
-    if (arrayInputs || graphParameter || result.array || result.record) {
+    const bool arrayInputs = std::ranges::any_of(tensors, [](const auto &v) {
+      return v.kind == Value::Array || v.kind == Value::Text || v.kind == Value::TextArray;
+    });
+    if (arrayInputs || graphParameter || result.array || result.record || textResult) {
       std::string arguments;
       for (const auto &value : tensors) {
         if (graphParameter && value.slot == inputs.at(*graphParameter).slot)
           arguments += ",DeviceGraphArgument<" + graphPolicy + ">";
         else if (value.kind == Value::Tensor)
           arguments += ",DeviceResidentArgument<m::Runtime,m::Buffer>";
-        else
+        else if (value.kind == Value::Text || value.kind == Value::TextArray) {
+          arguments += value.kind == Value::Text ? ",DeviceTextArgument<false,"
+                                                 : ",DeviceTextArgument<true,";
+          arguments += cooperative ? "true>" : "false>";
+        } else
           arguments += ",DeviceArrayArgument<" + elementName(value.element) + "," +
                        (value.booleanArray ? "true" : "false") + ">";
       }
       code += "using ArrayJob=" +
-              std::string(result.record        ? "DeviceAggregateResultJob"
+              std::string(textResult           ? "DeviceTextResultJob"
+                          : result.record      ? "DeviceAggregateResultJob"
                           : result.array       ? "DeviceArrayResultJob"
                           : !result.scalarTask ? "DeviceTensorResultJob"
                                                : "DeviceArrayInputJob") +
@@ -3025,7 +3049,7 @@ class Compiler {
         code += (graphResultPolicy.empty() ? aggregateResultPolicy(program.type, span)
                                            : graphResultPolicy) +
                 ",";
-      else
+      else if (!textResult)
         code += elementName(result.element) + "," +
                 ((result.array ? result.booleanArray : result.booleanTask) ? "true" : "false") +
                 ",";
@@ -3215,7 +3239,11 @@ class Compiler {
               SourceSpan span) {
     if (!target.gpu)
       return cpuCall(function, inputs, span, false, true);
-    if (backend_ != GpuBackend::Metal || cpu.functions.at(function).resultType.record)
+    if (backend_ != GpuBackend::Metal || cpu.functions.at(function).resultType.record ||
+        cpu.functions.at(function).resultType.builtin == BuiltinValue::String ||
+        std::ranges::any_of(inputs, [](const auto &value) {
+          return value.kind == Value::Text || value.kind == Value::TextArray;
+        }))
       return spawnNumericProgram(function, inputs, target, span);
     bool mixed = false;
     bool conditional = false, primitive = false, transform = false, control = false;
@@ -4013,7 +4041,7 @@ class Compiler {
           value.kind = Value::FaultKind;
           storage = "unsigned";
         }
-        if (type.builtin == BuiltinValue::String) {
+        if (type.builtin == BuiltinValue::String && !type.task) {
           value.kind = isStringArray(type) ? Value::TextArray : Value::Text;
           storage = isStringArray(type) ? "StringArrayDescriptor" : "StringDescriptor";
         }

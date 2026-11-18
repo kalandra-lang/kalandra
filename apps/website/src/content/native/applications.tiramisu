@@ -49,7 +49,7 @@ Runtime faults and unhandled declared errors use status one after cleanup. Choos
 
 h2 { "CPU and GPU programs" }
 
-The entry contract is the same for CPU, Metal, Vulkan and CUDA applications. Console I/O and arguments live on the host. A program can submit numerical work to a GPU and display its result using host code; these APIs do not make Strings or console operations available inside device kernels.
+The entry contract is the same for CPU, Metal, Vulkan and CUDA applications. Console I/O and the initial argument list live on the host. Pass text explicitly to a GPU task to process it on the device, then print the result from the host.
 
 list {
   link { url = "/docs/environment", "Read inherited environment variables" },

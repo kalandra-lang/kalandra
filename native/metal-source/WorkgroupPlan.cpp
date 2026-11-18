@@ -10,6 +10,7 @@ struct Rejected {
 };
 struct Value {
   WorkgroupCapture capture;
+  std::optional<std::uint32_t> textRows;
   std::vector<Value> elements;
   std::optional<FunctionId> function;
   std::shared_ptr<WorkgroupPlan> dispatch;
@@ -47,6 +48,13 @@ class Planner {
       auto input = evaluate(frame, shape->input);
       if (!input.capture.tensor)
         reject(id, "cooperative launch shapes require a resident tensor");
+      if (input.textRows) {
+        if (shape->kind != CollectionQueryKind::Length)
+          reject(id, "cooperative text batches provide length metadata only");
+        out.capture.scalar = {{WorkgroupShapeAction::Scalar, 0, *input.textRows, 0}};
+        frame.cache[id] = out;
+        return out;
+      }
       const auto count = input.capture.type.shape.size();
       if (shape->kind == CollectionQueryKind::Length)
         out.capture.scalar = {{WorkgroupShapeAction::Extent, 0, *input.capture.tensor, 0}};
@@ -110,11 +118,14 @@ class Planner {
         plan.launch.shape.push_back(extent.capture.scalar);
       }
       for (auto &capture : callback.elements) {
-        if ((!capture.capture.tensor && capture.capture.scalar.empty()) ||
-            capture.capture.type.array || capture.capture.type.task ||
-            (capture.capture.type.builtin != BuiltinValue::Numeric &&
-             capture.capture.type.builtin != BuiltinValue::Bool))
-          reject(id, "cooperative callbacks capture numeric scalars and resident numeric tensors");
+        const auto &type = capture.capture.type;
+        const bool text = type.builtin == BuiltinValue::String && capture.capture.tensor;
+        const bool numeric =
+            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool) &&
+            !type.array && (capture.capture.tensor || !capture.capture.scalar.empty());
+        if ((!text && !numeric) || type.task || type.fallible)
+          reject(id, "cooperative callbacks require numeric scalars, resident numeric tensors or "
+                     "read-only text inputs");
         plan.captures.push_back(std::move(capture.capture));
       }
       auto proof = analyzeWorkgroup(module, id);
@@ -213,16 +224,29 @@ public:
     const auto &function = module.functions.at(id);
     std::vector<Value> arguments;
     std::uint32_t scalars = 0, tensors = 0;
+    std::uint32_t textRows = 0;
+    for (auto symbol : function.parameters) {
+      const auto &type = module.symbols[symbol].type;
+      if (!type.tensor && type.builtin != BuiltinValue::String)
+        ++textRows;
+    }
     for (auto symbol : function.parameters) {
       const auto &type = module.symbols[symbol].type;
       Value value;
       value.capture.type = type;
-      if ((type.builtin != BuiltinValue::Numeric && type.builtin != BuiltinValue::Bool) ||
-          type.array || type.task || type.fallible)
-        reject(function.result, "cooperative launch captures require numeric scalars and tensors");
-      if (type.tensor) {
+      const bool text = type.builtin == BuiltinValue::String;
+      if ((!text &&
+           ((type.builtin != BuiltinValue::Numeric && type.builtin != BuiltinValue::Bool) ||
+            type.array)) ||
+          type.task || type.fallible ||
+          (text && (module.symbols[symbol].mutableAccess || module.symbols[symbol].owned)))
+        reject(function.result,
+               "cooperative launch captures require numeric scalars, tensors or read-only text");
+      if (type.tensor || text) {
         value.capture.tensor = tensors++;
-        launch.inputRanks.push_back(type.shape.size());
+        launch.inputRanks.push_back(text ? 1 : type.shape.size());
+        if (isStringArray(type))
+          value.textRows = textRows++;
       } else
         value.capture.scalar = {{WorkgroupShapeAction::Scalar, 0, scalars++, 0}};
       arguments.push_back(std::move(value));

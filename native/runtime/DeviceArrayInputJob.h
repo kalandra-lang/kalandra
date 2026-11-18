@@ -1,12 +1,65 @@
 #pragma once
-#include "DeviceArrayResultWire.h"
 #include "DeviceAggregateResult.h"
-#include "DeviceGraphResult.h"
+#include "DeviceArrayResultWire.h"
 #include "DeviceArrayWire.h"
+#include "DeviceGraphResult.h"
+#include "GpuText.h"
 #include "HostArrays.h"
 #include <tuple>
 #include <variant>
 namespace kalandra::runtime {
+extern "C" const ValueLayout kalandra_gpu_string_layout;
+extern "C" const ValueLayout kalandra_gpu_string_array_layout;
+
+template <bool Batch, bool Cooperative = true> struct DeviceTextArgument {
+  static constexpr bool graph = false;
+  static constexpr bool resident = false;
+  static constexpr bool text = true;
+  static constexpr bool batch = Batch;
+  using Descriptor = std::conditional_t<Batch, StringArrayDescriptor, StringDescriptor>;
+  static const ValueLayout &layout() noexcept {
+    return Batch ? kalandra_gpu_string_array_layout : kalandra_gpu_string_layout;
+  }
+  struct Capture {
+    Invocation *context = nullptr;
+    GpuTextWords words;
+    std::conditional_t<Cooperative, std::monostate, DeviceArrayCapture<NumericType::UInt32>>
+        control;
+    std::uint64_t wordCount = 0;
+    bool initialize(Invocation &invocation, const Descriptor &text, std::uint64_t source) noexcept {
+      context = &invocation;
+      words = packGpuText(invocation, text,
+                          Cooperative ? GpuTextWire::MaxCooperativeRowBytes : UINT32_MAX);
+      if (!words.allocated)
+        return false;
+      wordCount = words.sizes[0];
+      if constexpr (Cooperative)
+        return true;
+      else
+        return control.initialize(invocation, words, source);
+    }
+    bool origin() const noexcept { return bool(words.allocated); }
+    bool advance() noexcept {
+      if constexpr (Cooperative)
+        return origin();
+      else
+        return control.advance();
+    }
+    auto wire() const noexcept {
+      if constexpr (Cooperative)
+        return &words;
+      else
+        return control.wire();
+    }
+    void retireWire() noexcept {
+      if constexpr (!Cooperative)
+        control.retireWire();
+      context->release(words.allocated);
+      words = {};
+    }
+  };
+};
+struct DeviceTextResultPolicy {};
 template <NumericType Element, bool Boolean = false> struct DeviceArrayArgument {
   static constexpr auto element = Element;
   static constexpr bool boolean = Boolean;
@@ -67,7 +120,8 @@ class DeviceArrayTask final {
     return false;
   }
   static constexpr std::size_t Packed = (std::size_t{0} + ... + !resident<Arguments>());
-  static constexpr bool Aggregate = !std::is_void_v<AggregatePolicy>;
+  static constexpr bool TextResult = std::is_same_v<AggregatePolicy, DeviceTextResultPolicy>;
+  static constexpr bool Aggregate = !std::is_void_v<AggregatePolicy> && !TextResult;
   static_assert(Count > 0 || ArrayResult);
   static constexpr bool GraphResult = requires { AggregatePolicy::graphResult; };
   static constexpr bool ResidentOutcome = requires { AggregatePolicy::residentIdentity; };
@@ -76,10 +130,12 @@ class DeviceArrayTask final {
   using Decoder = std::conditional_t<GraphResult, DeviceGraphResultDecode<AggregatePolicy>,
       std::conditional_t<Aggregate, DeviceAggregateResultDecode<AggregatePolicy>,
                          DeviceArrayResultDecode<ResultElement, BooleanResult>>>;
-  using Result =
-      std::conditional_t<BufferResult, Buffer,
-          std::conditional_t<ArrayResult, typename Decoder::Result,
-                             std::conditional_t<BooleanResult, bool, NumericValue<ResultElement>>>>;
+  using Result = std::conditional_t<
+      BufferResult, Buffer,
+      std::conditional_t<TextResult, StringDescriptor,
+                         std::conditional_t<ArrayResult, typename Decoder::Result,
+                                            std::conditional_t<BooleanResult, bool,
+                                                               NumericValue<ResultElement>>>>>;
   using Descriptors = std::tuple<typename Arguments::Descriptor...>;
   using Captures = std::tuple<typename Arguments::Capture...>;
   inline static const std::array<const ValueLayout *, Count> layouts{&Arguments::layout()...};
@@ -135,6 +191,8 @@ private:
       return Runtime::bufferLayout();
     else if constexpr (Aggregate)
       return AggregatePolicy::layout();
+    else if constexpr (TextResult)
+      return kalandra_gpu_string_layout;
     else if constexpr (ArrayResult)
       return hostArrayLayout<ResultElement, BooleanResult>();
     else if constexpr (BooleanResult)
@@ -174,7 +232,7 @@ private:
     // origin IDs without allocating an uncharged hash table.
     if constexpr (!(Arguments::graph || ...)) {
       each([&]<std::size_t I>() {
-        if constexpr (!resident<ArgumentAt<I>>()) {
+        if constexpr (requires { ArgumentAt<I>::element; }) {
           each([&]<std::size_t J>() {
             if constexpr (J < I && std::is_same_v<std::tuple_element_t<I, std::tuple<Arguments...>>,
                                                   std::tuple_element_t<J, std::tuple<Arguments...>>>) {
@@ -380,6 +438,28 @@ private:
           task.fault(3);
           return;
         }
+        if constexpr (TextResult) {
+          if (frame.metadata->origin) {
+            bool matched = false;
+            each([&]<std::size_t I>() {
+              using Argument = ArgumentAt<I>;
+              if constexpr (requires { Argument::text; }) {
+                if constexpr (!Argument::batch) {
+                  if (frame.origins[I] == frame.metadata->origin &&
+                      std::get<I>(frame.captures).wordCount == frame.metadata->length) {
+                    frame.value = std::get<I>(frame.arguments);
+                    matched = true;
+                  }
+                }
+              }
+            });
+            if (matched)
+              task.complete(&frame.value);
+            else
+              task.fault(3);
+            return;
+          }
+        }
         const auto words =
             DeviceArrayWireABI::HeaderWords + (frame.metadata->origin ? 0 : frame.metadata->length);
         if (words > SIZE_MAX / 8) {
@@ -422,7 +502,17 @@ private:
                                                      frame.pageWords);
           frame.phase = 7;
         } else {
-          if constexpr (Aggregate) {
+          if constexpr (TextResult) {
+            auto payload = std::span<const std::uint64_t>(
+                frame.wire.aligned + DeviceArrayWireABI::HeaderWords, frame.metadata->length);
+            if (!unpackGpuText(task.context(), payload, frame.value)) {
+              hostArrayFailure(task);
+              return;
+            }
+            frame.resultScope.reset();
+            task.complete(&frame.value);
+            return;
+          } else if constexpr (Aggregate) {
             if (!frame.decoder.initialize(task.context(), frame.wire)) {
               hostArrayFailure(task);
               return;
@@ -535,7 +625,7 @@ private:
             task.yield();
           return;
         }
-        if constexpr (!Aggregate)
+        if constexpr (!Aggregate && !TextResult)
           frame.value = *frame.decoder.result();
         if constexpr (ResidentOutcome) {
           const auto tag = AggregatePolicy::outcomeTag(frame.value);
@@ -632,6 +722,11 @@ template <class Runtime, class Buffer, class Device, class Executable, std::uint
 using DeviceArrayResultJob =
     DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
                     true, false, ScalarCount, void, Arguments...>;
+template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
+          std::size_t ScalarCount, class... Arguments>
+using DeviceTextResultJob =
+    DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, NumericType::UInt32, false, true,
+                    false, ScalarCount, DeviceTextResultPolicy, Arguments...>;
 template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
           NumericType ResultElement, bool BooleanResult, std::size_t ScalarCount,
           class... Arguments>

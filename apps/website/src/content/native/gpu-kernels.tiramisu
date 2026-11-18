@@ -56,6 +56,38 @@ fn main() -> unit ! (TaskError | IoError):
 
 The output is 4 6 9 11. Build and run it using the commands for your backend in the GPU setup guide.
 
+h2 { "Inspect a batch of strings" }
+
+Give each lane a row and return a numeric mask. A callback can read captured String inputs and String arrays, query byte or scalar lengths, index and slice text, and compare it for exact equality. Each input row may contain up to 16 KiB of UTF-8. Use ordinary GPU functions for variable-length String results. Padding lanes still run the callback, so guard row access with the batch length.
+
+codeblock { language = kalandra, """from "std/gpu" import dispatch, WorkItem
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn startsWith(rows: [String], initial: String) -> Tensor[u8, ?]:
+  n = length(rows)
+  return dispatch([n], [256], fn(item: WorkItem) -> u8:
+    i = item.globalIndex(0)
+    if i >= n:
+      return u8(0)
+    if byteLength(rows[i]) == 0:
+      return u8(0)
+    return if rows[i][0] == initial: u8(1)
+    else: u8(0)
+  )
+
+fn main() -> unit ! (TaskError | IoError):
+  mask: Tensor[u8, ?] = try parallel:
+    gpu = devices.gpu()
+    selected = try await spawn startsWith(["سلام", "", "Kalandra", "سیب"], "س") on gpu
+    try await transfer(selected, devices.cpu())
+  values = array(mask)
+  try println(format("{} {} {} {}", values[0], values[1], values[2], values[3]))
+  return ()
+""" }
+
+The mask is 1 0 0 1. In a GPU pipeline, pass the mask to the next GPU stage and download only the final result.
+
 h2 { "dispatch" }
 
 code { "dispatch(outputShape: [i64], groupShape: [i64], callback: fn(WorkItem) -> T) -> Tensor[T, ...]" }
