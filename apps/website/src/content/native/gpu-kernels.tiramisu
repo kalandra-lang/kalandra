@@ -1,0 +1,168 @@
+meta { title = "Cooperative GPU kernels", description = "Share data and synchronize GPU work with std/gpu.", order = 16, group = "Library reference" }
+
+Import std/gpu when individual GPU invocations need to cooperate. Use ordinary tensor operations for elementwise arithmetic, reductions and matrix products. Cooperative dispatch gives you control over workgroup size, shared scratch and synchronization for algorithms such as stencils and tiled data reuse.
+
+A cooperative kernel is an ordinary function called with GPU placement. Its inputs remain read-only, its result stays on the GPU, and transfers use the same API as other numerical functions. Metal, Vulkan and CUDA use the same source API. Device limits can reject a launch; dispatch never substitutes CPU execution.
+
+list {
+  link { url = "/docs/gpu", "GPU setup, placement and transfers" },
+  link { url = "/docs/gpu-numerics", "Numerical graphs and built-in tensor operations" },
+  link { url = "/docs/numbers", "Numeric types and arithmetic policies" }
+}
+
+h2 { "A shared-memory stencil" }
+
+This example averages each input with its two neighbors. The first and last values are repeated at the boundaries. Each group loads a tile and its halo, synchronizes, then reads neighboring lanes' values.
+
+codeblock { language = kalandra, """from "std/gpu" import dispatch, WorkItem
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn sample(values: Tensor[f32, ?], index: i64) -> f32:
+  n = shape(values)[0]
+  position = if index < 0:
+    0
+  else:
+    if index >= n: n - 1
+    else: index
+  return values[position]
+
+fn smooth(values: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  n = shape(values)[0]
+  return dispatch([n], [256], fn(item: WorkItem) -> f32:
+    index = item.globalIndex(0)
+    lane = item.localIndex(0)
+    tile = item.shared[f32](258)
+    tile[lane + 1] = sample(values, index)
+    if lane == 0:
+      tile[0] = sample(values, index - 1)
+    if lane == 255:
+      tile[257] = sample(values, index + 1)
+    item.barrier()
+    return (tile[lane] + tile[lane + 1] + tile[lane + 2]) / f32(3)
+  )
+
+fn main() -> unit ! (TaskError | IoError):
+  output: Tensor[f32, ?] = try parallel:
+    gpu = devices.gpu()
+    values: Tensor[f32, 4] = tensor([3, 6, 9, 12])
+    input = try await transfer(values, gpu)
+    result = try await spawn smooth(input) on gpu
+    try await transfer(result, devices.cpu())
+  values = array(output)
+  try println(format("{} {} {} {}", values[0], values[1], values[2], values[3]))
+  return ()
+""" }
+
+The output is 4 6 9 11. Build and run it using the commands for your backend in the GPU setup guide.
+
+h2 { "dispatch" }
+
+code { "dispatch(outputShape: [i64], groupShape: [i64], callback: fn(WorkItem) -> T) -> Tensor[T, ...]" }
+
+code { "dispatch(outputShape: [i64], groupShape: [i64], callback: fn(WorkItem) -> T ! E) -> Tensor[T, ...] ! E" }
+
+Construct a tensor by running callback once per participating GPU invocation. T must be a numeric primitive: i8, i16, i32, i64, u8, u16, u32, u64, f32 or f64. Each in-domain invocation owns exactly one output element. The callback's return value supplies that element.
+
+outputShape and groupShape have the same statically known length, from zero through eight. Output extents are nonnegative i64 values computed from host-known scalar parameters, constants or captured tensor shapes. Group extents are positive compile-time constants. Their product is the number of invocations in a workgroup and must fit the selected device's limits. Captures can include numeric or bool scalars and resident numeric tensors.
+
+Shapes and results use row-major order. An empty shape, [], describes a rank-zero tensor with one element and one invocation. A shape containing a zero extent produces an empty tensor and launches no groups.
+
+A cooperative function returns one dispatch result, directly or through an alias or helper. Keep its surrounding code to host-known shape and capture calculations. Compose it with other GPU stages by awaiting its resident result and passing that result to another GPU task; no CPU transfer is needed between those stages. Tensor graph operations around dispatch are rejected rather than folded into the callback.
+
+h2 { "WorkItem" }
+
+WorkItem identifies the current invocation. The compiler provides it to callback; you cannot construct one yourself. You may pass it to a helper, but cannot store it in an array or record, capture it in another closure, transfer it, or keep it after dispatch.
+
+h2 { "WorkItem.globalIndex" }
+
+code { "item.globalIndex(axis: i64) -> i64" }
+
+Return this invocation's coordinate along a logical output axis. The axis must be provably within the launch rank. Coordinates start at zero. A padding invocation may have a coordinate beyond the corresponding output extent.
+
+h2 { "WorkItem.localIndex" }
+
+code { "item.localIndex(axis: i64) -> i64" }
+
+Return this invocation's coordinate within its workgroup. Each coordinate lies between zero and the corresponding group extent, excluding that extent. Logical coordinates have the same meaning across all backends, including launches with more than three logical dimensions.
+
+h2 { "WorkItem.shared" }
+
+code { "item.shared[T](count: i64) -> Shared[T]" }
+
+Declare fixed-size numeric scratch shared by this workgroup. T is a numeric primitive; count is a positive compile-time constant. All lanes reaching the same declaration share its storage. Different groups have separate storage. Repeating the same declaration site in a loop reuses that group's allocation.
+
+A declaration must be reached collectively. Scratch has no implicit initial values: write each location before reading it. The compiler proves that writes from different invocations do not overlap and that reads see initialized values. Reading another invocation's writes requires a barrier. Shared memory capacity is checked against the selected device.
+
+h2 { "Shared[T]" }
+
+code { "scratch[index] -> T" }
+
+code { "scratch[index] = value" }
+
+Read and write a shared element using an i64 index. The compiler must establish bounds, initialization and lane ownership for every admitted control path. Keep shared addresses simple, for example a local index plus a fixed halo offset. An unresolved proof is a compiler diagnostic, not permission to race.
+
+Shared values are scoped capabilities. You may pass them to helpers inside the callback. They cannot escape through returned aggregates, arrays, closures, task captures or host transfers.
+
+h2 { "WorkItem.barrier" }
+
+code { "item.barrier() -> unit" }
+
+Wait until all invocations in this workgroup reach this barrier, and make their preceding shared writes visible. It does not synchronize different workgroups. Every participating lane must reach the same sequence of barrier sites, including through helper calls, branches, loops and early returns. Synchronizing control flow must have a finite proof; the compiler rejects code it cannot establish as convergent.
+
+Loops in cooperative callbacks need provable static bounds, including loops in called helpers. Runtime input values may choose branches when every possible path preserves the required shared-memory access and barrier rules. A data-dependent loop with an unresolved trip count is rejected.
+
+h2 { "Partial groups and failures" }
+
+The output shape need not be divisible by the group shape. Padding invocations run the callback, including its shared writes and barriers; only their final output stores are omitted. Guard or clamp input reads separately. Returning early from padding lanes before a barrier would strand other lanes and is rejected.
+
+Checked arithmetic and bounds faults fail the whole task. Padding lanes participate in these checks too. GPU arithmetic follows the selected backend's numerical contract: Vulkan hardware division, for example, need not be bit-identical to CPU division. Metal f64 arithmetic requires an explicit software-fallback policy.
+
+A barrier is not a cancellation point. Cancellation retains submitted buffers until GPU completion, then settles the task using the normal task contract. Scratch and owned results cannot outlive their invocation or be released while the device still uses them.
+
+h2 { "Application errors" }
+
+A callback may declare an error type. Use try dispatch in a function that declares that error, then handle it using the same try, catch and match expressions as other GPU tasks. Exported error payloads may contain numeric primitives, bool values and nested records of those values. Owned arrays, tensors and strings are not supported in cooperative error payloads.
+
+codeblock { language = kalandra, """from "std/gpu" import dispatch, WorkItem
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+error Negative:
+  Found:
+    index: i64
+    value: f32
+
+fn checked(values: Tensor[f32, ?]) -> Tensor[f32, ?] ! Negative:
+  n = shape(values)[0]
+  return try dispatch([n], [4], fn(item: WorkItem) -> f32 ! Negative:
+    index = item.globalIndex(0)
+    position = if index < n: index
+    else: n - 1
+    value = values[position]
+    if value < f32(0):
+      fail Negative.Found {index: index, value: value}
+    return value * f32(2)
+  )
+
+fn example() -> String ! (TaskError | Negative):
+  return try parallel:
+    gpu = devices.gpu()
+    input: Tensor[f32, 4] = tensor([1, -2, 3, 4])
+    values = try await transfer(input, gpu)
+    output = try await spawn checked(values) on gpu
+    cpu = try await transfer(output, devices.cpu())
+    format("{}", array(cpu)[0])
+
+fn main() -> unit ! IoError:
+  text = example() catch fn(error):
+    return match error:
+      Negative.Found {index: index, value: value}: format("negative at {}: {}", index, value)
+      _: "unexpected task fault"
+  try println(text)
+  return ()
+""" }
+
+This prints negative at 1: -2. If several invocations fail, the task reports one of their errors; which invocation wins is unspecified. Padding invocations can fail too. No partial output tensor is published on failure. An arithmetic or bounds fault takes precedence over an application error from the same completed dispatch.
+
+Errors do not waive barrier convergence. A lane cannot fail before a barrier that other lanes still need to reach. Catching an error locally and continuing to a common barrier is allowed when the checker can prove the shared-memory accesses and collective schedule safe.

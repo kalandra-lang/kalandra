@@ -1,0 +1,24 @@
+#version 450
+#extension GL_ARB_gpu_shader_int64 : require
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer Input {uint inputWords[];};
+layout(set=0,binding=1,std430) writeonly buffer Output {uint outputWords[];};
+layout(set=0,binding=2,std430) buffer Parameters {uint p[6];};
+shared float tile[258];
+float sampleAt(uint64_t index) {return uintBitsToFloat(inputWords[uint(index)]);}
+void main() {
+ uint64_t group=uint64_t(gl_WorkGroupID.x)+uint64_t(gl_WorkGroupID.y)*gl_NumWorkGroups.x;
+ if(group>=p[0])return;
+ uint64_t n=uint64_t(p[1]) | (uint64_t(p[2])<<32);
+ uint lane=gl_LocalInvocationIndex;
+ uint64_t index=group*256+lane;
+ tile[lane+1]=sampleAt(min(index,n-1));
+ if(lane==0)tile[0]=sampleAt(index>0?min(index-1,n-1):0);
+ if(lane==255)tile[257]=sampleAt(min(index+1,n-1));
+ barrier();
+ if(index<n) {
+  precise float first=tile[lane]+tile[lane+1];
+  precise float second=first+tile[lane+2];
+  outputWords[uint(index)]=floatBitsToUint(second/3.0);
+ }
+}

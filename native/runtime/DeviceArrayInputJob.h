@@ -25,8 +25,8 @@ template <class Runtime, class Buffer> struct DeviceResidentArgument {
   static constexpr bool resident = true;
   static const ValueLayout &layout() noexcept { return Runtime::bufferLayout(); }
 };
-// The job publishes the resident tensor only after its upload settles. On
-// application failure, retain the checked native graph as the task result.
+// Publish a resident tensor after device settlement (or an owned graph result's
+// upload). Application failure retains the checked native error as its result.
 template <class Policy, class Buffer> struct DeviceResidentOutcome {
   Buffer value{};
   typename Policy::Record error{};
@@ -346,6 +346,28 @@ private:
         task.complete(&frame.value);
         return;
       } else {
+        if constexpr (ResidentOutcome && requires(std::span<const std::uint64_t> words,
+                                                  typename AggregatePolicy::Record &record) {
+                        AggregatePolicy::acceptsWorkgroupOutcome(
+                            *Runtime::workgroupOutcome(frame.output));
+                        AggregatePolicy::decodeWorkgroupError(words, record);
+                      }) {
+          if (const auto outcome = Runtime::workgroupOutcome(frame.output)) {
+            if (!AggregatePolicy::acceptsWorkgroupOutcome(*outcome)) {
+              task.fault(3);
+              return;
+            }
+            if (outcome->error.empty())
+              frame.published.value = frame.output;
+            else if (!AggregatePolicy::decodeWorkgroupError(outcome->error,
+                                                            frame.published.error)) {
+              task.fault(3);
+              return;
+            }
+            task.complete(&frame.published);
+            return;
+          }
+        }
         frame.metadata = Runtime::arrayResult(frame.output);
         if (!frame.metadata ||
             frame.metadata->layout != DeviceArrayWireABI::layout(ResultElement, BooleanResult) ||

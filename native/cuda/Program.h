@@ -4,6 +4,7 @@
 #include "kalandra/GpuProgram.h"
 #include "kalandra/GpuTransform.h"
 #include "kalandra/NumericType.h"
+#include "kalandra/WorkgroupLaunch.h"
 #include <array>
 #include <optional>
 namespace kalandra::runtime::cuda {

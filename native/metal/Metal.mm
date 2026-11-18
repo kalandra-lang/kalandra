@@ -283,6 +283,7 @@ struct Storage {
   std::uint32_t rank = 0, deviceIndex = 0;
   Format format = Format::Float32;
   std::optional<DeviceArrayResultMetadata> arrayResult{};
+  std::shared_ptr<const WorkgroupOutcome> workgroupOutcome{};
   bool device = false;
   std::uint64_t size = 0, hostReserved = 0;
   std::vector<std::byte> host;
@@ -330,6 +331,7 @@ struct KernelState {
   std::optional<TensorTransformKind> transform{};
   std::vector<NumericType> tensorTypes{}, scalarTypes{};
   std::vector<std::uint8_t> scalarBuffers{};
+  std::shared_ptr<const WorkgroupLaunch> workgroup{};
   id<MTLComputePipelineState> blockReduction = nil, tiledMatrix = nil, block32Matrix = nil,
                               block64Matrix = nil, registerMatrix = nil, groupedMatrix = nil,
                               skinnyMatrix = nil;
@@ -358,6 +360,8 @@ struct KernelState {
     return words;
   }
   std::uint64_t parameterWords() const {
+    if (workgroup)
+      return *workgroupParameterWords(*workgroup, scalarTypes);
     if (transform)
       return 6;
     return matrix && numericType ? 4
@@ -600,12 +604,24 @@ struct Bridge {
     if ((boolean && (!scalar || element != NumericType::UInt8)) || !describeNumeric(element) ||
         code.empty() || code.size() > UINT32_MAX || inputs.size() > UINT32_MAX)
       return std::unexpected(Error::Invalid);
-    std::uint64_t values = inputs.size(), edges = 0, scalars = 0, controlSlots = 0;
+    std::uint64_t values = inputs.size(), edges = 0, scalars = 0, controlSlots = 0,
+                  cooperativeBytes = 0;
     std::optional<std::uint32_t> index;
     for (std::size_t pc = 0; pc < code.size(); ++pc) {
       const auto &op = code[pc];
       using K = NumericInstructionKind;
       const auto kernel = op.kernel.state_;
+      if (kernel && kernel->workgroup) {
+        auto bytes = workgroupMetadataBytes(*kernel->workgroup);
+        if (!bytes || *bytes > state->options.maxArgumentBytes -
+                                   std::min(cooperativeBytes, state->options.maxArgumentBytes))
+          return std::unexpected(Error::Budget);
+        cooperativeBytes += *bytes;
+      }
+      if (op.kind == K::Workgroup &&
+          (!kernel || !kernel->workgroup || op.target || op.workPerElement ||
+           op.inputs.size() != kernel->workgroup->inputRanks.size()))
+        return std::unexpected(Error::Invalid);
       bool valid = false;
       switch (op.kind) {
       case K::DeviceControl:
@@ -635,8 +651,10 @@ struct Bridge {
           return std::unexpected(Error::Invalid);
         controlSlots = std::max(controlSlots, std::uint64_t(op.scalars.size()));
         [[fallthrough]];
+      case K::Workgroup:
       case K::Map:
-        valid = kernel && kernel->numericType && kernel->signature && kernel->elementwise &&
+        valid = kernel && (op.kind == K::Workgroup) == bool(kernel->workgroup) &&
+                kernel->numericType && kernel->signature && kernel->elementwise &&
                 !kernel->matrix && !kernel->reduction &&
                 op.inputs.size() + unsigned(op.kind == K::DeviceControl) ==
                     kernel->signature->tensors &&
@@ -704,7 +722,7 @@ struct Bridge {
     const auto bytes = sizeof(NumericProgramArguments) +
                        values * (sizeof(Buffer) + sizeof(std::uint32_t)) +
                        code.size() * sizeof(NumericProgramArguments::Instruction) + edges * 4 +
-                       scalars * 8 + controlSlots * 8;
+                       scalars * 8 + controlSlots * 8 + cooperativeBytes;
     try {
       if (!state->permit())
         return std::unexpected(Error::Allocation);
@@ -747,11 +765,11 @@ struct Bridge {
         return std::unexpected(Error::Allocation);
       result->ownedCode.reserve(code.size());
       for (const auto &op : code) {
-        const bool produces = op.kind == NumericInstructionKind::Map ||
-                              isGpuControlKind(op.kind) ||
-                              op.kind == NumericInstructionKind::Reduce ||
-                              op.kind == NumericInstructionKind::Matmul ||
-                              op.kind == NumericInstructionKind::Alias;
+        const bool produces =
+            op.kind == NumericInstructionKind::Map ||
+            op.kind == NumericInstructionKind::Workgroup || isGpuControlKind(op.kind) ||
+            op.kind == NumericInstructionKind::Reduce ||
+            op.kind == NumericInstructionKind::Matmul || op.kind == NumericInstructionKind::Alias;
         if (produces && (op.output < inputs.size() || op.output >= values))
           return std::unexpected(Error::Invalid);
         if (!produces && op.output != UINT32_MAX)
@@ -779,7 +797,7 @@ struct Bridge {
         auto &instruction = result->ownedCode.back();
         instruction.scalarOffset = result->captureCount;
         if (op.kind == NumericInstructionKind::Map ||
-            isGpuControlKind(op.kind)) {
+            op.kind == NumericInstructionKind::Workgroup || isGpuControlKind(op.kind)) {
           result->captureCount += op.scalars.size();
           if (prepareOnly) {
             std::vector<Buffer> placeholders(op.inputs.size() +
@@ -815,7 +833,7 @@ struct Bridge {
     if (!captures.empty())
       for (const auto &op : plan->code)
         if (op.kind == NumericInstructionKind::Map ||
-            isGpuControlKind(op.kind))
+            op.kind == NumericInstructionKind::Workgroup || isGpuControlKind(op.kind))
           for (std::size_t i = 0; i < op.scalars.size(); ++i) {
             const auto bits = describeNumeric(op.kernel.state_->scalarType(i))->bits;
             if ((bits < 64 && captures[op.scalarOffset + i] >> bits) ||
@@ -1278,6 +1296,7 @@ struct Bridge {
     float scalar = 0;
     std::unique_ptr<ReductionScratch> scratch;
     std::shared_ptr<MetalAllocation> staging, resources;
+    std::shared_ptr<WorkgroupOutcome> workgroupOutcome;
     Error error = Error::Device;
     bool succeeded = false, started = false, active = false;
     bool copyingUpload = false, arenaAcknowledging = false, exportAcknowledging = false;
@@ -2069,6 +2088,112 @@ struct Bridge {
       return nil;
     return command;
   }
+  static id<MTLCommandBuffer> workgroupCommand(Frame &f, bool &empty) {
+    try {
+      auto state = f.packet.state;
+      const auto &kernel = *f.packet.kernel.state_;
+      if (!kernel.workgroup || !kernel.numericType || !f.packet.numericProgram ||
+          kernel.registry != state || !kernel.signature || !f.packet.arguments) {
+        f.error = Error::Invalid;
+        return nil;
+      }
+      const auto &program = *f.packet.numericProgram;
+      const auto &operation = program.code[program.pc];
+      const auto &launch = *kernel.workgroup;
+      if (operation.kind != NumericInstructionKind::Workgroup ||
+          operation.inputs.size() != launch.inputRanks.size()) {
+        f.error = Error::Invalid;
+        return nil;
+      }
+      std::vector<std::uint64_t> scalars;
+      std::array<std::array<std::uint64_t, 8>, directBufferEntries> shapes{};
+      std::vector<std::span<const std::uint64_t>> inputs;
+      for (std::size_t i = 0; i < operation.inputs.size(); ++i) {
+        const auto &input = tensor(f, i).storage_;
+        if (!input || input->arrayResult || input->format != *storageFormat(kernel.tensorType(i)) ||
+            input->rank != launch.inputRanks[i]) {
+          f.error = Error::Invalid;
+          return nil;
+        }
+        if (!input->device || input->state != state || input->deviceIndex != kernel.index) {
+          f.error = Error::Residency;
+          return nil;
+        }
+        for (std::size_t axis = 0; axis < input->rank; ++axis)
+          shapes[i][axis] = input->dimensions[axis];
+        inputs.emplace_back(shapes[i].data(), input->rank);
+      }
+      for (std::size_t i = 0; i < operation.scalars.size(); ++i)
+        scalars.push_back(numericScalar(program, operation, i));
+      const auto device = state->devices[kernel.index];
+      auto packet =
+          prepareWorkgroupLaunch(launch, kernel.scalarTypes, scalars, inputs,
+                                 kernel.pipeline.maxTotalThreadsPerThreadgroup, UINT32_MAX,
+                                 UINT32_MAX, device.maxThreadgroupMemoryLength);
+      if (!packet) {
+        f.error = packet.error() == WorkgroupLaunchError::Resource ? Error::Budget : Error::Invalid;
+        // Preserve the native arithmetic/shape fault codes rather than turning
+        // source metadata errors into backend/device errors.
+        if (packet.error() == WorkgroupLaunchError::Arithmetic)
+          f.error = static_cast<Error>(4);
+        if (packet.error() == WorkgroupLaunchError::Shape)
+          f.error = static_cast<Error>(1);
+        return nil;
+      }
+      std::array<std::int64_t, 8> shape{};
+      for (std::size_t i = 0; i < launch.shape.size(); ++i)
+        shape[i] = packet->geometry.shape[i];
+      auto output = allocateStorage(state, std::span(shape).first(launch.shape.size()),
+                                    *storageFormat(*kernel.numericType), true, kernel.index);
+      if (!output) {
+        f.error = output.error();
+        return nil;
+      }
+      f.result = Buffer(*output);
+      if (launch.errorWords) {
+        f.workgroupOutcome = std::make_shared<WorkgroupOutcome>(WorkgroupOutcome{
+            *kernel.numericType, packet->geometry.shape, packet->geometry.rank, {}});
+        (*output)->workgroupOutcome = f.workgroupOutcome;
+      }
+      if (!packet->geometry.groups) {
+        empty = true;
+        return nil;
+      }
+      auto arguments = numericParameters(f, kernel.index, packet->parameters.size() * 4);
+      if (!arguments) {
+        f.error = arguments.error();
+        return nil;
+      }
+      f.staging = *arguments;
+      std::copy(packet->parameters.begin(), packet->parameters.end(),
+                static_cast<std::uint32_t *>(f.staging->contents()));
+      f.error = Error::Allocation;
+      auto command = state->permit() ? numericCommandBuffer(f, kernel.index) : nil;
+      auto encoder = command && state->permit() ? [command computeCommandEncoder] : nil;
+      if (!encoder)
+        return nil;
+      [encoder setComputePipelineState:kernel.pipeline];
+      for (std::size_t i = 0; i < operation.inputs.size(); ++i) {
+        const auto &input = tensor(f, i).storage_;
+        [encoder setBuffer:input->metal ? input->metal->buffer : (*output)->metal->buffer
+                    offset:0
+                   atIndex:i];
+      }
+      [encoder setBuffer:(*output)->metal->buffer offset:0 atIndex:operation.inputs.size()];
+      [encoder setBuffer:f.staging->buffer
+                  offset:f.staging->offset
+                 atIndex:operation.inputs.size() + 1];
+      [encoder dispatchThreadgroups:MTLSizeMake(packet->geometry.groups, 1, 1)
+              threadsPerThreadgroup:MTLSizeMake(packet->geometry.localSize, 1, 1)];
+      [encoder endEncoding];
+      if (state->options.profile)
+        ++state->dispatches;
+      return command;
+    } catch (...) {
+      f.error = Error::Allocation;
+      return nil;
+    }
+  }
   static void submitCommand(Task &task, Frame &f, id<MTLCommandBuffer> command) {
     auto state = f.packet.state;
     f.started = true;
@@ -2379,6 +2504,27 @@ struct Bridge {
     auto &p = *f.packet.numericProgram;
     const auto lastIndex = f.numericFused ? numericPostIndex(p) : p.pc;
     const auto &last = p.code[lastIndex];
+    if (last.kind == NumericInstructionKind::Workgroup &&
+        last.kernel.state_->workgroup->errorWords) {
+      if (!f.workgroupOutcome)
+        return std::unexpected(Error::Invalid);
+      if (f.staging) {
+        try {
+          const auto &kernel = *last.kernel.state_;
+          auto error = readWorkgroupError(
+              *kernel.workgroup, kernel.scalarTypes,
+              std::span(static_cast<const std::uint32_t *>(f.staging->contents()),
+                        kernel.parameterWords()));
+          if (!error)
+            return std::unexpected(Error::Invalid);
+          f.workgroupOutcome->error = std::move(*error);
+        } catch (const std::bad_alloc &) {
+          return std::unexpected(Error::Allocation);
+        }
+      } else if (f.result.bytes())
+        return std::unexpected(Error::Invalid);
+      f.workgroupOutcome.reset();
+    }
     if (isGpuControlKind(last.kind)) {
       const auto *words = static_cast<const std::uint32_t *>(f.staging->contents());
       const auto next = std::uint64_t(words[1]) | (std::uint64_t(words[2]) << 32);
@@ -3189,8 +3335,8 @@ struct Bridge {
                 op.kind == K::Matmul)
               retainProgressionChunk(f, true);
             f.numericPostWanted = numericPostCandidate(f);
-            if (op.kind == K::Map || isGpuControlKind(op.kind) || op.kind == K::Matmul ||
-                op.kind == K::Reduce || op.kind == K::Branch ||
+            if (op.kind == K::Map || op.kind == K::Workgroup || isGpuControlKind(op.kind) ||
+                op.kind == K::Matmul || op.kind == K::Reduce || op.kind == K::Branch ||
                 (op.kind == K::Alias && program.values[op.output])) {
               const auto work = numericBatchWork(f);
               f.numericEligible = work && numericHeadroom(f, *work);
@@ -3311,7 +3457,7 @@ struct Bridge {
               program.controlActive = true;
             }
             f.packet.kernel = op.kernel;
-            if (op.kind == K::Map || isGpuControlKind(op.kind)) {
+            if (op.kind == K::Map || op.kind == K::Workgroup || isGpuControlKind(op.kind)) {
               if (!kernel->elementwise || kernel->matrix || kernel->reduction) {
                 fail(task, f, std::int64_t(Error::Invalid));
                 return;
@@ -3594,6 +3740,8 @@ struct Bridge {
         }
         std::uint32_t index = source->deviceIndex;
         const bool compute = f.packet.kind == Kind::Compute || f.packet.kind == Kind::Elementwise;
+        const bool cooperative =
+            compute && f.packet.kernel.state_ && bool(f.packet.kernel.state_->workgroup);
         const bool upload = f.packet.kind == Kind::Upload;
         const bool reduce = f.packet.kind == Kind::Reduce;
         const bool matrix = f.packet.kind == Kind::Matmul;
@@ -3665,7 +3813,9 @@ struct Bridge {
             f.packet.numericProgram->pc < f.packet.numericProgram->code.size() &&
             f.packet.numericProgram->code[f.packet.numericProgram->pc].kind ==
                 NumericInstructionKind::DeviceControl;
-        if (compute) {
+        if (cooperative) {
+          index = f.packet.kernel.state_->index;
+        } else if (compute) {
           const auto &kernel = f.packet.kernel.state_;
           const auto &right = f.packet.right.storage_;
           const auto signature =
@@ -3895,7 +4045,20 @@ struct Bridge {
         const auto encodingStart = state->options.profile ? std::chrono::steady_clock::now()
                                                           : std::chrono::steady_clock::time_point{};
         id<MTLCommandBuffer> command = nil;
-        if (compute && f.packet.kernel.state_->transform) {
+        if (cooperative) {
+          bool empty = false;
+          command = workgroupCommand(f, empty);
+          if (empty) {
+            --state->inFlight;
+            f.active = false;
+            f.succeeded = true;
+            continue;
+          }
+          if (!command) {
+            fail(task, f, std::int64_t(f.error));
+            return;
+          }
+        } else if (compute && f.packet.kernel.state_->transform) {
           command = tensorTransformCommand(f);
           if (!command) {
             fail(task, f, std::int64_t(f.error));
@@ -4483,6 +4646,9 @@ Format Buffer::format() const noexcept { return storage_ ? storage_->format : Fo
 std::optional<DeviceArrayResultMetadata> Buffer::arrayResult() const noexcept {
   return storage_ ? storage_->arrayResult : std::optional<DeviceArrayResultMetadata>{};
 }
+std::shared_ptr<const WorkgroupOutcome> Buffer::workgroupOutcome() const noexcept {
+  return storage_ ? storage_->workgroupOutcome : nullptr;
+}
 std::expected<std::span<const std::byte>, Error> Buffer::hostBytes() const noexcept {
   if (!storage_)
     return std::unexpected(Error::Invalid);
@@ -4684,7 +4850,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(
     std::optional<ElementwiseSignature> signature, bool reduction, bool matrix,
     std::optional<std::span<const std::uint32_t>> reads, std::optional<NumericType> numericType,
     std::span<const NumericType> tensorTypes, std::span<const NumericType> scalarTypes,
-    std::span<const std::uint8_t> scalarBuffers) noexcept {
+    std::span<const std::uint8_t> scalarBuffers, const WorkgroupLaunch *workgroup) noexcept {
   @autoreleasepool {
     if (numericType &&
         (!describeNumeric(*numericType) || !signature || !elementwise ||
@@ -4739,7 +4905,20 @@ std::expected<Kernel, Error> Runtime::loadKernel(
       for (auto type : scalarTypes)
         scalarWords += describeNumeric(type)->bytes() == 8 ? 2 : 1;
     }
-    const auto parameterWords = 1 + scalarWords + unsigned(numericType.has_value());
+    const auto workgroupWords = workgroup ? workgroupParameterWords(*workgroup, scalarTypes)
+                                          : std::optional<std::uint32_t>{};
+    if (workgroup && (!workgroupWords || !numericType || matrix || reduction || !signature ||
+                      workgroup->inputRanks.size() != signature->tensors ||
+                      signature->binding != ElementwiseBinding::Direct))
+      return std::unexpected(Error::Invalid);
+    const auto parameterWords =
+        workgroup ? *workgroupWords : 1 + scalarWords + unsigned(numericType.has_value());
+    std::uint32_t threads = 64;
+    if (workgroup) {
+      threads = 1;
+      for (auto extent : workgroup->groupShape)
+        threads *= extent;
+    }
     const auto physical = reads ? reads->size() : signature ? signature->tensors : 2;
     const bool indirect = signature && signature->binding == ElementwiseBinding::ArgumentBuffer;
     if ((signature &&
@@ -4797,7 +4976,9 @@ std::expected<Kernel, Error> Runtime::loadKernel(
                                                 MTLPipelineOptionBindingInfo
                                      reflection:&reflection
                                           error:&error];
-        if (!pipeline || pipeline.maxTotalThreadsPerThreadgroup < 64)
+        if (!pipeline || pipeline.maxTotalThreadsPerThreadgroup < threads ||
+            (workgroup && pipeline.staticThreadgroupMemoryLength >
+                              state_->devices[device.index_].maxThreadgroupMemoryLength))
           return std::unexpected(Error::Unavailable);
         // Validate the private dynamic-array ABI, not the numerical contents of
         // arbitrary shaders.
@@ -4920,6 +5101,13 @@ std::expected<Kernel, Error> Runtime::loadKernel(
                                                length:spelling.size()
                                              encoding:NSUTF8StringEncoding];
       }
+      if (workgroup) {
+        const auto spelling =
+            workgroupKernelName(*numericType, tensorTypes, scalarTypes, *workgroup);
+        numericName = [[NSString alloc] initWithBytes:spelling.data()
+                                               length:spelling.size()
+                                             encoding:NSUTF8StringEncoding];
+      }
       auto prepared = prepare(numericType   ? numericName
                               : matrix      ? @"kalandra_matmul"
                               : reduction   ? @"kalandra_reduce_sum"
@@ -4950,6 +5138,8 @@ std::expected<Kernel, Error> Runtime::loadKernel(
       Kernel kernel;
       auto metadata = std::make_shared<KernelState>(state_, device.index_, pipeline, elementwise,
                                                     reduction, matrix, signature, matrixTiles);
+      if (workgroup)
+        metadata->workgroup = std::make_shared<const WorkgroupLaunch>(*workgroup);
       if (!numericType && reduction &&
           [library newFunctionWithName:@"kalandra_reduce_sum_hardware_block"]) {
         auto block = prepare(@"kalandra_reduce_sum_hardware_block");
@@ -5217,6 +5407,16 @@ std::expected<Kernel, Error> Runtime::loadNumericGraphKernel(
   return loadKernel(path, std::move(device), true, signature, false, false,
                     std::optional<std::span<const std::uint32_t>>{reads}, type, tensors, scalars,
                     roles);
+}
+std::expected<Kernel, Error> Runtime::loadWorkgroupKernel(std::string_view path, Device device,
+                                                          NumericType type,
+                                                          std::span<const NumericType> tensors,
+                                                          std::span<const NumericType> scalars,
+                                                          const WorkgroupLaunch &launch) noexcept {
+  return loadKernel(path, std::move(device), true,
+                    ElementwiseSignature{static_cast<std::uint32_t>(tensors.size()),
+                                         static_cast<std::uint32_t>(scalars.size())},
+                    false, false, {}, type, tensors, scalars, {}, &launch);
 }
 std::expected<Kernel, Error> Runtime::loadNumericMatmulKernel(std::string_view path, Device device,
                                                               NumericType type) noexcept {

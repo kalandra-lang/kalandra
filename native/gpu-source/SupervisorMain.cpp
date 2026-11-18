@@ -11,8 +11,9 @@ constexpr auto selectedBackend = GpuBackend::Vulkan;
 #endif
 // Private source-supervisor qualification tool, not an installed CLI target.
 int main(int argc, char **argv) {
-  if (argc != 4) {
-    std::cerr << "usage: kalandra-vulkan-supervisor source.k directory arithmetic-mode\n";
+  if (argc != 4 && (argc != 5 || std::string_view(argv[4]) != "application")) {
+    std::cerr
+        << "usage: kalandra-vulkan-supervisor source.k directory arithmetic-mode [application]\n";
     return 2;
   }
   auto arithmetic = parseArithmeticMode(argv[3]);
@@ -32,8 +33,8 @@ int main(int argc, char **argv) {
     return 1;
   }
   try {
-    auto output =
-        emitGpuSupervisor(std::move(loaded->module), *arithmetic, false, selectedBackend);
+    auto output = emitGpuSupervisor(std::move(loaded->module), *arithmetic, false, selectedBackend,
+                                    argc == 5);
     if (!output) {
       std::cerr << renderDiagnostic(*source, output.error());
       return 1;

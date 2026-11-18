@@ -194,10 +194,21 @@ std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceS
     std::vector<std::string> labels;
     std::optional<ValueType> callback;
     std::optional<ValueType> selectorIndex;
-    if (const auto *map = std::get_if<ArrayMap>(&expression.operation);
-        map && name == (map->generate   ? "generate"
-                        : map->parallel ? "parallelMap"
-                                        : "map")) {
+    if (const auto *operation = std::get_if<WorkgroupOperation>(&expression.operation)) {
+      using A = WorkgroupAction;
+      const auto action = operation->metadata.action;
+      if (action == A::Dispatch) {
+        arguments = operation->arguments;
+        labels = {"outputShape", "groupShape", "callback"};
+      } else if (action == A::GlobalIndex || action == A::LocalIndex || action == A::Shared) {
+        arguments = {operation->arguments.at(1)};
+        labels = {action == A::Shared ? "count" : "axis"};
+      } else if (action != A::Barrier)
+        continue;
+    } else if (const auto *map = std::get_if<ArrayMap>(&expression.operation);
+               map && name == (map->generate   ? "generate"
+                               : map->parallel ? "parallelMap"
+                                               : "map")) {
       if (map->function >= module.functions.size())
         return {};
       const auto &function = module.functions[map->function];
@@ -339,21 +350,34 @@ std::optional<HoverInfo> hoverInfo(ParseResult syntax, std::string_view path, st
     std::optional<ExprId> selectedCall;
     std::size_t argumentCount = 0;
     SourceSpan invocation{};
+    const bool gpuModule = std::ranges::find(syntax.module.standardModules, StandardModule::Gpu) !=
+                           syntax.module.standardModules.end();
     for (ExprId id = 0; id < syntax.module.expressions.size(); ++id) {
       const auto &expression = syntax.module.expressions[id];
-      const NameExpr *name = nullptr;
+      std::optional<SourceSpan> name;
       bool callSite = false;
       std::size_t arity = 1;
       if (const auto *call = std::get_if<CallExpr>(&expression.value)) {
-        name = std::get_if<NameExpr>(&syntax.module.expressions[call->callee].value);
+        const auto *callee = &syntax.module.expressions[call->callee];
+        if (const auto *indexed = std::get_if<IndexExpr>(&callee->value);
+            indexed && !indexed->typeArguments.empty() &&
+            std::holds_alternative<FieldExpr>(syntax.module.expressions[indexed->input].value))
+          callee = &syntax.module.expressions[indexed->input];
+        if (const auto *token = std::get_if<NameExpr>(&callee->value))
+          name = token->name;
+        else if (gpuModule)
+          if (const auto *field = std::get_if<FieldExpr>(&callee->value))
+            name = field->field;
         callSite = true;
         arity = call->arguments.size();
       } else if (const auto *pipe = std::get_if<BinaryExpr>(&expression.value);
                  pipe && pipe->operation == TokenKind::Arrow)
-        name = std::get_if<NameExpr>(&syntax.module.expressions[pipe->right].value);
-      if (!name || !hasBuiltinSignature(syntax.module.source->slice(name->name)))
+        if (const auto *token =
+                std::get_if<NameExpr>(&syntax.module.expressions[pipe->right].value))
+          name = token->name;
+      if (!name || (!gpuModule && !hasBuiltinSignature(syntax.module.source->slice(*name))))
         continue;
-      auto location = sourceLocation(syntax.module.source, name->name);
+      auto location = sourceLocation(syntax.module.source, *name);
       if (!location || location->source->path() != path || offset < location->span.begin ||
           offset >= location->span.end)
         continue;
@@ -439,10 +463,15 @@ std::optional<SignatureInfo> signatureInfo(ParseResult syntax, std::string_view 
   const auto &call = std::get<CallExpr>(syntax.module.expressions[*selected].value);
   const auto callArgumentCount = call.arguments.size();
   const auto &callee = syntax.module.expressions[call.callee];
+  const Expr *unwrapped = &callee;
+  if (const auto *indexed = std::get_if<IndexExpr>(&callee.value);
+      indexed && !indexed->typeArguments.empty() &&
+      std::holds_alternative<FieldExpr>(syntax.module.expressions[indexed->input].value))
+    unwrapped = &syntax.module.expressions[indexed->input];
   std::optional<SourceSpan> token;
-  if (const auto *name = std::get_if<NameExpr>(&callee.value))
+  if (const auto *name = std::get_if<NameExpr>(&unwrapped->value))
     token = name->name;
-  else if (const auto *field = std::get_if<FieldExpr>(&callee.value))
+  else if (const auto *field = std::get_if<FieldExpr>(&unwrapped->value))
     token = field->field;
   auto target = token ? sourceLocation(syntax.module.source, *token) : std::nullopt;
   if (token && !target)
@@ -507,7 +536,10 @@ std::optional<SignatureInfo> signatureInfo(ParseResult syntax, std::string_view 
     const bool hasFileModule = std::ranges::any_of(syntax.module.standardModules, [](auto module) {
       return module == StandardModule::Filesystem;
     });
-    if (hasBuiltinSignature(name) || hasFormatModule || hasFileModule) {
+    const bool hasGpuModule =
+        std::ranges::find(syntax.module.standardModules, StandardModule::Gpu) !=
+        syntax.module.standardModules.end();
+    if (hasBuiltinSignature(name) || hasFormatModule || hasFileModule || hasGpuModule) {
       auto checked = check(syntax, {}, options);
       if (checked.ok()) {
         for (const auto &expression : checked.module->expressions)

@@ -3,7 +3,7 @@
 add_executable(kalandra-metal-strict64 Strict.cpp)
 target_compile_definitions(kalandra-metal-strict64 PRIVATE KALANDRA_STRICT_GPU64=1)
 target_compile_options(kalandra-metal-strict64 PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(kalandra-metal-strict64 PRIVATE kalandra-strict-float)
+target_link_libraries(kalandra-metal-strict64 PRIVATE kalandra-strict-float kalandra-gpu-numeric)
 set(BASE "${OUT}/strict64-gpu")
 add_custom_command(OUTPUT "${BASE}.metallib" "${BASE}.spvasm" "${BASE}.metal"
   COMMAND $<TARGET_FILE:kalandra-metal-strict64> "${CMAKE_CURRENT_SOURCE_DIR}/strict64-gpu.mlir" "${BASE}.lowered.mlir"

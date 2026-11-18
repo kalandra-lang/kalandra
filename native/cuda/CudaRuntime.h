@@ -84,6 +84,7 @@ public:
 struct KernelContract {
   std::string entry;
   std::uint64_t inputs = 0, parameterWords = 0;
+  std::uint32_t localSize = 0;
 };
 struct DispatchStats {
   std::uint64_t nativeMatmuls = 0, fixedMatmuls = 0;

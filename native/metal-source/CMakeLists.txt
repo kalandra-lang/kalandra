@@ -74,7 +74,7 @@ if(BUILD_TESTING)
   target_include_directories(kalandra-metal-source-lowering-sanitized SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-metal-source-lowering-sanitized PRIVATE -Wall -Wextra -Werror
     -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
-  add_executable(kalandra-metal-source-compiler-sanitized main.cpp Compiler.cpp Command.cpp NumericShader.cpp NumericProgram.cpp DeviceHeap.cpp DeviceSort.cpp DeviceLiveness.cpp DeviceArrayReturn.cpp ../lib/GpuInteger.cpp ../lib/GpuConversion.cpp Build.cpp)
+  add_executable(kalandra-metal-source-compiler-sanitized main.cpp Compiler.cpp Command.cpp NumericShader.cpp NumericProgram.cpp WorkgroupPlan.cpp WorkgroupShader.cpp DeviceHeap.cpp DeviceSort.cpp DeviceLiveness.cpp DeviceArrayReturn.cpp ../lib/GpuInteger.cpp ../lib/GpuConversion.cpp Build.cpp)
   target_link_libraries(kalandra-metal-source-compiler-sanitized PRIVATE kalandra-semantics-sanitized kalandra-packages-sanitized kalandra-metal-source-lowering-sanitized MLIR LLVM)
   target_include_directories(kalandra-metal-source-compiler-sanitized SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-metal-source-compiler-sanitized PRIVATE -Wall -Wextra -Werror -O1 -g

@@ -101,6 +101,9 @@ public:
   static std::optional<DeviceArrayResultMetadata> arrayResult(const Buffer &value) noexcept {
     return value.arrayResult;
   }
+  static std::shared_ptr<const WorkgroupOutcome> workgroupOutcome(const Buffer &value) noexcept {
+    return value.workgroupOutcome;
+  }
   TaskHandle downloadArrayPage(Task &, GroupHandle, const Buffer &, std::uint64_t, std::uint64_t) noexcept;
   TaskHandle download(TaskCore &, GroupHandle, Buffer) noexcept;
   TaskHandle download(Task &, GroupHandle, Buffer) noexcept;
@@ -110,6 +113,8 @@ public:
                                                       std::span<const NumericType>,
                                                       std::span<const std::uint32_t>,
                                                       std::span<const std::uint8_t>) noexcept;
+  std::expected<Kernel, Error> loadWorkgroupKernel(std::string_view, Device, NumericType,
+      std::span<const NumericType>, std::span<const NumericType>, const WorkgroupLaunch &) noexcept;
   std::expected<Kernel, Error> loadNumericReductionKernel(std::string_view, Device,
                                                           NumericType) noexcept;
   std::expected<Kernel, Error> loadNumericMatmulKernel(std::string_view, Device,

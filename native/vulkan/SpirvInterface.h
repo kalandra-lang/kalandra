@@ -17,6 +17,7 @@ readSpirvFile(const std::filesystem::path &path);
 struct SpirvInterface {
   std::string entry;
   std::uint32_t localSize = 0, buffers = 0, parameterWords = 0;
+  std::uint64_t workgroupBytes = 0;
   bool int8 = false, int16 = false, int64 = false, float64 = false;
   bool storage8 = false, storage16 = false;
   bool float64Division = false;

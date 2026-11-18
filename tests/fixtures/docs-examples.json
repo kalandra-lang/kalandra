@@ -666,5 +666,15 @@
       "expected": "42:42"
     }
   ],
-  "release-0-99-2": []
+  "release-0-99-2": [],
+  "gpu-kernels": [
+    {
+      "kind": "gpu",
+      "expected": "4 6 9 11"
+    },
+    {
+      "kind": "gpu",
+      "expected": "negative at 1: -2"
+    }
+  ]
 }

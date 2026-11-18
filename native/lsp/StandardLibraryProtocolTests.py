@@ -257,3 +257,57 @@ fn main()->unit:
         assert 'export fn '+name+'[' in declarations,(name,declarations)
     client.finish()
 print('PASS: canonical Order/Ordering declarations, aliases and sorting editor definitions')
+
+# Cooperative methods are capabilities, not ordinary visible record fields.
+with tempfile.TemporaryDirectory(dir=directory) as temp:
+    root=Path(temp).resolve()
+    path=root/'workgroup.k'
+    text='''from "std/gpu" import dispatch, WorkItem
+fn main()->Tensor[i64,4]:
+  return dispatch([4],[4],fn(item:WorkItem)->i64:
+    lane=item.localIndex(0)
+    tile=item.shared[i64](4)
+    tile[lane]=lane
+    item.barrier()
+    return tile[3-lane]
+  )
+'''
+    client=Client(server)
+    client.init(workspaceFolders=[{'uri':root.as_uri(),'name':'workgroup'}])
+    client.open(path,text)
+    diagnostics=publications(client.barrier())[path.as_uri()]['diagnostics']
+    assert not diagnostics,diagnostics
+    assert 'export fn dispatch' in client.rpc('kalandra/standardLibrary',{'uri':'kalandra-stdlib:std/gpu.k'})['result']
+    line=text.splitlines()[2]
+    hover=client.hover(path,2,line.index('dispatch')+1)['result']
+    assert hover and 'callback' in str(hover) and 'outputShape' in str(hover) and '[S, G, F]' not in str(hover),hover
+    signature=client.signature(path,2,line.index('(')+1)['result']
+    assert signature and 'callback' in str(signature) and 'outputShape' in str(signature),signature
+    for row,word,wanted in [(3,'localIndex','i64'),(4,'shared','Shared[i64]'),(6,'barrier','unit')]:
+        line=text.splitlines()[row]
+        hover=client.hover(path,row,line.index(word)+1)['result']
+        assert hover and wanted in str(hover),(word,hover)
+        signature=client.signature(path,row,line.index('(')+1)['result']
+        assert signature and wanted in str(signature),(word,signature)
+    changed=text.replace('lane=item.localIndex(0)','lane=item.')
+    client.change(path,changed,2)
+    client.barrier()
+    items=client.completion(path,3,len(changed.splitlines()[3]))['result']['items']
+    assert {item['label'] for item in items}=={'globalIndex','localIndex','shared','barrier'},items
+    changed='\n'.join(text.splitlines()[:3])+'\n    lane=item.localIndex('
+    client.change(path,changed,3)
+    client.barrier()
+    signature=client.signature(path,3,len(changed.splitlines()[3]))['result']
+    assert signature and 'axis: i64' in str(signature),signature
+    changed=text.replace('from "std/gpu"','from "std/g"')
+    client.change(path,changed,4)
+    client.barrier()
+    items=client.completion(path,0,11)['result']['items']
+    assert any(item['label']=='std/gpu' for item in items),items
+    changed='from "std/gpu" import dispatch as launch, WorkItem\nfn main()->unit:\n  launch('
+    client.change(path,changed,5)
+    client.barrier()
+    signature=client.signature(path,2,len(changed.splitlines()[2]))['result']
+    assert signature and 'fn launch(' in str(signature) and 'callback' in str(signature) and '[S, G, F]' not in str(signature),signature
+    client.finish()
+print('PASS: cooperative capability completion, opaque fields, method hover and signature guidance')

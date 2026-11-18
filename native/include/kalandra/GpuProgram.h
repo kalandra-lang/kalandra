@@ -15,7 +15,10 @@ enum class NumericProgramKind {
   ShapeFault,
   ScalarControl,
   // Explicit private-arena ABI; unknown runtimes must reject this instruction.
-  DeviceControl
+  DeviceControl,
+  // All padding lanes participate. Uses a WorkgroupLaunch descriptor, not the
+  // pointwise map's linear-domain or checkpointed single-lane control ABI.
+  Workgroup
 };
 constexpr bool isGpuControlKind(NumericProgramKind kind) {
   return kind == NumericProgramKind::ScalarControl || kind == NumericProgramKind::DeviceControl;

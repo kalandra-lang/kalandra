@@ -2,6 +2,7 @@
 # are retained while the host-supervisor/runtime interfaces are generalized.
 add_library(kalandra-gpu-source-ir STATIC
   ../metal-source/NumericShader.cpp ../metal-source/NumericProgram.cpp
+  ../metal-source/WorkgroupPlan.cpp ../metal-source/WorkgroupShader.cpp
   ../metal-source/DeviceLiveness.cpp ../metal-source/DeviceHeap.cpp ../metal-source/DeviceSort.cpp
   ../metal-source/DeviceArrayReturn.cpp)
 target_include_directories(kalandra-gpu-source-ir PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source")
@@ -195,6 +196,25 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
+  add_executable(kalandra-workgroup-error-compiler-tests WorkgroupErrorCompilerTests.cpp)
+  target_link_libraries(kalandra-workgroup-error-compiler-tests PRIVATE kalandra-gpu-supervisor)
+  target_compile_options(kalandra-workgroup-error-compiler-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME frontend-workgroup-error-compiler COMMAND kalandra-workgroup-error-compiler-tests
+    "${CMAKE_CURRENT_SOURCE_DIR}/workgroup-error-export.k"
+    "${CMAKE_CURRENT_SOURCE_DIR}/workgroup-error-payloads.k"
+    "${CMAKE_CURRENT_SOURCE_DIR}/workgroup-error-union.k"
+    "${CMAKE_CURRENT_SOURCE_DIR}/workgroup-error-upcast.k")
+  set_tests_properties(frontend-workgroup-error-compiler PROPERTIES TIMEOUT 180)
+  add_executable(kalandra-workgroup-emitter-tests EXCLUDE_FROM_ALL ../metal-source/WorkgroupEmitterTests.cpp)
+  target_link_libraries(kalandra-workgroup-emitter-tests PRIVATE kalandra-gpu-source-ir kalandra-syntax)
+  target_compile_options(kalandra-workgroup-emitter-tests PRIVATE -Wall -Wextra -Werror)
+  foreach(backend IN ITEMS metal vulkan cuda)
+    add_test(NAME frontend-workgroup-emission-${backend}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/WorkgroupCases.py"
+        --emitter "$<TARGET_FILE:kalandra-workgroup-emitter-tests>" --backend "${backend}"
+        --output "${CMAKE_CURRENT_BINARY_DIR}/workgroup-emission-${backend}")
+    set_tests_properties(frontend-workgroup-emission-${backend} PROPERTIES TIMEOUT 180)
+  endforeach()
   add_executable(kalandra-device-closure-import-tests ../metal-source/DeviceClosureImportTests.cpp)
   target_link_libraries(kalandra-device-closure-import-tests PRIVATE kalandra-gpu-source-ir)
   target_compile_options(kalandra-device-closure-import-tests PRIVATE -Wall -Wextra -Werror)

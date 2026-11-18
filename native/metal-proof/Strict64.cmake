@@ -2,7 +2,7 @@
 add_executable(kalandra-cpu-strict Strict.cpp)
 target_compile_definitions(kalandra-cpu-strict PRIVATE KALANDRA_STRICT_CPU=1)
 target_compile_options(kalandra-cpu-strict PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(kalandra-cpu-strict PRIVATE kalandra-strict-float)
+target_link_libraries(kalandra-cpu-strict PRIVATE kalandra-strict-float kalandra-gpu-numeric)
 add_custom_command(OUTPUT "${OUT}/strict64-cpu.ll"
   COMMAND $<TARGET_FILE:kalandra-cpu-strict> "${CMAKE_CURRENT_SOURCE_DIR}/strict64-cpu.mlir" "${OUT}/strict64-cpu.lowered.mlir"
   COMMAND "${MLIR_OPT}" "${OUT}/strict64-cpu.lowered.mlir" --verify-each --canonicalize --cse

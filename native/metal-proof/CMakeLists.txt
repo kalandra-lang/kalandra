@@ -86,7 +86,7 @@ if(BUILD_TESTING)
 endif()
 
 add_executable(kalandra-metal-strict Strict.cpp)
-target_link_libraries(kalandra-metal-strict PRIVATE kalandra-strict-float)
+target_link_libraries(kalandra-metal-strict PRIVATE kalandra-strict-float kalandra-gpu-numeric)
 target_compile_options(kalandra-metal-strict PRIVATE -Wall -Wextra -Werror)
 
 add_custom_command(OUTPUT "${OUT}/strict.lowered.mlir" "${OUT}/strict.metallib" "${OUT}/strict.spvasm" "${OUT}/strict.reflection.json" "${OUT}/strict.metal"

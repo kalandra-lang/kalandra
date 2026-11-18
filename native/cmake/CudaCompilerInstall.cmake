@@ -33,7 +33,7 @@ install(FILES gpu-runtime/ControlExport.h gpu-runtime/ControlArena.h
 install(FILES runtime/Time.h runtime/Environment.h runtime/Path.h runtime/Parse.h runtime/FileSystem.h runtime/OwnedResources.h runtime/GeneratorFrame.h runtime/GeneratorTasks.h runtime/ByteBuffer.h runtime/Console.h runtime/Format.h runtime/String.h runtime/StringArray.h runtime/Application.h runtime/Runtime.h runtime/Tasks.h runtime/Tensor.h runtime/NumericStorage.h runtime/ValueScopes.h runtime/HostArrays.h runtime/DeviceArrayABI.h runtime/DeviceArrayWire.h runtime/DeviceArrayInputJob.h runtime/DeviceArrayResultWire.h runtime/DeviceAggregateResult.h runtime/DeviceGraphCapture.h runtime/DeviceGraphPack.h runtime/DeviceGraphArena.h runtime/DeviceGraphWire.h runtime/DeviceGraphResult.h runtime/DeviceGraphMaterialize.h runtime/DeviceGraphOrigins.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/runtime" COMPONENT NativeCudaCompiler)
 install(FILES include/kalandra/TimeOperations.h include/kalandra/PathOperations.h include/kalandra/ParseABI.h include/kalandra/FormatABI.h include/kalandra/FileOperations.h include/kalandra/BufferOperations.h include/kalandra/NumericType.h include/kalandra/TensorTransform.h
-              include/kalandra/GpuProgram.h include/kalandra/GpuTransform.h
+              include/kalandra/GpuProgram.h include/kalandra/WorkgroupLaunch.h include/kalandra/WorkgroupGeometry.h include/kalandra/GpuTransform.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/include/kalandra" COMPONENT NativeCudaCompiler)
 # Only project-owned PTX and audited MIT/BSD-3-derived kernels are runtime resources.
 # No CUDA headers, NVRTC, cuBLAS, driver, CRT or system SDK libraries are staged.

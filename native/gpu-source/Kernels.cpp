@@ -97,20 +97,47 @@ int main(int argc, char **argv) {
                          : kernel.mlir;
     if (!write(directory / file, contents))
       return 1;
-    kernels.push_back(
-        llvm::json::Object{{"file", file},
-                           {"type", std::string(describeNumeric(kernel.element)->name)},
-                           {"tensorTypes", types(kernel.tensorTypes)},
-                           {"scalarTypes", types(kernel.scalarTypes)},
-                           {"scalarBuffers", indices(kernel.scalarBuffers)},
-                           {"reads", indices(kernel.reads)},
-                           {"matrix", kernel.matrix},
-                           {"scalar", kernel.scalar},
-                           {"noArithmeticFault", kernel.noArithmeticFault}});
+    llvm::json::Object metadata{{"file", file},
+                                {"type", std::string(describeNumeric(kernel.element)->name)},
+                                {"tensorTypes", types(kernel.tensorTypes)},
+                                {"scalarTypes", types(kernel.scalarTypes)},
+                                {"scalarBuffers", indices(kernel.scalarBuffers)},
+                                {"reads", indices(kernel.reads)},
+                                {"matrix", kernel.matrix},
+                                {"scalar", kernel.scalar},
+                                {"noArithmeticFault", kernel.noArithmeticFault}};
+    if (kernel.workgroup) {
+      constexpr std::array actions{"Constant", "Scalar", "Extent",    "Add",   "Subtract",
+                                   "Multiply", "Divide", "Remainder", "Negate"};
+      auto expressions = [&](const auto &values) {
+        llvm::json::Array shape;
+        for (const auto &extent : values) {
+          llvm::json::Array expression;
+          for (const auto &step : extent)
+            expression.push_back(
+                llvm::json::Object{{"action", actions.at(static_cast<unsigned>(step.action))},
+                                   {"value", std::to_string(step.value)},
+                                   {"input", std::int64_t(step.input)},
+                                   {"axis", std::int64_t(step.axis)}});
+          shape.push_back(std::move(expression));
+        }
+        return shape;
+      };
+      metadata["workgroup"] =
+          llvm::json::Object{{"abi", 1},
+                             {"groupShape", indices(kernel.workgroup->groupShape)},
+                             {"inputRanks", indices(kernel.workgroup->inputRanks)},
+                             {"shape", expressions(kernel.workgroup->shape)},
+                             {"checked", expressions(kernel.workgroup->checked)},
+                             {"errorWords", std::int64_t(kernel.workgroup->errorWords)},
+                             {"scratchBytes", std::to_string(kernel.workgroup->scratchBytes)}};
+    }
+    kernels.push_back(std::move(metadata));
   }
-  constexpr std::array names{"Map",         "Reduce",     "Matmul",       "Branch",
-                             "Jump",        "Alias",      "EqualShape",   "Extent",
-                             "MatrixShape", "ShapeFault", "ScalarControl", "DeviceControl"};
+  constexpr std::array names{"Map",         "Reduce",     "Matmul",        "Branch",
+                             "Jump",        "Alias",      "EqualShape",    "Extent",
+                             "MatrixShape", "ShapeFault", "ScalarControl", "DeviceControl",
+                             "Workgroup"};
   for (const auto &op : program->code) {
     llvm::json::Array constants;
     // Decimal strings preserve every uint64 carrier even in non-integer JSON consumers.

@@ -48,7 +48,9 @@ jobs:
           rm -rf "$RUNNER_TEMP/kalandra-signing"
   build:
     runs-on: macos-26
-    timeout-minutes: 60
+    # Source, reproducibility and relocated-package checks share this job.
+    # Keep individual test deadlines intact; allow the complete suite to finish.
+    timeout-minutes: 90
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     outputs:
@@ -94,6 +96,10 @@ jobs:
           cmake --build build/native --target kalandra kalandra-test-observer native-cpu-package native-editor-tools-package
           native-cpu-standalone-package native-editor-tools-standalone-package
           native-metal-package native-metal-standalone-package -j2
+      - name: Qualify cooperative workgroup source and safety proofs
+        run: |
+          cmake --build build/native --target native-workgroup-qualification -j2
+          ctest --test-dir build/native --output-on-failure -R '^frontend-workgroup-'
       - name: Qualify application entries, console I/O and formatting
         run: |
           cmake --build build/native --target native-io-qualification -j2

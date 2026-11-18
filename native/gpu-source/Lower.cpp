@@ -1,5 +1,6 @@
 #include "LowerConversions.h"
 #include "kalandra/StrictFloat.h"
+#include "kalandra/WorkgroupSpirv.h"
 #include "mlir/AsmParser/AsmParser.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
@@ -27,6 +28,8 @@ int main(int argc, char **argv) {
   auto module = mlir::parseSourceFile<mlir::ModuleOp>(argv[1], &context);
   if (!module || mlir::failed(mlir::verify(*module)))
     return 1;
+  if (mlir::failed(kalandra::lowerWorkgroupSpirv(*module)))
+    return 1;
   if (*policy != kalandra::ArithmeticMode::Hardware &&
       mlir::failed(lowerVulkanFloat64Conversions(*module)))
     return 1;
@@ -38,7 +41,8 @@ int main(int argc, char **argv) {
   // into that domain rather than imposing Vulkan's per-axis group limit on
   // tensor sizes. The entry suffix versions this private compiler/runtime ABI.
   module->walk([&](mlir::gpu::GPUFuncOp function) {
-    if (function.getName().ends_with("_vk_flat_v1"))
+    if (function.getName().ends_with("_vk_flat_v1") ||
+        function.getName().ends_with("_vk_groups_v1"))
       return;
     llvm::SmallVector<mlir::gpu::BlockIdOp> indices;
     function.walk([&](mlir::gpu::BlockIdOp index) {
@@ -56,7 +60,10 @@ int main(int argc, char **argv) {
       index.replaceAllUsesWith(flat.getResult());
       index.erase();
     }
-    function.setName((function.getName() + "_vk_flat_v1").str());
+    function.setName((function.getName() + (function.getName().starts_with("kalandra_workgroup_v1_")
+                                                ? "_vk_groups_v1"
+                                                : "_vk_flat_v1"))
+                         .str());
   });
   bool gpu = false;
   module->walk([&](mlir::gpu::GPUModuleOp) { gpu = true; });

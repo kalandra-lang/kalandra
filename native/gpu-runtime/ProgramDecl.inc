@@ -12,6 +12,7 @@ struct TensorValue {
   // Private array transport: dimensions describe payload words, not source length.
   // It is never a numerical tensor operand or an ordinary tensor transfer.
   std::optional<DeviceArrayResultMetadata> arrayResult{};
+  std::shared_ptr<const WorkgroupOutcome> workgroupOutcome{};
   explicit operator bool() const noexcept { return bool(data) || bool(host); }
   bool onDevice() const noexcept { return bool(data) && !host; }
   NumericType format() const noexcept { return type; }
@@ -29,6 +30,7 @@ struct ProgramKernel {
   std::optional<std::vector<std::uint32_t>> reads{};
   std::optional<TensorTransformKind> transform{};
   Kernel matmulTranspose{};
+  std::shared_ptr<const WorkgroupLaunch> workgroup{};
 };
 std::expected<KernelContract, Error> kernelContract(const ProgramKernel &, NumericProgramKind);
 struct ProgramInstruction {

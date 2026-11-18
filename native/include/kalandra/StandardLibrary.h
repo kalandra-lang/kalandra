@@ -15,9 +15,12 @@ enum class StandardModule {
   Option,
   Iteration,
   Comparison,
-  Arithmetic
+  Arithmetic,
+  Gpu
 };
 inline std::optional<StandardModule> standardModule(std::string_view name) {
+  if (name == "std/gpu")
+    return StandardModule::Gpu;
   if (name == "std/ops")
     return StandardModule::Arithmetic;
   if (name == "std/cmp")
@@ -48,6 +51,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
 }
 inline std::string_view standardModulePath(StandardModule module) {
   switch (module) {
+  case StandardModule::Gpu:
+    return "kalandra-stdlib:std/gpu.k";
   case StandardModule::Arithmetic:
     return "kalandra-stdlib:std/ops.k";
   case StandardModule::Comparison:
@@ -78,6 +83,8 @@ inline std::string_view standardModulePath(StandardModule module) {
   return {};
 }
 inline std::optional<StandardModule> standardModuleFromPath(std::string_view path) {
+  if (path == standardModulePath(StandardModule::Gpu))
+    return StandardModule::Gpu;
   if (path == standardModulePath(StandardModule::Arithmetic))
     return StandardModule::Arithmetic;
   if (path == standardModulePath(StandardModule::Comparison))
@@ -111,6 +118,14 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
 // module loader has supplied its separate standard-module identity.
 inline std::string_view standardModuleSource(StandardModule module) {
   switch (module) {
+  case StandardModule::Gpu:
+    return R"k(export type WorkItem:
+  __context: u64
+export type Shared[T]:
+  __storage: [T]
+export fn dispatch[S, G, F](shape: S, group: G, body: F):
+  return __kalandra_gpu_dispatch(shape, group, body)
+)k";
   case StandardModule::Arithmetic:
     return R"k(export trait Add[Rhs]:
   type Output

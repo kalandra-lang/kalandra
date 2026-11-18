@@ -177,6 +177,32 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
     return std::unexpected("float64 preservation without Float64 capability");
   if (!entry || localEntry != entry)
     return std::unexpected("missing fixed compute local size");
+  // Compiler cooperative scratch uses flat arrays of 32/64-bit carriers.
+  // Count each distinct Workgroup variable, not each access or pointer alias.
+  // A conservative eight-byte alignment also covers mixed carrier globals.
+  for (auto [variable, space] : storage) {
+    if (!result.entry.starts_with("kalandra_workgroup_v1_"))
+      break;
+    if (space != 4)
+      continue; // Workgroup
+    const auto pointer = variableTypes.at(variable);
+    if (!pointers.contains(pointer))
+      return std::unexpected("invalid workgroup pointer");
+    const auto array = pointers.at(pointer);
+    if (!arrays.contains(array))
+      return std::unexpected("unsupported workgroup storage layout");
+    auto [element, length] = arrays.at(array);
+    const auto bits = integers.contains(element) ? integers.at(element)
+                      : floats.contains(element) ? floats.at(element)
+                                                 : 0;
+    if ((bits != 32 && bits != 64) || !constants.contains(length) || !constants.at(length))
+      return std::unexpected("unsupported workgroup carrier layout");
+    const auto bytes = std::uint64_t(constants.at(length)) * (bits / 8);
+    result.workgroupBytes = (result.workgroupBytes + 7) / 8 * 8;
+    if (bytes > UINT32_MAX || result.workgroupBytes > UINT32_MAX - bytes)
+      return std::unexpected("workgroup storage exceeds its reflection budget");
+    result.workgroupBytes += bytes;
+  }
   if (bindings.empty() || bindings.size() > 128 || sets.size() != bindings.size())
     return std::unexpected("invalid descriptor set interface");
   for (auto [variable, binding] : bindings) {

@@ -162,7 +162,8 @@ void buildMetalProgram(const std::filesystem::path &directory,
     if (!name.starts_with("kernel") || !name.ends_with(".mlir"))
       continue;
     auto base = (directory / std::filesystem::path(name).stem()).string();
-    const bool numeric = contents.find("@kalandra_numeric_v1_") != std::string::npos;
+    const bool numeric = contents.find("@kalandra_numeric_v1_") != std::string::npos ||
+                         contents.find("@kalandra_workgroup_v1_") != std::string::npos;
     std::vector<std::string> lowering{numeric ? strict64 : strict, base + ".mlir",
                                       base + ".lowered.mlir"};
     if (arithmetic != kalandra::ArithmeticMode::Software)

@@ -152,8 +152,7 @@ std::expected<Kernel, Error> Runtime::load(std::string_view path, Device device,
   try {
     auto &driver = *state_->contexts[device.index_].driver;
     const std::filesystem::path nativePath(std::u8string(path.begin(), path.end()));
-    auto contract = kernelContract(schema, kind == NumericInstructionKind::Matmul ? NumericProgramKind::Matmul :
-                                           kind == NumericInstructionKind::Reduce ? NumericProgramKind::Reduce : NumericProgramKind::Map);
+    auto contract = kernelContract(schema, kind);
     if (!contract)
       return std::unexpected(contract.error());
     const bool float32Matmul = kind == NumericInstructionKind::Matmul && schema.type == NumericType::Float32;
@@ -208,6 +207,19 @@ std::expected<Kernel, Error> Runtime::loadNumericGraphKernel(
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
   }
+}
+std::expected<Kernel, Error> Runtime::loadWorkgroupKernel(std::string_view path, Device device,
+    NumericType type, std::span<const NumericType> tensors, std::span<const NumericType> scalars,
+    const WorkgroupLaunch &launch) noexcept {
+  try {
+    ProgramKernel schema;
+    schema.type = type;
+    schema.tensorTypes.assign(tensors.begin(), tensors.end());
+    schema.scalarTypes.assign(scalars.begin(), scalars.end());
+    schema.scalarBuffers.resize(tensors.size(), 0);
+    schema.workgroup = std::make_shared<const WorkgroupLaunch>(launch);
+    return load(path, std::move(device), std::move(schema), NumericInstructionKind::Workgroup);
+  } catch (const std::bad_alloc &) { return std::unexpected(Error::Allocation); }
 }
 std::expected<Kernel, Error> Runtime::loadNumericReductionKernel(std::string_view path,
                                                                  Device device,
@@ -287,6 +299,10 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
             !charge(schema.scalarBuffers.size(), 2 * sizeof(std::uint8_t)) ||
             (schema.reads && !charge(schema.reads->size(), 2 * sizeof(std::uint32_t))))
           return std::unexpected(Error::Budget);
+        if (schema.workgroup) {
+          auto owned = workgroupMetadataBytes(*schema.workgroup);
+          if (!owned || !charge(*owned, 2)) return std::unexpected(Error::Budget);
+        }
         if (!selected)
           selected = op.kernel.device_;
         if (op.kernel.device_.owner_ != state_ || op.kernel.device_.index_ != selected.index_ ||
@@ -312,7 +328,7 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
     owned.reserve(code.size());
     std::size_t captureCount = 0;
     for (const auto &op : code)
-      if (op.kind == NumericInstructionKind::Map ||
+      if (op.kind == NumericInstructionKind::Map || op.kind == NumericInstructionKind::Workgroup ||
           isGpuControlKind(op.kind))
         captureCount += op.scalars.size();
     plan->captures.reserve(captureCount);
@@ -325,7 +341,7 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
         instruction.kernel = op.kernel.schema_;
       if (op.kind == NumericInstructionKind::DeviceControl && instruction.kernel)
         instruction.kernel->scalar = true; // Final binding is private storage, not a source domain.
-      if (op.kind == NumericInstructionKind::Map ||
+      if (op.kind == NumericInstructionKind::Map || op.kind == NumericInstructionKind::Workgroup ||
           isGpuControlKind(op.kind)) {
         for (auto word : op.scalars) {
           instruction.scalarSources.push_back(plan->captures.size());

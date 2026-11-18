@@ -9,6 +9,7 @@
 #include "kalandra/Syntax.h"
 #include "kalandra/TensorTransform.h"
 #include "kalandra/TimeOperations.h"
+#include "kalandra/WorkgroupOperations.h"
 #include <span>
 
 namespace kalandra {
@@ -223,6 +224,11 @@ struct BufferOperation {
   BufferAction action;
   std::vector<ValueId> arguments;
   SourceSpan source = {};
+};
+struct WorkgroupOperation {
+  WorkgroupOperationMetadata metadata;
+  std::vector<ValueId> arguments;
+  std::vector<std::uint32_t> groupShape = {};
 };
 struct IteratorOperation {
   IteratorAction action;
@@ -495,7 +501,9 @@ enum class StandardRecord {
   TimeError,
   Range,
   Iterator,
-  Option
+  Option,
+  WorkItem,
+  Shared
 };
 struct TypedRecord {
   std::string name;
@@ -529,7 +537,8 @@ struct TypedExpr {
                ConditionalOperation, WhileOperation, LoopTransferOperation, IntegerRangeOperation,
                YieldOperation, CatchOperation, MatchOperation, ErrorFieldRead, FailOperation,
                GuardOperation, RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference,
-               FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort, GeneratorCreate>
+               FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort, GeneratorCreate,
+               WorkgroupOperation>
       operation;
 };
 struct ShapeEquality {
@@ -572,6 +581,8 @@ struct TypedFunction {
   bool standardIteratorTake = false;
   // Loader-proven private std/cmp sorter; safe specialization scope only.
   bool standardComparatorSort = false;
+  // Private expected-error export adapter; never inferred from source spelling.
+  std::optional<FunctionId> deviceErrorEntry = {};
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.

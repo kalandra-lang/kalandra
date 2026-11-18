@@ -506,10 +506,11 @@ int main() {
         {(pathRoot / "main.k").string(), ""},
         {(pathRoot / "foreign" / "hidden.k").string(), ""}};
     info = pathQuery("from \"std/|\" import println\nfn main():\n  return ()\n", {});
-    require(info.names.size() == 13 && has(info, "std/ops") && has(info, "std/cmp") && has(info, "std/buffer") && has(info, "std/iter") && has(info, "std/option") &&
-                has(info, "std/time") && has(info, "std/env") && has(info, "std/path") &&
-                has(info, "std/parse") && has(info, "std/fs") && has(info, "std/io") &&
-                has(info, "std/fmt") && has(info, "std/process"),
+    require(info.names.size() == 14 && has(info, "std/gpu") && has(info, "std/ops") &&
+                has(info, "std/cmp") && has(info, "std/buffer") && has(info, "std/iter") &&
+                has(info, "std/option") && has(info, "std/time") && has(info, "std/env") &&
+                has(info, "std/path") && has(info, "std/parse") && has(info, "std/fs") &&
+                has(info, "std/io") && has(info, "std/fmt") && has(info, "std/process"),
             "standard modules complete without installed files or workspace overlays");
     info = pathQuery("from \"std/i|Suffix\" import println\nfn main():\n  return ()\n", {});
     require(info.names.size() == 2 && has(info, "std/io") && has(info, "std/iter") &&

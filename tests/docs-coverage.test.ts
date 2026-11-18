@@ -123,6 +123,7 @@ test("standard-module callables have individual public reference entries", async
     Iteration: "iteration",
     Comparison: "ordering",
     Arithmetic: "arithmetic-traits",
+    Gpu: "gpu-kernels",
   };
   let count = 0;
   for (const module of declarations.matchAll(
@@ -143,10 +144,14 @@ test("standard-module callables have individual public reference entries", async
     for (const fn of module[2]!.matchAll(/export fn (\w+)(\[[^\n]*?\])?\(/g)) {
       ++count;
       expect(reference).toContain(`h2 { "${fn[1]}" }`);
-      expect(reference).toContain(`code { "${fn[1]}${fn[2] ?? ""}(`);
+      // dispatch's rank-polymorphic implementation uses generic placeholder
+      // parameters; its public signature documents arrays and a typed callback.
+      const generics =
+        module[1] === "Gpu" && fn[1] === "dispatch" ? "" : (fn[2] ?? "");
+      expect(reference).toContain(`code { "${fn[1]}${generics}(`);
     }
   }
-  expect(count).toBe(71);
+  expect(count).toBe(72);
   const options = await readFile(new URL("options.tiramisu", content), "utf8");
   expect(options).toContain('h2 { "Option[T]" }');
   expect(options).toContain('from "std/option" import Option');

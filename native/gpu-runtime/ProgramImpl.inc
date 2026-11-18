@@ -30,7 +30,7 @@ bool sameShape(const TensorValue &a, const TensorValue &b) {
   return a.scalar == b.scalar && a.rank == b.rank &&
          std::equal(a.shape().begin(), a.shape().end(), b.shape().begin());
 }
-bool maps(K kind) { return kind == K::Map || isGpuControlKind(kind); }
+bool maps(K kind) { return kind == K::Map || isGpuControlKind(kind) || kind == K::Workgroup; }
 bool computes(K kind) { return maps(kind) || kind == K::Reduce || kind == K::Matmul; }
 bool produces(K kind) { return computes(kind) || kind == K::Alias; }
 std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
@@ -102,7 +102,8 @@ std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
   if (!contract)
     return std::unexpected(contract.error());
   if (kernel.kernel.parameterWords() != contract->parameterWords ||
-      kernel.kernel.entryName() != contract->entry)
+      kernel.kernel.entryName() != contract->entry ||
+      (contract->localSize && kernel.kernel.localSize() != contract->localSize))
     return std::unexpected(Error::Invalid);
   return {};
 } catch (const std::bad_alloc &) {
@@ -114,6 +115,13 @@ bool validInstruction(const ProgramInstruction &op) {
   if (!maps(op.kind) && !op.scalarSources.empty())
     return false;
   switch (op.kind) {
+  case K::Workgroup:
+    return op.kernel && op.kernel->workgroup && !op.kernel->scalar && !op.target &&
+        op.kernel->tensorTypes.size() == n && op.kernel->workgroup->inputRanks.size() == n &&
+        op.kernel->scalarTypes.size() == op.scalarSources.size() + op.constants.size() &&
+        op.kernel->scalarBuffers.size() == n &&
+        std::ranges::all_of(op.kernel->scalarBuffers, [](auto role) { return role == 0; }) &&
+        workgroupParameterWords(*op.kernel->workgroup, op.kernel->scalarTypes).has_value();
   case K::DeviceControl:
     if (!op.kernel || !op.kernel->scalar || op.target ||
         op.kernel->scalarTypes.size() < detail::ControlArenaABI::Cells ||
@@ -180,6 +188,19 @@ std::expected<KernelContract, Error> kernelContract(const ProgramKernel &kernel,
       !std::all_of(kernel.scalarTypes.begin(), kernel.scalarTypes.end(), numeric))
     return std::unexpected(Error::Invalid);
   KernelContract result;
+  if (kernel.workgroup) {
+    if (kind != K::Workgroup || kernel.transform || kernel.scalar ||
+        kernel.tensorTypes.size() != kernel.workgroup->inputRanks.size())
+      return std::unexpected(Error::Invalid);
+    auto words = workgroupParameterWords(*kernel.workgroup, kernel.scalarTypes);
+    if (!words) return std::unexpected(Error::Invalid);
+    result.inputs = kernel.tensorTypes.size();
+    result.parameterWords = *words;
+    result.localSize = 1;
+    for (auto extent : kernel.workgroup->groupShape) result.localSize *= extent;
+    result.entry = workgroupKernelName(kernel.type, kernel.tensorTypes, kernel.scalarTypes, *kernel.workgroup) + backendWorkgroupSuffix;
+    return result;
+  }
   if (kernel.transform) {
     const auto transform = *kernel.transform;
     if (transform != TensorTransformKind::Transpose && transform != TensorTransformKind::SoftmaxRows &&
@@ -266,6 +287,10 @@ std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t i
           !charge(kernel.scalarBuffers.size(), sizeof(std::uint8_t)) ||
           (kernel.reads && !charge(kernel.reads->size(), sizeof(std::uint32_t))))
         return std::unexpected(Error::Budget);
+      if (kernel.workgroup) {
+        auto bytes = workgroupMetadataBytes(*kernel.workgroup);
+        if (!bytes || !charge(*bytes, 1)) return std::unexpected(Error::Budget);
+      }
       const std::uint64_t words = kernel.kernel.parameterWords();
       peakDispatch = std::max(peakDispatch, kernel.kernel.inputCount() * sizeof(Buffer) +
                                                 words * (isGpuControlKind(op.kind) ? 12 : 8) +
@@ -523,7 +548,46 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
       output_ = {};
       output_.type = schema.type;
       std::uint32_t count = 0;
-      if (schema.transform) {
+      if (op.kind == K::Workgroup) {
+        std::vector<std::uint64_t> captured;
+        for (auto source : op.scalarSources) {
+          if (source >= scalars_.size()) return fail(Error::Invalid);
+          captured.push_back(scalars_[source]);
+        }
+        captured.insert(captured.end(), op.constants.begin(), op.constants.end());
+        std::vector<std::span<const std::uint64_t>> shapes;
+        for (std::size_t i = 0; i < op.inputs.size(); ++i) {
+          const auto &value = values_[op.inputs[i]];
+          if (value.scalar || value.type != schema.tensorTypes[i]) return fail(Error::Invalid);
+          shapes.push_back(value.shape());
+          dispatch.inputs.push_back(value.data);
+        }
+        auto packet = prepareWorkgroupLaunch(*schema.workgroup, schema.scalarTypes, captured, shapes,
+            schema.kernel.localSize(), UINT32_MAX, UINT32_MAX, UINT64_MAX);
+        if (!packet) return fail(packet.error() == WorkgroupLaunchError::Arithmetic ? Error::Arithmetic
+            : packet.error() == WorkgroupLaunchError::Shape ? Error::Shape
+            : packet.error() == WorkgroupLaunchError::Resource ? Error::Budget : Error::Invalid);
+        output_.rank = packet->geometry.rank;
+        output_.dimensions = packet->geometry.shape;
+        dispatch.outputBytes = packet->geometry.elements * describeNumeric(schema.type)->bytes();
+        if (!packet->geometry.groups) {
+          auto empty = runtime.blankBytes(0);
+          if (!empty) return fail(empty.error());
+          output_.data = std::move(*empty);
+          if (schema.workgroup->errorWords)
+            output_.workgroupOutcome = std::make_shared<const WorkgroupOutcome>(
+                WorkgroupOutcome{output_.type, output_.dimensions, output_.rank, {}});
+          values_[op.output] = std::move(output_);
+          for (auto input : op.inputs) release(input);
+          ++pc_;
+          return std::optional<ProgramDispatch>{};
+        }
+        dispatch.groups = packet->geometry.groups;
+        dispatch.parameters = std::move(packet->parameters);
+        parameterWords_ = dispatch.parameters.size();
+        pending_ = true;
+        return std::optional<ProgramDispatch>{std::move(dispatch)};
+      } else if (schema.transform) {
         if (a.type != schema.type)
           return fail(Error::Invalid);
         if (a.scalar || a.rank != 2)
@@ -770,6 +834,19 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
       result.output.bytes() != std::uint64_t(*size) * describeNumeric(output_.type)->bytes())
     return fail(Error::Invalid);
   output_.data = std::move(result.output);
+  const auto &instruction = definition_->code[pc_];
+  if (instruction.kind == K::Workgroup && instruction.kernel->workgroup->errorWords) {
+    try {
+      auto error = readWorkgroupError(*instruction.kernel->workgroup,
+                                      instruction.kernel->scalarTypes, result.parameters);
+      if (!error)
+        return fail(Error::Invalid);
+      output_.workgroupOutcome = std::make_shared<const WorkgroupOutcome>(
+          WorkgroupOutcome{output_.type, output_.dimensions, output_.rank, std::move(*error)});
+    } catch (const std::bad_alloc &) {
+      return fail(Error::Allocation);
+    }
+  }
   pending_ = false;
   if (isGpuControlKind(definition_->code[pc_].kind)) {
     if (result.parameters.size() < 4 || result.parameters[0] != 1)
