@@ -36,9 +36,10 @@ executable or SDK library crosses into the Windows package. The Windows-native
 SPIR-V validator is built through the existing pinned vcpkg baseline with a static
 CRT; its tool/dependency notices and installed binary digest are retained.
 
-Physical Windows x64 execution passed the RTX 5090 correctness suite described
-below. The hosted jobs qualify Windows ARM64 compilation and packaging. Windows
-ARM64 GPU execution and other hardware still need physical qualification.
+Physical Windows x64 execution and the whole-process latency checks passed on
+the RTX 5090 configuration below. The hosted jobs qualify Windows ARM64
+compilation and packaging. Windows ARM64 GPU execution and other hardware
+still need physical qualification.
 
 Tracking: #263 (Vulkan), #264 (CUDA). Keep both capabilities in this PR and retain
 explicit qualification boundaries in package metadata, documentation and CI.
@@ -97,14 +98,57 @@ All six comparison groups passed their stability gates with five blocks
 and six fresh processes per arm in each block. All 360 timed processes and
 18 separate correctness checks reproduced the exact expected outputs.
 These are whole-process latencies, including startup and transfers.
-Repeat the package checks with the rebuilt Windows compiler before closing
-the qualification.
 
 Preparation found that the Windows SPIR-V validator lost non-ASCII output path
 characters. The tested release packages built Vulkan applications in an ASCII
 scratch directory and replayed them from the Unicode path. The compiler fix
 uses binary standard input to validate the same bytes. The Windows package
 regression compiles directly into a Unicode output path.
+
+### Rebuilt packages
+
+[Actions run 44592884330](https://github.com/kalandra-lang/kalandra/actions/runs/44592884330)
+rebuilt the standalone CUDA and Vulkan packages at `55f96120` for Windows
+x86-64 and ARM64. Both architectures passed relocated installation, Unicode
+output paths, missing owned resources, native CPU execution, GPU-source
+compilation, and byte-for-byte archive reproducibility.
+
+The rebuilt x64 packages passed both no-device checks. The same x64
+packages built 321 fixtures under a Unicode prefix and output directory.
+All 959 physical executions passed (481 CUDA and 478 Vulkan), including
+the two asynchronous runtime probes and the larger 128 × 32 × 256 CUDA
+case. The larger case still dispatches the tiled kernel. The two short
+CUDA matrices use a 5,630-byte PTX module under both matmul policies.
+The files are byte-identical, and neither optimized application loads the
+catalog. The test guest ran Windows 11 x64 build 26300 with four visible
+logical CPUs, NVIDIA driver 610.88 and an RTX 5090 passed through from
+openSUSE Tumbleweed (kernel 7.3.3-1-default).
+
+The accepted series used five blocks per comparison and identical-build
+control, with six fresh processes per arm per block. All 480 timed runs
+passed the output checks. Ratios are paired median whole-process latency
+for optimized divided by fixed-tree.
+
+| Backend | Matrix shape (M × K × N) | Optimized / fixed-tree |
+| --- | --- | ---: |
+| CUDA | 128 × 32 × 128 | 1.00614 |
+| CUDA | 129 × 17 × 128 | 1.00332 |
+| Vulkan | 128 × 32 × 128 | 0.99978 |
+| Vulkan | 129 × 17 × 128 | 0.99118 |
+
+The first two series each rejected one control block because guest CPU
+utilization exceeded the 12.5% idle threshold (14.45% and 30.08%).
+Both rejected series are retained with the accepted run. All 1,416
+timed executions across the three series passed their output checks.
+
+The frozen fixture manifest SHA-256 is
+`5b004c97b60053c26cf4a0d7cce592b863a5e29d73f021eac2a1473b70456a33`.
+The raw correctness and timing archive SHA-256 is
+`e09e62218bea4140b3ca04f9f81ba8d447f381941cc3082c4e5e442726aaf59d`.
+Windows shut down normally and Linux recovered both PCI functions
+and its display and NVIDIA persistence services.
+
+### Reproduce the qualification
 
 Run the qualification from a Windows x64 Visual Studio developer shell with
 the Windows SDK configured and both checksum-verified standalone packages
