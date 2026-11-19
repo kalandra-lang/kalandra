@@ -14,7 +14,7 @@ p.add_argument('--compiler',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
 a=p.parse_args();a.output=a.output.resolve();a.output.mkdir(parents=True,exist_ok=True)
 records=[]
-for name,m,n,k in [('aligned',128,256,32),('row-tail',129,128,16),('contraction-tail',128,128,17)]:
+for name,m,n,k in [('aligned',128,256,32),('small-aligned',128,128,32),('row-tail',129,128,16),('contraction-tail',128,128,17)]:
     source=a.output/(name+'.k')
     left='['+','.join('['+','.join('1' for _ in range(k))+']' for _ in range(m))+']'
     right='['+','.join('['+','.join('1' for _ in range(n))+']' for _ in range(k))+']'
@@ -42,6 +42,7 @@ fn main()->Tensor[f32,?,?] ! TaskError:
         assert 'MIT License' in notices and 'Simon Boehm' in notices
         assert 'BSD-3-Clause' in notices and 'NVIDIA' in notices
         native=policy=='optimized' and arithmetic!='software' and name=='aligned'
+        assert (directory/'kernel0.ptx.fixed-tree.ptx').is_file() == native, directory
         for workers in (1,2,4):
             run=subprocess.run([directory/'program'],env=os.environ|{'KALANDRA_WORKERS':str(workers),'KALANDRA_CUDA_DIAGNOSTICS':'1'},
                 capture_output=True,text=True,timeout=90)

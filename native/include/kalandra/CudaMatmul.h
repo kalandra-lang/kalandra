@@ -14,6 +14,12 @@ inline constexpr bool cudaMatmulCatalogShape(std::uint64_t m, std::uint64_t n, s
   return m && n && k && !(m % 64) && !(n % 64) && !(k % 16) && m <= limit - 255 &&
          n <= limit - 255 && k <= limit - 39 && m * n < limit && m * k < limit && k * n < limit;
 }
+inline constexpr bool cudaMatmulCatalogWorthLoading(std::uint64_t m, std::uint64_t n,
+                                                    std::uint64_t k) {
+  // At most two narrow outputs and four occupied K partitions leave little
+  // work for split-K to save. Use the same fixed-tree kernel as other fallbacks.
+  return cudaMatmulCatalogShape(m, n, k) && (k > 32 || (m / 64) * ((n + 127) / 128) > 2);
+}
 inline constexpr bool cudaMatmulWide(std::uint64_t m, std::uint64_t n, std::uint64_t k) {
   // Wide output tiles amortize long products, but waste occupancy for smaller
   // outputs. Keep the narrow tile for medium-area, long-contraction products.

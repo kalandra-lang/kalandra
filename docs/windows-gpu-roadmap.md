@@ -36,9 +36,9 @@ executable or SDK library crosses into the Windows package. The Windows-native
 SPIR-V validator is built through the existing pinned vcpkg baseline with a static
 CRT; its tool/dependency notices and installed binary digest are retained.
 
-Windows GPU execution remains unqualified. Windows ARM64 runtime compilation is not evidence that a vendor
-provides an ARM64 CUDA driver. Do not claim a supported hardware matrix from
-header/object compilation, a software Vulkan device or a CPU substitute.
+Physical Windows x64 execution passed the RTX 5090 correctness suite described
+below. The hosted jobs qualify Windows ARM64 compilation and packaging. Windows
+ARM64 GPU execution and other hardware still need physical qualification.
 
 Tracking: #263 (Vulkan), #264 (CUDA). Keep both capabilities in this PR and retain
 explicit qualification boundaries in package metadata, documentation and CI.
@@ -66,3 +66,75 @@ macOS caller-pop safeguard on all three operating systems. Register-only calls
 retain `tailcc`, and matching large signatures remain eligible for `musttail`.
 Different large signatures can use ordinary calls and consume stack; this is
 an explicit ABI fallback, without removing cancellation or ownership checks.
+
+## Physical Windows qualification (#276)
+
+Windows 11 x64 (build 26300) in the KVM guest passed all 956 correctness
+executions on the RTX 5090 with NVIDIA driver 610.88 and four guest-visible
+logical CPUs. The suites ran the installed compiler packages from develop
+commit `59072bfb`. CUDA and Vulkan each passed 478 executions. The deployed
+applications lived in a Unicode path and ran from a separate working directory.
+
+Both Vulkan timing trials passed the stability gates for the two tested matrix
+shapes. Optimized and fixed-tree whole-process latency was within about 1.2%
+in the median paired comparisons. CUDA missed the stability gates on both
+trials. Its observed optimized/fixed-tree ratios were 1.23–1.32. Both raw
+trials were retained.
+
+The CUDA follow-up on the same Windows guest measured a median 16.925 ms for
+driver module loading and function reflection in the previous optimized
+bundle. The fixed-tree bundle took 0.198 ms. The candidate omitted the
+optimized catalog and took 0.206 ms. Each candidate reused the previous
+Windows executable and its byte-identical fixed-tree shader companion.
+The patched compiler selects that shader directly for these shapes.
+
+| Matrix shape (M × K × N) | Previous optimized / fixed-tree | Candidate / fixed-tree |
+| --- | ---: | ---: |
+| 128 × 32 × 128 | 1.26382 | 1.00147 |
+| 129 × 17 × 128 | 1.22982 | 1.00004 |
+
+All six comparison groups passed their stability gates with five blocks
+and six fresh processes per arm in each block. All 360 timed processes and
+18 separate correctness checks reproduced the exact expected outputs.
+These are whole-process latencies, including startup and transfers.
+Repeat the package checks with the rebuilt Windows compiler before closing
+the qualification.
+
+Preparation found that the Windows SPIR-V validator lost non-ASCII output path
+characters. The tested release packages built Vulkan applications in an ASCII
+scratch directory and replayed them from the Unicode path. The compiler fix
+uses binary standard input to validate the same bytes. The Windows package
+regression compiles directly into a Unicode output path.
+
+Run the qualification from a Windows x64 Visual Studio developer shell with
+the Windows SDK configured and both checksum-verified standalone packages
+extracted. Use the packages and test sources from the same implementation
+revision. The prepare stage only builds. It can run with the RTX assigned to
+Linux. The frozen directory and its manifest can then be moved together.
+
+```powershell
+$runner = "native/gpu-runtime/qualification/windows_physical.py"
+python $runner prepare --revision $revision --cuda $cudaPackage --vulkan $vulkanPackage --bundle $bundle
+python $runner replay --bundle $bundle --output $correctness
+python $runner measure --bundle $bundle --correctness $correctness --output $timing
+```
+
+Use a fresh output directory for each invocation. Include spaces and non-ASCII
+characters in the package and frozen directory paths. Replay uses a separate
+working directory and checks byte-exact output, exit status, missing deployed
+resources, all ten numeric types, three arithmetic policies, both matrix
+policies and several ranks. Prepare builds the existing asynchronous runtime
+probes against the installed libraries. Replay runs them to check transfers, in-flight
+cancellation and deadlines, fault precedence and cleanup.
+
+Timing requires a passing replay on the same frozen inputs and GPU driver.
+Run it by itself with the guest and host otherwise idle. It compares fixed-tree
+and optimized application latency in the VM, including process startup and
+transfers. Identical-build controls and interleaved comparisons must pass their
+stability gates. Keep the raw logs and summaries for failed controls too.
+
+Record the Linux host configuration, Windows build, guest vCPU/RAM, GPU driver,
+package digests and results. Use an exclusive passthrough window and keep the
+host administration terminal open. Shut down Windows normally at the end of
+the run and verify Linux has reclaimed both PCI functions and its graphics
+services. ARM64 GPU execution and other GPUs require separate evidence.

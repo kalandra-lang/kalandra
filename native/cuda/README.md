@@ -121,6 +121,14 @@ capability and unsupported geometry use the fixed-tree GPU companion. The
 optimized policy already permits FMA, reassociation and intermediate-overflow
 behavior differing from a serial or fixed-tree dot product.
 
+The compiler omits the catalog when every use of a shader is proven to use
+either unsupported geometry or a short contraction (K up to 32) with at most
+two narrow tiles. Those products execute the fixed-tree GPU shader with the
+requested arithmetic mode. A shared shader keeps the catalog if any use can
+benefit or its shape is unknown. This avoids paying driver load and reflection
+costs in short-lived applications and retains dynamic and larger optimized
+dispatches.
+
 Optional scratch is five float32 output planes, charged at the device allocation
 granularity. When full planes exceed the quota, the runtime reuses 512 or 256
 output rows of scratch with a separately budgeted per-band shape table. Every

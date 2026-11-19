@@ -76,6 +76,13 @@ source = root/'cpu.k'
 source.write_text('fn main()->i32:\n  return 42\n')
 run([compiler, '--test-entry', 'main', source, '-o', root/'cpu.exe'])
 assert subprocess.check_output([root/'cpu.exe'], text=True, timeout=30) == '42\n'
+# A wide output path must survive all child tools, including spirv-val.exe.
+unicode_output = root/'GPU application λ'
+run([compiler, '--test-entry', 'main', '--target', a.backend, '-O2',
+     repo/'native/metal-source/placed.k', '-o', unicode_output])
+assert (unicode_output/'program.exe').is_file()
+assert (unicode_output/('kernel0.ptx' if a.backend == 'cuda' else 'kernel0.spv')).is_file()
+
 compile_report = run_compile_jobs(compile_plan(a.backend, repo, compiler, root), root, a.jobs)
 if a.backend == 'cuda':
     assert len(list((root/'applications').rglob('program.exe'))) == 51
@@ -116,7 +123,7 @@ fn main()->Tensor[f32,?,?] ! TaskError:
     try await transfer(y,devices.cpu())
 """)
     checks += [('lib/kalandra/native/cuda/transforms/transpose-float32.ptx', transform),
-               ('lib/kalandra/native/cuda/kernels/matmul-catalog.ptx', repo/'native/metal-source/matmul.k')]
+               ('lib/kalandra/native/cuda/kernels/matmul-catalog.ptx', repo/'native/cuda-source/qualification/catalog-matmul.k')]
 for index, (relative, fixture) in enumerate(checks):
     owned = prefix/relative
     saved = owned.with_name(owned.name+'.qualification-hidden')
@@ -126,6 +133,12 @@ for index, (relative, fixture) in enumerate(checks):
         result = subprocess.run([compiler, '--test-entry', 'main', '--target', a.backend, fixture, '--matmul-policy', 'optimized', '-O2', '-o', output],
                                 capture_output=True, text=True, timeout=180)
         assert result.returncode == 1 and not (output/'program.exe').exists(), (relative, result)
+        if relative.endswith('/matmul-catalog.ptx'):
+            compact = root/'cuda-small-without-catalog'
+            run([compiler, '--test-entry', 'main', '--target', 'cuda',
+                 repo/'native/metal-source/matmul.k', '--matmul-policy', 'optimized', '-O2', '-o', compact])
+            assert (compact/'program.exe').is_file()
+            assert not list(compact.glob('*.ptx.fixed-tree.ptx'))
     finally:
         saved.rename(owned)
 report = {'backend': a.backend, 'architecture': a.arch, 'archiveSHA256': digest(archive),
