@@ -3,8 +3,10 @@ from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import call, patch
+from urllib.error import HTTPError
 
-from linux_cross_sdk import deb_data, unpack, materialize_links, safe_name, ubuntu_url
+from linux_cross_sdk import deb_data, download_package, unpack, materialize_links, safe_name, ubuntu_url
 
 
 def deb(entries):
@@ -34,6 +36,22 @@ class LinuxSDKTests(unittest.TestCase):
         for url in ('file:/etc/passwd', 'https://other.example/pool/a.deb',
                     'mirror+file:/etc/apt/unexpected/pool/a.deb'):
             with self.subTest(url=url), self.assertRaises(ValueError): ubuntu_url(url, 'amd64')
+
+    def test_archive_denial_uses_the_same_pool_path_on_the_official_mirror(self):
+        url = 'https://archive.ubuntu.com/ubuntu/pool/main/a/a/x%2by.deb'
+        mirror = 'https://azure.archive.ubuntu.com/ubuntu/pool/main/a/a/x%2by.deb'
+        denied = HTTPError(url, 403, 'Forbidden', {}, io.BytesIO())
+        with patch('linux_cross_sdk.urlopen', side_effect=[denied, io.BytesIO(b'abcdef')]) as get:
+            self.assertEqual(download_package(url, 4), b'abcd')
+        self.assertEqual(get.call_args_list, [call(url, timeout=120), call(mirror, timeout=120)])
+
+    def test_other_origin_denial_is_not_retried_as_an_archive_download(self):
+        url = 'https://ports.ubuntu.com/ubuntu-ports/pool/main/a/a/x.deb'
+        denied = HTTPError(url, 403, 'Forbidden', {}, io.BytesIO())
+        with patch('linux_cross_sdk.urlopen', side_effect=denied) as get:
+            with self.assertRaises(HTTPError):
+                download_package(url, 4)
+        get.assert_called_once_with(url, timeout=120)
 
     def test_materializes_cross_package_links_and_usr_merge(self):
         with tempfile.TemporaryDirectory() as work:

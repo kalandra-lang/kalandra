@@ -16,6 +16,7 @@ import shlex
 import shutil
 import subprocess
 import tarfile
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import urlopen
 
@@ -163,18 +164,33 @@ def lock(a):
     (a.output / 'sdk.json').write_text(json.dumps(metadata, indent=2) + '\n')
 
 
+def download_package(url, limit):
+    parsed = urlsplit(url)
+    if parsed.scheme != 'https' or parsed.netloc not in (
+            'archive.ubuntu.com', 'security.ubuntu.com', 'ports.ubuntu.com'):
+        raise ValueError('Unexpected SDK URL: ' + url)
+    try:
+        response = urlopen(url, timeout=120)
+    except HTTPError as error:
+        if error.code != 403 or parsed.hostname != 'archive.ubuntu.com':
+            raise
+        # The public archive can reject CI clients. Canonical's Azure mirror
+        # serves the same pool path under the existing APT size and SHA256 lock.
+        error.close()
+        mirror = parsed._replace(netloc='azure.archive.ubuntu.com').geturl()
+        print('Ubuntu archive denied the download, trying ' + mirror, flush=True)
+        response = urlopen(mirror, timeout=120)
+    with response:
+        return response.read(limit)
+
+
 def fetch(a):
     manifest = json.loads((a.manifest / 'sdk.json').read_text())
     if manifest['format'] != 1: raise ValueError('Unsupported SDK manifest')
     a.output.mkdir(parents=True)  # Refuse to mix an old sysroot into this one.
     links = {}
     for package in manifest['packages']:
-        url = package['url']
-        parsed = urlsplit(url)
-        if parsed.scheme != 'https' or parsed.hostname not in ('archive.ubuntu.com', 'security.ubuntu.com', 'ports.ubuntu.com'):
-            raise ValueError('Unexpected SDK URL: ' + url)
-        with urlopen(url, timeout=120) as response:
-            data = response.read(package['size'] + 1)
+        data = download_package(package['url'], package['size'] + 1)
         if len(data) != package['size'] or sha(data) != package['sha256']:
             raise ValueError('Ubuntu package checksum/size mismatch: ' + package['package'])
         unpack(data, a.output, links)
