@@ -1,6 +1,23 @@
 meta { title = "Contributor guide", description = "Build, test and improve the language and its documentation.", order = 1, group = "Contributing" }
 
-Kalandra's compiler and runtime are written in C++23; the website uses SvelteKit and user documentation uses Tiramisu. Contributions can improve language behavior, diagnostics, portability, editor support, examples or documentation. Start with a reproducible issue and a focused change.
+Kalandra's compiler and runtime are written in C++23; the website uses SvelteKit and user documentation uses Tiramisu. Contributions can improve language behavior, diagnostics, portability, editor support, examples or documentation. For a bug report, provide a reproducible example. For an idea, describe the problem you want to solve.
+
+h2 { "Propose a change" }
+
+Anyone can open a GitHub issue to suggest a change. Explain the problem and your idea in your own words. Early ideas, questions and pseudocode are welcome; you do not need a complete specification, an implementation or a sponsor. The Design proposal issue template is optional, and you can open a blank issue instead.
+
+Substantial changes to syntax, semantics, ownership, concurrency, GPU programming models or major public API contracts are discussed and decided in their issues. There is no separate RFC submission process, numbered-document requirement or mandatory waiting period. Bug fixes, routine library additions, documentation improvements and optimizations that preserve behavior can use ordinary pull requests.
+
+Contributors and maintainers develop the proposal together. Before acceptance, summarize the intended behavior with examples, edge cases, alternatives, drawbacks, compatibility and relevant testing or performance expectations. Explain ownership, cancellation and CPU/GPU support where applicable; host-only APIs do not need device implementations. Keep open questions visible.
+
+The project lead or an explicitly delegated maintainer records the decision and its reasoning in an issue comment. Reactions provide feedback rather than votes. Keep the issue body current and link to the decision. Track implementation PRs and the first release separately: an accepted design is not necessarily implemented or available to use. Close the issue with a reason when its work is complete or the proposal is declined or withdrawn.
+
+Experiments and prototype PRs are welcome before a decision. Link implementation PRs to the design issue. If implementation changes the agreed behavior, discuss the amendment and record a new decision before merging. Existing design documents remain references without needing retrospective RFCs.
+
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/issues/new/choose", "Open an issue or use the optional design-proposal template" },
+  link { url = "https://github.com/kalandra-lang/kalandra/blob/develop/CONTRIBUTING.md", "Repository contribution guidelines" }
+}
 
 h2 { "Build the native tools" }
 
