@@ -510,6 +510,10 @@
     {
       "kind": "cpu",
       "expected": "bytes=5\nhello.txt"
+    },
+    {
+      "kind": "cpu",
+      "expected": "build.txt"
     }
   ],
   "parsing": [

@@ -349,3 +349,41 @@ code { "removeDir(path: String) -> unit ! FsError" }
 Remove one empty directory. A nonempty directory is rejected; removal is never recursive. On Windows, removing a directory junction or directory symbolic link removes that link without traversing or deleting its target.
 
 These operations run on the host through the same bounded I/O service as file reads and writes. Structured tasks can suspend while a request is pending. They work on the host in mixed GPU applications and are rejected in device kernels. Filesystem changes already performed by the OS cannot be undone by a later error or cancellation.
+
+h2 { "walkDir" }
+
+code { "walkDir(root: String) -> Iterator[WalkEntry, FsError] ! FsError" }
+
+Open root and visit its descendants depth-first. Each WalkEntry has a path (String) and a kind (FileKind). Paths include the supplied root and can be passed directly to open or metadata. A directory appears before its children. Sibling order depends on the filesystem. A link is a leaf, including a Windows junction. The root must be a directory and the traversal opens its path components without following links.
+
+Opening and advancing can each report FsError. Breaking early, returning, propagating an error or cancelling releases the directory handles through the normal iterator cleanup. The cursor keeps the active chain of directories open and reads entries on demand. If the tree changes during iteration, a later entry may disappear or fail to open.
+
+h2 { "createDirAll" }
+
+code { "createDirAll(path: String) -> unit ! FsError" }
+
+Create missing parents and the final directory. An existing directory counts as success, including when another task creates it first. A file blocking a component reports FsError. Cancellation or an error can leave directories already created.
+
+h2 { "removeTree" }
+
+code { "removeTree(path: String) -> unit ! FsError" }
+
+Remove a directory and its descendants. A link supplied as the final component is removed as a link, including a Windows junction. Intermediate links are rejected, and a link encountered inside the tree is never traversed. A missing root reports FsError. Filesystem roots, empty paths and final dot or parent components are rejected. Use removeFile for an individual regular file. A failure or cancellation can leave a partially removed tree.
+
+This example creates a scratch tree, prints its filename, and removes the tree. The first createDir call fails if scratch already exists, so the example only removes a directory it created.
+
+codeblock { language = kalandra, """from "std/fs" import createDir, createDirAll, walkDir, removeTree, FileKind, FsError, open, OpenMode, close
+from "std/path" import fileName
+from "std/io" import println, IoError
+
+fn main() -> unit ! (FsError | IoError):
+  try createDir("scratch")
+  try createDirAll("scratch/logs")
+  file = try open("scratch/logs/build.txt", OpenMode.CreateNew)
+  try close(file)
+  try for entry in try walkDir("scratch"):
+    if entry.kind == FileKind.File:
+      try println(fileName(entry.path))
+  try removeTree("scratch")
+  return ()
+""" }
