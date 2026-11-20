@@ -4,10 +4,10 @@ Use ByteReader and ByteWriter from std/stream when a function needs to move byte
 
 h2 { "Copy a file with one reusable buffer" }
 
-Place a file named source.bin in the working directory. This program writes two copies. The same pump works with raw files and with buffered files. finish flushes the buffered output and reports any final write error.
+Run this example in an empty directory. It writes a greeting to source.bin and makes two copies. The same pump works with raw files and with buffered files. finish flushes the buffered output and reports any final write error.
 
 codeblock { language = kalandra, """from "std/stream" import ByteReader, ByteWriter, StreamError, readInto, writeAll
-from "std/fs" import open, close, OpenMode, FsError, bufferedReader, bufferedWriter, finish
+from "std/fs" import open, close, OpenMode, FsError, writeText, bufferedReader, bufferedWriter, finish
 from "std/buffer" import ByteBuffer, byteBuffer, BufferError
 
 fn pump[R: ByteReader, W: ByteWriter](source: R, target: W, mut chunk: ByteBuffer) -> u64 ! StreamError:
@@ -21,6 +21,9 @@ fn pump[R: ByteReader, W: ByteWriter](source: R, target: W, mut chunk: ByteBuffe
   return total
 
 fn main() -> unit ! (FsError | StreamError | BufferError):
+  seed = try open("source.bin", OpenMode.Create)
+  try writeText(seed, "Hello from Kalandra")
+  try close(seed)
   chunk = try byteBuffer(65536)
   source = try open("source.bin", OpenMode.Read)
   target = try open("target.bin", OpenMode.Create)
@@ -35,10 +38,32 @@ fn main() -> unit ! (FsError | StreamError | BufferError):
   return ()
 """ }
 
-h2 { "Read into a buffer" }
+h2 { "readInto" }
 
-readInto(reader, buffer, maxBytes) replaces the initialized contents of buffer. readAppend(reader, buffer, maxBytes) extends them. Both return the number of newly read bytes as u64. A positive request returning zero means end of input. A short positive read is data to process, and a zero-byte request cannot tell you whether more input is available.
+code { "readInto[S: ByteReader](stream: S, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError" }
 
-h2 { "Write initialized bytes" }
+Replace the initialized contents with up to maxBytes bytes. A positive request returning zero means EOF. A short positive read delivers data and the next read may deliver more. A zero-byte request cannot establish EOF.
 
-write(writer, buffer) returns the number of bytes accepted in one write. writeAll(writer, buffer) returns unit once it has written the entire initialized prefix. A write may already have delivered some bytes when it reports an error. Handle StreamError at the boundary that decides whether to retry or report the failure.
+h2 { "readAppend" }
+
+code { "readAppend[S: ByteReader](stream: S, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError" }
+
+Append up to maxBytes bytes, returning the number added. The earlier prefix stays available on EOF or error.
+
+h2 { "write" }
+
+code { "write[S: ByteWriter](stream: S, buffer: ByteBuffer) -> u64 ! StreamError" }
+
+Write from the initialized prefix and return the number accepted. A short write is possible. To deliver the whole buffer, use writeAll.
+
+h2 { "writeAll" }
+
+code { "writeAll[S: ByteWriter](stream: S, buffer: ByteBuffer) -> unit ! StreamError" }
+
+Write the entire initialized prefix, suspending as space becomes available. On error some bytes may already have been delivered. StreamError.BrokenPipe carries the native code for a closed peer. StreamError.System carries the OS code and a diagnostic message. StreamError.InvalidArgument reports an incompatible operation.
+
+h2 { "close" }
+
+code { "close[S: PipeCloser](own stream: S) -> unit ! StreamError" }
+
+Consume a PipeReader or PipeWriter. Closing the last writer delivers EOF after pending bytes have been read. Owned endpoints also close when their scope exits. Use std/fs.close for files and std/fs.finish to flush and close a BufferedWriter.

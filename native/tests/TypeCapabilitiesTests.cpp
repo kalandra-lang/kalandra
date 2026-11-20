@@ -119,7 +119,7 @@ void checkTypeCapabilities() {
          "type facts cached stale state");
 
   TypedModule module;
-  for (unsigned kind = 0; kind <= unsigned(StandardRecord::Option); ++kind) {
+  for (unsigned kind = 0; kind <= unsigned(StandardRecord::Captured); ++kind) {
     TypedRecord record;
     record.name = "File"; // Spelling is never conformance/resource identity.
     record.standard = static_cast<StandardRecord>(kind);
@@ -133,7 +133,8 @@ void checkTypeCapabilities() {
     const auto standard = id < module.records.size() ? module.records[id].standard : std::nullopt;
     const bool file = standard == StandardRecord::File ||
                       standard == StandardRecord::BufferedReader ||
-                      standard == StandardRecord::BufferedWriter;
+                      standard == StandardRecord::BufferedWriter || standard == StandardRecord::Child ||
+                      standard == StandardRecord::PipeReader || standard == StandardRecord::PipeWriter;
     const bool buffer = standard == StandardRecord::ByteBuffer;
     const bool iterator = standard == StandardRecord::Iterator;
     expect(isFileResource(module, type) == file && isByteBuffer(module, type) == buffer &&

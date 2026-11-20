@@ -28,7 +28,18 @@ enum class FileAction : std::uint32_t {
   Metadata,
   DirectoryCreate,
   RemoveFile,
-  DirectoryRemove
+  DirectoryRemove,
+  StreamRead,
+  StreamAppend,
+  StreamWrite,
+  StreamWriteAll,
+  PipeClose,
+  Start,
+  TakeStdin,
+  TakeStdout,
+  TakeStderr,
+  Wait,
+  Capture
 };
 inline std::optional<FileAction> fileAction(std::string_view name) {
   if (name == "__openDirectory")
@@ -54,13 +65,72 @@ inline std::optional<FileAction> fileAction(std::string_view name) {
       return static_cast<FileAction>(i);
   return {};
 }
+inline std::optional<FileAction> streamAction(std::string_view name) {
+  if (name == "__readIntoFile")
+    return FileAction::StreamRead;
+  if (name == "__readAppendFile")
+    return FileAction::StreamAppend;
+  if (name == "__readIntoBufferedReader")
+    return FileAction::StreamRead;
+  if (name == "__readAppendBufferedReader")
+    return FileAction::StreamAppend;
+  if (name == "__readIntoPipeReader")
+    return FileAction::StreamRead;
+  if (name == "__readAppendPipeReader")
+    return FileAction::StreamAppend;
+  if (name == "__writeFile")
+    return FileAction::StreamWrite;
+  if (name == "__writeAllFile")
+    return FileAction::StreamWriteAll;
+  if (name == "__writeBufferedWriter")
+    return FileAction::StreamWrite;
+  if (name == "__writeAllBufferedWriter")
+    return FileAction::StreamWriteAll;
+  if (name == "__writePipeWriter")
+    return FileAction::StreamWrite;
+  if (name == "__writeAllPipeWriter")
+    return FileAction::StreamWriteAll;
+  if (name == "__closeReader")
+    return FileAction::PipeClose;
+  if (name == "__closeWriter")
+    return FileAction::PipeClose;
+  return {};
+}
+inline std::optional<FileAction> processAction(std::string_view name) {
+  if (name == "start")
+    return FileAction::Start;
+  if (name == "takeStdin")
+    return FileAction::TakeStdin;
+  if (name == "takeStdout")
+    return FileAction::TakeStdout;
+  if (name == "takeStderr")
+    return FileAction::TakeStderr;
+  if (name == "wait")
+    return FileAction::Wait;
+  if (name == "capture")
+    return FileAction::Capture;
+  return {};
+}
+inline bool commandAction(FileAction action) {
+  return action == FileAction::Start || action == FileAction::Capture;
+}
+inline FileAction streamFileAction(FileAction action) {
+  switch (action) {
+  case FileAction::StreamRead: return FileAction::ReadIntoBuffer;
+  case FileAction::StreamAppend: return FileAction::ReadAppend;
+  case FileAction::StreamWrite: return FileAction::WriteBuffer;
+  case FileAction::StreamWriteAll: return FileAction::WriteAllBuffer;
+  case FileAction::PipeClose: return FileAction::Close;
+  default: return action;
+  }
+}
 inline bool filePathAction(FileAction action) {
   return action == FileAction::Open || action == FileAction::OpenDirectory ||
          action == FileAction::Metadata || action == FileAction::DirectoryCreate ||
          action == FileAction::RemoveFile || action == FileAction::DirectoryRemove;
 }
 inline bool consumesFile(FileAction action) {
-  return action == FileAction::BufferedReader || action == FileAction::BufferedWriter ||
+  return action == FileAction::PipeClose || action == FileAction::BufferedReader || action == FileAction::BufferedWriter ||
          action == FileAction::Finish || action == FileAction::Close;
 }
 } // namespace kalandra

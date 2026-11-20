@@ -25,6 +25,50 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
     return scalar(t) && t.builtin == BuiltinValue::Numeric && t.element == NumericType::UInt64;
   };
   auto result = expression.type;
+  if (op->action >= FileAction::StreamRead) {
+    const bool process = op->action >= FileAction::Start;
+    const bool read = op->action == FileAction::StreamRead || op->action == FileAction::StreamAppend;
+    const bool write = op->action == FileAction::StreamWrite || op->action == FileAction::StreamWriteAll;
+    if (!hostExecutionAvailable(target) || result.task || result.device || !result.fallible ||
+        !result.errorRecord || *result.errorRecord >= module.records.size() ||
+        module.records[*result.errorRecord].standard !=
+            (process ? StandardRecord::ProcessError : StandardRecord::StreamError))
+      return bad("requires a host stream or process error channel");
+    const unsigned count = read ? 3 : write || op->action == FileAction::Capture ? 2 : 1;
+    if (op->arguments.size() != count || std::ranges::any_of(op->arguments, [&](auto id) {
+          return id >= module.expressions.size();
+        }))
+      return bad("invalid stream or process arguments");
+    const auto &first = module.expressions[op->arguments[0]].type;
+    const auto arg = [&](unsigned i) -> const ValueType & {
+      return module.expressions[op->arguments[i]].type;
+    };
+    result.fallible = false;
+    result.errorRecord.reset();
+    if (!scalar(first) || !scalar(result))
+      return bad("requires completed scalar handles or records");
+    bool valid = false;
+    if (read || write) {
+      valid = (nominal(first, StandardRecord::File) ||
+               nominal(first, read ? StandardRecord::BufferedReader : StandardRecord::BufferedWriter) ||
+               nominal(first, read ? StandardRecord::PipeReader : StandardRecord::PipeWriter)) &&
+              scalar(arg(1)) && isByteBuffer(module, arg(1)) && (!read || u64(arg(2))) &&
+              (op->action == FileAction::StreamWriteAll ? result.builtin == BuiltinValue::Unit : u64(result));
+    } else if (op->action == FileAction::PipeClose) {
+      valid = (nominal(first, StandardRecord::PipeReader) || nominal(first, StandardRecord::PipeWriter)) &&
+              result.builtin == BuiltinValue::Unit;
+    } else if (commandAction(op->action)) {
+      valid = nominal(first, StandardRecord::Command) &&
+              (op->action == FileAction::Start ? nominal(result, StandardRecord::Child)
+               : u64(arg(1)) && nominal(result, StandardRecord::Captured));
+    } else if (nominal(first, StandardRecord::Child)) {
+      valid = (op->action == FileAction::Wait && nominal(result, StandardRecord::ProcessStatus)) ||
+              (op->action == FileAction::TakeStdin && nominal(result, StandardRecord::PipeWriter)) ||
+              ((op->action == FileAction::TakeStdout || op->action == FileAction::TakeStderr) &&
+               nominal(result, StandardRecord::PipeReader));
+    }
+    return valid ? std::nullopt : bad("invalid stream or process operation signature");
+  }
   if (!hostExecutionAvailable(target) || result.task || result.device || !result.fallible ||
       !result.errorRecord || *result.errorRecord >= module.records.size() ||
       module.records[*result.errorRecord].standard != StandardRecord::FsError)

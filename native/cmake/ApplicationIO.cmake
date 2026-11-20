@@ -1,5 +1,5 @@
 foreach(target IN ITEMS kalandra-native-runtime kalandra-native-runtime-sanitized kalandra-native-runtime-thread-sanitized kalandra-task-core-optimized)
-  target_sources(${target} PRIVATE runtime/Format.cpp runtime/FormatControls.cpp runtime/Console.cpp runtime/Application.cpp runtime/FileSystem.cpp runtime/OwnedResources.cpp runtime/ByteBuffer.cpp runtime/Parse.cpp runtime/Path.cpp runtime/Environment.cpp runtime/Time.cpp)
+  target_sources(${target} PRIVATE runtime/Format.cpp runtime/FormatControls.cpp runtime/Console.cpp runtime/Application.cpp runtime/FileSystem.cpp runtime/ChildProcess.cpp runtime/OwnedResources.cpp runtime/ByteBuffer.cpp runtime/Parse.cpp runtime/Path.cpp runtime/Environment.cpp runtime/Time.cpp)
 endforeach()
 if(BUILD_TESTING)
   foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
@@ -552,5 +552,14 @@ if(BUILD_TESTING)
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/StreamSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}")
     set_tests_properties(native-stream-source-${variant} PROPERTIES TIMEOUT 480 LABELS "feature-io")
+  endforeach()
+endif()
+
+if(BUILD_TESTING)
+  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+    add_test(NAME native-process-streams-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ProcessSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}")
+    set_tests_properties(native-process-streams-${variant} PROPERTIES TIMEOUT 480 LABELS "feature-io")
   endforeach()
 endif()

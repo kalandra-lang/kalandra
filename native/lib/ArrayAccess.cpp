@@ -935,12 +935,13 @@ private:
               rememberResource(argument, args.back(), env, uses);
             }
             validateResources(uses, env);
-            if (!filePathAction(op.action) && !args.empty()) {
+            if (!filePathAction(op.action) && !commandAction(op.action) && !args.empty()) {
               write(op.arguments[0], args[0], env, spawned);
               if (consumesFile(op.action))
                 consume(op.arguments[0], args[0], env);
             }
-            if (op.action == FileAction::ReadInto || op.action == FileAction::ReadIntoBuffer ||
+            if (op.action == FileAction::StreamRead || op.action == FileAction::StreamAppend ||
+                op.action == FileAction::ReadInto || op.action == FileAction::ReadIntoBuffer ||
                 op.action == FileAction::ReadAppend)
               write(op.arguments[1], args[1], env, spawned);
             return storage(node.type) ? fresh(id) : Roots{};

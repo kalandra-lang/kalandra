@@ -31,11 +31,11 @@ int main(int argc, char **argv) {
     auto loaded = loadModules((root / "main.k").string());
     require(loaded && loaded->ok(), "standard imports did not parse");
     const auto &module = loaded->module;
-    require(module.standardModules.size() == 14, "standard modules were duplicated or omitted");
+    require(module.standardModules.size() == 15, "standard modules were duplicated or omitted");
     require(!module.standardModules[0], "ordinary root acquired standard identity");
     for (const auto kind :
          {StandardModule::Io, StandardModule::Format, StandardModule::Process,
-          StandardModule::Filesystem, StandardModule::Buffer, StandardModule::Parse,
+          StandardModule::Stream, StandardModule::Filesystem, StandardModule::Buffer, StandardModule::Parse,
           StandardModule::Path, StandardModule::Env, StandardModule::Time, StandardModule::Option,
           StandardModule::Iteration, StandardModule::Comparison}) {
       require(std::ranges::count(module.standardModules, std::optional(kind)) == 1,

@@ -571,8 +571,12 @@ export fn parseBool(text: String) -> bool ! ParseError:
   return __kalandra_parse_bool(text)
 )k";
   case StandardModule::Stream:
-    return R"k(from "std/fs" import File, BufferedReader, BufferedWriter, FsError, readInto as fileReadInto, readAppend as fileReadAppend, write as fileWrite, writeAll as fileWriteAll
+    return R"k(from "std/fs" import File, BufferedReader, BufferedWriter
 from "std/buffer" import ByteBuffer
+export type PipeReader:
+  __storage: [u8]
+export type PipeWriter:
+  __storage: [u8]
 export error StreamError:
   System:
     code: i32
@@ -580,23 +584,36 @@ export error StreamError:
   BrokenPipe:
     code: i32
   InvalidArgument
-fn fileStreamError(error: FsError) -> StreamError:
-  return match error:
-    FsError.System {code, message}: StreamError.System {code: code, message: message}
-    _: StreamError.InvalidArgument
 export trait ByteReader:
   fn readInto(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError
   fn readAppend(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError
+fn __readIntoFile(stream: File, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer, maxBytes)
+fn __readAppendFile(stream: File, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer, maxBytes)
 impl ByteReader for File:
   fn readInto(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
-    return fileReadInto(stream, buffer, maxBytes) catch fn(error): fail fileStreamError(error)
+    return try __readIntoFile(stream, buffer, maxBytes)
   fn readAppend(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
-    return fileReadAppend(stream, buffer, maxBytes) catch fn(error): fail fileStreamError(error)
+    return try __readAppendFile(stream, buffer, maxBytes)
+fn __readIntoBufferedReader(stream: BufferedReader, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer, maxBytes)
+fn __readAppendBufferedReader(stream: BufferedReader, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer, maxBytes)
 impl ByteReader for BufferedReader:
   fn readInto(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
-    return fileReadInto(stream, buffer, maxBytes) catch fn(error): fail fileStreamError(error)
+    return try __readIntoBufferedReader(stream, buffer, maxBytes)
   fn readAppend(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
-    return fileReadAppend(stream, buffer, maxBytes) catch fn(error): fail fileStreamError(error)
+    return try __readAppendBufferedReader(stream, buffer, maxBytes)
+fn __readIntoPipeReader(stream: PipeReader, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer, maxBytes)
+fn __readAppendPipeReader(stream: PipeReader, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer, maxBytes)
+impl ByteReader for PipeReader:
+  fn readInto(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+    return try __readIntoPipeReader(stream, buffer, maxBytes)
+  fn readAppend(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+    return try __readAppendPipeReader(stream, buffer, maxBytes)
 export fn readInto[S: ByteReader](stream: S, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
   return try ByteReader.readInto(stream, buffer, maxBytes)
 export fn readAppend[S: ByteReader](stream: S, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
@@ -604,20 +621,51 @@ export fn readAppend[S: ByteReader](stream: S, mut buffer: ByteBuffer, maxBytes:
 export trait ByteWriter:
   fn write(stream: Self, buffer: ByteBuffer) -> u64 ! StreamError
   fn writeAll(stream: Self, buffer: ByteBuffer) -> unit ! StreamError
+fn __writeFile(stream: File, buffer: ByteBuffer) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer)
+fn __writeAllFile(stream: File, buffer: ByteBuffer) -> unit ! StreamError:
+  return __kalandra_stream(stream, buffer)
 impl ByteWriter for File:
   fn write(stream: Self, buffer: ByteBuffer) -> u64 ! StreamError:
-    return fileWrite(stream, buffer) catch fn(error): fail fileStreamError(error)
+    return try __writeFile(stream, buffer)
   fn writeAll(stream: Self, buffer: ByteBuffer) -> unit ! StreamError:
-    return fileWriteAll(stream, buffer) catch fn(error): fail fileStreamError(error)
+    return try __writeAllFile(stream, buffer)
+fn __writeBufferedWriter(stream: BufferedWriter, buffer: ByteBuffer) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer)
+fn __writeAllBufferedWriter(stream: BufferedWriter, buffer: ByteBuffer) -> unit ! StreamError:
+  return __kalandra_stream(stream, buffer)
 impl ByteWriter for BufferedWriter:
   fn write(stream: Self, buffer: ByteBuffer) -> u64 ! StreamError:
-    return fileWrite(stream, buffer) catch fn(error): fail fileStreamError(error)
+    return try __writeBufferedWriter(stream, buffer)
   fn writeAll(stream: Self, buffer: ByteBuffer) -> unit ! StreamError:
-    return fileWriteAll(stream, buffer) catch fn(error): fail fileStreamError(error)
+    return try __writeAllBufferedWriter(stream, buffer)
+fn __writePipeWriter(stream: PipeWriter, buffer: ByteBuffer) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer)
+fn __writeAllPipeWriter(stream: PipeWriter, buffer: ByteBuffer) -> unit ! StreamError:
+  return __kalandra_stream(stream, buffer)
+impl ByteWriter for PipeWriter:
+  fn write(stream: Self, buffer: ByteBuffer) -> u64 ! StreamError:
+    return try __writePipeWriter(stream, buffer)
+  fn writeAll(stream: Self, buffer: ByteBuffer) -> unit ! StreamError:
+    return try __writeAllPipeWriter(stream, buffer)
 export fn write[S: ByteWriter](stream: S, buffer: ByteBuffer) -> u64 ! StreamError:
   return try ByteWriter.write(stream, buffer)
 export fn writeAll[S: ByteWriter](stream: S, buffer: ByteBuffer) -> unit ! StreamError:
   return try ByteWriter.writeAll(stream, buffer)
+fn __closeReader(own stream: PipeReader) -> unit ! StreamError:
+  return __kalandra_stream(stream)
+fn __closeWriter(own stream: PipeWriter) -> unit ! StreamError:
+  return __kalandra_stream(stream)
+export trait PipeCloser:
+  fn close(own stream: Self) -> unit ! StreamError
+impl PipeCloser for PipeWriter:
+  fn close(own stream: Self) -> unit ! StreamError:
+    return try __closeWriter(stream)
+impl PipeCloser for PipeReader:
+  fn close(own stream: Self) -> unit ! StreamError:
+    return try __closeReader(stream)
+export fn close[S: PipeCloser](own stream: S) -> unit ! StreamError:
+  return try PipeCloser.close(stream)
 )k";
   case StandardModule::Filesystem:
     return R"k(from "std/io" import Line
@@ -767,6 +815,63 @@ export fn readLine(maxBytes: u64) -> Line ! IoError:
 )k";
   case StandardModule::Process:
     return R"k(from "std/cmp" import Equal
+export from "std/stream" import PipeReader, PipeWriter, close
+export enum Stdio:
+  Inherit
+  Pipe
+  Null
+export type Command:
+  program: String
+  args: [String]
+  directory: String
+  keys: [String]
+  values: [String]
+  stdin: Stdio
+  stdout: Stdio
+  stderr: Stdio
+export type Child:
+  __storage: [u8]
+export enum ProcessStatus:
+  Exited:
+    code: u32
+  Signaled:
+    signal: i32
+export type Captured:
+  status: ProcessStatus
+  stdout: [u8]
+  stderr: [u8]
+export error ProcessError:
+  System:
+    code: i32
+    message: String
+  InvalidArgument
+  PipeUnavailable
+  OutputLimit:
+    limit: u64
+export fn command(program: String, args: [String]) -> Command:
+  return Command {program: program, args: args, directory: "", keys: [], values: [], stdin: Stdio.Inherit, stdout: Stdio.Inherit, stderr: Stdio.Inherit}
+export fn withDirectory(cmd: Command, path: String) -> Command:
+  return cmd with {directory: path}
+export fn withEnv(cmd: Command, key: String, value: String) -> Command:
+  return cmd with {keys: concat(cmd.keys, [key]), values: concat(cmd.values, [value])}
+export fn withStdin(cmd: Command, mode: Stdio) -> Command:
+  return cmd with {stdin: mode}
+export fn withStdout(cmd: Command, mode: Stdio) -> Command:
+  return cmd with {stdout: mode}
+export fn withStderr(cmd: Command, mode: Stdio) -> Command:
+  return cmd with {stderr: mode}
+export fn start(cmd: Command) -> Child ! ProcessError:
+  return __kalandra_process(cmd)
+export fn takeStdin(child: Child) -> PipeWriter ! ProcessError:
+  return __kalandra_process(child)
+export fn takeStdout(child: Child) -> PipeReader ! ProcessError:
+  return __kalandra_process(child)
+export fn takeStderr(child: Child) -> PipeReader ! ProcessError:
+  return __kalandra_process(child)
+export fn wait(child: Child) -> ProcessStatus ! ProcessError:
+  return __kalandra_process(child)
+export fn capture(cmd: Command, maxBytes: u64) -> Captured ! ProcessError:
+  return __kalandra_process(cmd, maxBytes)
 export type ExitStatus:
   code: u8
 impl Equal for ExitStatus:

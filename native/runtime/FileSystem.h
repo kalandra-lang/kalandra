@@ -19,7 +19,10 @@ enum class FileKind : std::uint32_t {
   LineTooLong,
   UnexpectedEnd,
   InvalidArgument,
-  ResourceLimit
+  ResourceLimit,
+  BrokenPipe,
+  PipeUnavailable,
+  OutputLimit
 };
 struct FileArguments {
   FileDescriptor file;
@@ -36,6 +39,12 @@ struct FileResult {
   FileBytes bytes;
   std::uint64_t count = 0;
 };
+struct ProcessArguments : FileArguments {
+  const void *command = nullptr;
+};
+struct ProcessResult : FileResult {
+  FileBytes stderrBytes;
+};
 struct FileServiceStats {
   std::uint32_t reserved = 0, pendingClose = 0, workers = 0;
 };
@@ -49,6 +58,10 @@ bool kalandra_file_step_v1(kalandra::runtime::Invocation *, kalandra::runtime::F
                            void **state) noexcept;
 void kalandra_file_v1(kalandra::runtime::Invocation *, kalandra::runtime::FileResult *,
                       std::uint32_t action, const kalandra::runtime::FileArguments *) noexcept;
+bool kalandra_file_step_v2(kalandra::runtime::Invocation *, kalandra::runtime::ProcessResult *,
+                           std::uint32_t action, const kalandra::runtime::ProcessArguments *, void **state) noexcept;
+void kalandra_file_v2(kalandra::runtime::Invocation *, kalandra::runtime::ProcessResult *,
+                      std::uint32_t action, const kalandra::runtime::ProcessArguments *) noexcept;
 void kalandra_file_pause_v1(kalandra::runtime::Task *, void *state) noexcept;
 void *kalandra_file_scope_enter_v1(kalandra::runtime::Invocation *,
                                    const kalandra::runtime::FileDescriptor *const *,

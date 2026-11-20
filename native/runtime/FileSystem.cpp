@@ -1,6 +1,9 @@
 #include "FileSystem.h"
 #include "../include/kalandra/Utf8.h"
 #include "Console.h"
+#include "ChildProcess.h"
+#include "StringArray.h"
+#include <memory>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -77,11 +80,13 @@ constexpr std::size_t directoryNameBytes = 65536;
 constexpr std::size_t fileSlots = 65536, noFileSlot = fileSlots;
 std::size_t reserveFileSlot();
 void releaseFileSlot(std::size_t) noexcept;
-void deferClose(NativeFile &, std::size_t &, NativeDirectory &) noexcept;
+using ChildOwner = std::unique_ptr<process::Child>;
+void deferClose(NativeFile &, std::size_t &, NativeDirectory &, ChildOwner &) noexcept;
 struct FileState : OwnedState {
   NativeFile file = invalidFile;
   NativeDirectory directory = invalidDirectory;
-  bool isDirectory = false;
+  ChildOwner child;
+  bool isDirectory = false, pipe = false;
   std::size_t closeSlot = noFileSlot;
   enum class Buffer { None, Read, Write } buffer = Buffer::None;
   std::uint64_t capacity = 0, begin = 0, end = 0;
@@ -89,11 +94,11 @@ struct FileState : OwnedState {
       : OwnedState(OwnedKind::File, sizeof(FileState) + capacity, cleanup, retireFile),
         capacity(capacity) {}
   unsigned char *data() noexcept { return reinterpret_cast<unsigned char *>(this + 1); }
-  ~FileState() { deferClose(file, closeSlot, directory); }
+  ~FileState() { deferClose(file, closeSlot, directory, child); }
   static void cleanup(void *p) noexcept { static_cast<FileState *>(p)->~FileState(); }
   static void retireFile(void *p) noexcept {
     auto &file = *static_cast<FileState *>(p);
-    deferClose(file.file, file.closeSlot, file.directory);
+    deferClose(file.file, file.closeSlot, file.directory, file.child);
   }
 };
 FileDescriptor descriptor(FileState *file) noexcept { return ownedDescriptor(file); }
@@ -113,6 +118,12 @@ FileState *inspectFile(Invocation &ctx, const FileDescriptor &value) noexcept {
   }
   return static_cast<FileState *>(p);
 }
+struct CaptureData {
+  std::array<std::vector<unsigned char>, 2> outputs;
+  std::array<std::array<unsigned char, 16384>, 2> staging;
+  std::array<std::size_t, 2> received{};
+  std::uint64_t total = 0;
+};
 struct Job {
   std::atomic<bool> done{false}, abandoned{false};
   FileAction action;
@@ -122,7 +133,9 @@ struct Job {
   FileState *file = nullptr, *output = nullptr;
   AllocationLease fileOwner, outputOwner;
   BufferIO buffer;
-  bool direct = false;
+  bool direct = false, retry = false, stream = false;
+  std::unique_ptr<process::Command> command;
+  std::unique_ptr<CaptureData> capture;
   explicit Job(FileAction action) noexcept : action(action) {}
   unsigned char *data() noexcept {
     return direct ? buffer.data : reinterpret_cast<unsigned char *>(this + 1);
@@ -142,7 +155,9 @@ std::uint64_t nativeRead(Job &job, FileState &file, unsigned char *bytes,
   DWORD actual = 0;
   if (!ReadFile(file.file, bytes, request, &actual, nullptr)) {
     const auto error = lastError();
-    if (error != ERROR_HANDLE_EOF)
+    if (file.pipe && error == ERROR_NO_DATA)
+      job.retry = true;
+    else if (error != ERROR_HANDLE_EOF && error != ERROR_BROKEN_PIPE)
       job.system(error);
     return 0;
   }
@@ -152,6 +167,10 @@ std::uint64_t nativeRead(Job &job, FileState &file, unsigned char *bytes,
     const auto actual = ::read(file.file, bytes, request);
     if (actual >= 0)
       return static_cast<std::uint64_t>(actual);
+    if (file.pipe && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      job.retry = true;
+      return 0;
+    }
     if (errno != EINTR) {
       job.system(lastError());
       return 0;
@@ -172,8 +191,10 @@ std::uint64_t nativeWrite(Job &job, FileState &file, const unsigned char *bytes,
     job.system(lastError());
     return 0;
   }
-  if (!actual && request)
-    job.system(ioError);
+  if (!actual && request) {
+    if (file.pipe) job.retry = true;
+    else job.system(ioError);
+  }
   return actual;
 #else
   for (;;) {
@@ -182,6 +203,10 @@ std::uint64_t nativeWrite(Job &job, FileState &file, const unsigned char *bytes,
       if (!actual && request)
         job.system(ioError);
       return static_cast<std::uint64_t>(actual);
+    }
+    if (file.pipe && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      job.retry = true;
+      return 0;
     }
     if (errno != EINTR) {
       job.system(lastError());
@@ -242,13 +267,17 @@ std::int32_t closeFile(FileState &file) noexcept {
   releaseFileSlot(std::exchange(file.closeSlot, noFileSlot));
   return result;
 }
-void open(Job &job) noexcept {
+bool reserveOutputSlot(Job &job) noexcept {
   const auto slot = reserveFileSlot();
   if (slot == noFileSlot) {
     job.kind = FileKind::ResourceLimit;
-    return;
+    return false;
   }
   job.output->closeSlot = slot;
+  return true;
+}
+void open(Job &job) noexcept {
+  if (!reserveOutputSlot(job)) return;
 #ifdef _WIN32
   // Source paths are validated UTF-8; allocate no uncharged variable storage in
   // the worker. The request reserves this fixed Windows path conversion space.
@@ -317,9 +346,22 @@ void open(Job &job) noexcept {
   }
 }
 #include "FileSystemUtilities.h"
+#include "ProcessIO.h"
 void execute(Job &job) noexcept {
   if (job.abandoned)
     return;
+  if (job.action >= FileAction::Start) {
+    try {
+      runProcess(job);
+    } catch (const std::bad_alloc &) {
+      job.kind = FileKind::ResourceLimit;
+    } catch (...) {
+      job.kind = FileKind::InvalidArgument;
+    }
+    if (job.action == FileAction::Capture && !job.retry && job.output)
+      job.output->child.reset(); // Close, terminate if live, and reap on the service worker.
+    return;
+  }
   if (job.action == FileAction::OpenDirectory) {
     openDirectory(job);
     return;
@@ -350,6 +392,9 @@ void execute(Job &job) noexcept {
     return;
   }
   switch (job.action) {
+  default:
+    job.kind = FileKind::InvalidArgument;
+    break;
   case FileAction::OpenDirectory:
   case FileAction::ReadDirectory:
   case FileAction::Metadata:
@@ -512,12 +557,15 @@ struct Executor {
   struct CloseSlot {
     NativeFile file = invalidFile;
     NativeDirectory directory = invalidDirectory;
+    ChildOwner child;
     bool reserved = false;
   };
   std::array<CloseSlot, fileSlots> closes;
   std::array<std::uint32_t, fileSlots> closeQueue;
   std::size_t closeBegin = 0, closeCount = 0, nextSlot = 0, reserved = 0;
   std::size_t begin = 0, count = 0, workers = 0, active = 0;
+  std::size_t processJobs = 0, retiringChildren = 0;
+  std::condition_variable childrenSettled;
   void worker() noexcept {
 #ifndef _WIN32
     // These dedicated service threads never run source code. Keep SIGPIPE
@@ -529,6 +577,7 @@ struct Executor {
 #endif
     for (;;) {
       Pending current;
+      ChildOwner child;
       NativeFile closing = invalidFile;
       NativeDirectory closingDirectory = invalidDirectory;
       std::size_t closeIndex = noFileSlot;
@@ -541,6 +590,7 @@ struct Executor {
           --closeCount;
           closing = closes[closeIndex].file;
           closingDirectory = closes[closeIndex].directory;
+          child = std::move(closes[closeIndex].child);
         } else {
           current = std::move(queue[begin]);
           begin = (begin + 1) % queue.size();
@@ -549,10 +599,13 @@ struct Executor {
         ++active;
       }
       if (closeIndex != noFileSlot) {
+        const bool hadChild = bool(child);
+        child.reset();
         (void)closeDirectory(closingDirectory);
         (void)closeNative(closing);
         {
           std::lock_guard lock(mutex);
+          if (hadChild) { --retiringChildren; childrenSettled.notify_all(); }
           closes[closeIndex] = {};
           --reserved;
           --active;
@@ -568,20 +621,24 @@ struct Executor {
       if (current.job->file && current.job->file->retired.load(std::memory_order_acquire)) {
         std::lock_guard native(current.job->file->mutex);
         deferClose(current.job->file->file, current.job->file->closeSlot,
-                   current.job->file->directory);
+                   current.job->file->directory, current.job->file->child);
       }
       if (current.job->output && current.job->output->retired.load(std::memory_order_acquire)) {
         std::lock_guard native(current.job->output->mutex);
         deferClose(current.job->output->file, current.job->output->closeSlot,
-                   current.job->output->directory);
+                   current.job->output->directory, current.job->output->child);
       }
       // Native access has ended. Releasing the exact byte pin before done
       // publication avoids unnecessary COW on an ordinary successful return.
-      current.job->buffer.payload = {};
+      if (!current.job->retry)
+        current.job->buffer.payload = {};
+      const bool processJob = current.job->action >= FileAction::Start;
       current.job->done.store(true, std::memory_order_release);
+      current.owner = {};
       {
         std::lock_guard lock(mutex);
         --active;
+        if (processJob) { --processJobs; childrenSettled.notify_all(); }
       }
     }
   }
@@ -596,6 +653,7 @@ struct Executor {
       std::thread([this] { worker(); }).detach();
       ++workers;
     }
+    if (pending.job->action >= FileAction::Start) ++processJobs;
     queue[(begin + count) % queue.size()] = std::move(pending);
     ++count;
     changed.notify_one();
@@ -603,7 +661,15 @@ struct Executor {
   }
 };
 Executor &executor() {
-  static auto *value = new Executor;
+  static auto *value = [] {
+    auto service = std::make_unique<Executor>();
+    if (std::atexit([] {
+          auto &e = executor();
+          std::unique_lock lock(e.mutex);
+          e.childrenSettled.wait(lock, [&] { return !e.processJobs && !e.retiringChildren; });
+        }) != 0) throw std::bad_alloc();
+    return service.release();
+  }();
   return *value;
 }
 std::size_t reserveFileSlot() {
@@ -629,8 +695,8 @@ void releaseFileSlot(std::size_t slot) noexcept {
   service.closes[slot] = {};
   --service.reserved;
 }
-void deferClose(NativeFile &file, std::size_t &slot, NativeDirectory &directory) noexcept {
-  if (file == invalidFile && directory == invalidDirectory) {
+void deferClose(NativeFile &file, std::size_t &slot, NativeDirectory &directory, ChildOwner &child) noexcept {
+  if (file == invalidFile && directory == invalidDirectory && !child) {
     releaseFileSlot(std::exchange(slot, noFileSlot));
     return;
   }
@@ -639,6 +705,8 @@ void deferClose(NativeFile &file, std::size_t &slot, NativeDirectory &directory)
   auto &service = executor();
   std::lock_guard lock(service.mutex);
   const auto index = std::exchange(slot, noFileSlot);
+  if (child) ++service.retiringChildren;
+  service.closes[index].child = std::move(child);
   service.closes[index].file = std::exchange(file, invalidFile);
   service.closes[index].directory = std::exchange(directory, invalidDirectory);
   service.closeQueue[(service.closeBegin + service.closeCount) % fileSlots] = std::uint32_t(index);
@@ -681,7 +749,7 @@ bool writesText(FileAction action) noexcept {
 bool returnsBytes(FileAction action) noexcept {
   return action == FileAction::Read || action == FileAction::ReadExact;
 }
-Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const FileArguments &args,
+Operation *prepare(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessArguments &args,
                    void **state) {
   auto *memory = ctx.allocateControl(sizeof(Operation), Operation::cleanup);
   if (!memory)
@@ -690,8 +758,10 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
   *state = op;
   if (!op->storage.valid())
     return nullptr;
+  const bool stream = action >= FileAction::StreamRead && action <= FileAction::PipeClose;
+  action = streamFileAction(action);
   FileState *file = nullptr;
-  if (!filePathAction(action)) {
+  if (!filePathAction(action) && !commandAction(action)) {
     file = inspectFile(ctx, args.file);
     if (!file)
       return nullptr;
@@ -736,11 +806,29 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
   {
     Invocation::OwnershipSelection select(op->storage);
     auto *storage =
-        ctx.allocateResource(sizeof(Job) + (bufferRead || bufferWrite ? 0 : size), Job::cleanup);
+        ctx.allocateResource(sizeof(Job) + (bufferRead || bufferWrite ? 0 : size), Job::cleanup, commandAction(action));
     if (!storage)
       return nullptr;
     auto *job = new (storage) Job(action);
     op->job = job;
+    job->stream = stream;
+    if (commandAction(action)) {
+      if (!args.command || !copyCommand(ctx, *job, *static_cast<const CommandView *>(args.command))) {
+        out.kind = FileKind::InvalidArgument;
+        op->job = nullptr;
+        return nullptr;
+      }
+      if (!ctx.trackResource(job)) return nullptr;
+      const auto &cmd = *job->command;
+      std::uint64_t commandBytes = sizeof(cmd) + cmd.program.capacity() + cmd.directory.capacity() +
+          cmd.arguments.capacity() * sizeof(std::string) + cmd.environment.capacity() * sizeof(std::pair<std::string,std::string>);
+      for (const auto &arg : cmd.arguments) commandBytes += arg.capacity();
+      for (const auto &[k,v] : cmd.environment) commandBytes += k.capacity() + v.capacity();
+      if (!ctx.resizeResource(job, commandBytes + (action == FileAction::Capture ? sizeof(CaptureData) : 0)))
+        return nullptr;
+      if (action == FileAction::Capture)
+        job->capture = std::make_unique<CaptureData>();
+    }
     op->owner = std::move(*ctx.lease(job));
     job->file = file;
     job->value = args.value;
@@ -750,10 +838,11 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
     job->buffer = std::move(buffer);
     if (file)
       job->fileOwner = std::move(*ctx.lease(file));
-    if (action == FileAction::Open || action == FileAction::OpenDirectory ||
+    if (commandAction(action) || (action >= FileAction::TakeStdin && action <= FileAction::TakeStderr) ||
+        action == FileAction::Open || action == FileAction::OpenDirectory ||
         action == FileAction::BufferedReader || action == FileAction::BufferedWriter) {
       job->output = createFile(ctx, action == FileAction::OpenDirectory ? sizeof(DirectoryData)
-                                    : action == FileAction::Open        ? 0
+                                    : action != FileAction::BufferedWriter && action != FileAction::BufferedReader ? 0
                                                                         : args.value);
       if (!job->output)
         return nullptr;
@@ -789,12 +878,13 @@ Operation *prepare(Invocation &ctx, FileResult &out, FileAction action, const Fi
   }
   return op;
 }
-bool step(Invocation &ctx, FileResult &out, FileAction action, const FileArguments &args,
+bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessArguments &args,
           void **state) {
   auto *op = *state ? static_cast<Operation *>(*state) : prepare(ctx, out, action, args, state);
   if (!op || !op->job || !healthy(ctx))
     return true;
   auto &job = *op->job;
+  action = job.action;
   if (!op->submitted) {
     auto retained = ctx.lease(&job);
     if (!retained) {
@@ -808,23 +898,73 @@ bool step(Invocation &ctx, FileResult &out, FileAction action, const FileArgumen
   }
   if (!job.done.load(std::memory_order_acquire))
     return false;
+  if (job.capture && job.kind == FileKind::Success) {
+    Invocation::OwnershipSelection selection(op->storage);
+    auto &capture = *job.capture;
+    for (unsigned i = 0; i < 2; ++i) {
+      auto &out = capture.outputs[i];
+      const auto count = std::exchange(capture.received[i], 0);
+      if (!count) continue;
+      const auto needed = out.size() + count;
+      if (needed > out.capacity()) {
+        const auto capacity = std::min<std::uint64_t>(job.value, std::max(needed, out.capacity() * 2));
+        if (!ctx.resizeResource(&job, sizeof(CaptureData) + capture.outputs[1-i].capacity() + capacity))
+          return true;
+        out.reserve(capacity);
+      }
+      out.insert(out.end(), capture.staging[i].begin(), capture.staging[i].begin()+count);
+    }
+  }
+  if (job.retry) {
+    job.retry = false;
+    job.done.store(false, std::memory_order_relaxed);
+    op->submitted = false;
+    return false;
+  }
   if (job.kind == FileKind::ResourceLimit) {
     ctx.fault(2);
     return true;
   }
   out.kind = job.kind;
   out.code = job.kind == FileKind::Success &&
-                     (action == FileAction::Metadata || action == FileAction::ReadDirectory)
+                     (action == FileAction::Metadata || action == FileAction::ReadDirectory ||
+                      action == FileAction::Wait || action == FileAction::Capture)
                  ? std::int32_t(job.mode)
                  : job.error;
   out.count = job.count;
   if (job.kind == FileKind::System) {
+#ifdef _WIN32
+    const bool broken = job.error == ERROR_BROKEN_PIPE || job.error == ERROR_NO_DATA;
+#else
+    const bool broken = job.error == EPIPE;
+#endif
+    if (job.stream && broken) {
+      out.kind = FileKind::BrokenPipe;
+      return true;
+    }
     systemError(ctx, out, job.error);
     return true;
   }
   if (job.kind != FileKind::Success)
     return true;
-  if (job.output) {
+  if (action == FileAction::Capture) {
+    for (unsigned i = 0; i < 2; ++i) {
+      const auto &bytes = job.capture->outputs[i];
+      auto &dest = i ? out.stderrBytes : out.bytes;
+      dest.strides[0] = bytes.empty() ? 0 : 1;
+      dest.sizes[0] = bytes.size();
+      if (bytes.empty()) continue;
+      auto *data = static_cast<unsigned char *>(ctx.allocateRecord(bytes.size()));
+      if (!data) return true;
+      dest.allocated = dest.aligned = data;
+      for (std::size_t offset = 0; offset < bytes.size();) {
+        if (!healthy(ctx)) return true;
+        const auto n = std::min<std::size_t>(65536, bytes.size()-offset);
+        std::memcpy(data+offset, bytes.data()+offset, n);
+        offset += n;
+      }
+    }
+  } else if (job.output) {
     if (!ctx.retainFrom(ctx, job.output))
       return true;
     if (auto *scope = currentScope(ctx))
@@ -871,13 +1011,13 @@ bool step(Invocation &ctx, FileResult &out, FileAction action, const FileArgumen
   return true;
 }
 } // namespace
-extern "C" bool kalandra_file_step_v1(Invocation *ctx, FileResult *out, std::uint32_t action,
-                                      const FileArguments *args, void **state) noexcept {
+extern "C" bool kalandra_file_step_v2(Invocation *ctx, ProcessResult *out, std::uint32_t action,
+                                      const ProcessArguments *args, void **state) noexcept {
   *out = {};
   bool done = true;
   try {
     if (healthy(*ctx)) {
-      if (action > std::uint32_t(FileAction::DirectoryRemove))
+      if (action > std::uint32_t(FileAction::Capture))
         ctx->fault(3);
       else
         done = step(*ctx, *out, static_cast<FileAction>(action), *args, state);
@@ -895,10 +1035,10 @@ extern "C" bool kalandra_file_step_v1(Invocation *ctx, FileResult *out, std::uin
   }
   return done;
 }
-extern "C" void kalandra_file_v1(Invocation *ctx, FileResult *out, std::uint32_t action,
-                                 const FileArguments *args) noexcept {
+extern "C" void kalandra_file_v2(Invocation *ctx, ProcessResult *out, std::uint32_t action,
+                                 const ProcessArguments *args) noexcept {
   void *state = nullptr;
-  while (!kalandra_file_step_v1(ctx, out, action, args, &state))
+  while (!kalandra_file_step_v2(ctx, out, action, args, &state))
     std::this_thread::sleep_for(1ms);
 }
 extern "C" void kalandra_file_pause_v1(kalandra::runtime::Task *task, void *) noexcept {
@@ -911,4 +1051,21 @@ kalandra::runtime::FileServiceStats kalandra::runtime::fileServiceStats() noexce
   std::lock_guard lock(service.mutex);
   return {std::uint32_t(service.reserved), std::uint32_t(service.closeCount),
           std::uint32_t(service.workers)};
+}
+
+extern "C" bool kalandra_file_step_v1(Invocation *ctx, FileResult *out, std::uint32_t action,
+                                      const FileArguments *args, void **state) noexcept {
+  const ProcessArguments expanded{*args, nullptr};
+  ProcessResult result{};
+  if (action > unsigned(FileAction::DirectoryRemove))
+    ctx->fault(3);
+  const bool done = kalandra_file_step_v2(ctx, &result, action, &expanded, state);
+  *out = result;
+  return done;
+}
+extern "C" void kalandra_file_v1(Invocation *ctx, FileResult *out, std::uint32_t action,
+                                 const FileArguments *args) noexcept {
+  void *state = nullptr;
+  while (!kalandra_file_step_v1(ctx, out, action, args, &state))
+    std::this_thread::sleep_for(1ms);
 }

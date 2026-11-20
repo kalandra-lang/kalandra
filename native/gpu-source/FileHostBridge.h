@@ -26,7 +26,7 @@ inline llvm::Function *emitFileHostBridge(const TypedModule &input, llvm::Module
     inputs.push_back(
         b.CreateLoad(pointer, b.CreateGEP(pointer, function->getArg(2), b.getInt64(i))));
   emitFileArguments(b, types, operation, inputs, arguments);
-  auto callee = module.getOrInsertFunction("kalandra_file_step_v1", b.getInt1Ty(), pointer, pointer,
+  auto callee = module.getOrInsertFunction("kalandra_file_step_v2", b.getInt1Ty(), pointer, pointer,
                                            b.getInt32Ty(), pointer, pointer);
   auto *done = b.CreateCall(
       callee, {context, transport, b.getInt32(unsigned(operation.action)), arguments, state});
