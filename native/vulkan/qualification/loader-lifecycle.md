@@ -77,6 +77,11 @@ LeakSanitizer, or retaining the ICD indefinitely does not repair the missing
 releases. Qualification must use the stock ICD and exit zero before this
 issue can close.
 
+The Vulkan `VK_LUNARG_direct_driver_loading` extension is also unsuitable as
+a production escape hatch: the [Khronos proposal](https://docs.vulkan.org/features/latest/features/proposals/VK_LUNARG_direct_driver_loading.html)
+explicitly discourages using it for installed hardware drivers. We will not
+replace a leak-free normal launch requirement with a private driver loader.
+
 ## Kalandra acceptance
 
 ```sh
