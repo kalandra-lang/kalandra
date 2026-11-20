@@ -1,0 +1,121 @@
+meta { title = "Subprocesses", description = "Launch programs with literal arguments, connect pipes and collect output.", order = 9, group = "Library reference" }
+
+Use std/process to run another executable on the host. command builds a value. start launches it. Each argument occupies one array element, including empty arguments and text containing spaces. Child processes inherit the working directory, environment and standard streams unless you configure them.
+
+h2 { "Send a file to a child and save the reply" }
+
+This example requires Git on PATH. Run it in an empty directory. Git reads message.txt through its stdin and writes the Git object ID to its stdout. The same pump copies bytes in both directions. Closing stdin before reading the response tells Git that it has the whole message.
+
+codeblock { language = kalandra, """from "std/process" import command, withStdin, withStdout, Stdio, start, takeStdin, takeStdout, wait, ProcessError, ProcessStatus
+from "std/stream" import ByteReader, ByteWriter, StreamError, readInto, writeAll, close
+from "std/buffer" import ByteBuffer, byteBuffer, BufferError
+from "std/fs" import open, OpenMode, close as closeFile, writeText, FsError
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn pump[R: ByteReader, W: ByteWriter](source: R, target: W, mut chunk: ByteBuffer) -> unit ! StreamError:
+  while true:
+    count = try readInto(source, chunk, 65536)
+    if count == 0:
+      break
+    try writeAll(target, chunk)
+  return ()
+
+fn main() -> unit ! (ProcessError | StreamError | BufferError | FsError | IoError):
+  seed = try open("message.txt", OpenMode.Create)
+  try writeText(seed, "hello")
+  try closeFile(seed)
+  source = try open("message.txt", OpenMode.Read)
+  target = try open("object-id.txt", OpenMode.Create)
+  chunk = try byteBuffer(65536)
+  cmd = command("git", ["hash-object", "--stdin"])
+  child = try start(withStdout(withStdin(cmd, Stdio.Pipe), Stdio.Pipe))
+  input = try takeStdin(child)
+  output = try takeStdout(child)
+  try pump(source, input, chunk)
+  try close(input)
+  try pump(output, target, chunk)
+  try close(output)
+  try closeFile(target)
+  try closeFile(source)
+  status = try wait(child)
+  exitCode = match status:
+    ProcessStatus.Exited {code}: i64(code)
+    ProcessStatus.Signaled {signal}: 0 - i64(signal)
+  try println(format("{}", exitCode))
+  return ()
+""" }
+
+A successful run prints 0. For a child that writes large amounts while reading stdin, service input and output in separate tasks. An unread full stdout or stderr pipe can stop a child before it exits. capture handles both output pipes when the child needs no input.
+
+h2 { "command" }
+
+code { "command(program: String, args: [String]) -> Command" }
+
+Build a command from an executable name or path and literal arguments. A program name can be resolved by the platform launcher. Use an absolute path to select a particular executable. Shell syntax is passed as argument text. An empty executable name or embedded NUL is invalid.
+
+h2 { "withDirectory" }
+
+code { "withDirectory(cmd: Command, path: String) -> Command" }
+
+Return a command with the given child working directory. The empty String inherits the parent directory.
+
+h2 { "withEnv" }
+
+code { "withEnv(cmd: Command, key: String, value: String) -> Command" }
+
+Set one inherited environment variable for this child. Repeated settings for the same key use the last value. Empty keys and keys containing an equals sign are invalid.
+
+h2 { "withStdin" }
+
+code { "withStdin(cmd: Command, mode: Stdio) -> Command" }
+
+Choose the child input. Stdio.Inherit uses the parent stream, Stdio.Null supplies EOF and Stdio.Pipe gives the parent a PipeWriter.
+
+h2 { "withStdout" }
+
+code { "withStdout(cmd: Command, mode: Stdio) -> Command" }
+
+Choose the child output. Stdio.Inherit uses the parent stream, Stdio.Null discards bytes and Stdio.Pipe supplies a PipeReader.
+
+h2 { "withStderr" }
+
+code { "withStderr(cmd: Command, mode: Stdio) -> Command" }
+
+Choose the child diagnostic stream independently of stdout. A PipeReader for stderr preserves binary data.
+
+h2 { "start" }
+
+code { "start(cmd: Command) -> Child ! ProcessError" }
+
+Launch the command and return its owned Child. A missing executable or OS launch failure reports ProcessError.System with its native code and message. Dropping a live Child closes untaken endpoints and arranges termination and reaping of the direct child. Descendants have independent lifetimes.
+
+h2 { "takeStdin" }
+
+code { "takeStdin(child: Child) -> PipeWriter ! ProcessError" }
+
+Move the writer end of a piped stdin into a local owner. An unavailable or already taken endpoint reports ProcessError.PipeUnavailable. Closing this writer sends EOF.
+
+h2 { "takeStdout" }
+
+code { "takeStdout(child: Child) -> PipeReader ! ProcessError" }
+
+Move the reader end of piped stdout into a local owner. It stays usable after waiting for or dropping the Child. Descendants that inherit the writing end can keep the pipe open.
+
+h2 { "takeStderr" }
+
+code { "takeStderr(child: Child) -> PipeReader ! ProcessError" }
+
+Move the reader end of piped stderr into a local owner. Each configured endpoint can be taken once.
+
+h2 { "wait" }
+
+code { "wait(child: Child) -> ProcessStatus ! ProcessError" }
+
+Borrow the Child and suspend until it exits. Repeated waits return the same ProcessStatus. Exited carries the unsigned 32-bit exit code, including nonzero codes. Signaled carries the POSIX termination signal. Cancelling a waiting task leaves the child with its owner.
+
+h2 { "capture" }
+
+code { "capture(cmd: Command, maxBytes: u64) -> Captured ! ProcessError" }
+
+Launch the command with EOF on stdin and drain both output pipes concurrently. The Captured record contains status, stdout and stderr. Outputs are separate byte arrays. maxBytes bounds their combined length. Exceeding it terminates and reaps the child and returns ProcessError.OutputLimit. A limit of zero accepts a silent process. Ordinary task memory limits also apply.

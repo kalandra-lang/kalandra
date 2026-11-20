@@ -23,6 +23,8 @@ list {
   link { url = "/docs/filesystem", "Files — owned handles and buffered byte/text I/O" },
   link { url = "/docs/options", "std/option — present and absent values" },
   link { url = "/docs/iteration", "std/iter — reusable integer ranges" },
+  link { url = "/docs/subprocesses", "std/process — launch programs, pipe bytes and wait for exit" },
+  link { url = "/docs/streams", "std/stream — copy bytes between readers and writers" },
   link { url = "/docs/buffers", "std/buffer — owned growable byte storage" },
   link { url = "/docs/parsing", "std/parse — convert text to typed numbers and booleans" },
   link { url = "/docs/paths", "std/path — join paths and inspect their components" },

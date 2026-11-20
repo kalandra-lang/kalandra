@@ -20,14 +20,16 @@ inline llvm::StructType *fileArgumentsType(const TaskValueTypes &types, llvm::LL
   text.builtin = BuiltinValue::String;
   return llvm::StructType::get(ctx, {fileHandleType(types, ctx), types.scalar(text),
                                      fileBytesType(types), llvm::Type::getInt64Ty(ctx),
-                                     llvm::Type::getInt64Ty(ctx), fileHandleType(types, ctx)});
+                                     llvm::Type::getInt64Ty(ctx), fileHandleType(types, ctx),
+                                     llvm::PointerType::getUnqual(ctx)});
 }
 inline llvm::StructType *fileResultType(const TaskValueTypes &types, llvm::LLVMContext &ctx) {
   ValueType text;
   text.builtin = BuiltinValue::String;
   return llvm::StructType::get(ctx, {llvm::Type::getInt32Ty(ctx), llvm::Type::getInt32Ty(ctx),
                                      types.scalar(text), fileHandleType(types, ctx),
-                                     fileBytesType(types), llvm::Type::getInt64Ty(ctx)});
+                                     fileBytesType(types), llvm::Type::getInt64Ty(ctx),
+                                     fileBytesType(types)});
 }
 inline void emitFileArguments(llvm::IRBuilder<> &b, const TaskValueTypes &types,
                               const FileOperation &op, const std::vector<llvm::Value *> &inputs,
@@ -38,6 +40,12 @@ inline void emitFileArguments(llvm::IRBuilder<> &b, const TaskValueTypes &types,
     auto *type = layout->getElementType(field);
     b.CreateStore(b.CreateLoad(type, input), b.CreateStructGEP(layout, arguments, field));
   };
+  if (commandAction(op.action)) {
+    b.CreateStore(inputs.at(0), b.CreateStructGEP(layout, arguments, 6));
+    if (op.action == FileAction::Capture)
+      copy(3, inputs.at(1));
+    return;
+  }
   if (filePathAction(op.action)) {
     copy(1, inputs.at(0));
     if (op.action != FileAction::Open)
@@ -47,8 +55,9 @@ inline void emitFileArguments(llvm::IRBuilder<> &b, const TaskValueTypes &types,
     return;
   }
   copy(0, inputs.at(0));
-  if (op.action == FileAction::ReadIntoBuffer || op.action == FileAction::ReadAppend ||
-      op.action == FileAction::WriteBuffer || op.action == FileAction::WriteAllBuffer) {
+  const auto action = streamFileAction(op.action);
+  if (action == FileAction::ReadIntoBuffer || action == FileAction::ReadAppend ||
+      action == FileAction::WriteBuffer || action == FileAction::WriteAllBuffer) {
     copy(5, inputs.at(1));
     if (inputs.size() > 2)
       copy(3, inputs.at(2));
@@ -66,8 +75,12 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
                            const ValueType &result, llvm::StructType *resultType,
                            llvm::Value *output, llvm::Value *scratch, llvm::Value *arguments,
                            llvm::Value *context, llvm::BasicBlock *next, llvm::BasicBlock *abort) {
+  const bool process = op.action >= FileAction::Start;
+  const bool stream = !process && op.action >= FileAction::StreamRead;
   if (!result.errorRecord ||
-      input.records.at(*result.errorRecord).standard != StandardRecord::FsError)
+      input.records.at(*result.errorRecord).standard != (process  ? StandardRecord::ProcessError
+                                                         : stream ? StandardRecord::StreamError
+                                                                  : StandardRecord::FsError))
     throw std::invalid_argument("filesystem operation lost its nominal error identity");
   auto *transport = fileResultType(types, module.getContext());
   auto *args = fileArgumentsType(types, module.getContext());
@@ -85,10 +98,16 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
   dispatch->addCase(b.getInt32(1), end);
   auto *errorType = types.records()[*result.errorRecord];
   const auto storeField = [&](std::size_t recordId, llvm::Value *record, const char *name,
-                              llvm::Value *value) {
+                              llvm::Value *value, unsigned variant = 0) {
     const auto &fields = input.records.at(recordId).fields;
-    const auto found =
-        std::ranges::find_if(fields, [&](const auto &field) { return field.name == name; });
+    const auto found = std::ranges::find_if(fields, [&](const auto &field) {
+      if (field.name != name)
+        return false;
+      if (!variant)
+        return true;
+      const auto &indices = input.records.at(recordId).variants.at(variant - 1).fields;
+      return std::ranges::find(indices, std::size_t(&field - fields.data())) != indices.end();
+    });
     if (found == fields.end())
       throw std::invalid_argument("filesystem standard field missing");
     b.CreateStore(value,
@@ -98,16 +117,41 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
     return b.CreateLoad(transport->getElementType(field),
                         b.CreateStructGEP(transport, scratch, field));
   };
-  for (unsigned kind = 2; kind <= 6; ++kind) {
+  for (unsigned kind = 2; kind <= 10; ++kind) {
+    unsigned tag = kind - 1;
+    if (process) {
+      if (kind == 2)
+        tag = 1;
+      else if (kind == 6)
+        tag = 2;
+      else if (kind == 9)
+        tag = 3;
+      else if (kind == 10)
+        tag = 4;
+      else
+        continue;
+    } else if (stream) {
+      if (kind == 2)
+        tag = 1;
+      else if (kind == 8)
+        tag = 2;
+      else if (kind == 6)
+        tag = 3;
+      else
+        continue;
+    } else if (kind > 6)
+      continue;
     auto *error = block("file.error");
     dispatch->addCase(b.getInt32(kind), error);
     b.SetInsertPoint(error);
     auto *packet = b.CreateStructGEP(resultType, output, 2);
-    b.CreateStore(b.getInt64(kind - 1), b.CreateStructGEP(errorType, packet, 0));
+    b.CreateStore(b.getInt64(tag), b.CreateStructGEP(errorType, packet, 0));
     if (kind == 2) {
-      storeField(*result.errorRecord, packet, "code", loadTransport(1));
+      storeField(*result.errorRecord, packet, "code", loadTransport(1), tag);
       storeField(*result.errorRecord, packet, "message", loadTransport(2));
-    } else if (kind == 4) {
+    } else if (kind == 8) {
+      storeField(*result.errorRecord, packet, "code", loadTransport(1), tag);
+    } else if (kind == 4 || kind == 10) {
       storeField(*result.errorRecord, packet, "limit",
                  b.CreateLoad(b.getInt64Ty(), b.CreateStructGEP(args, arguments, 3)));
     } else if (kind == 5) {
@@ -135,7 +179,32 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
   };
   b.SetInsertPoint(success);
   auto *value = b.CreateStructGEP(resultType, output, 1);
-  switch (op.action) {
+  const auto storeStatus = [&](const ValueType &type, llvm::Value *dest) {
+    auto *code = b.CreateTrunc(loadTransport(5), b.getInt32Ty());
+    auto *signal = b.CreateICmpNE(loadTransport(1), b.getInt32(0));
+    b.CreateStore(b.CreateSelect(signal, b.getInt64(2), b.getInt64(1)),
+                  b.CreateStructGEP(types.records()[*type.record], dest, 0));
+    storeField(*type.record, dest, "code", code);
+    storeField(*type.record, dest, "signal", code);
+  };
+  switch (streamFileAction(op.action)) {
+  case FileAction::Capture: {
+    const auto &fields = input.records[*result.record].fields;
+    const auto status =
+        std::ranges::find_if(fields, [](const auto &field) { return field.name == "status"; });
+    storeStatus(status->type,
+                b.CreateStructGEP(types.records()[*result.record], value, status - fields.begin()));
+    storeField(*result.record, value, "stdout", loadTransport(4));
+    storeField(*result.record, value, "stderr", loadTransport(6));
+    break;
+  }
+  case FileAction::Wait:
+    storeStatus(result, value);
+    break;
+  case FileAction::Start:
+  case FileAction::TakeStdin:
+  case FileAction::TakeStdout:
+  case FileAction::TakeStderr:
   case FileAction::Open:
   case FileAction::OpenDirectory:
   case FileAction::BufferedReader:
@@ -198,12 +267,12 @@ inline void emitFileOperation(llvm::IRBuilder<> &b, llvm::Module &module, const 
   b.CreateStore(llvm::Constant::getNullValue(resultType), output);
   auto *parent = b.GetInsertBlock()->getParent();
   if (closed) {
-    auto callee = module.getOrInsertFunction("kalandra_file_v1", b.getVoidTy(), b.getPtrTy(),
+    auto callee = module.getOrInsertFunction("kalandra_file_v2", b.getVoidTy(), b.getPtrTy(),
                                              b.getPtrTy(), b.getInt32Ty(), b.getPtrTy());
     b.CreateCall(callee, {context, scratch, b.getInt32(unsigned(op.action)), arguments});
   } else {
     auto callee =
-        module.getOrInsertFunction("kalandra_file_step_v1", b.getInt1Ty(), b.getPtrTy(),
+        module.getOrInsertFunction("kalandra_file_step_v2", b.getInt1Ty(), b.getPtrTy(),
                                    b.getPtrTy(), b.getInt32Ty(), b.getPtrTy(), b.getPtrTy());
     auto *done =
         b.CreateCall(callee, {context, scratch, b.getInt32(unsigned(op.action)), arguments, state});

@@ -684,5 +684,17 @@
       "kind": "gpu",
       "expected": "negative at 1: -2"
     }
+  ],
+  "streams": [
+    {
+      "kind": "cpu",
+      "expected": ""
+    }
+  ],
+  "subprocesses": [
+    {
+      "kind": "cpu",
+      "expected": "0"
+    }
   ]
 }

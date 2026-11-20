@@ -503,7 +503,15 @@ enum class StandardRecord {
   Iterator,
   Option,
   WorkItem,
-  Shared
+  Shared,
+  Child,
+  PipeReader,
+  PipeWriter,
+  ProcessError,
+  StreamError,
+  ProcessStatus,
+  Command,
+  Captured
 };
 struct TypedRecord {
   std::string name;
@@ -627,6 +635,9 @@ inline OwnedResourceKind ownedResourceKind(const TypedModule &module, const Valu
   if (!standard)
     return OwnedResourceKind::None;
   switch (*standard) {
+  case StandardRecord::PipeReader:
+  case StandardRecord::PipeWriter:
+  case StandardRecord::Child:
   case StandardRecord::File: return OwnedResourceKind::File;
   case StandardRecord::BufferedReader: return OwnedResourceKind::BufferedReader;
   case StandardRecord::BufferedWriter: return OwnedResourceKind::BufferedWriter;

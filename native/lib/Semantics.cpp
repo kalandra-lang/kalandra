@@ -1157,6 +1157,22 @@ private:
           header.standard = StandardRecord::WorkItem;
         if (syntax_.standardModules[origin] == StandardModule::Process && label == "ExitStatus")
           header.standard = StandardRecord::ExitStatus;
+        if (syntax_.standardModules[origin] == StandardModule::Process && label == "Child")
+          header.standard = StandardRecord::Child;
+        if (syntax_.standardModules[origin] == StandardModule::Stream && label == "PipeReader")
+          header.standard = StandardRecord::PipeReader;
+        if (syntax_.standardModules[origin] == StandardModule::Stream && label == "PipeWriter")
+          header.standard = StandardRecord::PipeWriter;
+        if (syntax_.standardModules[origin] == StandardModule::Process && label == "ProcessError")
+          header.standard = StandardRecord::ProcessError;
+        if (syntax_.standardModules[origin] == StandardModule::Stream && label == "StreamError")
+          header.standard = StandardRecord::StreamError;
+        if (syntax_.standardModules[origin] == StandardModule::Process && label == "ProcessStatus")
+          header.standard = StandardRecord::ProcessStatus;
+        if (syntax_.standardModules[origin] == StandardModule::Process && label == "Command")
+          header.standard = StandardRecord::Command;
+        if (syntax_.standardModules[origin] == StandardModule::Process && label == "Captured")
+          header.standard = StandardRecord::Captured;
         if (syntax_.standardModules[origin] == StandardModule::Io && label == "IoError")
           header.standard = StandardRecord::IoError;
         if (syntax_.standardModules[origin] == StandardModule::Io && label == "Line")
@@ -1955,8 +1971,14 @@ private:
     if (id >= syntax_.functions.size())
       return {};
     const auto &fn = syntax_.functions[id];
-    if (fn.moduleIndex >= syntax_.standardModules.size() ||
-        syntax_.standardModules[fn.moduleIndex] != StandardModule::Filesystem)
+    if (fn.moduleIndex >= syntax_.standardModules.size())
+      return {};
+    const auto module = syntax_.standardModules[fn.moduleIndex];
+    if (module == StandardModule::Process)
+      return processAction(name(fn.name));
+    if (module == StandardModule::Stream)
+      return streamAction(name(fn.name));
+    if (module != StandardModule::Filesystem)
       return {};
     return fileAction(name(fn.name));
   }
@@ -1995,7 +2017,8 @@ private:
         names.push_back(symbol.name);
       }
       const auto prefix = options_.signature->argumentIndex.value_or(arguments.size());
-      if (prefix > 0 && !arguments.empty() && !filePathAction(action)) {
+      if (prefix > 0 && !arguments.empty() && action < FileAction::StreamRead &&
+          !filePathAction(action)) {
         auto actual = expression(frame, arguments[0]);
         if (!actual || !isFileResource(output_, node(*actual).type))
           return {};
@@ -2053,13 +2076,13 @@ private:
            action == FileAction::WriteAll) &&
           !std::holds_alternative<ArrayExpr>(syntax_.expressions[arguments[i]].value))
         context.reset();
-      if (i == 0 && !filePathAction(action))
+      if (i == 0 && action < FileAction::StreamRead && !filePathAction(action))
         context.reset();
       const auto arg = expression(frame, arguments[i], context);
       if (!arg)
         return {};
       const auto &type = node(*arg).type;
-      if (i == 0 && !filePathAction(action)) {
+      if (i == 0 && action < FileAction::StreamRead && !filePathAction(action)) {
         if (!isFileResource(output_, type) || type.array || type.task || type.fallible ||
             type.device) {
           error("S081", "filesystem operation requires a completed host file handle", span);
@@ -2072,7 +2095,9 @@ private:
         const bool write = action == FileAction::Write || action == FileAction::WriteAll ||
                            action == FileAction::WriteText || action == FileAction::WriteLine ||
                            action == FileAction::Flush;
-        if ((read && standard == StandardRecord::BufferedWriter) ||
+        if (standard == StandardRecord::Child || standard == StandardRecord::PipeReader ||
+            standard == StandardRecord::PipeWriter ||
+            (read && standard == StandardRecord::BufferedWriter) ||
             (write && standard == StandardRecord::BufferedReader) ||
             ((action == FileAction::BufferedReader || action == FileAction::BufferedWriter) &&
              standard != StandardRecord::File) ||

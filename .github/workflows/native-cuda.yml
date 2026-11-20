@@ -81,6 +81,8 @@ jobs:
           --compiler build/cuda/native/kalandra --target cuda
           --variant optimized --compile-only
           --output build/cuda-artifacts/generics
+      - name: Compile mixed child-process and GPU application
+        run: python3 native/tests/MixedProcessTests.py --compiler build/cuda/native/kalandra --target cuda --compile-only
       - name: Compile owned byte buffers and filesystem overloads
         run: >-
           python3 native/tests/BufferSourceTests.py

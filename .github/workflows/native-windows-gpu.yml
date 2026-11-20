@@ -195,6 +195,8 @@ jobs:
           foreach ($backend in @('cuda', 'vulkan')) {
             python native/tests/GenericsSourceTests.py --compiler build/windows-gpu/native/kalandra.exe --target $backend --variant optimized --compile-only --output "build/windows-$backend-generics"
             if ($LASTEXITCODE -ne 0) { throw "$backend generics compilation failed" }
+            python native/tests/MixedProcessTests.py --compiler build/windows-gpu/native/kalandra.exe --target $backend --compile-only
+            if ($LASTEXITCODE -ne 0) { throw "$backend subprocess host compilation failed" }
             python native/tests/BufferSourceTests.py --compiler build/windows-gpu/native/kalandra.exe --target $backend --variant optimized --compile-only --output "build/windows-$backend-buffers"
             if ($LASTEXITCODE -ne 0) { throw "$backend buffer host compilation failed" }
             python native/tests/IteratorSourceTests.py --compiler build/windows-gpu/native/kalandra.exe --target $backend --variant optimized --compile-only --output "build/windows-$backend-iterators"
