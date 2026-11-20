@@ -45,6 +45,12 @@ void drain() {
   }
   throw std::runtime_error("directory handle/deferred close slot leaked");
 }
+ProcessResult callTree(Invocation &ctx, FileAction action, const FileArguments &argument) {
+  const ProcessArguments args{argument, nullptr};
+  ProcessResult result{};
+  kalandra_file_v2(&ctx, &result, unsigned(action), &args);
+  return result;
+}
 void testTreeCursor(const std::filesystem::path &parent) {
   namespace fs = std::filesystem;
   // Exercise root rejection through the same decomposition used by removeTree,
@@ -70,11 +76,11 @@ void testTreeCursor(const std::filesystem::path &parent) {
   fs::create_directories(branch / "nested");
   {
     Invocation ctx;
-    auto opened = call(ctx, FileAction::OpenWalk, pathArgument(ctx, root));
+    auto opened = callTree(ctx, FileAction::OpenWalk, pathArgument(ctx, root));
     require(!ctx.status() && opened.kind == FileKind::Success, "tree open failed");
-    FileArguments arg;
+    ProcessArguments arg{};
     arg.file = opened.file;
-    auto first = call(ctx, FileAction::ReadDirectory, arg);
+    auto first = callTree(ctx, FileAction::ReadDirectory, arg);
     require(first.kind == FileKind::Success && first.code == 2 &&
                 std::string(first.text.data, first.text.byteLength) == utf8(branch),
             "walker did not publish its first directory");
@@ -83,7 +89,7 @@ void testTreeCursor(const std::filesystem::path &parent) {
 #ifndef _WIN32
     fs::create_directory_symlink(root / "moved", branch);
 #endif
-    auto next = call(ctx, FileAction::ReadDirectory, arg);
+    auto next = callTree(ctx, FileAction::ReadDirectory, arg);
     require(next.kind == FileKind::System, "walker followed a replacement or lost its error");
     settle(ctx);
     drain();
@@ -92,16 +98,16 @@ void testTreeCursor(const std::filesystem::path &parent) {
   {
     Invocation ctx;
     ctx.bindCancellation(&stop);
-    auto opened = call(ctx, FileAction::OpenWalk, pathArgument(ctx, root / "moved"));
-    FileArguments arg;
+    auto opened = callTree(ctx, FileAction::OpenWalk, pathArgument(ctx, root / "moved"));
+    ProcessArguments arg{};
     arg.file = opened.file;
-    require(call(ctx, FileAction::ReadDirectory, arg).kind == FileKind::Success,
+    require(callTree(ctx, FileAction::ReadDirectory, arg).kind == FileKind::Success,
             "failed to enter partial walk");
     void *state = nullptr;
-    FileResult out;
-    (void)kalandra_file_step_v1(&ctx, &out, unsigned(FileAction::ReadDirectory), &arg, &state);
+    ProcessResult out{};
+    (void)kalandra_file_step_v2(&ctx, &out, unsigned(FileAction::ReadDirectory), &arg, &state);
     stop = true;
-    require(kalandra_file_step_v1(&ctx, &out, unsigned(FileAction::ReadDirectory), &arg, &state) &&
+    require(kalandra_file_step_v2(&ctx, &out, unsigned(FileAction::ReadDirectory), &arg, &state) &&
                 !state && !out.text.allocated,
             "cancelled walk published an entry");
     settle(ctx);
@@ -112,10 +118,10 @@ void testTreeCursor(const std::filesystem::path &parent) {
     auto path = root;
     for (unsigned i = 0; i < 48; ++i)
       path /= "d";
-    require(call(ctx, FileAction::DirectoryCreateAll, pathArgument(ctx, path)).kind ==
+    require(callTree(ctx, FileAction::DirectoryCreateAll, pathArgument(ctx, path)).kind ==
                 FileKind::Success,
             "deep parent creation failed");
-    require(call(ctx, FileAction::RemoveTree, pathArgument(ctx, root)).kind == FileKind::Success,
+    require(callTree(ctx, FileAction::RemoveTree, pathArgument(ctx, root)).kind == FileKind::Success,
             "deep tree removal failed");
     require(!fs::exists(root), "recursive removal left its root");
     settle(ctx);
