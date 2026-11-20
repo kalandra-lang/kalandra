@@ -74,6 +74,14 @@ Vulkan currently defaults to fixed-tree matmul. Select --matmul-policy optimized
 
 Native f64 depends on the device. NVIDIA RTX 5090 passes the native four-operation edge corpus. Intel f64 division currently reports an unsupported capability; select --arithmetic hardware-with-software-fallback to permit the integer GPU companion. Intel kernels without f64 division remain native. Fallback applies to f64 arithmetic for the selected kernel as a whole while retaining native f32; it is not chosen separately for each instruction. Missing or malformed shader resources are errors, not reasons to select software arithmetic. Hardware-only mode never silently selects software.
 
+h3 { "Known LeakSanitizer report on Linux with NVIDIA" }
+
+On an RTX 5090 with NVIDIA driver 620.70.06 and Mesa 26.2.6, a Vulkan program can produce the correct result and still exit with a LeakSanitizer error. The reported host memory belongs to a D-Bus reply retained by NVIDIA's EGL library and device records cached by Mesa during initialization. A standalone Vulkan program reproduced both leaks by creating an instance, enumerating devices and destroying the instance. The same Kalandra tests passed on Intel ARL.
+
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/issues/298", "Issue #298 tracks the affected versions, reproducer and retest results" }
+}
+
 h2 { "Experimental Linux CUDA backend" }
 
 A Linux compiler built with CUDA support accepts the same program with a different target:
