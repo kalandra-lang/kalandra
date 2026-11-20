@@ -7,6 +7,7 @@ enum class StandardModule {
   Format,
   Process,
   Filesystem,
+  Stream,
   Buffer,
   Parse,
   Path,
@@ -39,6 +40,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
     return StandardModule::Path;
   if (name == "std/parse")
     return StandardModule::Parse;
+  if (name == "std/stream")
+    return StandardModule::Stream;
   if (name == "std/fs")
     return StandardModule::Filesystem;
   if (name == "std/io")
@@ -71,6 +74,8 @@ inline std::string_view standardModulePath(StandardModule module) {
     return "kalandra-stdlib:std/path.k";
   case StandardModule::Parse:
     return "kalandra-stdlib:std/parse.k";
+  case StandardModule::Stream:
+    return "kalandra-stdlib:std/stream.k";
   case StandardModule::Filesystem:
     return "kalandra-stdlib:std/fs.k";
   case StandardModule::Io:
@@ -103,6 +108,8 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
     return StandardModule::Path;
   if (path == standardModulePath(StandardModule::Parse))
     return StandardModule::Parse;
+  if (path == standardModulePath(StandardModule::Stream))
+    return StandardModule::Stream;
   if (path == standardModulePath(StandardModule::Filesystem))
     return StandardModule::Filesystem;
   if (path == standardModulePath(StandardModule::Io))
@@ -562,6 +569,55 @@ export fn parseF64(text: String) -> f64 ! ParseError:
   return __kalandra_parse_f64(text)
 export fn parseBool(text: String) -> bool ! ParseError:
   return __kalandra_parse_bool(text)
+)k";
+  case StandardModule::Stream:
+    return R"k(from "std/fs" import File, BufferedReader, BufferedWriter, FsError, readInto as fileReadInto, readAppend as fileReadAppend, write as fileWrite, writeAll as fileWriteAll
+from "std/buffer" import ByteBuffer
+export error StreamError:
+  System:
+    code: i32
+    message: String
+  BrokenPipe:
+    code: i32
+  InvalidArgument
+fn fileStreamError(error: FsError) -> StreamError:
+  return match error:
+    FsError.System {code, message}: StreamError.System {code: code, message: message}
+    _: StreamError.InvalidArgument
+export trait ByteReader:
+  fn readInto(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError
+  fn readAppend(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError
+impl ByteReader for File:
+  fn readInto(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+    return fileReadInto(stream, buffer, maxBytes) catch fn(error): fail fileStreamError(error)
+  fn readAppend(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+    return fileReadAppend(stream, buffer, maxBytes) catch fn(error): fail fileStreamError(error)
+impl ByteReader for BufferedReader:
+  fn readInto(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+    return fileReadInto(stream, buffer, maxBytes) catch fn(error): fail fileStreamError(error)
+  fn readAppend(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+    return fileReadAppend(stream, buffer, maxBytes) catch fn(error): fail fileStreamError(error)
+export fn readInto[S: ByteReader](stream: S, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return try ByteReader.readInto(stream, buffer, maxBytes)
+export fn readAppend[S: ByteReader](stream: S, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return try ByteReader.readAppend(stream, buffer, maxBytes)
+export trait ByteWriter:
+  fn write(stream: Self, buffer: ByteBuffer) -> u64 ! StreamError
+  fn writeAll(stream: Self, buffer: ByteBuffer) -> unit ! StreamError
+impl ByteWriter for File:
+  fn write(stream: Self, buffer: ByteBuffer) -> u64 ! StreamError:
+    return fileWrite(stream, buffer) catch fn(error): fail fileStreamError(error)
+  fn writeAll(stream: Self, buffer: ByteBuffer) -> unit ! StreamError:
+    return fileWriteAll(stream, buffer) catch fn(error): fail fileStreamError(error)
+impl ByteWriter for BufferedWriter:
+  fn write(stream: Self, buffer: ByteBuffer) -> u64 ! StreamError:
+    return fileWrite(stream, buffer) catch fn(error): fail fileStreamError(error)
+  fn writeAll(stream: Self, buffer: ByteBuffer) -> unit ! StreamError:
+    return fileWriteAll(stream, buffer) catch fn(error): fail fileStreamError(error)
+export fn write[S: ByteWriter](stream: S, buffer: ByteBuffer) -> u64 ! StreamError:
+  return try ByteWriter.write(stream, buffer)
+export fn writeAll[S: ByteWriter](stream: S, buffer: ByteBuffer) -> unit ! StreamError:
+  return try ByteWriter.writeAll(stream, buffer)
 )k";
   case StandardModule::Filesystem:
     return R"k(from "std/io" import Line

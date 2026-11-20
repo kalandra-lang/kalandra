@@ -545,3 +545,12 @@ if(BUILD_TESTING)
     add_dependencies(native-io-qualification kalandra-buffer-capabilities-${variant})
   endforeach()
 endif()
+
+if(BUILD_TESTING)
+  foreach(variant IN ITEMS debug optimized sanitized)
+    add_test(NAME native-stream-source-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/StreamSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}")
+    set_tests_properties(native-stream-source-${variant} PROPERTIES TIMEOUT 480 LABELS "feature-io")
+  endforeach()
+endif()

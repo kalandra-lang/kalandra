@@ -29,7 +29,7 @@ CompletionInfo completeImportPaths(const std::shared_ptr<const SourceFile> &sour
     result.replacement = {token.span.begin + 1, token.span.end - 1};
     for (const auto name :
          {"std/buffer", "std/cmp", "std/env", "std/fmt", "std/fs", "std/gpu", "std/io", "std/iter",
-          "std/ops", "std/option", "std/parse", "std/path", "std/process", "std/time"})
+          "std/ops", "std/option", "std/parse", "std/path", "std/process", "std/stream", "std/time"})
       if (std::string_view(name).starts_with(prefix))
         result.names.push_back({name, ScopeNameKind::File});
     return result;
