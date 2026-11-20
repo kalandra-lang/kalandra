@@ -24,6 +24,10 @@ if mode == 'both':
 elif mode == 'limit':
     sys.stdout.buffer.write(b'abc')
     sys.stderr.buffer.write(b'de')
+    sys.stdout.buffer.flush()
+    sys.stderr.buffer.flush()
+    import time
+    time.sleep(60)
 elif mode == 'status':
     if os.name == 'nt':
         import ctypes

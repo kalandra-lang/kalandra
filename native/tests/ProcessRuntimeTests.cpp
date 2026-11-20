@@ -124,6 +124,22 @@ int main(int argc, char **argv) {
     check(call(owner, FileAction::StreamRead, read).count == 0,
           "taken endpoint lost EOF on cleanup");
   }
+  for (int n = 0; n < 8; ++n) {
+    Invocation owner;
+    CommandView cmd{text(owner, program),
+                    {},
+                    text(owner, "kalandra-missing-child-directory"),
+                    {},
+                    {},
+                    {2, 2, 2}};
+    ProcessArguments args;
+    args.command = &cmd;
+    ProcessResult error;
+    kalandra_file_v2(&owner, &error, unsigned(FileAction::Start), &args);
+    check(!owner.poll() && error.kind == FileKind::System && error.code &&
+              !error.file.storage.allocated,
+          "failed start published an owner");
+  }
   const auto deadline = std::chrono::steady_clock::now() + 5s;
   while (fileServiceStats().reserved && std::chrono::steady_clock::now() < deadline)
     std::this_thread::sleep_for(1ms);

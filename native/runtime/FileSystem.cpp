@@ -9,6 +9,7 @@
 #include <charconv>
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 #include <cstring>
 #include <cwchar>
 #include <memory>
@@ -342,6 +343,17 @@ void open(Job &job) noexcept {
   do {
     job.output->file = ::open(reinterpret_cast<const char *>(job.data()), flags | O_CLOEXEC, 0666);
   } while (job.output->file == invalidFile && errno == EINTR && !job.abandoned);
+#ifdef __APPLE__
+  // Darwin can deliver FIFO SIGPIPE to another host thread. Suppress it on
+  // this descriptor so callers receive the write error even with multiple workers.
+  if (job.output->file != invalidFile && flags != O_RDONLY &&
+      fcntl(job.output->file, F_SETNOSIGPIPE, 1) == -1) {
+    const auto error = errno;
+    (void)closeFile(*job.output);
+    job.system(error);
+    return;
+  }
+#endif
 #endif
   if (job.output->file == invalidFile) {
     job.system(lastError());
