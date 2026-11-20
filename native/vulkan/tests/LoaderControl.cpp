@@ -20,12 +20,18 @@ int control(bool maps) {
   std::vector<VkPhysicalDevice> devices(count);
   if (status == VK_SUCCESS)
     status = vkEnumeratePhysicalDevices(instance, &count, devices.data());
+  for (unsigned i = 0; status == VK_SUCCESS && i < count; ++i) {
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(devices[i], &properties);
+    std::printf("Device: %s vendor=%04x device=%04x\n", properties.deviceName,
+                properties.vendorID, properties.deviceID);
+  }
   // Preserve addresses before driver unload so sanitizer frames reported as
   // <unknown module> at process exit can be attributed without suppressions.
   const bool mapped = !maps || writeSanitizerMaps();
   vkDestroyInstance(instance, nullptr);
   std::printf("Loader-only control: %u devices, status %d\n", count, int(status));
-  return !mapped ? 2 : status == VK_SUCCESS ? 0 : 1;
+  return !mapped ? 2 : status == VK_SUCCESS && count ? 0 : 1;
 }
 int main(int argc, char **argv) {
   unsigned iterations = 1;
@@ -36,13 +42,16 @@ int main(int argc, char **argv) {
       return 2;
     maps = true;
     iterations = option == "--maps-twice" ? 2 : 1;
-  } else if (argc == 3 && std::string_view(argv[1]) == "--maps-iterations") {
+  } else if (argc == 3) {
+    const std::string_view option(argv[1]);
+    if (option != "--iterations" && option != "--maps-iterations")
+      return 2;
     const std::string_view count(argv[2]);
     auto [end, error] = std::from_chars(count.data(), count.data() + count.size(), iterations);
     if (error != std::errc{} || end != count.data() + count.size() || !iterations ||
         iterations > 64)
       return 2;
-    maps = true;
+    maps = option == "--maps-iterations";
   } else if (argc != 1)
     return 2;
   for (unsigned i = 0; i < iterations; ++i)

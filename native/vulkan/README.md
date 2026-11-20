@@ -26,7 +26,7 @@ Project manifests and local packages use the common `--project`/`--package`
 options. All three arithmetic policies and `-O0`/`-O2` are supported. Normal
 Linux root builds also support `--sanitize` with separate ASan/UBSan host/runtime
 libraries and instrumented CPU exports; this does not instrument GPU instructions.
-NVIDIA exit-time LeakSanitizer findings remain open. `--thread-sanitize` is still
+For NVIDIA 620.70.06, use the [Linux compute driver profile](qualification/loader-lifecycle.md) for leak checking. `--thread-sanitize` is still
 rejected; private Intel TSan qualification is a separate configuration. Private
 instrumented root profiles expose the proof tools rather than the public Vulkan
 command. Matmul defaults to `fixed-tree`; explicit `--matmul-policy optimized`
@@ -292,7 +292,7 @@ CPU hardware checks verify 6,032 software IEEE arithmetic results per GPU,
 including gradual underflow, signed zeros, overflow and canonical arithmetic NaNs.
 Artifact-error tests verify the fallback trigger rules above. GCC and the
 isolated Intel TSan configuration pass; CPU/Metal policy regressions pass.
-ASan/UBSan assertions pass, but LeakSanitizer still exits unsuccessfully:
+In the original desktop-driver qualification, ASan/UBSan assertions passed and LeakSanitizer reported
 28,563 bytes / 77 allocations after repeated registry creation. Eleven direct
 Vulkan-loader initializations with no Kalandra runtime reproduce that exact total.
 This strengthens external-loader attribution without suppressing or relabelling
@@ -354,7 +354,7 @@ NaN payloads and clamping negative zero without needing float64 arithmetic.
 
 Default float32 and float64 CPU/Metal proof-generator artifacts remain
 byte-identical; Metal graph/policy/frontend regressions pass. ASan/UBSan numerical
-assertions and isolated Intel TSan checks pass. LSan still fails unsuppressed:
+assertions and isolated Intel TSan checks pass. The original NVIDIA desktop ICD runs reported:
 2,497 bytes/7 allocations for conversions and 2,509 bytes/7 allocations for ReLU.
 The latter differs from the single-loader control by 12 bytes; it is not reported
 as an exact match or a leak-clean result.
@@ -393,7 +393,7 @@ Isolated sanitizer checks distinguish loader findings from execution: Intel's
 matrix corpus and loader-only control exit cleanly; NVIDIA's corpus and
 loader-only control both fail unsuppressed LSan at 2,509 bytes/7 allocations.
 Public sanitized optimized-matmul programs retain exact results on both GPUs,
-with clean Intel exits and the existing NVIDIA two-initialization loader leak
+with clean Intel exits and the original NVIDIA desktop ICD two-initialization leak
 (5,082 bytes/14 allocations). Public TSan remains unavailable; the separate
 Intel TSan profile is private qualification only.
 

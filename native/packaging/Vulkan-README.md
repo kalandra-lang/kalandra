@@ -41,6 +41,22 @@ and cross-target GPU builds are currently unsupported. Transpose supports all
 ten storage types. GPU softmaxRows/rmsNormRows require native float32, matching
 the existing Metal source contract.
 
+### Leak checking on NVIDIA Linux
+
+On NVIDIA 620.70.06, the desktop Vulkan driver leaks host allocations when it
+probes EGL devices and D-Bus. For a foreground compute program, generate an
+NVIDIA EGL driver manifest in your application directory using Python 3:
+
+```sh
+kalandra-vulkan-nvidia-icd > program/nvidia-compute.json
+VK_DRIVER_FILES="$PWD/program/nvidia-compute.json" __GL_DisableDBus=1 ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./program/program
+```
+
+This selects NVIDIA for this invocation and skips its desktop D-Bus probe.
+Other processes retain their driver settings. Pass the installed NVIDIA ICD
+JSON path to the helper if your distribution uses a different location.
+Regenerate the file after a driver update. Intel Vulkan passed with its stock ICD.
+
 Pinned MIT ggml sources retain their notices under `share/licenses/kalandra-vulkan`.
 The configured SPIR-V validator's copyright notice and binary digest are retained.
 
