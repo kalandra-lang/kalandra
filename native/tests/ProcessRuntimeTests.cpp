@@ -1,4 +1,5 @@
 #include "../runtime/FileSystem.h"
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -35,6 +36,35 @@ FileDescriptor start(Invocation &ctx, const std::string &program, const std::str
   ProcessArguments args;
   args.command = &cmd;
   return call(ctx, FileAction::Start, args).file;
+}
+void checkCommandBudget(const std::string &program) {
+  std::uint64_t used = 0;
+  {
+    Invocation ctx;
+    ctx.bindRecursiveBudget(
+        &used,
+        [](void *p, std::uint64_t bytes) noexcept {
+          auto &total = *static_cast<std::uint64_t *>(p);
+          if (bytes > 65536 - total)
+            return false;
+          total += bytes;
+          return true;
+        },
+        [](void *p, std::uint64_t bytes) noexcept { *static_cast<std::uint64_t *>(p) -= bytes; });
+    constexpr std::int64_t count = 128;
+    auto *cells =
+        static_cast<StringDescriptor *>(ctx.allocateRecord(count * sizeof(StringDescriptor)));
+    check(cells != nullptr, "allocate shared argument descriptors");
+    std::fill_n(cells, count, text(ctx, std::string(8192, 'a')));
+    CommandView cmd{text(ctx, program), {cells, cells, 0, count, 1}, {}, {}, {}, {3, 3, 3}};
+    check(!ctx.poll(), "shared source arguments must fit the small budget");
+    ProcessArguments args;
+    args.command = &cmd;
+    ProcessResult result;
+    kalandra_file_v2(&ctx, &result, unsigned(FileAction::Start), &args);
+    check(ctx.poll() == 2 && !result.file.storage.allocated, "expanded argv exceeds task budget");
+  }
+  check(used == 0, "rejected command retained budget");
 }
 void cancelPending(Invocation &owner, FileDescriptor handle, FileAction action) {
   Invocation caller;
@@ -86,6 +116,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   const auto program = std::filesystem::absolute(argv[0]).string();
+  checkCommandBudget(program);
   {
     Invocation owner;
     void *scope = kalandra_file_scope_enter_v1(&owner, nullptr, 0);

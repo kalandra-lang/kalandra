@@ -843,8 +843,6 @@ Operation *prepare(Invocation &ctx, ProcessResult &out, FileAction action,
         op->job = nullptr;
         return nullptr;
       }
-      if (!ctx.trackResource(job))
-        return nullptr;
       const auto &cmd = *job->command;
       std::uint64_t commandBytes =
           sizeof(cmd) + cmd.program.capacity() + cmd.directory.capacity() +
