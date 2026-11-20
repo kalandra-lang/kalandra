@@ -131,10 +131,10 @@ void checkTypeCapabilities() {
     ValueType type;
     type.record = id;
     const auto standard = id < module.records.size() ? module.records[id].standard : std::nullopt;
-    const bool file = standard == StandardRecord::File ||
-                      standard == StandardRecord::BufferedReader ||
-                      standard == StandardRecord::BufferedWriter || standard == StandardRecord::Child ||
-                      standard == StandardRecord::PipeReader || standard == StandardRecord::PipeWriter;
+    const bool file =
+        standard == StandardRecord::File || standard == StandardRecord::BufferedReader ||
+        standard == StandardRecord::BufferedWriter || standard == StandardRecord::Child ||
+        standard == StandardRecord::PipeReader || standard == StandardRecord::PipeWriter;
     const bool buffer = standard == StandardRecord::ByteBuffer;
     const bool iterator = standard == StandardRecord::Iterator;
     expect(isFileResource(module, type) == file && isByteBuffer(module, type) == buffer &&

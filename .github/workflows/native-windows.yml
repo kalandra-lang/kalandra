@@ -111,6 +111,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Filesystem runtime driver failed to compile' }
           & build/windows/filesystem-runtime-tests.exe build/windows/filesystem-runtime
           if ($LASTEXITCODE -ne 0) { throw 'Filesystem runtime ownership qualification failed' }
+      - name: Qualify child cleanup and cancellation under pipe backpressure
+        run: |
+          & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/ProcessRuntimeTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/process-runtime-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Process runtime driver failed to compile' }
+          & build/windows/process-runtime-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Process runtime tests failed' }
       - name: Qualify typed parsing and exact numerical oracle
         run: |
           & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/ParseRuntimeTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/parse-runtime-tests.exe

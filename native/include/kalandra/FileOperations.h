@@ -116,12 +116,18 @@ inline bool commandAction(FileAction action) {
 }
 inline FileAction streamFileAction(FileAction action) {
   switch (action) {
-  case FileAction::StreamRead: return FileAction::ReadIntoBuffer;
-  case FileAction::StreamAppend: return FileAction::ReadAppend;
-  case FileAction::StreamWrite: return FileAction::WriteBuffer;
-  case FileAction::StreamWriteAll: return FileAction::WriteAllBuffer;
-  case FileAction::PipeClose: return FileAction::Close;
-  default: return action;
+  case FileAction::StreamRead:
+    return FileAction::ReadIntoBuffer;
+  case FileAction::StreamAppend:
+    return FileAction::ReadAppend;
+  case FileAction::StreamWrite:
+    return FileAction::WriteBuffer;
+  case FileAction::StreamWriteAll:
+    return FileAction::WriteAllBuffer;
+  case FileAction::PipeClose:
+    return FileAction::Close;
+  default:
+    return action;
   }
 }
 inline bool filePathAction(FileAction action) {
@@ -130,7 +136,8 @@ inline bool filePathAction(FileAction action) {
          action == FileAction::RemoveFile || action == FileAction::DirectoryRemove;
 }
 inline bool consumesFile(FileAction action) {
-  return action == FileAction::PipeClose || action == FileAction::BufferedReader || action == FileAction::BufferedWriter ||
-         action == FileAction::Finish || action == FileAction::Close;
+  return action == FileAction::PipeClose || action == FileAction::BufferedReader ||
+         action == FileAction::BufferedWriter || action == FileAction::Finish ||
+         action == FileAction::Close;
 }
 } // namespace kalandra

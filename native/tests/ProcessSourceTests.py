@@ -61,3 +61,24 @@ with tempfile.TemporaryDirectory() as name:
     status = str(0xFEDCBA98).encode() if os.name == "nt" else b"-15"
     assert run.returncode == 0 and not run.stderr, run
     assert run.stdout.splitlines() == [b"true:4:true:1:0:0", status], run
+
+    append_source = source.with_name("append.k")
+    subprocess.run([args.compiler.resolve(), append_source, flags[args.variant], "-o", app], check=True, timeout=180)
+    run = subprocess.run([app, sys.executable], cwd=root, capture_output=True, timeout=45)
+    assert run.returncode == 0 and not run.stderr and run.stdout.strip() == b"3", run
+    assert (root / "append.bin").read_bytes() == bytes([42, 0, 255])
+    if args.variant == "debug":
+        prefix = """from "std/process" import Child, command, start, wait, takeStdout, close, ProcessError
+from "std/stream" import StreamError
+fn main() -> unit ! (ProcessError | StreamError):
+  child = try start(command("unused", []))
+"""
+        for name, body in {
+            "child moved": "  other = child\n  s = try wait(child)\n",
+            "pipe closed": "  pipe = try takeStdout(child)\n  try close(pipe)\n  try close(pipe)\n",
+            "forged child": "  fake = Child {__storage: []}\n  s = try wait(fake)\n",
+        }.items():
+            path = root / "invalid.k"
+            path.write_text(prefix + body + "  return ()\n")
+            checked = subprocess.run([args.compiler.resolve(), path, "-o", app], capture_output=True, timeout=60)
+            assert checked.returncode != 0 and b"error[S" in checked.stderr, (name, checked)

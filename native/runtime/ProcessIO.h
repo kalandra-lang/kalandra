@@ -1,12 +1,5 @@
 // Included in the file service's private namespace. Native work owns all command
 // strings and pipe storage. No worker dereferences a source value or task frame.
-struct CommandView {
-  StringDescriptor program;
-  StringArrayDescriptor arguments;
-  StringDescriptor directory;
-  StringArrayDescriptor keys, values;
-  std::uint64_t streams[3];
-};
 bool copyCommand(Invocation &ctx, Job &job, const CommandView &view) {
   if (!validateString(ctx, view.program) || !validateString(ctx, view.directory))
     return false;

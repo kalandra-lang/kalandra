@@ -20,14 +20,16 @@ inline llvm::StructType *fileArgumentsType(const TaskValueTypes &types, llvm::LL
   text.builtin = BuiltinValue::String;
   return llvm::StructType::get(ctx, {fileHandleType(types, ctx), types.scalar(text),
                                      fileBytesType(types), llvm::Type::getInt64Ty(ctx),
-                                     llvm::Type::getInt64Ty(ctx), fileHandleType(types, ctx), llvm::PointerType::getUnqual(ctx)});
+                                     llvm::Type::getInt64Ty(ctx), fileHandleType(types, ctx),
+                                     llvm::PointerType::getUnqual(ctx)});
 }
 inline llvm::StructType *fileResultType(const TaskValueTypes &types, llvm::LLVMContext &ctx) {
   ValueType text;
   text.builtin = BuiltinValue::String;
   return llvm::StructType::get(ctx, {llvm::Type::getInt32Ty(ctx), llvm::Type::getInt32Ty(ctx),
                                      types.scalar(text), fileHandleType(types, ctx),
-                                     fileBytesType(types), llvm::Type::getInt64Ty(ctx), fileBytesType(types)});
+                                     fileBytesType(types), llvm::Type::getInt64Ty(ctx),
+                                     fileBytesType(types)});
 }
 inline void emitFileArguments(llvm::IRBuilder<> &b, const TaskValueTypes &types,
                               const FileOperation &op, const std::vector<llvm::Value *> &inputs,
@@ -75,8 +77,10 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
                            llvm::Value *context, llvm::BasicBlock *next, llvm::BasicBlock *abort) {
   const bool process = op.action >= FileAction::Start;
   const bool stream = !process && op.action >= FileAction::StreamRead;
-  if (!result.errorRecord || input.records.at(*result.errorRecord).standard !=
-      (process ? StandardRecord::ProcessError : stream ? StandardRecord::StreamError : StandardRecord::FsError))
+  if (!result.errorRecord ||
+      input.records.at(*result.errorRecord).standard != (process  ? StandardRecord::ProcessError
+                                                         : stream ? StandardRecord::StreamError
+                                                                  : StandardRecord::FsError))
     throw std::invalid_argument("filesystem operation lost its nominal error identity");
   auto *transport = fileResultType(types, module.getContext());
   auto *args = fileArgumentsType(types, module.getContext());
@@ -96,13 +100,14 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
   const auto storeField = [&](std::size_t recordId, llvm::Value *record, const char *name,
                               llvm::Value *value, unsigned variant = 0) {
     const auto &fields = input.records.at(recordId).fields;
-    const auto found =
-        std::ranges::find_if(fields, [&](const auto &field) {
-          if (field.name != name) return false;
-          if (!variant) return true;
-          const auto &indices = input.records.at(recordId).variants.at(variant-1).fields;
-          return std::ranges::find(indices, std::size_t(&field-fields.data())) != indices.end();
-        });
+    const auto found = std::ranges::find_if(fields, [&](const auto &field) {
+      if (field.name != name)
+        return false;
+      if (!variant)
+        return true;
+      const auto &indices = input.records.at(recordId).variants.at(variant - 1).fields;
+      return std::ranges::find(indices, std::size_t(&field - fields.data())) != indices.end();
+    });
     if (found == fields.end())
       throw std::invalid_argument("filesystem standard field missing");
     b.CreateStore(value,
@@ -115,17 +120,27 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
   for (unsigned kind = 2; kind <= 10; ++kind) {
     unsigned tag = kind - 1;
     if (process) {
-      if (kind == 2) tag = 1;
-      else if (kind == 6) tag = 2;
-      else if (kind == 9) tag = 3;
-      else if (kind == 10) tag = 4;
-      else continue;
+      if (kind == 2)
+        tag = 1;
+      else if (kind == 6)
+        tag = 2;
+      else if (kind == 9)
+        tag = 3;
+      else if (kind == 10)
+        tag = 4;
+      else
+        continue;
     } else if (stream) {
-      if (kind == 2) tag = 1;
-      else if (kind == 8) tag = 2;
-      else if (kind == 6) tag = 3;
-      else continue;
-    } else if (kind > 6) continue;
+      if (kind == 2)
+        tag = 1;
+      else if (kind == 8)
+        tag = 2;
+      else if (kind == 6)
+        tag = 3;
+      else
+        continue;
+    } else if (kind > 6)
+      continue;
     auto *error = block("file.error");
     dispatch->addCase(b.getInt32(kind), error);
     b.SetInsertPoint(error);
@@ -175,8 +190,10 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
   switch (streamFileAction(op.action)) {
   case FileAction::Capture: {
     const auto &fields = input.records[*result.record].fields;
-    const auto status = std::ranges::find_if(fields, [](const auto &field){ return field.name == "status"; });
-    storeStatus(status->type, b.CreateStructGEP(types.records()[*result.record], value, status-fields.begin()));
+    const auto status =
+        std::ranges::find_if(fields, [](const auto &field) { return field.name == "status"; });
+    storeStatus(status->type,
+                b.CreateStructGEP(types.records()[*result.record], value, status - fields.begin()));
     storeField(*result.record, value, "stdout", loadTransport(4));
     storeField(*result.record, value, "stderr", loadTransport(6));
     break;

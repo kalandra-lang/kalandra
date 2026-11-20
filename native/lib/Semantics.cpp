@@ -2017,7 +2017,8 @@ private:
         names.push_back(symbol.name);
       }
       const auto prefix = options_.signature->argumentIndex.value_or(arguments.size());
-      if (prefix > 0 && !arguments.empty() && action < FileAction::StreamRead && !filePathAction(action)) {
+      if (prefix > 0 && !arguments.empty() && action < FileAction::StreamRead &&
+          !filePathAction(action)) {
         auto actual = expression(frame, arguments[0]);
         if (!actual || !isFileResource(output_, node(*actual).type))
           return {};
@@ -2095,7 +2096,8 @@ private:
                            action == FileAction::WriteText || action == FileAction::WriteLine ||
                            action == FileAction::Flush;
         if (standard == StandardRecord::Child || standard == StandardRecord::PipeReader ||
-            standard == StandardRecord::PipeWriter || (read && standard == StandardRecord::BufferedWriter) ||
+            standard == StandardRecord::PipeWriter ||
+            (read && standard == StandardRecord::BufferedWriter) ||
             (write && standard == StandardRecord::BufferedReader) ||
             ((action == FileAction::BufferedReader || action == FileAction::BufferedWriter) &&
              standard != StandardRecord::File) ||

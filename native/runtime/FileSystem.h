@@ -2,7 +2,7 @@
 #include "../include/kalandra/FileOperations.h"
 #include "ByteBuffer.h"
 #include "OwnedResources.h"
-#include "String.h"
+#include "StringArray.h"
 #include "Tensor.h"
 namespace kalandra::runtime {
 using FileBytes = CpuTensor<NumericType::UInt8, 1>;
@@ -39,8 +39,16 @@ struct FileResult {
   FileBytes bytes;
   std::uint64_t count = 0;
 };
+struct CommandView {
+  StringDescriptor program;
+  StringArrayDescriptor arguments;
+  StringDescriptor directory;
+  StringArrayDescriptor keys, values;
+  std::uint64_t streams[3];
+};
+
 struct ProcessArguments : FileArguments {
-  const void *command = nullptr;
+  const CommandView *command = nullptr;
 };
 struct ProcessResult : FileResult {
   FileBytes stderrBytes;
@@ -59,7 +67,8 @@ bool kalandra_file_step_v1(kalandra::runtime::Invocation *, kalandra::runtime::F
 void kalandra_file_v1(kalandra::runtime::Invocation *, kalandra::runtime::FileResult *,
                       std::uint32_t action, const kalandra::runtime::FileArguments *) noexcept;
 bool kalandra_file_step_v2(kalandra::runtime::Invocation *, kalandra::runtime::ProcessResult *,
-                           std::uint32_t action, const kalandra::runtime::ProcessArguments *, void **state) noexcept;
+                           std::uint32_t action, const kalandra::runtime::ProcessArguments *,
+                           void **state) noexcept;
 void kalandra_file_v2(kalandra::runtime::Invocation *, kalandra::runtime::ProcessResult *,
                       std::uint32_t action, const kalandra::runtime::ProcessArguments *) noexcept;
 void kalandra_file_pause_v1(kalandra::runtime::Task *, void *state) noexcept;

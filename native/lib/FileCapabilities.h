@@ -27,8 +27,10 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
   auto result = expression.type;
   if (op->action >= FileAction::StreamRead) {
     const bool process = op->action >= FileAction::Start;
-    const bool read = op->action == FileAction::StreamRead || op->action == FileAction::StreamAppend;
-    const bool write = op->action == FileAction::StreamWrite || op->action == FileAction::StreamWriteAll;
+    const bool read =
+        op->action == FileAction::StreamRead || op->action == FileAction::StreamAppend;
+    const bool write =
+        op->action == FileAction::StreamWrite || op->action == FileAction::StreamWriteAll;
     if (!hostExecutionAvailable(target) || result.task || result.device || !result.fallible ||
         !result.errorRecord || *result.errorRecord >= module.records.size() ||
         module.records[*result.errorRecord].standard !=
@@ -49,23 +51,28 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
       return bad("requires completed scalar handles or records");
     bool valid = false;
     if (read || write) {
-      valid = (nominal(first, StandardRecord::File) ||
-               nominal(first, read ? StandardRecord::BufferedReader : StandardRecord::BufferedWriter) ||
-               nominal(first, read ? StandardRecord::PipeReader : StandardRecord::PipeWriter)) &&
-              scalar(arg(1)) && isByteBuffer(module, arg(1)) && (!read || u64(arg(2))) &&
-              (op->action == FileAction::StreamWriteAll ? result.builtin == BuiltinValue::Unit : u64(result));
+      valid =
+          (nominal(first, StandardRecord::File) ||
+           nominal(first, read ? StandardRecord::BufferedReader : StandardRecord::BufferedWriter) ||
+           nominal(first, read ? StandardRecord::PipeReader : StandardRecord::PipeWriter)) &&
+          scalar(arg(1)) && isByteBuffer(module, arg(1)) && (!read || u64(arg(2))) &&
+          (op->action == FileAction::StreamWriteAll ? result.builtin == BuiltinValue::Unit
+                                                    : u64(result));
     } else if (op->action == FileAction::PipeClose) {
-      valid = (nominal(first, StandardRecord::PipeReader) || nominal(first, StandardRecord::PipeWriter)) &&
+      valid = (nominal(first, StandardRecord::PipeReader) ||
+               nominal(first, StandardRecord::PipeWriter)) &&
               result.builtin == BuiltinValue::Unit;
     } else if (commandAction(op->action)) {
       valid = nominal(first, StandardRecord::Command) &&
-              (op->action == FileAction::Start ? nominal(result, StandardRecord::Child)
-               : u64(arg(1)) && nominal(result, StandardRecord::Captured));
+              (op->action == FileAction::Start
+                   ? nominal(result, StandardRecord::Child)
+                   : u64(arg(1)) && nominal(result, StandardRecord::Captured));
     } else if (nominal(first, StandardRecord::Child)) {
-      valid = (op->action == FileAction::Wait && nominal(result, StandardRecord::ProcessStatus)) ||
-              (op->action == FileAction::TakeStdin && nominal(result, StandardRecord::PipeWriter)) ||
-              ((op->action == FileAction::TakeStdout || op->action == FileAction::TakeStderr) &&
-               nominal(result, StandardRecord::PipeReader));
+      valid =
+          (op->action == FileAction::Wait && nominal(result, StandardRecord::ProcessStatus)) ||
+          (op->action == FileAction::TakeStdin && nominal(result, StandardRecord::PipeWriter)) ||
+          ((op->action == FileAction::TakeStdout || op->action == FileAction::TakeStderr) &&
+           nominal(result, StandardRecord::PipeReader));
     }
     return valid ? std::nullopt : bad("invalid stream or process operation signature");
   }
@@ -124,7 +131,9 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
         !nominal(mode, StandardRecord::OpenMode))
       return bad("open requires String and OpenMode");
   } else {
-    if (!scalar(first) || !isFileResource(module, first))
+    if (!scalar(first) ||
+        !(nominal(first, StandardRecord::File) || nominal(first, StandardRecord::BufferedReader) ||
+          nominal(first, StandardRecord::BufferedWriter)))
       return bad("requires a completed opaque host handle");
     const bool reading = op->action == FileAction::Read || op->action == FileAction::ReadExact ||
                          op->action == FileAction::ReadInto ||

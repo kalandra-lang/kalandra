@@ -35,9 +35,9 @@ int main(int argc, char **argv) {
     require(!module.standardModules[0], "ordinary root acquired standard identity");
     for (const auto kind :
          {StandardModule::Io, StandardModule::Format, StandardModule::Process,
-          StandardModule::Stream, StandardModule::Filesystem, StandardModule::Buffer, StandardModule::Parse,
-          StandardModule::Path, StandardModule::Env, StandardModule::Time, StandardModule::Option,
-          StandardModule::Iteration, StandardModule::Comparison}) {
+          StandardModule::Stream, StandardModule::Filesystem, StandardModule::Buffer,
+          StandardModule::Parse, StandardModule::Path, StandardModule::Env, StandardModule::Time,
+          StandardModule::Option, StandardModule::Iteration, StandardModule::Comparison}) {
       require(std::ranges::count(module.standardModules, std::optional(kind)) == 1,
               "standard module identity not canonical");
     }

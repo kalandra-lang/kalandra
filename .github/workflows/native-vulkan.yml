@@ -111,6 +111,8 @@ jobs:
           --compiler build/vulkan-source/native/kalandra --target vulkan
           --variant optimized --compile-only
           --output build/vulkan-artifacts/generics
+      - name: Compile mixed child-process and GPU application
+        run: python3 native/tests/MixedProcessTests.py --compiler build/vulkan-source/native/kalandra --target vulkan --compile-only
       - name: Compile owned byte buffers and filesystem overloads
         run: >-
           python3 native/tests/BufferSourceTests.py
