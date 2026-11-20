@@ -27,6 +27,7 @@
 #include "kalandra/Application.h"
 #include "kalandra/Backend.h"
 #include "kalandra/Continuation.h"
+#include "kalandra/CudaMatmul.h"
 #include "kalandra/MetalSource.h"
 #include "kalandra/PackageInstall.h"
 #include "kalandra/Project.h"
@@ -265,6 +266,7 @@ class Compiler {
   std::map<std::size_t, std::size_t> entries;
   std::map<FunctionId, NumericShader> numericShaders;
   std::map<FunctionId, NumericProgram> numericPrograms;
+  std::set<std::pair<FunctionId, std::size_t>> cudaCatalogStages;
   std::map<FunctionId, FunctionId> deviceErrorEntries;
   std::map<FunctionId, DeviceAggregateProjection> aggregateEntries;
   std::size_t aggregateEntryWorkRemaining = 300000;
@@ -2580,6 +2582,18 @@ class Compiler {
                              "}};};\n";
     return name;
   }
+  static bool needsCudaMatmulCatalog(const NumericProgramInstruction &op,
+                                     const std::vector<Value> &inputs) {
+    // Only direct, statically shaped input tensors provide a proof here.
+    // Intermediate values and unknown dimensions keep the general catalog.
+    if (op.inputs.size() != 2 || op.inputs[0] >= inputs.size() || op.inputs[1] >= inputs.size())
+      return true;
+    const auto &a = inputs[op.inputs[0]], &b = inputs[op.inputs[1]];
+    if (a.kind != Value::Tensor || b.kind != Value::Tensor || a.rank != 2 || b.rank != 2 ||
+        !a.length || !a.width || !b.length || !b.width || a.width != b.length)
+      return true;
+    return cudaMatmulCatalogWorthLoading(*a.length, *b.width, *a.width);
+  }
   Value spawnNumericProgram(FunctionId function, const std::vector<Value> &sourceInputs,
                             Value target, SourceSpan span,
                             std::optional<ValueId> closureSource = {}, bool errorOutcome = false) {
@@ -2915,6 +2929,13 @@ class Compiler {
           ++captureCount;
         }
     }
+    // A shader may serve several instructions and launch sites.
+    if (backend_ == GpuBackend::Cuda)
+      for (const auto &op : program.code)
+        if (op.kind == NumericProgramKind::Matmul &&
+            program.kernels.at(op.kernel).element == NumericType::Float32 &&
+            needsCudaMatmulCatalog(op, tensors))
+          cudaCatalogStages.emplace(cacheKey, op.kernel);
     std::string code = bindings + "auto target=" + device(target) + ";if(!target){" +
                        error("target.error()") + "}\n" + "if(!f." + executable + ".on(*target)){\n";
     for (std::size_t i = 0; i < program.kernels.size(); ++i) {
@@ -6065,6 +6086,7 @@ public:
           const auto &shader = found->second.kernels[stage];
           auto name = base + (stage ? "-stage" + std::to_string(stage) : "");
           if (backend_ != GpuBackend::Metal && shader.element == NumericType::Float32 &&
+              (backend_ != GpuBackend::Cuda || cudaCatalogStages.contains({function, stage})) &&
               std::any_of(found->second.code.begin(), found->second.code.end(),
                           [&](const auto &op) {
                             return op.kernel == stage && op.kind == NumericProgramKind::Matmul;

@@ -477,7 +477,7 @@ This prints 7. A rank-zero tensor contains one element and uses empty index brac
 
 h2 { "CPU and device language coverage" }
 
-Device support means the operation executes on the selected GPU. A host continuation may schedule GPU work between CPU operations. The portable device column applies to Metal, Vulkan and CUDA, subject to the numerical policies and backend limits above. Windows GPU execution remains experimental and physically unqualified.
+Device support means the operation executes on the selected GPU. A host continuation may schedule GPU work between CPU operations. The portable device column applies to Metal, Vulkan and CUDA, subject to the numerical policies and backend limits above. Windows GPU execution remains experimental. The GPU guide lists the tested configuration.
 
 table {
   row = ["Feature", "CPU", "Inside a GPU function"],

@@ -80,7 +80,7 @@ h2 { "Vulkan compiler packages" }
 
 On Linux x86-64, choose kalandra-native-vulkan-standalone-linux-x86_64.tar.gz. The package includes private compiler and SPIR-V tools. Generated applications need the system Vulkan loader and a compatible physical GPU driver. Linux execution has been tested on NVIDIA RTX 5090 and Intel ARL; this does not guarantee support for every Vulkan device or provide Raspberry Pi VideoCore acceleration.
 
-Windows x86-64 and ARM64 Vulkan packages are experimental. They pass compiler build and installed-package checks, but physical Windows GPU execution, numerical behavior and performance have not been verified. Use the matching Visual Studio tools and SDK, the Vulkan loader and a compatible vendor driver.
+Windows x86-64 and ARM64 Vulkan packages are experimental. Both architectures pass compiler build and installed-package checks. GPU execution was tested in a Windows x86-64 VM with an RTX 5090. Use the matching Visual Studio tools and SDK, the Vulkan loader and a compatible vendor driver.
 
 list {
   link { url = "/docs/gpu#experimental-vulkan-backend", "Compile and run with Vulkan" }
@@ -90,7 +90,7 @@ h2 { "CUDA compiler packages" }
 
 On Linux x86-64, choose kalandra-native-cuda-standalone-linux-x86_64.tar.gz. You do not need the CUDA toolkit to use the standalone compiler, but you do need system C++23 development headers to compile an application. Running it requires a compatible NVIDIA driver with PTX 9.2 support. Execution has been tested on RTX 5090; older drivers and other GPUs are not yet verified.
 
-Windows x86-64 and ARM64 CUDA packages are experimental and require the matching Visual Studio tools and SDK to compile applications. Physical Windows GPU execution has not been verified. An ARM64 compiler package does not imply that a compatible NVIDIA ARM64 CUDA driver exists. macOS uses Metal; there is no macOS CUDA package.
+Windows x86-64 and ARM64 CUDA packages are experimental and require the matching Visual Studio tools and SDK to compile applications. GPU execution was tested in a Windows x86-64 VM with an RTX 5090. Windows ARM64 packages have build and installation coverage. Check for a compatible NVIDIA driver before using CUDA. macOS uses Metal; there is no macOS CUDA package.
 
 Deploy a generated CUDA or Vulkan application as a complete directory, including its executable and PTX or SPIR-V resources.
 

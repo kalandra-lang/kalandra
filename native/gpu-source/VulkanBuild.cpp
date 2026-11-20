@@ -4,15 +4,18 @@
 #include "VulkanBuildConfig.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
+#include <array>
 #include <fstream>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
 namespace {
-void run(std::vector<std::string> command) {
+void run(std::vector<std::string> command,
+         llvm::ArrayRef<std::optional<llvm::StringRef>> redirects = {}) {
   std::vector<llvm::StringRef> arguments(command.begin(), command.end());
   std::string error;
-  if (llvm::sys::ExecuteAndWait(command[0], arguments, {}, {}, 0, 0, &error))
+  if (llvm::sys::ExecuteAndWait(command[0], arguments, {}, redirects, 0, 0, &error))
     throw std::runtime_error("Vulkan build stage failed: " + command[0] + " " + error);
 }
 #ifdef KALANDRA_INSTALLED_COMPILER
@@ -116,7 +119,16 @@ void buildVulkanProgram(const std::filesystem::path &directory,
           throw std::runtime_error("generated Vulkan shader exceeds the module limit (" +
                                    std::to_string(kalandra::runtime::vulkan::MaxSpirvModuleBytes) +
                                    " bytes)");
+#ifdef _WIN32
+        // The bundled validator's narrow argv cannot represent every Windows path.
+        // Open the shader through LLVM's Unicode-aware stdin redirection.
+        const auto shader = base + ".spv";
+        const std::array<std::optional<llvm::StringRef>, 3> redirects{
+            llvm::StringRef(shader), std::nullopt, std::nullopt};
+        run({validate, "--target-env", "vulkan1.0", "-"}, redirects);
+#else
         run({validate, "--target-env", "vulkan1.0", base + ".spv"});
+#endif
       };
       compile(target.string(), arithmetic == kalandra::ArithmeticMode::Software ? "software" : "hardware");
       if (arithmetic == kalandra::ArithmeticMode::HardwareWithSoftwareFallback)

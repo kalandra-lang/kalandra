@@ -180,7 +180,7 @@ fn main()->Tensor[f32,?,?] ! TaskError:
     try await transfer(y,devices.cpu())
 ''')
 placed=repo/'native/metal-source/placed.k'
-matrix=repo/'native/metal-source/matmul.k'
+matrix=repo/'native/cuda-source/qualification/catalog-matmul.k'
 checks=[('libexec/kalandra/clang++',placed),('libexec/kalandra/kalandra-cuda-lower',placed),
     ('lib/kalandra/native/libkalandra-cuda.a',placed),
     ('lib/kalandra/native/headers/cuda',placed),
