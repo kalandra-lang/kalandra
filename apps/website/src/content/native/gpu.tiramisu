@@ -68,14 +68,6 @@ codeblock { language = bash, """kalandra main.k --target vulkan -O2 -o app
 
 GPU compilation requires system C++23 development headers in addition to the compiler's private tools. Execution requires the system Vulkan loader and a compatible physical GPU driver. Keep the generated executable and its SPIR-V resources together. This backend does not provide Raspberry Pi VideoCore acceleration or imply support for every Vulkan device. Linux RTX 5090 and Intel ARL are the current physical qualification devices; Windows GPU execution remains unqualified.
 
-On Linux, --sanitize checks generated host code and the Vulkan runtime. If LeakSanitizer reports leaks during driver initialization on NVIDIA 620.70.06, use the NVIDIA compute profile packaged with the Linux Vulkan compiler. From the directory containing app, run:
-
-codeblock { language = bash, """kalandra-vulkan-nvidia-icd > app/nvidia-compute.json
-VK_DRIVER_FILES="$PWD/app/nvidia-compute.json" __GL_DisableDBus=1 ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ./app/program
-""" }
-
-This selects NVIDIA for this invocation and skips the driver's desktop D-Bus probe. Regenerate the manifest after updating your driver. Intel Vulkan uses its standard driver configuration.
-
 Vulkan limits each generated SPIR-V module to 16 MiB. Compilation reports an error if a module exceeds that bound. This code-size limit is separate from device-array storage budgets; keep every generated shader with its executable.
 
 Vulkan currently defaults to fixed-tree matmul. Select --matmul-policy optimized explicitly to use the full-f32 tiled matrix kernel. Its private right-operand transpose consumes an extra GPU buffer and dispatch within the normal resource limits. Matrix optimization does not enable fast math for ordinary elementwise expressions.

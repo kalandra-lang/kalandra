@@ -32,10 +32,6 @@ if(NOT KALANDRA_VULKAN_SPIRV_NOTICE)
 endif()
 install(TARGETS kalandra-vulkan-installed RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
   COMPONENT NativeVulkanCompiler)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  install(PROGRAMS vulkan/NvidiaComputeIcd.py DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    RENAME kalandra-vulkan-nvidia-icd COMPONENT NativeVulkanCompiler)
-endif()
 foreach(_target IN ITEMS kalandra-vulkan kalandra-vulkan-program kalandra-vulkan-async
                          kalandra-vulkan-language kalandra-vulkan-sanitized
                          kalandra-vulkan-program-sanitized kalandra-vulkan-async-sanitized

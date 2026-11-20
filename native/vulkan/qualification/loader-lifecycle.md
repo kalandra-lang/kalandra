@@ -29,35 +29,53 @@ The first NVIDIA run reported **2,061 bytes in seven allocations**. Both paths o
 
 The proprietary frames are identified by module and offset. These measurements establish where ownership is lost from the process. They do not establish which internal vendor instruction should release the last reference. The affected stack used Linux 7.3.3, Vulkan loader 1.4.363, Mesa EGL 26.2.6, libdrm 2.4.134, libglvnd 1.7.0 and libdbus 1.14.10. The NVIDIA EGL core build ID was `3c84544d7d759ed33c744201f015d20c6685d653`.
 
-## Compute-only workaround
+## Normal launch remains affected
 
-Select the NVIDIA EGL ICD directly and skip the driver's desktop D-Bus probe for the compute process. The helper copies the installed manifest's metadata to stdout and substitutes the sibling EGL library. Its output belongs in a local application or test directory. [NVIDIA documents both Linux Vulkan ICD entry points](https://download.nvidia.com/XFree86/Linux-x86_64/595.99.02/README/installedcomponents.html).
+The package-level compute profile tested in the first draft bypassed the two
+driver paths. It did not free their allocations. It was withdrawn.
 
-```sh
-python3 native/vulkan/NvidiaComputeIcd.py > nvidia-compute.json
-VK_DRIVER_FILES="$PWD/nvidia-compute.json" __GL_DisableDBus=1 ./loader-control --iterations 64
-```
+The stock NVIDIA GLX ICD reported 7, 14 and 77 leaked allocations after 1, 2
+and 11 lifecycles. The corresponding totals were 2,061, 4,194 and 23,767
+bytes. A single Intel ARL ICD run and 11 repeated Intel cycles exited cleanly.
+Disabling implicit Vulkan layers did not change the NVIDIA counts.
 
-The `__GL_DisableDBus` setting was verified on 620.70.06. Requalify it after driver upgrades. The desktop configuration remains available for programs that need display integration. To expose Intel alongside NVIDIA, append the Intel ICD path to `VK_DRIVER_FILES` with a colon. All Kalandra instance, device, queue and buffer destruction follows the normal code path.
+A diagnostic copy of libdbus 1.14.10 traced the exact leaked 184-byte
+`ListNames` reply. `dbus_connection_send_with_reply_and_block` returned it to
+NVIDIA EGL core with one reference remaining. Two Vulkan instance cycles
+returned two distinct reply addresses, both identified by LeakSanitizer as
+leaked. The application never receives these D-Bus pointers. Calling the
+public `dbus_shutdown` after Vulkan destruction left the same seven
+allocations, so a process-global cleanup call cannot fix the missing release.
 
-| NVIDIA configuration | Result |
-| --- | --- |
-| Stock GLX ICD | 7, 14 and 77 leaked allocations after 1, 2 and 11 lifecycles. The 11-cycle run leaked 23,767 bytes. |
-| EGL ICD alone | 6 D-Bus allocations after 2 cycles, 3,202 bytes. |
-| Stock GLX ICD with the D-Bus probe disabled | 44 Mesa/DRM allocations after 11 cycles, 5,456 bytes. |
-| EGL ICD with the D-Bus probe disabled | Clean exit at 1, 2, 11 and 64 cycles. Each cycle enumerated the physical RTX 5090. |
+Mesa 26.2.6 and 26.2.7 source shows that `eglQueryDevicesEXT` refreshes
+and caches DRM devices, while `eglInitialize` registers the callback that
+frees them. The GLX ICD's cross-vendor EGL device query reaches the first
+path without registering Mesa's cleanup callback. The Mesa EGL and libdrm
+frames account for the other four allocations. A Mesa patch should arrange
+cleanup for device enumeration independent of `eglInitialize`. It must be
+accepted and shipped by the user's distribution. The D-Bus reply requires
+an NVIDIA driver fix because its final reference belongs to proprietary
+EGL core.
 
-Keeping the GLX library loaded across 11 cycles and explicitly releasing it at the end still leaked the final seven objects. Restricting GLVND's EGL vendor list also lost NVIDIA device availability during a 64-cycle test. Neither configuration is used for acceptance.
+Neither Kalandra's instance/device destructor nor its dynamic loader owns
+these allocations. The standalone control links no Kalandra runtime and
+reproduces the exact loss. An application-side driver setting, suppressing
+LeakSanitizer, or retaining the ICD indefinitely does not repair the missing
+releases. Qualification must use the stock ICD and exit zero before this
+issue can close.
 
 ## Kalandra acceptance
 
 ```sh
 python3 native/vulkan/qualification/public_sanitizers.py --compiler /path/to/kalandra-test-observer \
-  --output results --nvidia-compute
+  --output results
 ```
 
-To replay compiled CI bundles, replace `--compiler /path/to/kalandra-test-observer` with `--artifacts /path/to/public-sanitizers`. Omit `--nvidia-compute` to test the stock NVIDIA ICD. Both modes require exact numerical output, empty standard error and exit zero. The harness retains each execution in `results.json`.
+To replay compiled CI bundles, replace `--compiler /path/to/kalandra-test-observer` with `--artifacts /path/to/public-sanitizers`. Both modes require exact numerical output, empty standard error and exit zero. The harness retains each execution in `results.json`.
 
-- Physical RTX 5090 (`10de:2b85`) with the compute profile and Intel ARL (`8086:7d67`) with its standard ICD each passed 64 consecutive instance lifecycles. Both devices also remained visible through 64 cycles in a single process.
-- All 18 sanitized application runs passed. Elementwise multiply/add, mixed CPU/GPU work and optimized matrix multiplication each produced the expected float32 bits at 1, 2 and 4 workers on each GPU. The binaries came from [the Vulkan source qualification](https://github.com/kalandra-lang/kalandra/actions/runs/44627060005). The stock-ICD control rejected all nine NVIDIA runs with LSan exit 23 and passed all nine Intel runs. On stock NVIDIA the elementwise program produced the same bits but leaked 4,194 bytes across two initializations.
-- Both GPUs passed instrumented runtime and task suites with Vulkan validation enabled. Coverage included independent matrix references, escaped buffers, concurrent callers, a 257-stage program, cancellation and deadline precedence, 13 raw failure points and 36 managed fault/cancellation cases. Resource accounting returned to zero after settlement.
+- The stock NVIDIA ICD fails every LeakSanitizer application execution. The
+  strict harness records each failure and exits unsuccessfully. The stock
+  Intel ICD passes.
+- The earlier experimental EGL/D-Bus profile passed 18 numerical executions,
+  64 lifecycle cycles per GPU, and the runtime/task suites with validation.
+  Those results demonstrate a path around the vendor calls, not a leak fix.

@@ -26,7 +26,7 @@ Project manifests and local packages use the common `--project`/`--package`
 options. All three arithmetic policies and `-O0`/`-O2` are supported. Normal
 Linux root builds also support `--sanitize` with separate ASan/UBSan host/runtime
 libraries and instrumented CPU exports; this does not instrument GPU instructions.
-For NVIDIA 620.70.06, use the [Linux compute driver profile](qualification/loader-lifecycle.md) for leak checking. `--thread-sanitize` is still
+The stock NVIDIA 620.70.06 driver fails [Linux leak qualification](qualification/loader-lifecycle.md). `--thread-sanitize` is still
 rejected; private Intel TSan qualification is a separate configuration. Private
 instrumented root profiles expose the proof tools rather than the public Vulkan
 command. Matmul defaults to `fixed-tree`; explicit `--matmul-policy optimized`

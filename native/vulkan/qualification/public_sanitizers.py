@@ -5,14 +5,11 @@ import os
 from pathlib import Path
 import struct
 import subprocess
-import sys
 
 parser = argparse.ArgumentParser(description=__doc__)
 source_group = parser.add_mutually_exclusive_group(required=True)
 source_group.add_argument('--compiler', type=Path)
 source_group.add_argument('--artifacts', type=Path, help='execute previously compiled sanitizer bundles')
-parser.add_argument('--nvidia-compute', action='store_true',
-                    help='use the headless NVIDIA driver workaround for issue #298')
 parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--compile-only', action='store_true')
 args = parser.parse_args()
@@ -39,12 +36,6 @@ device_settings = {
     name: {'VK_DRIVER_FILES': f'/usr/share/vulkan/icd.d/{name}_icd.x86_64.json'}
     for name in ('nvidia', 'intel')
 }
-if args.nvidia_compute and not args.compile_only:
-    manifest = args.output/'nvidia-compute.json'
-    manifest.write_bytes(subprocess.check_output([
-        sys.executable, repo/'native/vulkan/NvidiaComputeIcd.py',
-        device_settings['nvidia']['VK_DRIVER_FILES']]))
-    device_settings['nvidia'] = {'VK_DRIVER_FILES': str(manifest), '__GL_DisableDBus': '1'}
 records = []
 failures = []
 for name, source, values in [('placed', repo/'native/metal-source/placed.k', [5, 12, 21]),
@@ -79,7 +70,6 @@ for name, source, values in [('placed', repo/'native/metal-source/placed.k', [5,
             execution = subprocess.run([output/'program'], env=env, capture_output=True,
                                        text=True, timeout=90)
             record = {'case': name, 'device': device, 'workers': workers,
-                      'nvidia_compute': device == 'nvidia' and args.nvidia_compute,
                       'status': execution.returncode, 'stdout': execution.stdout, 'stderr': execution.stderr}
             records.append(record)
             (args.output/'results.json').write_text(json.dumps(records, indent=2)+'\n')

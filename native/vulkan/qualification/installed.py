@@ -55,15 +55,6 @@ from BundleELF import audit
 from VersionCheck import verify_package_version
 verify_package_version(prefix)
 audit(prefix)
-# Exercise the installed Linux helper after relocation, without loading a GPU.
-manifest = a.root/'source-icd.json'
-descriptor = {'file_format_version': '1.0.1',
-              'ICD': {'library_path': './libGLX_nvidia.so.0', 'api_version': '1.4.357'}}
-manifest.write_text(json.dumps(descriptor))
-generated = subprocess.check_output([prefix/'bin/kalandra-vulkan-nvidia-icd', manifest], text=True)
-assert json.loads(manifest.read_text()) == descriptor
-descriptor['ICD']['library_path'] = str(a.root/'libEGL_nvidia.so.0')
-assert json.loads(generated) == descriptor
 compiler = prefix/'bin/kalandra'
 source = a.root/'cpu.k'
 source.write_text('fn main()->i32:\n  return 42\n')
