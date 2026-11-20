@@ -51,11 +51,24 @@ Mesa 26.2.6 and 26.2.7 source shows that `eglQueryDevicesEXT` refreshes
 and caches DRM devices, while `eglInitialize` registers the callback that
 frees them. The GLX ICD's cross-vendor EGL device query reaches the first
 path without registering Mesa's cleanup callback. The Mesa EGL and libdrm
-frames account for the other four allocations. A Mesa patch should arrange
-cleanup for device enumeration independent of `eglInitialize`. It must be
-accepted and shipped by the user's distribution. The D-Bus reply requires
-an NVIDIA driver fix because its final reference belongs to proprietary
-EGL core.
+frames account for the other four allocations. Both this cache and the D-Bus
+reply are owned by libraries outside Kalandra.
+
+The nine stock-ICD Kalandra executions each reported 14 leaked allocations
+with the same Mesa/libdrm and D-Bus stack categories. Their exact numerical
+outputs were correct. LeakSanitizer counted 4,274 bytes in each run; the
+standalone two-cycle control counted 4,194 bytes in the same 14 categories.
+The D-Bus reply payload depends on the current bus names. All nine Intel
+executions passed with no leaks. No Kalandra allocation appears as a leak
+source in these traces, but the NVIDIA qualification still fails.
+
+For an isolated diagnostic, the checksum-verified NVIDIA 620.73.04 userspace
+archive was extracted into a temporary directory and loaded without
+installation. One and two control lifecycles each reported 992 bytes in
+eight Mesa/libdrm allocations and no D-Bus reply leak. That build still
+fails unsuppressed LeakSanitizer. Its userspace version differed from the
+installed kernel module, so this result does not qualify a driver upgrade.
+The temporary archive and extracted directory were removed after testing.
 
 Neither Kalandra's instance/device destructor nor its dynamic loader owns
 these allocations. The standalone control links no Kalandra runtime and
