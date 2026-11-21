@@ -39,9 +39,18 @@ enum class FileAction : std::uint32_t {
   TakeStdout,
   TakeStderr,
   Wait,
-  Capture
+  Capture,
+  OpenWalk,
+  DirectoryCreateAll,
+  RemoveTree
 };
 inline std::optional<FileAction> fileAction(std::string_view name) {
+  if (name == "__openWalk")
+    return FileAction::OpenWalk;
+  if (name == "createDirAll")
+    return FileAction::DirectoryCreateAll;
+  if (name == "removeTree")
+    return FileAction::RemoveTree;
   if (name == "__openDirectory")
     return FileAction::OpenDirectory;
   if (name == "__readDirectory")
@@ -111,6 +120,9 @@ inline std::optional<FileAction> processAction(std::string_view name) {
     return FileAction::Capture;
   return {};
 }
+inline bool isProcessAction(FileAction action) {
+  return action >= FileAction::Start && action <= FileAction::Capture;
+}
 inline bool commandAction(FileAction action) {
   return action == FileAction::Start || action == FileAction::Capture;
 }
@@ -131,9 +143,11 @@ inline FileAction streamFileAction(FileAction action) {
   }
 }
 inline bool filePathAction(FileAction action) {
-  return action == FileAction::Open || action == FileAction::OpenDirectory ||
-         action == FileAction::Metadata || action == FileAction::DirectoryCreate ||
-         action == FileAction::RemoveFile || action == FileAction::DirectoryRemove;
+  return action == FileAction::OpenWalk || action == FileAction::DirectoryCreateAll ||
+         action == FileAction::RemoveTree || action == FileAction::Open ||
+         action == FileAction::OpenDirectory || action == FileAction::Metadata ||
+         action == FileAction::DirectoryCreate || action == FileAction::RemoveFile ||
+         action == FileAction::DirectoryRemove;
 }
 inline bool consumesFile(FileAction action) {
   return action == FileAction::PipeClose || action == FileAction::BufferedReader ||

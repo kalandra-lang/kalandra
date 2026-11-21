@@ -3,15 +3,18 @@
 #include "ChildProcess.h"
 #include "Console.h"
 #include "StringArray.h"
+#include "TreeLocation.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
 #include <charconv>
 #include <chrono>
+#include <climits>
 #include <condition_variable>
 #include <cstdlib>
 #include <cstring>
 #include <cwchar>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <new>
@@ -22,6 +25,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <winternl.h>
 #else
 #include <cerrno>
 #include <csignal>
@@ -81,12 +85,15 @@ constexpr std::size_t directoryNameBytes = 65536;
 constexpr std::size_t fileSlots = 65536, noFileSlot = fileSlots;
 std::size_t reserveFileSlot();
 void releaseFileSlot(std::size_t) noexcept;
+#include "RecursiveDirectory.h"
+using TreeOwner = std::unique_ptr<TreeCursor>;
 using ChildOwner = std::unique_ptr<process::Child>;
-void deferClose(NativeFile &, std::size_t &, NativeDirectory &, ChildOwner &) noexcept;
+void deferClose(NativeFile &, std::size_t &, NativeDirectory &, ChildOwner &, TreeOwner &) noexcept;
 struct FileState : OwnedState {
   NativeFile file = invalidFile;
   NativeDirectory directory = invalidDirectory;
   ChildOwner child;
+  TreeOwner tree;
   bool isDirectory = false, pipe = false;
   std::size_t closeSlot = noFileSlot;
   enum class Buffer { None, Read, Write } buffer = Buffer::None;
@@ -95,11 +102,11 @@ struct FileState : OwnedState {
       : OwnedState(OwnedKind::File, sizeof(FileState) + capacity, cleanup, retireFile),
         capacity(capacity) {}
   unsigned char *data() noexcept { return reinterpret_cast<unsigned char *>(this + 1); }
-  ~FileState() { deferClose(file, closeSlot, directory, child); }
+  ~FileState() { deferClose(file, closeSlot, directory, child, tree); }
   static void cleanup(void *p) noexcept { static_cast<FileState *>(p)->~FileState(); }
   static void retireFile(void *p) noexcept {
     auto &file = *static_cast<FileState *>(p);
-    deferClose(file.file, file.closeSlot, file.directory, file.child);
+    deferClose(file.file, file.closeSlot, file.directory, file.child, file.tree);
   }
 };
 FileDescriptor descriptor(FileState *file) noexcept { return ownedDescriptor(file); }
@@ -137,6 +144,7 @@ struct Job {
   bool direct = false, retry = false, stream = false;
   std::unique_ptr<process::Command> command;
   std::unique_ptr<CaptureData> capture;
+  std::string walkPath;
   explicit Job(FileAction action) noexcept : action(action) {}
   unsigned char *data() noexcept {
     return direct ? buffer.data : reinterpret_cast<unsigned char *>(this + 1);
@@ -264,6 +272,7 @@ std::uint64_t write(Job &job, FileState &file, const unsigned char *bytes,
   return n;
 }
 std::int32_t closeFile(FileState &file) noexcept {
+  file.tree.reset();
   const auto directoryError = closeDirectory(std::exchange(file.directory, invalidDirectory));
   const auto nativeError = closeNative(std::exchange(file.file, invalidFile));
   const auto result = directoryError ? directoryError : nativeError;
@@ -362,10 +371,42 @@ void open(Job &job) noexcept {
 }
 #include "FileSystemUtilities.h"
 #include "ProcessIO.h"
+void treeOperation(Job &job) noexcept {
+  try {
+    if (job.action == FileAction::ReadDirectory) {
+      if (!job.file->tree->advance(&job.walkPath, job.mode, job.abandoned))
+        job.kind = FileKind::End;
+      job.count = job.walkPath.size();
+    } else {
+      fs::path path(reinterpret_cast<const char8_t *>(job.data()));
+      if (job.action == FileAction::DirectoryCreateAll)
+        createParents(path, job.abandoned);
+      else if (job.action == FileAction::RemoveTree) {
+        TreeCursor cursor(path, true, job.abandoned);
+        cursor.advance(nullptr, job.mode, job.abandoned);
+      } else if (reserveOutputSlot(job)) {
+        job.output->tree = std::make_unique<TreeCursor>(path, false, job.abandoned);
+        job.output->isDirectory = true;
+      }
+    }
+  } catch (const std::system_error &error) {
+    job.system(error.code().value());
+  } catch (const InvalidTreeEncoding &) {
+    job.kind = FileKind::InvalidEncoding;
+  } catch (const InvalidTreePath &) {
+    job.kind = FileKind::InvalidArgument;
+  } catch (...) {
+    job.kind = FileKind::ResourceLimit;
+  }
+}
 void execute(Job &job) noexcept {
   if (job.abandoned)
     return;
-  if (job.action >= FileAction::Start) {
+  if (job.action >= FileAction::OpenWalk) {
+    treeOperation(job);
+    return;
+  }
+  if (isProcessAction(job.action)) {
     try {
       runProcess(job);
     } catch (const std::bad_alloc &) {
@@ -392,9 +433,12 @@ void execute(Job &job) noexcept {
   auto &file = *job.file;
   std::lock_guard lock(file.mutex);
   if (file.isDirectory) {
-    if (job.action == FileAction::ReadDirectory && file.closeSlot != noFileSlot)
-      readDirectory(job, file);
-    else if (job.action == FileAction::Close && file.closeSlot != noFileSlot) {
+    if (job.action == FileAction::ReadDirectory && file.closeSlot != noFileSlot) {
+      if (file.tree)
+        treeOperation(job);
+      else
+        readDirectory(job, file);
+    } else if (job.action == FileAction::Close && file.closeSlot != noFileSlot) {
       const auto error = closeFile(file);
       if (error)
         job.system(error);
@@ -573,6 +617,7 @@ struct Executor {
     NativeFile file = invalidFile;
     NativeDirectory directory = invalidDirectory;
     ChildOwner child;
+    TreeOwner tree;
     bool reserved = false;
   };
   std::array<CloseSlot, fileSlots> closes;
@@ -593,6 +638,7 @@ struct Executor {
     for (;;) {
       Pending current;
       ChildOwner child;
+      TreeOwner tree;
       NativeFile closing = invalidFile;
       NativeDirectory closingDirectory = invalidDirectory;
       std::size_t closeIndex = noFileSlot;
@@ -606,6 +652,7 @@ struct Executor {
           closing = closes[closeIndex].file;
           closingDirectory = closes[closeIndex].directory;
           child = std::move(closes[closeIndex].child);
+          tree = std::move(closes[closeIndex].tree);
         } else {
           current = std::move(queue[begin]);
           begin = (begin + 1) % queue.size();
@@ -616,6 +663,7 @@ struct Executor {
       if (closeIndex != noFileSlot) {
         const bool hadChild = bool(child);
         child.reset();
+        tree.reset();
         (void)closeDirectory(closingDirectory);
         (void)closeNative(closing);
         {
@@ -639,18 +687,19 @@ struct Executor {
       if (current.job->file && current.job->file->retired.load(std::memory_order_acquire)) {
         std::lock_guard native(current.job->file->mutex);
         deferClose(current.job->file->file, current.job->file->closeSlot,
-                   current.job->file->directory, current.job->file->child);
+                   current.job->file->directory, current.job->file->child, current.job->file->tree);
       }
       if (current.job->output && current.job->output->retired.load(std::memory_order_acquire)) {
         std::lock_guard native(current.job->output->mutex);
         deferClose(current.job->output->file, current.job->output->closeSlot,
-                   current.job->output->directory, current.job->output->child);
+                   current.job->output->directory, current.job->output->child,
+                   current.job->output->tree);
       }
       // Native access has ended. Releasing the exact byte pin before done
       // publication avoids unnecessary COW on an ordinary successful return.
       if (!current.job->retry)
         current.job->buffer.payload = {};
-      const bool processJob = current.job->action >= FileAction::Start;
+      const bool processJob = isProcessAction(current.job->action);
       current.job->done.store(true, std::memory_order_release);
       current.owner = {};
       {
@@ -674,7 +723,7 @@ struct Executor {
       std::thread([this] { worker(); }).detach();
       ++workers;
     }
-    if (pending.job->action >= FileAction::Start)
+    if (isProcessAction(pending.job->action))
       ++processJobs;
     queue[(begin + count) % queue.size()] = std::move(pending);
     ++count;
@@ -718,9 +767,9 @@ void releaseFileSlot(std::size_t slot) noexcept {
   service.closes[slot] = {};
   --service.reserved;
 }
-void deferClose(NativeFile &file, std::size_t &slot, NativeDirectory &directory,
-                ChildOwner &child) noexcept {
-  if (file == invalidFile && directory == invalidDirectory && !child) {
+void deferClose(NativeFile &file, std::size_t &slot, NativeDirectory &directory, ChildOwner &child,
+                TreeOwner &tree) noexcept {
+  if (file == invalidFile && directory == invalidDirectory && !child && !tree) {
     releaseFileSlot(std::exchange(slot, noFileSlot));
     return;
   }
@@ -732,6 +781,7 @@ void deferClose(NativeFile &file, std::size_t &slot, NativeDirectory &directory,
   if (child)
     ++service.retiringChildren;
   service.closes[index].child = std::move(child);
+  service.closes[index].tree = std::move(tree);
   service.closes[index].file = std::exchange(file, invalidFile);
   service.closes[index].directory = std::exchange(directory, invalidDirectory);
   service.closeQueue[(service.closeBegin + service.closeCount) % fileSlots] = std::uint32_t(index);
@@ -869,8 +919,9 @@ Operation *prepare(Invocation &ctx, ProcessResult &out, FileAction action,
       job->fileOwner = std::move(*ctx.lease(file));
     if (commandAction(action) ||
         (action >= FileAction::TakeStdin && action <= FileAction::TakeStderr) ||
-        action == FileAction::Open || action == FileAction::OpenDirectory ||
-        action == FileAction::BufferedReader || action == FileAction::BufferedWriter) {
+        action == FileAction::Open || action == FileAction::OpenWalk ||
+        action == FileAction::OpenDirectory || action == FileAction::BufferedReader ||
+        action == FileAction::BufferedWriter) {
       job->output = createFile(ctx, action == FileAction::OpenDirectory ? sizeof(DirectoryData)
                                     : action != FileAction::BufferedWriter &&
                                             action != FileAction::BufferedReader
@@ -1034,7 +1085,10 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
       if (!healthy(ctx))
         return true;
       const auto n = std::min<std::uint64_t>(1024, job.count - offset);
-      std::memcpy(data + offset, job.data() + offset, n);
+      const auto *source = job.walkPath.empty()
+                               ? job.data()
+                               : reinterpret_cast<const unsigned char *>(job.walkPath.data());
+      std::memcpy(data + offset, source + offset, n);
       offset += n;
     }
     if (action == FileAction::ReadLine || action == FileAction::ReadDirectory)
@@ -1055,7 +1109,7 @@ extern "C" bool kalandra_file_step_v2(Invocation *ctx, ProcessResult *out, std::
   bool done = true;
   try {
     if (healthy(*ctx)) {
-      if (action > std::uint32_t(FileAction::Capture))
+      if (action > std::uint32_t(FileAction::RemoveTree))
         ctx->fault(3);
       else
         done = step(*ctx, *out, static_cast<FileAction>(action), *args, state);

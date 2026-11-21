@@ -75,8 +75,8 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
                            const ValueType &result, llvm::StructType *resultType,
                            llvm::Value *output, llvm::Value *scratch, llvm::Value *arguments,
                            llvm::Value *context, llvm::BasicBlock *next, llvm::BasicBlock *abort) {
-  const bool process = op.action >= FileAction::Start;
-  const bool stream = !process && op.action >= FileAction::StreamRead;
+  const bool process = isProcessAction(op.action);
+  const bool stream = op.action >= FileAction::StreamRead && op.action <= FileAction::PipeClose;
   if (!result.errorRecord ||
       input.records.at(*result.errorRecord).standard != (process  ? StandardRecord::ProcessError
                                                          : stream ? StandardRecord::StreamError
@@ -206,6 +206,7 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
   case FileAction::TakeStdout:
   case FileAction::TakeStderr:
   case FileAction::Open:
+  case FileAction::OpenWalk:
   case FileAction::OpenDirectory:
   case FileAction::BufferedReader:
   case FileAction::BufferedWriter:

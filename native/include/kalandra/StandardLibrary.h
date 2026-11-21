@@ -678,6 +678,9 @@ export enum FileKind:
   Directory
   Symlink
   Other
+export type WalkEntry:
+  path: String
+  kind: FileKind
 export type DirEntry:
   name: String
   kind: FileKind
@@ -747,6 +750,21 @@ export fn readDir(path: String) -> Iterator[DirEntry, FsError] ! FsError:
       Option.Some {value}:
         yield value
         ()
+fn __openWalk(path: String) -> File ! FsError:
+  return __kalandra_fs_open_walk(path)
+export fn walkDir(root: String) -> Iterator[WalkEntry, FsError] ! FsError:
+  directory = try __openWalk(root)
+  return while true:
+    entry = try __readDirectory(directory)
+    match entry:
+      Option.None: break
+      Option.Some {value}:
+        yield WalkEntry {path: value.name, kind: value.kind}
+        ()
+export fn createDirAll(path: String) -> unit ! FsError:
+  return __kalandra_fs_create_directory_all(path)
+export fn removeTree(path: String) -> unit ! FsError:
+  return __kalandra_fs_remove_tree(path)
 export fn metadata(path: String) -> FileInfo ! FsError:
   return __kalandra_fs_metadata(path)
 export fn createDir(path: String) -> unit ! FsError:

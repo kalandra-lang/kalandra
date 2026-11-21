@@ -65,7 +65,10 @@ int main() {
                          Spec{FileAction::Metadata, {text}, nominal(8)},
                          Spec{FileAction::DirectoryCreate, {text}, unit},
                          Spec{FileAction::RemoveFile, {text}, unit},
-                         Spec{FileAction::DirectoryRemove, {text}, unit}};
+                         Spec{FileAction::DirectoryRemove, {text}, unit},
+                         Spec{FileAction::OpenWalk, {text}, nominal(0)},
+                         Spec{FileAction::DirectoryCreateAll, {text}, unit},
+                         Spec{FileAction::RemoveTree, {text}, unit}};
   for (const auto &spec : specs) {
     module.expressions.clear();
     std::vector<ValueId> arguments;
@@ -105,6 +108,6 @@ int main() {
     std::get<FileOperation>(expression.operation).arguments[0] = 999;
     CHECK(fileCapabilityError(module, expression, NumericTarget::Cpu));
   }
-  std::puts(
-      "Filesystem capability validation: all 21 operations and invalid transport contracts passed");
+  std::printf("Filesystem capability validation: %zu operations and invalid contracts passed\n",
+              specs.size());
 }

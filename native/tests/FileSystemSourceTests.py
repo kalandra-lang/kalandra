@@ -65,6 +65,11 @@ def run(name, source, expected, contents=None):
         if contents is not None: assert data.read_bytes() == contents,(name,data.read_bytes())
     print('PASS: executed',name,flush=True)
 
+if not a.cases or 'recursive-directories' in a.cases:
+    from RecursiveFilesystemTests import exercise
+    exercise(a.compiler, a.variant, a.target, a.compile_only)
+    print('PASS: recursive directories', flush=True)
+
 run('directory-utilities','''from "std/fs" import readDir, metadata, createDir, removeFile, removeDir, FileKind
 from "std/iter" import next, close as closeEntries
 from "std/option" import Option

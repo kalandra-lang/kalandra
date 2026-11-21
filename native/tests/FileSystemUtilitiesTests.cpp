@@ -1,4 +1,5 @@
 #include "../runtime/FileSystem.h"
+#include "../runtime/TreeLocation.h"
 #include <atomic>
 #include <cerrno>
 #include <chrono>
@@ -44,8 +45,92 @@ void drain() {
   }
   throw std::runtime_error("directory handle/deferred close slot leaked");
 }
+ProcessResult callTree(Invocation &ctx, FileAction action, const FileArguments &argument) {
+  const ProcessArguments args{argument, nullptr};
+  ProcessResult result{};
+  kalandra_file_v2(&ctx, &result, unsigned(action), &args);
+  return result;
+}
+void testTreeCursor(const std::filesystem::path &parent) {
+  namespace fs = std::filesystem;
+  // Exercise root rejection through the same decomposition used by removeTree,
+  // without ever passing a real filesystem root to a destructive operation.
+  std::vector<fs::path> protectedPaths = {"", ".", "..", "local/.", "local/.."};
+#ifdef _WIN32
+  protectedPaths.insert(protectedPaths.end(), {LR"(C:\)", LR"(\\server\share)", LR"(\\?\C:\)",
+                                               LR"(\\?\UNC\server\share\)"});
+#else
+  protectedPaths.insert(protectedPaths.end(), {"/", "///", "/."});
+#endif
+  for (const auto &path : protectedPaths) {
+    bool rejected = false;
+    try {
+      (void)tree::treeLocation(path, true);
+    } catch (const tree::InvalidTreePath &) {
+      rejected = true;
+    }
+    require(rejected, "removal accepted a filesystem root or ambiguous leaf");
+  }
+  const auto root = fs::canonical(parent) / "lazy-tree";
+  const auto branch = root / "branch";
+  fs::create_directories(branch / "nested");
+  {
+    Invocation ctx;
+    auto opened = callTree(ctx, FileAction::OpenWalk, pathArgument(ctx, root));
+    require(!ctx.status() && opened.kind == FileKind::Success, "tree open failed");
+    ProcessArguments arg{};
+    arg.file = opened.file;
+    auto first = callTree(ctx, FileAction::ReadDirectory, arg);
+    require(first.kind == FileKind::Success && first.code == 2 &&
+                std::string(first.text.data, first.text.byteLength) == utf8(branch),
+            "walker did not publish its first directory");
+    // Descent is lazy. Change the yielded directory before the next request.
+    fs::rename(branch, root / "moved");
+#ifndef _WIN32
+    fs::create_directory_symlink(root / "moved", branch);
+#endif
+    auto next = callTree(ctx, FileAction::ReadDirectory, arg);
+    require(next.kind == FileKind::System, "walker followed a replacement or lost its error");
+    settle(ctx);
+    drain();
+  }
+  std::atomic<bool> stop{false};
+  {
+    Invocation ctx;
+    ctx.bindCancellation(&stop);
+    auto opened = callTree(ctx, FileAction::OpenWalk, pathArgument(ctx, root / "moved"));
+    ProcessArguments arg{};
+    arg.file = opened.file;
+    require(callTree(ctx, FileAction::ReadDirectory, arg).kind == FileKind::Success,
+            "failed to enter partial walk");
+    void *state = nullptr;
+    ProcessResult out{};
+    (void)kalandra_file_step_v2(&ctx, &out, unsigned(FileAction::ReadDirectory), &arg, &state);
+    stop = true;
+    require(kalandra_file_step_v2(&ctx, &out, unsigned(FileAction::ReadDirectory), &arg, &state) &&
+                !state && !out.text.allocated,
+            "cancelled walk published an entry");
+    settle(ctx);
+    drain();
+  }
+  {
+    Invocation ctx;
+    auto path = root;
+    for (unsigned i = 0; i < 48; ++i)
+      path /= "d";
+    require(callTree(ctx, FileAction::DirectoryCreateAll, pathArgument(ctx, path)).kind ==
+                FileKind::Success,
+            "deep parent creation failed");
+    require(callTree(ctx, FileAction::RemoveTree, pathArgument(ctx, root)).kind == FileKind::Success,
+            "deep tree removal failed");
+    require(!fs::exists(root), "recursive removal left its root");
+    settle(ctx);
+    drain();
+  }
+}
 } // namespace
 void testFileSystemUtilities(const std::filesystem::path &root) {
+  testTreeCursor(root);
   const auto directory = root / std::filesystem::path(std::u8string(u8"directory Ω"));
   std::filesystem::create_directory(directory);
   std::filesystem::create_directory(directory / "child");
@@ -53,9 +138,7 @@ void testFileSystemUtilities(const std::filesystem::path &root) {
     std::ofstream output(directory / "sample.bin", std::ios::binary);
     output << "hello";
   }
-  {
-    std::ofstream output(directory / std::filesystem::path(std::u8string(u8"é 文.txt")));
-  }
+  { std::ofstream output(directory / std::filesystem::path(std::u8string(u8"é 文.txt"))); }
   {
     Invocation ctx;
     auto info = call(ctx, FileAction::Metadata, pathArgument(ctx, directory / "sample.bin"));
