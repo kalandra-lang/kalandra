@@ -4,7 +4,7 @@ add_executable(kalandra-installed tools/compile.cpp)
 set_target_properties(kalandra-installed PROPERTIES OUTPUT_NAME kalandra
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/install-bin")
 target_include_directories(kalandra-installed SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_link_libraries(kalandra-installed PRIVATE kalandra-backend kalandra-packages LLVM MLIR)
+target_link_libraries(kalandra-installed PRIVATE kalandra-cli-progress kalandra-backend kalandra-packages LLVM MLIR)
 target_compile_options(kalandra-installed PRIVATE -Wall -Wextra -Werror)
 file(RELATIVE_PATH KALANDRA_CPU_RUNTIME_RELATIVE
   "${CMAKE_INSTALL_FULL_BINDIR}" "${CMAKE_INSTALL_FULL_LIBDIR}/kalandra/native")

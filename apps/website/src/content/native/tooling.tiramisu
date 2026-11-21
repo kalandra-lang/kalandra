@@ -12,7 +12,7 @@ h2 { "Check source without executing it" }
 
 codeblock { language = bash, """kalandra-check main.k
 kalandra-check --project my-app/kalandra.toml
-kalandra-check --diagnostics=json main.k
+kalandra-check --debug --diagnostics=json main.k
 """ }
 
 The checker reports syntax, name, type and shape diagnostics. JSON diagnostics include original module paths and UTF-16 editor ranges. --placement adds placement checking; it is not proof that every checked GPU program can be lowered or executed by an available device.
@@ -35,7 +35,7 @@ The server supplies diagnostics, hover, definition, references, rename, completi
 
 h2 { "Compile and inspect" }
 
-codeblock { language = bash, """kalandra main.k -O2 -o program
+codeblock { language = bash, """kalandra --silent main.k -O2 -o program
 kalandra main.k --emit-mlir program.mlir --emit-llvm program.ll -o program
 """ }
 
@@ -44,6 +44,16 @@ The optional --emit-mlir and --emit-llvm flags write intermediate compiler repre
 list {
   link { url = "/docs/cross-compilation", "Build for another CPU platform using --platform or a toolchain profile" }
 }
+
+h2 { "Build feedback and logging" }
+
+In an interactive terminal, kalandra shows the current build phase once a build has taken 200 milliseconds. A successful build ends with the output path, target and elapsed time. GPU builds report shader compilation when the backend compiles a kernel.
+
+Use --silent to hide progress and routine success messages. Errors still appear, and explicitly requested output such as formatted source, JSON diagnostics and version information is preserved.
+
+Use --debug to write a permanent log to standard error. Compilation records phase timings. Package installation reports the manifest, lockfile and dependency aliases as it resolves them. Both flags can be combined when a script needs the debug trace and a quiet standard output.
+
+When standard error is redirected, CI is set, or TERM is dumb, builds omit the interactive display. Set NO_COLOR to remove color in a terminal. For example, kalandra-check --debug --diagnostics=json main.k writes JSON to standard output and a trace to standard error.
 
 h2 { "Other code editors" }
 

@@ -1,6 +1,7 @@
 #include "kalandra/Application.h"
 #include "../lib/NativeSanitizerFrames.h"
 #include "../lib/OrdinaryMain.h"
+#include "BuildTool.h"
 #include "CrossToolchain.h"
 
 // LLVM COFF declarations must precede Windows SDK macros from platform I/O.
@@ -33,6 +34,42 @@
 #include <span>
 
 namespace {
+#if defined(__aarch64__) || defined(_M_ARM64)
+constexpr auto nativeCpuTarget = "cpu/arm64";
+#else
+constexpr auto nativeCpuTarget = "cpu/x86_64";
+#endif
+
+bool invalidModule(const llvm::Module &module, kalandra::cli::BuildProgress &progress) {
+  std::string diagnostic;
+  llvm::raw_string_ostream buffer(diagnostic);
+  if (!llvm::verifyModule(module, &buffer))
+    return false;
+  progress.diagnostic() << diagnostic;
+  return true;
+}
+
+constexpr std::string_view usage =
+    "usage: kalandra <source.k | --project manifest.toml> -o <output> [options]\n"
+    "\nProject commands\n"
+    "  new <directory>                     Create a project\n"
+    "  install --project <manifest>        Install dependencies [--frozen] [--offline]\n"
+    "  update <name>... --project <manifest>  Update direct dependencies\n"
+    "  remove <alias> [--project <manifest>]  Remove a direct dependency\n"
+    "\nBuild options\n"
+    "  --target cpu|metal|vulkan|cuda      Select the build backend\n"
+    "  -O0, -O2                            Select the optimization level\n"
+    "  --package name=path.k               Map a local source library\n"
+    "  --emit-mlir <file>, --emit-llvm <file>  Write intermediate code\n"
+    "  --arithmetic hardware|software|hardware-with-software-fallback\n"
+    "  --matmul-policy optimized|fixed-tree\n"
+    "  --sanitize, --thread-sanitize\n"
+    "  --platform <os-architecture> | --toolchain <profile.json>\n"
+    "  --sysroot <path>, --gcc-directory <path>, --library-directory <path>\n"
+    "\nOutput options\n"
+    "  --silent                            Hide routine messages and progress\n"
+    "  --debug                             Write build timings and context to stderr\n"
+    "  --version                           Print the toolchain version\n";
 struct LinkDirectory {
   std::filesystem::path path;
   ~LinkDirectory() {
@@ -48,8 +85,16 @@ bool write(const std::filesystem::path &path, const std::string &contents) {
 }
 } // namespace
 int main(int argc, char **argv) {
+  const auto feedback = kalandra::cli::Output::take(argc, argv,
+      {"-o", "--project", "--package", "--emit-mlir", "--emit-llvm", "--test-entry",
+       "--arithmetic", "--matmul-policy", "--platform", "--target", "--toolchain", "--sysroot",
+       "--gcc-directory", "--library-directory"});
   if (kalandra::printVersion(argc, argv, "kalandra"))
     return 0;
+  if (argc == 2 && std::string_view(argv[1]) == "--help") {
+    std::cout << usage;
+    return 0;
+  }
   if (argc >= 2 &&
       (std::string_view(argv[1]) == "remove" || std::string_view(argv[1]) == "--remove")) {
     constexpr auto usage = "usage: kalandra remove <alias> [--project manifest.toml]\n";
@@ -75,12 +120,14 @@ int main(int argc, char **argv) {
       std::cerr << usage;
       return 2;
     }
+    feedback.trace("Removing " + std::string(alias) + " from", manifest.value_or("kalandra.toml"));
     auto removed = kalandra::removeNativeDependency(manifest.value_or("kalandra.toml"), alias);
     if (!removed) {
       std::cerr << removed.error() << '\n';
       return 1;
     }
-    std::cout << "Removed dependency '" << alias << "'.\n";
+    if (!feedback.silent)
+      std::cout << "Removed dependency '" << alias << "'.\n";
     return 0;
   }
   if (argc >= 2 &&
@@ -109,12 +156,17 @@ int main(int argc, char **argv) {
                      : "usage: kalandra install --project manifest.toml [--frozen] [--offline]\n");
       return 2;
     }
+    if (feedback.debug) {
+      options.trace = [&](std::string_view step, std::string_view detail) { feedback.trace(step, detail); };
+      feedback.trace(update ? "Updating" : "Installing", manifest);
+    }
     auto installed = kalandra::installNativeProject(manifest, {}, options);
     if (!installed) {
       std::cerr << installed.error() << '\n';
       return 1;
     }
-    std::cout << (update ? "Updated native dependency graph.\n"
+    if (!feedback.silent)
+      std::cout << (update ? "Updated native dependency graph.\n"
                          : "Installed native dependency graph.\n");
     return 0;
   }
@@ -123,12 +175,14 @@ int main(int argc, char **argv) {
       std::cerr << "usage: kalandra new directory\n";
       return argc == 3 ? 0 : 2;
     }
+    feedback.trace("Creating project", argv[2]);
     auto created = kalandra::createNativeProject(argv[2]);
     if (!created) {
       std::cerr << created.error() << '\n';
       return 1;
     }
-    std::cout << "Created native project at " << argv[2]
+    if (!feedback.silent)
+      std::cout << "Created native project at " << argv[2]
               << "\nCheck and build its kalandra.toml with --project.\n";
     return 0;
   }
@@ -218,7 +272,7 @@ int main(int argc, char **argv) {
     if (std::none_of(filtered.begin() + 1, filtered.end(),
                      [](const char *argument) { return std::string_view(argument) == "--build"; }))
       filtered.push_back(build);
-    return kalandra::compileCudaCommand(static_cast<int>(filtered.size()), filtered.data(), true);
+    return kalandra::compileCudaCommand(static_cast<int>(filtered.size()), filtered.data(), true, feedback);
 #else
     std::cerr << "CUDA source support is disabled; configure KALANDRA_BUILD_CUDA_SOURCE and "
                  "KALANDRA_BUILD_CUDA_RUNTIME in a normal Linux compiler build\n";
@@ -231,7 +285,7 @@ int main(int argc, char **argv) {
     if (std::none_of(filtered.begin() + 1, filtered.end(),
                      [](const char *argument) { return std::string_view(argument) == "--build"; }))
       filtered.push_back(build);
-    return kalandra::compileVulkanCommand(static_cast<int>(filtered.size()), filtered.data(), true);
+    return kalandra::compileVulkanCommand(static_cast<int>(filtered.size()), filtered.data(), true, feedback);
 #else
     std::cerr << "Vulkan source support is disabled; configure KALANDRA_BUILD_VULKAN_RUNTIME "
                  "in a normal compiler build\n";
@@ -251,7 +305,7 @@ int main(int argc, char **argv) {
     }
     if (!hasBuild)
       filtered.push_back(build);
-    return kalandra::compileMetalCommand(static_cast<int>(filtered.size()), filtered.data(), true);
+    return kalandra::compileMetalCommand(static_cast<int>(filtered.size()), filtered.data(), true, feedback);
 #else
 #ifdef KALANDRA_INSTALLED_COMPILER
     std::cerr
@@ -269,17 +323,7 @@ int main(int argc, char **argv) {
   }
   const std::span<char *> arguments(filtered);
   if (arguments.size() < 2) {
-    std::cerr
-        << "usage: kalandra source.k -o executable [--emit-mlir file] [--emit-llvm "
-           "file] [--test-entry function] [--arithmetic "
-           "hardware|software|hardware-with-software-fallback] [--sanitize|--thread-sanitize] "
-           "[--matmul-policy optimized|fixed-tree] "
-           "[-O0|-O2] [--target "
-           "cpu|metal|vulkan|cuda] [--toolchain profile.json | --platform os-architecture "
-           "[--sysroot path] [--gcc-directory path] [--library-directory path ...]] [--package "
-           "name=path.k ...] [--project manifest.toml instead of source]\n"
-           "       kalandra new directory\n"
-           "       kalandra remove <alias> [--project manifest.toml]\n";
+    std::cerr << usage;
     return 2;
   }
   std::filesystem::path output, mlirPath, llvmPath;
@@ -349,14 +393,16 @@ int main(int argc, char **argv) {
       return 2;
     }
   }
+  kalandra::cli::BuildProgress progress(feedback);
+  progress.phase("Checking", projectPath.empty() ? sourcePath : projectPath);
   if (!projectPath.empty()) {
     if (!sourcePath.empty()) {
-      std::cerr << "choose a source file or --project, not both\n";
+      progress.diagnostic() << "choose a source file or --project, not both\n";
       return 2;
     }
     auto loaded = kalandra::loadNativeProject(projectPath);
     if (!loaded) {
-      std::cerr << loaded.error() << '\n';
+      progress.diagnostic() << loaded.error() << '\n';
       return 1;
     }
     project = std::move(*loaded);
@@ -364,39 +410,39 @@ int main(int argc, char **argv) {
     packages.insert(packages.end(), project->packages.begin(), project->packages.end());
   }
   if (sourcePath.empty()) {
-    std::cerr << "missing source file or --project\n";
+    progress.diagnostic() << "missing source file or --project\n";
     return 2;
   }
   if (selectedCpuToolchain && (sanitize || threadSanitize)) {
-    std::cerr << "cross-toolchain sanitizer modes are not yet qualified; use normal or optimized "
+    progress.diagnostic() << "cross-toolchain sanitizer modes are not yet qualified; use normal or optimized "
                  "builds\n";
     return 2;
   }
   if (sanitize && threadSanitize) {
-    std::cerr << "--sanitize and --thread-sanitize are separate builds\n";
+    progress.diagnostic() << "--sanitize and --thread-sanitize are separate builds\n";
     return 2;
   }
 #if defined(_WIN32) && defined(__aarch64__)
   if (sanitize) {
-    std::cerr << "ASan/UBSan are unavailable in the pinned Windows ARM64 toolchain\n";
+    progress.diagnostic() << "ASan/UBSan are unavailable in the pinned Windows ARM64 toolchain\n";
     return 2;
   }
 #endif
 #ifdef _WIN32
   if (threadSanitize) {
-    std::cerr << "ThreadSanitizer is unavailable for the Windows native target\n";
+    progress.diagnostic() << "ThreadSanitizer is unavailable for the Windows native target\n";
     return 2;
   }
 #endif
   if (output.empty()) {
-    std::cerr << "missing -o executable\n";
+    progress.diagnostic() << "missing -o executable\n";
     return 2;
   }
   std::optional<kalandra::InstalledNativeProject> managed;
   if (project && !project->dependencies.empty()) {
     auto loaded = kalandra::loadInstalledNativeProject(*project);
     if (!loaded) {
-      std::cerr << loaded.error() << '\n';
+      progress.diagnostic() << loaded.error() << '\n';
       return 1;
     }
     managed = std::move(*loaded);
@@ -414,7 +460,7 @@ int main(int argc, char **argv) {
     if (project) {
       auto allowed = kalandra::protectNativePackageOutput(*project, path.string());
       if (!allowed) {
-        std::cerr << allowed.error() << '\n';
+        progress.diagnostic() << allowed.error() << '\n';
         return 2;
       }
     }
@@ -425,7 +471,7 @@ int main(int argc, char **argv) {
       const auto a = std::filesystem::weakly_canonical(path, firstError);
       const auto b = std::filesystem::weakly_canonical(previous, secondError);
       if ((!error && equivalent) || (!firstError && !secondError && a == b)) {
-        std::cerr << "source and output paths must be distinct\n";
+        progress.diagnostic() << "source and output paths must be distinct\n";
         return 2;
       }
     }
@@ -434,7 +480,7 @@ int main(int argc, char **argv) {
   auto syntax = managed ? kalandra::loadPackageModules(managed->nodes)
                         : kalandra::loadModules(sourcePath, {}, {}, packages);
   if (!syntax) {
-    std::cerr << sourcePath << ": " << syntax.error() << '\n';
+    progress.diagnostic() << sourcePath << ": " << syntax.error() << '\n';
     return 1;
   }
   // Every dependency is source input: output publication must not overwrite it,
@@ -448,19 +494,19 @@ int main(int argc, char **argv) {
       const auto a = std::filesystem::weakly_canonical(path, firstError);
       const auto b = std::filesystem::weakly_canonical(part.source->path(), secondError);
       if ((!error && equivalent) || (!firstError && !secondError && a == b)) {
-        std::cerr << "module source and output paths must be distinct\n";
+        progress.diagnostic() << "module source and output paths must be distinct\n";
         return 2;
       }
     }
   auto typed = kalandra::check(std::move(*syntax));
   if (!typed.ok()) {
     for (const auto &d : typed.diagnostics)
-      std::cerr << kalandra::renderDiagnostic(*typed.source, d);
+      progress.diagnostic() << kalandra::renderDiagnostic(*typed.source, d);
     return 1;
   }
   if (!testEntry)
     if (auto error = kalandra::prepareApplication(*typed.module)) {
-      std::cerr << kalandra::renderDiagnostic(*typed.source, *error);
+      progress.diagnostic() << kalandra::renderDiagnostic(*typed.source, *error);
       return 1;
     }
   static int executableAnchor;
@@ -468,7 +514,7 @@ int main(int argc, char **argv) {
   const auto executable = std::filesystem::canonical(
       llvm::sys::fs::getMainExecutable(argv[0], &executableAnchor), resourceError);
   if (resourceError) {
-    std::cerr << "cannot locate compiler executable\n";
+    progress.diagnostic() << "cannot locate compiler executable\n";
     return 1;
   }
   const auto hostPrefix = executable.parent_path().parent_path();
@@ -494,7 +540,7 @@ int main(int argc, char **argv) {
     if (!std::filesystem::is_regular_file(clang) ||
         !std::filesystem::is_directory(*clangResources / "include") ||
         !std::filesystem::is_directory(*clangResources / "lib")) {
-      std::cerr << "bundled Clang or its compiler resources are missing\n";
+      progress.diagnostic() << "bundled Clang or its compiler resources are missing\n";
       return 1;
     }
   }
@@ -505,21 +551,22 @@ int main(int argc, char **argv) {
 #endif
   if (selectedCpuToolchain) {
     auto loaded = kalandra::loadCrossToolchain(
-        platform.empty() ? std::filesystem::path(toolchainPath)
+        progress, platform.empty() ? std::filesystem::path(toolchainPath)
                          : std::filesystem::current_path() / "command-line-toolchain.json",
         clang, hostPrefix,
         platform.empty() ? std::optional<llvm::json::Object>{}
                          : std::optional<llvm::json::Object>(std::move(platformOptions)));
     if (!loaded) {
-      std::cerr << "CPU toolchain: " << loaded.error() << '\n';
+      progress.diagnostic() << "CPU toolchain: " << loaded.error() << '\n';
       return 2;
     }
     cross = std::move(*loaded);
   }
+  progress.phase("Compiling", sourcePath);
   auto lowered = kalandra::lowerNative(*typed.module, testEntry, {}, arithmetic, false,
                                        cross ? cross->target : kalandra::CpuTarget{});
   if (!lowered) {
-    std::cerr << "native lowering: " << lowered.error() << '\n';
+    progress.diagnostic() << "native lowering: " << lowered.error() << '\n';
     return 1;
   }
   if (sanitize || threadSanitize) {
@@ -527,7 +574,7 @@ int main(int argc, char **argv) {
     llvm::SMDiagnostic diagnostic;
     auto module = llvm::parseAssemblyString(lowered->llvm, diagnostic, context);
     if (!module) {
-      std::cerr << "cannot prepare LLVM sanitizer attributes\n";
+      progress.diagnostic() << "cannot prepare LLVM sanitizer attributes\n";
       return 1;
     }
     for (auto &function : *module)
@@ -536,7 +583,7 @@ int main(int argc, char **argv) {
                                           : llvm::Attribute::SanitizeAddress);
     if (threadSanitize)
       kalandra::padThreadSanitizerFrames(*module);
-    if (llvm::verifyModule(*module, &llvm::errs()))
+    if (invalidModule(*module, progress))
       return 1;
     lowered->llvm.clear();
     llvm::raw_string_ostream outputIR(lowered->llvm);
@@ -610,7 +657,7 @@ int main(int argc, char **argv) {
   if (cross && cross->windows()) {
     auto builtins = cross->windowsBuiltins();
     if (!builtins) {
-      std::cerr << "CPU toolchain: " << builtins.error() << '\n';
+      progress.diagnostic() << "CPU toolchain: " << builtins.error() << '\n';
       return 2;
     }
     archives.push_back(builtins->string());
@@ -618,22 +665,22 @@ int main(int argc, char **argv) {
   for (const auto &archive : archives) {
     std::error_code error;
     if (!std::filesystem::is_regular_file(archive, error)) {
-      std::cerr << "native runtime archive is missing: " << archive << '\n';
+      progress.diagnostic() << "native runtime archive is missing: " << archive << '\n';
       return 1;
     }
   }
   if (cross)
     for (const auto &archive : archives)
       if (auto error = cross->verifyArchive(archive)) {
-        std::cerr << "CPU toolchain: " << *error << '\n';
+        progress.diagnostic() << "CPU toolchain: " << *error << '\n';
         return 2;
       }
   if (!mlirPath.empty() && !write(mlirPath, lowered->mlir)) {
-    std::cerr << "cannot write MLIR\n";
+    progress.diagnostic() << "cannot write MLIR\n";
     return 1;
   }
   if (!llvmPath.empty() && !write(llvmPath, lowered->llvm)) {
-    std::cerr << "cannot write LLVM IR\n";
+    progress.diagnostic() << "cannot write LLVM IR\n";
     return 1;
   }
   // Standalone execution is ordinary. Keep the checked emitted library entry
@@ -649,7 +696,7 @@ int main(int argc, char **argv) {
       if (sanitize || threadSanitize)
         ordinaryMain->addFnAttr(threadSanitize ? llvm::Attribute::SanitizeThread
                                                : llvm::Attribute::SanitizeAddress);
-      if (llvm::verifyModule(*module, &llvm::errs()))
+      if (invalidModule(*module, progress))
         return 1;
       linkerIR.clear();
       llvm::raw_string_ostream text(linkerIR);
@@ -659,7 +706,7 @@ int main(int argc, char **argv) {
   llvm::SmallString<256> temporary;
   int descriptor = -1;
   if (auto error = llvm::sys::fs::createTemporaryFile("kalandra", "ll", descriptor, temporary)) {
-    std::cerr << "cannot create linker input: " << error.message() << '\n';
+    progress.diagnostic() << "cannot create linker input: " << error.message() << '\n';
     return 1;
   }
   llvm::FileRemover removeIR(temporary);
@@ -668,12 +715,12 @@ int main(int argc, char **argv) {
     file << linkerIR;
     file.close();
     if (file.has_error()) {
-      std::cerr << "cannot write linker input\n";
+      progress.diagnostic() << "cannot write linker input\n";
       return 1;
     }
   }
   if (output.filename().empty() || output.filename() == "." || output.filename() == "..") {
-    std::cerr << "output must name an executable file\n";
+    progress.diagnostic() << "output must name an executable file\n";
     return 1;
   }
   // Mach-O linkers use the output basename as the ad-hoc signing identity.
@@ -682,7 +729,7 @@ int main(int argc, char **argv) {
   if (auto error = llvm::sys::fs::createUniqueDirectory(
           std::filesystem::absolute(output.parent_path() / ".kalandra-link").string(),
           linkedDirectory)) {
-    std::cerr << "cannot create output: " << error.message() << '\n';
+    progress.diagnostic() << "cannot create output: " << error.message() << '\n';
     return 1;
   }
   LinkDirectory staged{std::string(linkedDirectory)};
@@ -725,23 +772,25 @@ int main(int argc, char **argv) {
   std::string error;
   auto environment = cross ? kalandra::crossToolEnvironment() : std::vector<std::string>{};
   std::vector<llvm::StringRef> env(environment.begin(), environment.end());
-  const auto status = llvm::sys::ExecuteAndWait(
-      command[0], invocation,
-      cross ? std::optional<llvm::ArrayRef<llvm::StringRef>>(env) : std::nullopt, {}, 0, 0, &error);
+  progress.phase("Linking", output.string());
+  const auto status = kalandra::cli::runBuildTool(
+      progress, command[0], invocation,
+      cross ? std::optional<llvm::ArrayRef<llvm::StringRef>>(env) : std::nullopt, {}, 0, error);
   if (status != 0) {
-    std::cerr << "native link failed: " << error << '\n';
+    progress.diagnostic() << "native link failed: " << error << '\n';
     return 1;
   }
   if (cross)
     if (auto failure = cross->verifyOutput(std::string(linkedOutput))) {
-      std::cerr << "CPU toolchain: " << *failure << '\n';
+      progress.diagnostic() << "CPU toolchain: " << *failure << '\n';
       return 1;
     }
   const auto publishError =
       kalandra::detail::replaceFile(std::filesystem::path(std::string(linkedOutput)), output);
   if (publishError) {
-    std::cerr << "cannot publish executable: " << publishError.message() << '\n';
+    progress.diagnostic() << "cannot publish executable: " << publishError.message() << '\n';
     return 1;
   }
+  progress.built(output.string(), cross ? "cpu/" + cross->platform : nativeCpuTarget);
   return 0;
 }

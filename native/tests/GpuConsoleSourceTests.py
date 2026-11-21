@@ -38,10 +38,14 @@ def run(name, source, data, expected, args=(), status=0):
     path = directory / 'main.k'
     path.write_text(prelude + source, encoding='utf-8')
     bundle = directory / 'bundle'
-    built = subprocess.run([a.compiler.resolve(), path.resolve(), '--target', a.target,
+    feedback = ['--debug'] if name == 'streams' else []
+    built = subprocess.run([a.compiler.resolve(), *feedback, path.resolve(), '--target', a.target,
                             flag, '-o', bundle.resolve()], capture_output=True, timeout=180)
     (directory / 'build.log').write_bytes(built.stdout + built.stderr)
     assert built.returncode == 0, (name, built)
+    if feedback:
+        assert b'[debug] Compiling shaders' in built.stderr and b'[debug] Linking' in built.stderr, built
+        assert b'Built  ' in built.stderr and b'\x1b' not in built.stderr and not built.stdout, built
     if a.compile_only:
         print('PASS: compiled', name, flush=True)
         return

@@ -1,3 +1,4 @@
+#include "kalandra/CliOutput.h"
 #include "kalandra/Version.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
@@ -25,6 +26,7 @@ std::expected<mlir::OwningOpRef<mlir::ModuleOp>, std::string> readModule(mlir::M
 } // namespace
 
 int main(int argc, char **argv) {
+  const auto feedback = kalandra::cli::Output::take(argc, argv, {});
   if (kalandra::printVersion(argc, argv, "kalandra-mlir-check"))
     return 0;
   const std::span<char *> arguments(argv, static_cast<std::size_t>(argc));
@@ -32,6 +34,7 @@ int main(int argc, char **argv) {
     llvm::errs() << "usage: kalandra-mlir-check <file.mlir>\n";
     return 2;
   }
+  feedback.trace("Verifying MLIR", arguments[1]);
   mlir::DialectRegistry dialects;
   dialects.insert<mlir::arith::ArithDialect, mlir::bufferization::BufferizationDialect,
                   mlir::func::FuncDialect, mlir::tensor::TensorDialect>();
@@ -41,6 +44,7 @@ int main(int argc, char **argv) {
     llvm::errs() << module.error() << '\n';
     return 1;
   }
-  llvm::outs() << "MLIR module verified through native C++23 API\n";
+  if (!feedback.silent)
+    llvm::outs() << "MLIR module verified through native C++23 API\n";
   return 0;
 }

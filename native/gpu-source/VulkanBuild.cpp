@@ -1,3 +1,4 @@
+#include "../tools/BuildTool.h"
 #include "VulkanBuild.h"
 #include "BuiltinShaders.h"
 #include "SpirvInterface.h"
@@ -11,11 +12,11 @@
 #include <vector>
 
 namespace {
-void run(std::vector<std::string> command,
+void run(kalandra::cli::BuildProgress &progress, std::vector<std::string> command,
          llvm::ArrayRef<std::optional<llvm::StringRef>> redirects = {}) {
   std::vector<llvm::StringRef> arguments(command.begin(), command.end());
   std::string error;
-  if (llvm::sys::ExecuteAndWait(command[0], arguments, {}, redirects, 0, 0, &error))
+  if (kalandra::cli::runBuildTool(progress, command[0], arguments, {}, redirects, 0, error))
     throw std::runtime_error("Vulkan build stage failed: " + command[0] + " " + error);
 }
 #ifdef KALANDRA_INSTALLED_COMPILER
@@ -76,7 +77,7 @@ void transform(const std::filesystem::path &path, const std::string &contents) {
     throw std::runtime_error("cannot write Vulkan transform module");
 }
 } // namespace
-void buildVulkanProgram(const std::filesystem::path &directory,
+void buildVulkanProgram(kalandra::cli::BuildProgress &progress, const std::filesystem::path &directory,
                         const std::map<std::string, std::string> &outputs,
                         const std::string &variant, kalandra::ArithmeticMode arithmetic,
                         kalandra::MatmulPolicy matmul) {
@@ -100,19 +101,20 @@ void buildVulkanProgram(const std::filesystem::path &directory,
       target.replace_extension(".spv");
       transform(target, contents);
     } else if (name.starts_with("kernel") && name.ends_with(".mlir")) {
+      progress.phase("Compiling shaders", name);
       auto target = directory / name;
       target.replace_extension();
       const bool outline = outputs.contains(target.filename().string() + ".vulkan-outline-i64-sub");
       const auto compile = [&](const std::string &base, const char *policy) {
-        run({lower, (directory / name).string(), base + ".lowered.mlir", policy});
-        run({opt, base + ".lowered.mlir", "--verify-each",
+        run(progress, {lower, (directory / name).string(), base + ".lowered.mlir", policy});
+        run(progress, {opt, base + ".lowered.mlir", "--verify-each",
              "--pass-pipeline=builtin.module(canonicalize,cse,convert-gpu-to-spirv,spirv.module(spirv-lower-abi-attrs,spirv-update-vce))",
              "-o", base + ".converted.mlir"});
         std::vector<std::string> extractArgs{extract, base + ".converted.mlir", base + ".kernel.mlir"};
         if (outline)
           extractArgs.emplace_back("--vulkan-outline-i64-sub");
-        run(extractArgs);
-        run({translate, "--no-implicit-module", "--serialize-spirv",
+        run(progress, extractArgs);
+        run(progress, {translate, "--no-implicit-module", "--serialize-spirv",
              base + ".kernel.mlir", "-o", base + ".spv"});
         if (std::filesystem::file_size(base + ".spv") >
             kalandra::runtime::vulkan::MaxSpirvModuleBytes)
@@ -125,9 +127,9 @@ void buildVulkanProgram(const std::filesystem::path &directory,
         const auto shader = base + ".spv";
         const std::array<std::optional<llvm::StringRef>, 3> redirects{
             llvm::StringRef(shader), std::nullopt, std::nullopt};
-        run({validate, "--target-env", "vulkan1.0", "-"}, redirects);
+        run(progress, {validate, "--target-env", "vulkan1.0", "-"}, redirects);
 #else
-        run({validate, "--target-env", "vulkan1.0", base + ".spv"});
+        run(progress, {validate, "--target-env", "vulkan1.0", base + ".spv"});
 #endif
       };
       compile(target.string(), arithmetic == kalandra::ArithmeticMode::Software ? "software" : "hardware");
@@ -162,8 +164,9 @@ void buildVulkanProgram(const std::filesystem::path &directory,
   const auto compile = [&](std::vector<std::string> command) {
     command.insert(command.end(), sanitizerFlags.begin(), sanitizerFlags.end());
     command.insert(command.end(), resourceFlags.begin(), resourceFlags.end());
-    run(std::move(command));
+    run(progress, std::move(command));
   };
+  progress.phase("Compiling host", (directory / "host.cpp").string());
   std::vector<std::string> link{clang};
   link.insert(link.end(), resourceFlags.begin(), resourceFlags.end());
 #ifdef _WIN32
@@ -205,5 +208,6 @@ void buildVulkanProgram(const std::filesystem::path &directory,
   link.emplace_back("-pthread");
 #endif
   link.insert(link.end(), {"-o", (directory / ("program" KALANDRA_VULKAN_EXE_SUFFIX)).string()});
-  run(std::move(link));
+  progress.phase("Linking", directory.string());
+  run(progress, std::move(link));
 }

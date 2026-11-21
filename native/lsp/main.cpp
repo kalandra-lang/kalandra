@@ -12,6 +12,7 @@
 #include "kalandra/Semantics.h"
 #include "kalandra/StandardLibrary.h"
 #include "kalandra/Utf8.h"
+#include "kalandra/CliOutput.h"
 #include "kalandra/Version.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/raw_ostream.h"
@@ -913,6 +914,7 @@ public:
 };
 } // namespace
 int main(int argc, char **argv) {
+  const auto feedback = kalandra::cli::Output::take(argc, argv, {"--project"});
   if (kalandra::printVersion(argc, argv, "kalandra-lsp"))
     return 0;
 #ifdef _WIN32
@@ -938,6 +940,7 @@ int main(int argc, char **argv) {
         return 2;
       }
     }
+    feedback.trace("Starting language server", project ? project->manifest : "stdio");
     Session session(std::move(project), placement);
     while (auto body = readFrame()) {
       if (!boundedJson(*body)) {

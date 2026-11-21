@@ -1,3 +1,4 @@
+#include "../tools/BuildTool.h"
 #include "Build.h"
 #include "AlignedGridMatmul.h"
 #include "GroupedMatmul.h"
@@ -17,14 +18,14 @@
 #include <stdexcept>
 #include <vector>
 namespace {
-void run(std::vector<std::string> command) {
+void run(kalandra::cli::BuildProgress &progress, std::vector<std::string> command) {
   std::vector<llvm::StringRef> args(command.begin(), command.end());
   std::string error;
-  if (llvm::sys::ExecuteAndWait(command[0], args, {}, {}, 0, 0, &error) != 0)
+  if (kalandra::cli::runBuildTool(progress, command[0], args, {}, {}, 0, error) != 0)
     throw std::runtime_error("GPU build stage failed: " + command[0] + " " + error);
 }
 #ifdef KALANDRA_INSTALLED_COMPILER
-std::string capture(std::vector<std::string> command) {
+std::string capture(kalandra::cli::BuildProgress &progress, std::vector<std::string> command) {
   llvm::SmallString<256> temporary;
   int descriptor = -1;
   if (auto error =
@@ -36,7 +37,7 @@ std::string capture(std::vector<std::string> command) {
                                                           std::nullopt};
   std::vector<llvm::StringRef> args(command.begin(), command.end());
   std::string error;
-  if (llvm::sys::ExecuteAndWait(command[0], args, {}, redirects, 0, 0, &error) != 0)
+  if (kalandra::cli::runBuildTool(progress, command[0], args, {}, redirects, 0, error) != 0)
     throw std::runtime_error("Apple platform tool failed: " + command[0] + " " + error);
   std::ifstream stream{std::string(temporary)};
   std::ostringstream output;
@@ -73,17 +74,17 @@ std::string tool(const char *configured, const char *name) {
 #endif
   return configured;
 }
-std::string platformMetal() {
+std::string platformMetal([[maybe_unused]] kalandra::cli::BuildProgress &progress) {
 #ifdef KALANDRA_INSTALLED_COMPILER
   const char *explicitCompiler = std::getenv("KALANDRA_METAL_COMPILER");
   auto compiler = explicitCompiler && *explicitCompiler
                       ? std::string(explicitCompiler)
-                      : capture({"/usr/bin/xcrun", "--find", "metal"});
+                      : capture(progress, {"/usr/bin/xcrun", "--find", "metal"});
   if (!std::filesystem::path(compiler).is_absolute() || !std::filesystem::is_regular_file(compiler))
     throw std::runtime_error(
         "Apple Metal compiler is unavailable; install the pinned Xcode Metal Toolchain");
-  run({"/usr/bin/codesign", "--verify", "--strict", "-R=anchor apple", compiler});
-  auto version = capture({compiler, "--version"});
+  run(progress, {"/usr/bin/codesign", "--verify", "--strict", "-R=anchor apple", compiler});
+  auto version = capture(progress, {compiler, "--version"});
   if (version.find("Apple metal version " KALANDRA_GPU_METAL_VERSION " ") == std::string::npos)
     throw std::runtime_error(
         "Apple Metal compiler version mismatch; required " KALANDRA_GPU_METAL_VERSION);
@@ -92,9 +93,9 @@ std::string platformMetal() {
   return KALANDRA_GPU_METAL_COMPILER;
 #endif
 }
-std::string platformSDK() {
+std::string platformSDK([[maybe_unused]] kalandra::cli::BuildProgress &progress) {
 #ifdef KALANDRA_INSTALLED_COMPILER
-  auto sdk = capture({"/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"});
+  auto sdk = capture(progress, {"/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"});
   if (!std::filesystem::path(sdk).is_absolute() || !std::filesystem::is_directory(sdk))
     throw std::runtime_error("Apple macOS SDK is unavailable");
   return sdk;
@@ -118,7 +119,7 @@ std::string resource(const char *configured, bool include = false) {
 #endif
 }
 } // namespace
-void buildMetalProgram(const std::filesystem::path &directory,
+void buildMetalProgram(kalandra::cli::BuildProgress &progress, const std::filesystem::path &directory,
                        const std::map<std::string, std::string> &outputs,
                        const std::string &variant, kalandra::ArithmeticMode arithmetic,
                        kalandra::MatmulPolicy matmul) {
@@ -133,8 +134,8 @@ void buildMetalProgram(const std::filesystem::path &directory,
   const auto translate = tool(KALANDRA_GPU_TRANSLATE, "mlir-translate");
   const auto validate = tool(KALANDRA_GPU_VALIDATE, "spirv-val");
   const auto crossTool = tool(KALANDRA_GPU_CROSS, "spirv-cross");
-  const auto metalCompiler = platformMetal();
-  const auto sdk = platformSDK();
+  const auto metalCompiler = platformMetal(progress);
+  const auto sdk = platformSDK(progress);
   const auto metal = resource(variant == "optimized"          ? KALANDRA_GPU_METAL_OPTIMIZED
                               : variant == "sanitized"        ? KALANDRA_GPU_METAL_SANITIZED
                               : variant == "thread-sanitized" ? KALANDRA_GPU_METAL_THREAD_SANITIZED
@@ -150,17 +151,19 @@ void buildMetalProgram(const std::filesystem::path &directory,
     (void)contents;
     if (!name.starts_with("kernel") || !name.ends_with(".native.metal"))
       continue;
+    progress.phase("Compiling shaders", name);
     const auto base =
         (directory / name.substr(0, name.size() - std::string(".native.metal").size())).string();
-    run({metalCompiler, "-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM, "-isysroot", sdk,
+    run(progress, {metalCompiler, "-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM, "-isysroot", sdk,
          std::string("-std=") + KALANDRA_GPU_TYPED_METAL_LANGUAGE, "-fno-fast-math",
          "-ffp-contract=off", "-fmodules-cache-path=" + (directory / "module-cache").string(), "-c",
          (directory / name).string(), "-o", base + ".air"});
-    run({metalCompiler, base + ".air", "-o", base + ".metallib"});
+    run(progress, {metalCompiler, base + ".air", "-o", base + ".metallib"});
   }
   for (const auto &[name, contents] : outputs) {
     if (!name.starts_with("kernel") || !name.ends_with(".mlir"))
       continue;
+    progress.phase("Compiling shaders", name);
     auto base = (directory / std::filesystem::path(name).stem()).string();
     const bool numeric = contents.find("@kalandra_numeric_v1_") != std::string::npos ||
                          contents.find("@kalandra_workgroup_v1_") != std::string::npos;
@@ -170,15 +173,15 @@ void buildMetalProgram(const std::filesystem::path &directory,
       lowering.push_back(arithmetic == kalandra::ArithmeticMode::Hardware
                              ? "--hardware"
                              : "--allow-software-fallback");
-    run(std::move(lowering));
-    run({opt, base + ".lowered.mlir", "--verify-each",
+    run(progress, std::move(lowering));
+    run(progress, {opt, base + ".lowered.mlir", "--verify-each",
          "--pass-pipeline=builtin.module(canonicalize,cse,convert-gpu-to-spirv,spirv.module(spirv-"
          "lower-abi-attrs,spirv-update-vce))",
          "-o", base + ".converted.mlir"});
-    run({extract, base + ".converted.mlir", base + ".kernel.mlir", "--metal-compiler-rounding"});
-    run({translate, "--no-implicit-module", "--serialize-spirv", base + ".kernel.mlir", "-o",
+    run(progress, {extract, base + ".converted.mlir", base + ".kernel.mlir", "--metal-compiler-rounding"});
+    run(progress, {translate, "--no-implicit-module", "--serialize-spirv", base + ".kernel.mlir", "-o",
          base + ".spv"});
-    run({validate, "--target-env", "vulkan1.0", base + ".spv"});
+    run(progress, {validate, "--target-env", "vulkan1.0", base + ".spv"});
     std::vector<std::string> cross{crossTool,
                                    base + ".spv",
                                    "--msl",
@@ -191,7 +194,7 @@ void buildMetalProgram(const std::filesystem::path &directory,
       cross.insert(cross.end(), {"--msl-argument-buffers", "--msl-argument-buffer-tier", "1",
                                  "--msl-device-argument-buffer", "0",
                                  "--msl-force-active-argument-buffer-resources"});
-    run(std::move(cross));
+    run(progress, std::move(cross));
     if (contents.starts_with("// kalandra.numeric.matmul.epilogue ") &&
         arithmetic != kalandra::ArithmeticMode::Software) {
       std::istringstream marker(
@@ -242,12 +245,12 @@ void buildMetalProgram(const std::filesystem::path &directory,
     std::ostringstream emittedText;
     emittedText << emitted.rdbuf();
     const bool hasSteel = emittedText.str().find("KALANDRA_STEEL_UPSTREAM") != std::string::npos;
-    run({metalCompiler, "-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM, "-isysroot", sdk,
+    run(progress, {metalCompiler, "-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM, "-isysroot", sdk,
          std::string("-std=") + (hasSteel ? "metal3.2" : numeric ? KALANDRA_GPU_TYPED_METAL_LANGUAGE : "macos-metal2.2"),
          "-fno-fast-math", "-ffp-contract=off",
          "-fmodules-cache-path=" + (directory / "module-cache").string(), "-c", base + ".metal",
          "-o", base + ".air"});
-    run({metalCompiler, base + ".air", "-o", base + ".metallib"});
+    run(progress, {metalCompiler, base + ".air", "-o", base + ".metallib"});
   }
   // Each entry is independently validated/lowered before offline linking.
   // Runtime loading verifies all entry interfaces before publishing the bundle.
@@ -259,7 +262,7 @@ void buildMetalProgram(const std::filesystem::path &directory,
     if (!outputs.contains(stem + "-rows2.mlir"))
       continue;
     auto base = (directory / stem).string();
-    run({metalCompiler, base + ".air", base + "-rows2.air", base + "-quad.air", "-o",
+    run(progress, {metalCompiler, base + ".air", base + "-rows2.air", base + "-quad.air", "-o",
          base + ".metallib"});
   }
   llvm::SmallString<256> temporary;
@@ -306,6 +309,7 @@ void buildMetalProgram(const std::filesystem::path &directory,
   command.insert(command.end(),
                  {(directory / "host.cpp").string(), metal, core, "-framework", "Foundation",
                   "-framework", "Metal", "-o", std::string(temporary)});
-  run(std::move(command));
+  progress.phase("Linking", executable.string());
+  run(progress, std::move(command));
   std::filesystem::rename(std::string(temporary), executable);
 }
