@@ -42,9 +42,15 @@ enum class FileAction : std::uint32_t {
   Capture,
   OpenWalk,
   DirectoryCreateAll,
-  RemoveTree
+  RemoveTree,
+  OpenWatch,
+  ReadWatch
 };
 inline std::optional<FileAction> fileAction(std::string_view name) {
+  if (name == "__openWatch")
+    return FileAction::OpenWatch;
+  if (name == "__readWatch")
+    return FileAction::ReadWatch;
   if (name == "__openWalk")
     return FileAction::OpenWalk;
   if (name == "createDirAll")
@@ -143,7 +149,7 @@ inline FileAction streamFileAction(FileAction action) {
   }
 }
 inline bool filePathAction(FileAction action) {
-  return action == FileAction::OpenWalk || action == FileAction::DirectoryCreateAll ||
+  return action == FileAction::OpenWatch || action == FileAction::OpenWalk || action == FileAction::DirectoryCreateAll ||
          action == FileAction::RemoveTree || action == FileAction::Open ||
          action == FileAction::OpenDirectory || action == FileAction::Metadata ||
          action == FileAction::DirectoryCreate || action == FileAction::RemoveFile ||

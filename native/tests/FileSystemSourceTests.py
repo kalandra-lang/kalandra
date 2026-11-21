@@ -70,6 +70,26 @@ if not a.cases or 'recursive-directories' in a.cases:
     exercise(a.compiler, a.variant, a.target, a.compile_only)
     print('PASS: recursive directories', flush=True)
 
+run('watch-directory','''from "std/fs" import watchDir, WatchScope, WatchKind, createDir, removeTree
+from "std/path" import join, fileName
+fn main(args:[String])->unit ! (FsError | IoError):
+  root=args[0]
+  try createDir(root)
+  events=try watchDir(root,WatchScope.Direct)
+  f=try open(join([root,"created"]),OpenMode.CreateNew)
+  try close(f)
+  try for event in events:
+    match event.kind:
+      WatchKind.Rescan: try println("rescan")
+      WatchKind.Changed:
+        if fileName(event.path)!="created":
+          continue
+        try println(fileName(event.path))
+    break
+  try removeTree(root)
+  return ()
+''', b'created\n')
+
 run('directory-utilities','''from "std/fs" import readDir, metadata, createDir, removeFile, removeDir, FileKind
 from "std/iter" import next, close as closeEntries
 from "std/option" import Option

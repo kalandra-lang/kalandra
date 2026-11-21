@@ -80,11 +80,19 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
       !result.errorRecord || *result.errorRecord >= module.records.size() ||
       module.records[*result.errorRecord].standard != StandardRecord::FsError)
     return bad("requires host execution and its nominal FsError channel");
-  if (unsigned(op->action) > unsigned(FileAction::RemoveTree))
+  if (unsigned(op->action) > unsigned(FileAction::ReadWatch))
     return bad("has an invalid action");
   if (op->action >= FileAction::OpenDirectory) {
-    if (op->arguments.size() != 1 || op->arguments[0] >= module.expressions.size())
+    const bool watchOpen = op->action == FileAction::OpenWatch;
+    if (op->arguments.size() != (watchOpen ? 2u : 1u) ||
+        op->arguments.front() >= module.expressions.size())
       return bad("utility operation requires one valid input");
+    if (watchOpen) {
+      const auto scope = op->arguments[1];
+      if (scope >= module.expressions.size() || !scalar(module.expressions[scope].type) ||
+          !nominal(module.expressions[scope].type, StandardRecord::WatchScope))
+        return bad("watchDir requires WatchScope");
+    }
     const auto &argument = module.expressions[op->arguments[0]].type;
     if (!scalar(argument) ||
         (filePathAction(op->action) ? argument.builtin != BuiltinValue::String
@@ -94,7 +102,9 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
     result.errorRecord.reset();
     if (!scalar(result))
       return bad("utility operation requires a completed scalar result");
-    if (op->action == FileAction::OpenDirectory || op->action == FileAction::OpenWalk)
+    if (op->action == FileAction::ReadWatch)
+      return nominal(result, StandardRecord::WatchEvent) ? std::nullopt : bad("watch advance requires WatchEvent");
+    if (watchOpen || op->action == FileAction::OpenDirectory || op->action == FileAction::OpenWalk)
       return nominal(result, StandardRecord::File) ? std::nullopt
                                                    : bad("directory open requires File");
     if (op->action == FileAction::Metadata)

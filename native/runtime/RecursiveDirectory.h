@@ -102,7 +102,31 @@ struct TreeFrame {
   fs::path name;
   std::size_t prefixLength;
 };
-struct TreeCursor {
+enum class CursorResult { Item, End, Pending };
+struct DirectoryCursor {
+  virtual ~DirectoryCursor() = default;
+  virtual CursorResult read(std::string &path, std::uint64_t &kind,
+                            const std::atomic<bool> &stop) = 0;
+};
+struct WatchCursor final : DirectoryCursor {
+  watch::DirectoryWatch watcher;
+  WatchCursor(const fs::path &root, bool recursive, const std::atomic<bool> &stop)
+      : watcher(root, recursive, stop) {}
+  CursorResult read(std::string &path, std::uint64_t &kind, const std::atomic<bool> &stop) override {
+    auto event = watcher.next(stop);
+    if (!event) return CursorResult::Pending;
+    const auto text = event->path.u8string();
+    path.assign(reinterpret_cast<const char *>(text.data()), text.size());
+    if (kalandra::validateUtf8(path, [&] { return !stop.load(); }) != kalandra::Utf8Status::Valid)
+      throw InvalidTreeEncoding{};
+    kind = static_cast<std::uint64_t>(event->kind);
+    return CursorResult::Item;
+  }
+};
+struct TreeCursor final : DirectoryCursor {
+  CursorResult read(std::string &path, std::uint64_t &kind, const std::atomic<bool> &stop) override {
+    return advance(&path, kind, stop) ? CursorResult::Item : CursorResult::End;
+  }
   std::vector<TreeFrame> frames;
   fs::path prefix, pending;
   std::unique_ptr<TreeDirectory> rootParent;

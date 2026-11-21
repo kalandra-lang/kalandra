@@ -48,7 +48,7 @@ inline void emitFileArguments(llvm::IRBuilder<> &b, const TaskValueTypes &types,
   }
   if (filePathAction(op.action)) {
     copy(1, inputs.at(0));
-    if (op.action != FileAction::Open)
+    if (op.action != FileAction::Open && op.action != FileAction::OpenWatch)
       return;
     auto *mode = b.CreateSub(b.CreateLoad(b.getInt64Ty(), inputs.at(1)), b.getInt64(1));
     b.CreateStore(mode, b.CreateStructGEP(layout, arguments, 4));
@@ -206,11 +206,16 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
   case FileAction::TakeStdout:
   case FileAction::TakeStderr:
   case FileAction::Open:
+  case FileAction::OpenWatch:
   case FileAction::OpenWalk:
   case FileAction::OpenDirectory:
   case FileAction::BufferedReader:
   case FileAction::BufferedWriter:
     b.CreateStore(loadTransport(3), value);
+    break;
+  case FileAction::ReadWatch:
+    storeField(*result.record, value, "kind", b.CreateZExt(loadTransport(1), b.getInt64Ty()));
+    storeField(*result.record, value, "path", loadTransport(2));
     break;
   case FileAction::Metadata:
     storeInfo(*result.record, value, false);

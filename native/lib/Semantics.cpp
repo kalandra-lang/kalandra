@@ -1208,6 +1208,10 @@ private:
             header.standard = StandardRecord::BufferedReader;
           if (label == "BufferedWriter")
             header.standard = StandardRecord::BufferedWriter;
+          if (label == "WatchEvent")
+            header.standard = StandardRecord::WatchEvent;
+          if (label == "WatchScope")
+            header.standard = StandardRecord::WatchScope;
           if (label == "OpenMode")
             header.standard = StandardRecord::OpenMode;
           if (label == "FileKind")

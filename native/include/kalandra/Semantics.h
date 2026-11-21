@@ -511,7 +511,9 @@ enum class StandardRecord {
   StreamError,
   ProcessStatus,
   Command,
-  Captured
+  Captured,
+  WatchScope,
+  WatchEvent
 };
 struct TypedRecord {
   std::string name;
