@@ -23,6 +23,10 @@ struct PackageInstallOptions {
 [[nodiscard]] std::expected<void, std::string>
 installNativeProject(std::string manifest, PackageInstallLimits limits = {},
                      PackageInstallOptions options = {});
+// Remove one direct Git dependency and prune its unreachable pins without fetching.
+[[nodiscard]] std::expected<void, std::string>
+removeNativeDependency(std::string manifest, std::string_view alias,
+                       PackageInstallLimits limits = {});
 // Read one public lock generation and verify all selected snapshots. Never runs Git.
 [[nodiscard]] std::expected<InstalledNativeProject, std::string>
 loadInstalledNativeProject(const NativeProject &, PackageInstallLimits limits = {});

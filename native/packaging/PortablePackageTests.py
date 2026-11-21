@@ -25,6 +25,7 @@ def prepare_tests(repository, tests):
     tests.mkdir()
     for name in ("PortableCPUAcceptance.py", "VersionCheck.py", "WindowsPlatform.py", "LoopCases.py", "FileSystemCases.py", "ParseCases.py", "PathCases.py", "EnvironmentCases.py", "TimeCases.py", "CallCases.py", "BufferCases.py", "GenericsCases.py"):
         shutil.copy2(Path(__file__).with_name(name), tests)
+    shutil.copy2(repository / "native/tests/PackageRemoveManifests.py", tests)
     for name in ("ProtocolClient.py", "ProtocolTests.py", "RecoveryProtocolTests.py"):
         shutil.copy2(repository / "native/lsp" / name, tests)
     (tests / "expected-version.txt").write_text(expected_version() + "\n", encoding="utf-8")
@@ -60,6 +61,7 @@ def qualify(archive):
         prepare_tests(repository, tests)
         compiler = prefix / "bin" / ("kalandra.exe" if windows else "kalandra")
         commands = [[sys.executable, str(tests / "PortableCPUAcceptance.py"), "--compiler", str(compiler)]]
+        commands.append([sys.executable, str(tests / "PackageRemoveManifests.py"), str(compiler)])
         server = prefix / "bin" / ("kalandra-lsp.exe" if windows else "kalandra-lsp")
         for name in ("ProtocolTests.py", "RecoveryProtocolTests.py"):
             commands.append([sys.executable, str(tests / name), str(server), str(work / name)])

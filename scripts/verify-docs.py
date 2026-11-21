@@ -259,6 +259,10 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     command([TOOLS / 'kalandra-check', '--project', 'my-app/kalandra.toml'], packages)
     command([TOOLS / 'kalandra', '--project', 'my-app/kalandra.toml', '-o', 'my-app/program'], packages)
     command([packages / 'my-app/program'], packages, '42')
+    write(packages / 'my-app/src/main.k', blocks('index', 'kalandra')[0][1])
+    shell('packages', 5, packages)
+    command([TOOLS / 'kalandra', 'install', '--project', 'my-app/kalandra.toml', '--frozen', '--offline'], packages)
+    command([TOOLS / 'kalandra-check', '--project', 'my-app/kalandra.toml'], packages)
     for page in ['projects', 'packages']:
         for i, _ in blocks(page, 'kalandra') + blocks(page, 'toml'):
             COVERED.add((page, i))

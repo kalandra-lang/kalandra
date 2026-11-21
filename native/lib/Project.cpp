@@ -1,4 +1,5 @@
 #include "kalandra/Project.h"
+#include "DependencyManifest.h"
 #include "kalandra/GitRepository.h"
 #include "kalandra/GitRevision.h"
 #include <algorithm>
@@ -226,6 +227,14 @@ std::expected<Manifest, std::string> loadManifest(std::string path, ProjectLimit
   }
 }
 } // namespace
+std::expected<detail::DependencyManifest, std::string>
+detail::loadDependencyManifest(std::string path) {
+  auto manifest = loadManifest(std::move(path), {});
+  if (!manifest)
+    return std::unexpected(manifest.error());
+  return DependencyManifest{std::move(manifest->path), std::move(manifest->contents),
+                            std::move(manifest->dependencies)};
+}
 std::expected<NativeProject, std::string> loadNativeProject(std::string path,
                                                             ProjectLimits limits) {
   auto manifest = loadManifest(std::move(path), limits);
