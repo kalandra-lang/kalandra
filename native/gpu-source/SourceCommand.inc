@@ -89,10 +89,12 @@
     std::cerr << backendName << " optimized matmul is not integrated yet\n";
     return 2;
   }
+  cli::BuildProgress progress(feedback);
+  progress.phase("Checking", projectPath.empty() ? sourcePath : projectPath);
   if (!projectPath.empty()) {
     auto loaded = loadNativeProject(projectPath);
     if (!loaded) {
-      std::cerr << loaded.error() << '\n';
+      progress.diagnostic() << loaded.error() << '\n';
       return 1;
     }
     project = std::move(*loaded);
@@ -105,7 +107,7 @@
   if (project && !project->dependencies.empty()) {
     auto loaded = loadInstalledNativeProject(*project);
     if (!loaded) {
-      std::cerr << loaded.error() << '\n';
+      progress.diagnostic() << loaded.error() << '\n';
       return 1;
     }
     managed = std::move(*loaded);
@@ -114,19 +116,20 @@
   auto parsed =
       managed ? loadPackageModules(managed->nodes) : loadModules(sourcePath, {}, {}, packages);
   if (!parsed) {
-    std::cerr << parsed.error() << '\n';
+    progress.diagnostic() << parsed.error() << '\n';
     return 1;
   }
   auto source = parsed->module.source;
   try {
     if (!parsed->ok()) {
       for (auto &d : parsed->diagnostics)
-        std::cerr << renderDiagnostic(*source, d);
+        progress.diagnostic() << renderDiagnostic(*source, d);
       return 1;
     }
+    progress.phase("Compiling", sourcePath);
     auto emitted = emitGpuSupervisor(std::move(parsed->module), arithmetic, testCpuExports, selectedGpuBackend, application);
     if (!emitted) {
-      std::cerr << renderDiagnostic(*source, emitted.error());
+      progress.diagnostic() << renderDiagnostic(*source, emitted.error());
       return 1;
     }
     auto outputs = std::move(*emitted);
@@ -208,10 +211,12 @@
       if (auto error = llvm::sys::fs::rename(temporary, target.string()))
         throw std::runtime_error(error.message());
     }
-    if (build)
-      buildGpuProgram(directory, outputs, variant, arithmetic, matmul);
+    if (build) {
+      buildGpuProgram(progress, directory, outputs, variant, arithmetic, matmul);
+      progress.built(directory.string(), backendFlag);
+    }
     return 0;
   } catch (const std::exception &e) {
-    std::cerr << backendName << " source compilation: " << e.what() << '\n';
+    progress.diagnostic() << backendName << " source compilation: " << e.what() << '\n';
   }
   return 1;

@@ -104,7 +104,7 @@ if(KALANDRA_BUILD_VULKAN_RUNTIME AND NOT KALANDRA_VULKAN_SANITIZERS AND NOT KALA
   target_include_directories(kalandra-vulkan-source-backend PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
   target_include_directories(kalandra-vulkan-source-backend SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-vulkan-source-backend PRIVATE -Wall -Wextra -Werror)
-  target_link_libraries(kalandra-vulkan-source-backend PRIVATE kalandra-gpu-supervisor
+  target_link_libraries(kalandra-vulkan-source-backend PRIVATE kalandra-cli-progress kalandra-gpu-supervisor
     kalandra-packages kalandra-backend kalandra-vulkan-resources LLVM MLIR)
   target_link_libraries(kalandra PRIVATE kalandra-vulkan-source-backend)
   target_compile_definitions(kalandra PRIVATE KALANDRA_HAS_VULKAN_SOURCE=1)

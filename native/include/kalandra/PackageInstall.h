@@ -1,5 +1,6 @@
 #pragma once
 #include "kalandra/GitSnapshot.h"
+#include <functional>
 namespace kalandra {
 struct PackageInstallLimits {
   std::size_t maxPackages = 64;
@@ -12,11 +13,13 @@ struct PackageInstallLimits {
 struct InstalledNativeProject {
   std::vector<PackageNode> nodes;
 };
+using PackageTrace = std::function<void(std::string_view, std::string_view)>;
 struct PackageInstallOptions {
   bool frozen = false;
   bool offline = false;
   // Explicit root aliases to re-resolve. Unchanged package identities keep private pins.
   std::vector<std::string> updateRoots = {};
+  PackageTrace trace = {};
 };
 // Explicit installation with owner-local revision pins. Publishes a lock only
 // after the entire declared graph and reachable source imports validate.

@@ -74,7 +74,7 @@ struct Resolved {
 };
 Resolved resolve(const NativeProject &project, const NativePackageLock &active, bool fetch,
                  bool validateSources, bool strict, bool allowResolution,
-                 PackageInstallLimits limits, std::span<const std::string> updateRoots = {}) {
+                 PackageInstallLimits limits, std::span<const std::string> updateRoots = {}, const PackageTrace &trace = {}) {
   require(!strict || sameNativeDependencies(project.dependencies, active.roots),
           "dependency declarations differ from kalandra.lock; run kalandra install");
   const auto root = cache(project.manifest);
@@ -95,6 +95,7 @@ Resolved resolve(const NativeProject &project, const NativePackageLock &active, 
                       std::size_t)>
       visit = [&](const NativeDependency &dependency,
                   const std::vector<LockedNativeDependency> &prior, std::size_t depth) -> Visit {
+    if (trace) trace("Resolving dependency", dependency.name);
     require(depth <= limits.maxDepth, "package dependencies exceed configured depth");
     const auto pinned = std::ranges::find_if(prior, [&](const auto &item) {
       return item.name == dependency.name && item.repository == dependency.repository &&
@@ -297,6 +298,7 @@ std::expected<void, std::string> installNativeProject(std::string manifest,
     const auto destination = lockPath(project->manifest);
     std::optional<std::string> before;
     NativePackageLock active;
+    if (options.trace) options.trace("Checking lock", destination.string());
     if (fs::exists(fs::symlink_status(destination))) {
       before = read(destination, limits.maxLockBytes);
       active = lock(*before, limits);
@@ -327,7 +329,7 @@ std::expected<void, std::string> installNativeProject(std::string manifest,
     directory(root / "snapshots", !options.offline);
     auto resolved =
         resolve(*project, active, !options.offline, true, matching && options.updateRoots.empty(),
-                !options.frozen && !options.offline, limits, options.updateRoots);
+                !options.frozen && !options.offline, limits, options.updateRoots, options.trace);
     const auto contents = serializeNativePackageLock(resolved.selected);
     // Validate generated records too; no unchecked graph is ever activated.
     lock(contents, limits);

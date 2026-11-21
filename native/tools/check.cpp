@@ -2,6 +2,7 @@
 #include "kalandra/Diagnostics.h"
 #include "kalandra/PackageInstall.h"
 #include "kalandra/Project.h"
+#include "kalandra/CliOutput.h"
 #include "kalandra/Version.h"
 #include <algorithm>
 #include <iostream>
@@ -9,6 +10,7 @@
 #include <string_view>
 
 int main(int argc, char **argv) {
+  const auto feedback = kalandra::cli::Output::take(argc, argv, {"--package", "--project"});
   if (kalandra::printVersion(argc, argv, "kalandra-check"))
     return 0;
   const std::span<char *> arguments(argv, static_cast<std::size_t>(argc));
@@ -79,6 +81,7 @@ int main(int argc, char **argv) {
   if (json && (dump || dumpPlan))
     return failure("CLI001", "--diagnostics=json cannot be combined with --dump-ir or --dump-plan",
                    2);
+  feedback.trace("Checking", projectPath.empty() ? (path ? path : "<stdin>") : projectPath);
   if (!projectPath.empty()) {
     if (path)
       return usage();
@@ -161,7 +164,7 @@ int main(int argc, char **argv) {
     std::cout << kalandra::continuation::dump(*planned);
   } else if (dump)
     std::cout << kalandra::dumpTypedIR(*result.module);
-  else
+  else if (!feedback.silent)
     std::cout << "Checked " << result.module->functions.size() << " functions, "
               << result.module->expressions.size() << " typed values (no code generation)\n";
 }
