@@ -98,6 +98,17 @@ kalandra --project my-app/kalandra.toml -o my-app/program
 
 The rebuilt program returns 63. Ordinary reinstall keeps the existing locked commit when a branch request has not changed. update refreshes the selected direct dependency while preserving unrelated locked selections. To change an exact revision or requested ref, edit the manifest and install normally. Existing executables do not change with their source lock.
 
+h2 { "Remove a dependency" }
+
+When the application no longer uses geometry, delete its imports and calls from your source. Then remove the direct dependency by its manifest alias:
+
+codeblock { language = bash, """kalandra remove geometry --project my-app/kalandra.toml
+""" }
+
+From the application directory, use kalandra remove geometry. The --remove spelling also works. The command edits kalandra.toml and, when present, updates kalandra.lock. A library that another dependency still uses keeps its exact locked commit. Packages reachable only through the removed alias disappear from the lock. You can run removal offline. Downloaded snapshots stay in the cache.
+
+Commit the edited manifest and lock together. For a manifest without a lock, including a standalone source library, removal updates the manifest without creating a lockfile.
+
 h2 { "Supported dependency sources" }
 
 Authenticated/SSH transport, package registries, version-range solving and a public native-library ABI are not supported. A package is checked source, not an arbitrary build hook run during compilation.

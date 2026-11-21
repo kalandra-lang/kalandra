@@ -13,7 +13,9 @@ int main(int argc, char **argv) {
     else
       options.updateRoots.push_back(name);
   }
-  auto result = kalandra::installNativeProject(argv[1], {}, options);
+  auto result = argc == 4 && std::string_view(argv[2]) == "--remove"
+                    ? kalandra::removeNativeDependency(argv[1], argv[3])
+                    : kalandra::installNativeProject(argv[1], {}, options);
   if (!result) {
     std::cerr << result.error() << '\n';
     return 1;

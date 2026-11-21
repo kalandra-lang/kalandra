@@ -51,6 +51,39 @@ int main(int argc, char **argv) {
   if (kalandra::printVersion(argc, argv, "kalandra"))
     return 0;
   if (argc >= 2 &&
+      (std::string_view(argv[1]) == "remove" || std::string_view(argv[1]) == "--remove")) {
+    constexpr auto usage = "usage: kalandra remove <alias> [--project manifest.toml]\n";
+    if (argc == 3 && std::string_view(argv[2]) == "--help") {
+      std::cout << usage;
+      return 0;
+    }
+    std::string_view alias;
+    std::optional<std::string> manifest;
+    for (int i = 2; i < argc; ++i) {
+      const std::string_view arg = argv[i];
+      if (arg == "--project" && !manifest && i + 1 < argc && argv[i + 1][0] &&
+          argv[i + 1][0] != '-')
+        manifest = argv[++i];
+      else if (!arg.empty() && !arg.starts_with('-') && alias.empty())
+        alias = arg;
+      else {
+        std::cerr << usage;
+        return 2;
+      }
+    }
+    if (alias.empty()) {
+      std::cerr << usage;
+      return 2;
+    }
+    auto removed = kalandra::removeNativeDependency(manifest.value_or("kalandra.toml"), alias);
+    if (!removed) {
+      std::cerr << removed.error() << '\n';
+      return 1;
+    }
+    std::cout << "Removed dependency '" << alias << "'.\n";
+    return 0;
+  }
+  if (argc >= 2 &&
       (std::string_view(argv[1]) == "install" || std::string_view(argv[1]) == "update")) {
     const bool update = std::string_view(argv[1]) == "update";
     std::string manifest;
@@ -245,7 +278,8 @@ int main(int argc, char **argv) {
            "cpu|metal|vulkan|cuda] [--toolchain profile.json | --platform os-architecture "
            "[--sysroot path] [--gcc-directory path] [--library-directory path ...]] [--package "
            "name=path.k ...] [--project manifest.toml instead of source]\n"
-           "       kalandra new directory\n";
+           "       kalandra new directory\n"
+           "       kalandra remove <alias> [--project manifest.toml]\n";
     return 2;
   }
   std::filesystem::path output, mlirPath, llvmPath;

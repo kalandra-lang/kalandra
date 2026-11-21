@@ -187,3 +187,64 @@ update('fixed', api=True)
 assert lock.read_bytes() == before
 assert not list((app / '.kalandra').glob('.activate-*'))
 print('Named package updates: selected roots, private pins, graph growth, aliases/tags, exact pins, rollback, modes and workers passed')
+
+# Remove from an installed graph whose source repositories are all unavailable.
+def remove(alias, ok=True):
+    if args.api:
+        return run(args.api, manifest, '--remove', alias, ok=ok)
+    return run(args.compiler, 'remove', alias, '--project', manifest, ok=ok)
+
+
+snapshot_dir = app / '.kalandra/snapshots'
+snapshots = sorted(snapshot_dir.iterdir())
+for name in ['unknown', 'leaf']:  # leaf is a private transitive dependency.
+    remove(name, ok=False)
+    assert lock.read_bytes() == before and manifest.read_text() == configuration
+with (app / '.kalandra/install.guard').open('r+') as guard:
+    fcntl.flock(guard, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    remove('fixed', ok=False)
+    assert lock.read_bytes() == before and manifest.read_text() == configuration
+for invalid_lock in [b'format=999\n', before.replace(b'manifest_digest', b'invalid_digest')]:
+    lock.write_bytes(invalid_lock)
+    remove('fixed', ok=False)
+    assert lock.read_bytes() == invalid_lock and manifest.read_text() == configuration
+lock.write_bytes(before)
+manifest.write_text(configuration + '# edited\n')
+remove('fixed', ok=False)
+assert lock.read_bytes() == before and manifest.read_text() == configuration + '# edited\n'
+manifest.write_text(configuration)
+
+# The old source still imports math. Removal does not edit code. Switch the app to
+# the surviving parent, which uses a different math pin with its own private leaf.
+(app / 'main.k').write_text('from "parent" import compute\nfn main()->i64:\n  return compute(10)\n')
+old_data, old_roots = state()
+remove('math')
+new_data, new_roots = state()
+assert new_roots == {k: v for k, v in old_roots.items() if k != 'math'}
+dropped = {(str(math), third), (str(leaf), leaf_second)}
+assert new_data['packages'] == [p for p in old_data['packages'] if (p['repository'], p['commit']) not in dropped]
+
+# Simulate interruption between lock and manifest publication and retry.
+new_lock = lock.read_bytes()
+edited = manifest.read_bytes()
+manifest.write_text(configuration)
+remove('math')
+assert manifest.read_bytes() == edited and lock.read_bytes() == new_lock
+for alias in ['again', 'tagged', 'fixed']:
+    run(args.compiler, '--remove', alias, '--project', manifest)
+data, roots = state()
+assert roots == {'parent': parent_second}
+assert len(data['packages']) == 3
+assert package(data, parent, parent_second)['dependencies'][0]['commit'] == second
+assert package(data, math, second)['dependencies'][0]['commit'] == leaf_first
+run(args.compiler, 'install', '--project', manifest, '--frozen', '--offline')
+run(args.checker, '--project', manifest)
+run(args.compiler, '--test-entry', 'main', '--project', manifest, '-o', program)
+assert run(program).stdout == b'12\n'
+remove('parent')
+data, roots = state()
+assert not roots and data['packages'] == []
+assert sorted(snapshot_dir.iterdir()) == snapshots
+assert not list((app / '.kalandra').glob('.activate-*'))
+assert run(args.checker, '--project', manifest, ok=False).returncode != 0
+print('Dependency removal: surviving pins and shared snapshots, frozen offline compile, rejection and interrupted publication passed')

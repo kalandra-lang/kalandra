@@ -1,4 +1,5 @@
 #include "kalandra/PackageInstall.h"
+#include "DependencyManifest.h"
 #include "PlatformFileSystem.h"
 #include "kalandra/GitRevision.h"
 #include "kalandra/PackageLock.h"
@@ -11,6 +12,7 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/SHA256.h>
 #include <map>
+#include <set>
 #include <stdexcept>
 #ifndef _WIN32
 #include <sys/file.h>
@@ -50,9 +52,7 @@ std::string read(const fs::path &path, std::size_t maximum) {
   require(input.eof(), "cannot read package metadata");
   return result;
 }
-fs::path cache(const NativeProject &project) {
-  return fs::path(project.manifest).parent_path() / ".kalandra";
-}
+fs::path cache(const fs::path &manifest) { return manifest.parent_path() / ".kalandra"; }
 void directory(const fs::path &path, bool create) {
   if (create && !fs::exists(fs::symlink_status(path)))
     require(!detail::createPrivateDirectory(path) || fs::is_directory(fs::symlink_status(path)),
@@ -61,9 +61,7 @@ void directory(const fs::path &path, bool create) {
           "package cache must use real directories: " + path.string());
 }
 using Key = NativePackageKey;
-fs::path lockPath(const NativeProject &project) {
-  return fs::path(project.manifest).parent_path() / "kalandra.lock";
-}
+fs::path lockPath(const fs::path &manifest) { return manifest.parent_path() / "kalandra.lock"; }
 NativePackageLock lock(std::string_view contents, PackageInstallLimits limits) {
   auto parsed =
       parseNativePackageLock(contents, {limits.maxLockBytes, limits.maxPackages, limits.maxDepth});
@@ -79,7 +77,7 @@ Resolved resolve(const NativeProject &project, const NativePackageLock &active, 
                  PackageInstallLimits limits, std::span<const std::string> updateRoots = {}) {
   require(!strict || sameNativeDependencies(project.dependencies, active.roots),
           "dependency declarations differ from kalandra.lock; run kalandra install");
-  const auto root = cache(project);
+  const auto root = cache(project.manifest);
   Resolved result{{{{"workspace",
                      fs::path(project.manifest).parent_path().string(),
                      project.entry,
@@ -233,6 +231,46 @@ struct Guard {
 #endif
   }
 };
+void acquireGuard(const fs::path &root, Guard &guard) {
+#ifdef _WIN32
+  guard.fd = CreateFileW((root / "install.guard").c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
+                         OPEN_ALWAYS, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+  require(guard.fd != INVALID_HANDLE_VALUE, "cannot acquire package installation guard");
+  BY_HANDLE_FILE_INFORMATION status{};
+  require(
+      GetFileInformationByHandle(guard.fd, &status) && status.nNumberOfLinks == 1 &&
+          !(status.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)),
+      "package installation guard must be a private regular file");
+#else
+  guard.fd =
+      ::open((root / "install.guard").c_str(), O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0600);
+  require(guard.fd >= 0, "cannot open package installation guard");
+  struct stat status;
+  require(::fstat(guard.fd, &status) == 0 && S_ISREG(status.st_mode) && status.st_nlink == 1,
+          "package installation guard must be a private regular file");
+  require(::flock(guard.fd, LOCK_EX | LOCK_NB) == 0, "another package installation is in progress");
+#endif
+}
+void stageFile(const fs::path &stage, std::string_view contents, const fs::path &original) {
+  std::ofstream file(stage, std::ios::binary);
+  file.write(contents.data(), std::streamsize(contents.size()));
+  file.close();
+  require(bool(file), "cannot stage package metadata");
+  fs::permissions(stage, fs::status(original).permissions());
+}
+void pruneDependency(NativePackageLock &active, std::string_view alias) {
+  std::erase_if(active.roots, [&](const auto &root) { return root.name == alias; });
+  std::set<Key> reachable;
+  const auto visit = [&](auto &self, const LockedNativeDependency &dependency) -> void {
+    Key key{dependency.repository, dependency.commit};
+    if (reachable.insert(key).second)
+      for (const auto &child : active.packages.at(key).dependencies)
+        self(self, child);
+  };
+  for (const auto &root : active.roots)
+    visit(visit, root);
+  std::erase_if(active.packages, [&](const auto &node) { return !reachable.contains(node.first); });
+}
 bool within(const fs::path &path, const fs::path &root) {
   const auto relative = path.lexically_relative(root);
   return !relative.empty() && !relative.has_root_path() && *relative.begin() != "..";
@@ -256,7 +294,7 @@ std::expected<void, std::string> installNativeProject(std::string manifest,
   try {
     auto project = loadNativeProject(std::move(manifest));
     require(bool(project), project ? "" : project.error());
-    const auto destination = lockPath(*project);
+    const auto destination = lockPath(project->manifest);
     std::optional<std::string> before;
     NativePackageLock active;
     if (fs::exists(fs::symlink_status(destination))) {
@@ -282,28 +320,10 @@ std::expected<void, std::string> installNativeProject(std::string manifest,
     }
     require((!options.frozen && !options.offline) || matching,
             "frozen/offline install requires a matching kalandra.lock");
-    const auto root = cache(*project);
+    const auto root = cache(project->manifest);
     directory(root, !options.offline);
     Guard guard;
-#ifdef _WIN32
-    guard.fd = CreateFileW((root / "install.guard").c_str(), GENERIC_READ | GENERIC_WRITE, 0,
-                           nullptr, OPEN_ALWAYS, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-    require(guard.fd != INVALID_HANDLE_VALUE, "cannot acquire package installation guard");
-    BY_HANDLE_FILE_INFORMATION status{};
-    require(
-        GetFileInformationByHandle(guard.fd, &status) && status.nNumberOfLinks == 1 &&
-            !(status.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)),
-        "package installation guard must be a private regular file");
-#else
-    guard.fd =
-        ::open((root / "install.guard").c_str(), O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0600);
-    require(guard.fd >= 0, "cannot open package installation guard");
-    struct stat status;
-    require(::fstat(guard.fd, &status) == 0 && S_ISREG(status.st_mode) && status.st_nlink == 1,
-            "package installation guard must be a private regular file");
-    require(::flock(guard.fd, LOCK_EX | LOCK_NB) == 0,
-            "another package installation is in progress");
-#endif
+    acquireGuard(root, guard);
     directory(root / "snapshots", !options.offline);
     auto resolved =
         resolve(*project, active, !options.offline, true, matching && options.updateRoots.empty(),
@@ -362,17 +382,76 @@ std::expected<void, std::string> installNativeProject(std::string manifest,
     return std::unexpected(error.what());
   }
 }
+std::expected<void, std::string>
+removeNativeDependency(std::string manifest, std::string_view alias, PackageInstallLimits limits) {
+  try {
+    auto project = detail::loadDependencyManifest(std::move(manifest));
+    require(bool(project), project ? "" : project.error());
+    const auto edited = detail::withoutDependency(project->contents, alias);
+    const auto root = cache(project->path);
+    directory(root, true);
+    Guard guard;
+    acquireGuard(root, guard);
+    const auto destination = lockPath(project->path);
+    std::optional<std::string> before, after;
+    if (fs::exists(fs::symlink_status(destination))) {
+      before = read(destination, limits.maxLockBytes);
+      auto active = lock(*before, limits);
+      const auto digest = hash(edited);
+      if (active.manifest == digest) {
+        // A process can stop between the two renames. Retrying the same remove
+        // finishes the manifest edit if the new lock is already in place.
+        std::erase_if(project->dependencies, [&](const auto &dep) { return dep.name == alias; });
+        require(sameNativeDependencies(project->dependencies, active.roots),
+                "dependency declarations differ from the prepared lock");
+      } else {
+        require(active.manifest == hash(project->contents) &&
+                    sameNativeDependencies(project->dependencies, active.roots),
+                "dependency removal requires a matching kalandra.lock; run kalandra install first");
+        pruneDependency(active, alias);
+        active.manifest = digest;
+        after = serializeNativePackageLock(active);
+        lock(*after, limits);
+      }
+    }
+    fs::path stage;
+    require(!detail::createPrivateStage(root, ".activate-", stage),
+            "cannot stage dependency removal");
+    guard.temporary = stage;
+    stageFile(stage / "manifest", edited, project->path);
+    if (after) {
+      stageFile(stage / "lock", *after, destination);
+      stageFile(stage / "previous-lock", *before, destination);
+    }
+    require(read(project->path, 256 * 1024) == project->contents,
+            "project manifest changed during dependency removal");
+    require(before ? read(destination, limits.maxLockBytes) == *before
+                   : !fs::exists(fs::symlink_status(destination)),
+            "kalandra.lock changed during dependency removal");
+    if (after)
+      require(!detail::replaceFile(stage / "lock", destination), "cannot activate kalandra.lock");
+    if (auto error = detail::replaceFile(stage / "manifest", project->path)) {
+      if (after)
+        require(!detail::replaceFile(stage / "previous-lock", destination),
+                "cannot restore kalandra.lock; retry the same dependency removal");
+      throw std::runtime_error("cannot activate edited project manifest: " + error.message());
+    }
+    return {};
+  } catch (const std::exception &error) {
+    return std::unexpected(error.what());
+  }
+}
 std::expected<InstalledNativeProject, std::string>
 loadInstalledNativeProject(const NativeProject &project, PackageInstallLimits limits) {
   try {
-    const auto root = cache(project);
+    const auto root = cache(project.manifest);
     if (project.dependencies.empty())
       return InstalledNativeProject{{{"workspace",
                                       fs::path(project.manifest).parent_path().string(),
                                       project.entry,
                                       {},
                                       project.packages}}};
-    const auto destination = lockPath(project);
+    const auto destination = lockPath(project.manifest);
     require(fs::exists(fs::symlink_status(destination)),
             "dependencies have no kalandra.lock; run kalandra install --project " +
                 project.manifest);
@@ -391,10 +470,10 @@ std::expected<void, std::string> protectNativePackageOutput(const NativeProject 
                                                             std::string output,
                                                             PackageInstallLimits limits) {
   try {
-    const auto root = cache(project);
+    const auto root = cache(project.manifest);
     const auto target = fs::absolute(output).lexically_normal();
     const auto canonical = outputIdentity(target);
-    const auto publicLock = lockPath(project);
+    const auto publicLock = lockPath(project.manifest);
     std::error_code lockError;
     require(!within(target, publicLock) && !within(canonical, outputIdentity(publicLock)) &&
                 !fs::equivalent(target, publicLock, lockError),

@@ -57,7 +57,7 @@ target_link_libraries(kalandra-git-snapshots PUBLIC kalandra-project PRIVATE LLV
 target_include_directories(kalandra-git-snapshots SYSTEM PRIVATE ${KALANDRA_TOML_INCLUDES} ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(kalandra-git-snapshots PRIVATE TOML_HEADER_ONLY=1 TOML_ENABLE_UNRELEASED_FEATURES=0)
 target_compile_options(kalandra-git-snapshots PRIVATE -Wall -Wextra -Werror)
-add_library(kalandra-packages STATIC lib/PackageInstall.cpp lib/PackageLock.cpp)
+add_library(kalandra-packages STATIC lib/PackageInstall.cpp lib/DependencyManifest.cpp lib/PackageLock.cpp)
 target_link_libraries(kalandra-packages PUBLIC kalandra-git-snapshots PRIVATE LLVM)
 target_include_directories(kalandra-packages SYSTEM PRIVATE ${KALANDRA_TOML_INCLUDES} ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(kalandra-packages PRIVATE TOML_HEADER_ONLY=1 TOML_ENABLE_UNRELEASED_FEATURES=0)
