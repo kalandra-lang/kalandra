@@ -387,3 +387,41 @@ fn main() -> unit ! (FsError | IoError):
   try removeTree("scratch")
   return ()
 """ }
+
+h2 { "watchDir" }
+
+code { "watchDir(root: String, scope: WatchScope) -> Iterator[WatchEvent, FsError] ! FsError" }
+
+Watch an existing directory for changes. As with walkDir, the supplied root path must reach the directory without traversing a link. Registration is active when watchDir returns, so you can open a watcher before reading the initial directory contents. WatchScope.Direct covers immediate entries. WatchScope.Recursive includes descendants and newly created directories. Waiting for the next event suspends the consuming task. Breaking out of the loop, propagating an error or cancelling releases the watcher.
+
+A WatchEvent has a path (String) and a kind (WatchKind). Changed means you should recheck that path. By the time you read the event the entry may have disappeared. An editor saving one file can produce several hints, and multiple edits can produce one hint. Paths include the root as supplied by the caller.
+
+Rescan means some changes could not be described individually. Walk the original root again and then continue reading the same watcher. A slow reader, a burst of writes or a change to the directory structure can trigger a rescan. Consumers keeping an index should reconcile deletions as well as additions during that walk. Opening and advancing both report FsError when the operating system cannot watch the directory.
+
+This example opens the watcher before creating ready. On a detailed change it checks the reported name. On a rescan it looks for the file in the directory again.
+
+codeblock { language = kalandra, """from "std/fs" import createDir, open, close, OpenMode, watchDir, WatchScope, WatchKind, walkDir, removeTree, FsError
+from "std/path" import fileName
+from "std/io" import println, IoError
+
+fn hasReady(root: String) -> bool ! FsError:
+  try for entry in try walkDir(root):
+    if fileName(entry.path) == "ready":
+      return true
+  return false
+
+fn main() -> unit ! (FsError | IoError):
+  try createDir("scratch")
+  changes = try watchDir("scratch", WatchScope.Direct)
+  file = try open("scratch/ready", OpenMode.CreateNew)
+  try close(file)
+  try for event in changes:
+    found = match event.kind:
+      WatchKind.Changed: fileName(event.path) == "ready"
+      WatchKind.Rescan: try hasReady(event.path)
+    if found:
+      try println("ready")
+      break
+  try removeTree("scratch")
+  return ()
+""" }

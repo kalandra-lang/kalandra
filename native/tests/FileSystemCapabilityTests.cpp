@@ -16,7 +16,8 @@ int main() {
                                StandardRecord::BufferedWriter, StandardRecord::OpenMode,
                                StandardRecord::FsError,        StandardRecord::Line,
                                StandardRecord::FileKind,       StandardRecord::DirEntry,
-                               StandardRecord::FileInfo,       StandardRecord::Option};
+                               StandardRecord::FileInfo,       StandardRecord::Option,
+                               StandardRecord::WatchScope, StandardRecord::WatchEvent};
   for (auto standard : records) {
     TypedRecord record{"standard", {}, {}};
     record.standard = standard;
@@ -68,7 +69,9 @@ int main() {
                          Spec{FileAction::DirectoryRemove, {text}, unit},
                          Spec{FileAction::OpenWalk, {text}, nominal(0)},
                          Spec{FileAction::DirectoryCreateAll, {text}, unit},
-                         Spec{FileAction::RemoveTree, {text}, unit}};
+                         Spec{FileAction::RemoveTree, {text}, unit},
+                         Spec{FileAction::OpenWatch, {text, nominal(10)}, nominal(0)},
+                         Spec{FileAction::ReadWatch, {nominal(0)}, nominal(11)}};
   for (const auto &spec : specs) {
     module.expressions.clear();
     std::vector<ValueId> arguments;

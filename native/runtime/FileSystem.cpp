@@ -1,4 +1,5 @@
 #include "FileSystem.h"
+#include "DirectoryWatch.h"
 #include "../include/kalandra/Utf8.h"
 #include "ChildProcess.h"
 #include "Console.h"
@@ -86,7 +87,7 @@ constexpr std::size_t fileSlots = 65536, noFileSlot = fileSlots;
 std::size_t reserveFileSlot();
 void releaseFileSlot(std::size_t) noexcept;
 #include "RecursiveDirectory.h"
-using TreeOwner = std::unique_ptr<TreeCursor>;
+using TreeOwner = std::unique_ptr<DirectoryCursor>;
 using ChildOwner = std::unique_ptr<process::Child>;
 void deferClose(NativeFile &, std::size_t &, NativeDirectory &, ChildOwner &, TreeOwner &) noexcept;
 struct FileState : OwnedState {
@@ -94,7 +95,7 @@ struct FileState : OwnedState {
   NativeDirectory directory = invalidDirectory;
   ChildOwner child;
   TreeOwner tree;
-  bool isDirectory = false, pipe = false;
+  bool isDirectory = false, isWatch = false, pipe = false;
   std::size_t closeSlot = noFileSlot;
   enum class Buffer { None, Read, Write } buffer = Buffer::None;
   std::uint64_t capacity = 0, begin = 0, end = 0;
@@ -373,9 +374,10 @@ void open(Job &job) noexcept {
 #include "ProcessIO.h"
 void treeOperation(Job &job) noexcept {
   try {
-    if (job.action == FileAction::ReadDirectory) {
-      if (!job.file->tree->advance(&job.walkPath, job.mode, job.abandoned))
-        job.kind = FileKind::End;
+    if (job.action == FileAction::ReadDirectory || job.action == FileAction::ReadWatch) {
+      const auto result = job.file->tree->read(job.walkPath, job.mode, job.abandoned);
+      job.retry = result == CursorResult::Pending;
+      if (result == CursorResult::End) job.kind = FileKind::End;
       job.count = job.walkPath.size();
     } else {
       fs::path path(reinterpret_cast<const char8_t *>(job.data()));
@@ -385,7 +387,14 @@ void treeOperation(Job &job) noexcept {
         TreeCursor cursor(path, true, job.abandoned);
         cursor.advance(nullptr, job.mode, job.abandoned);
       } else if (reserveOutputSlot(job)) {
-        job.output->tree = std::make_unique<TreeCursor>(path, false, job.abandoned);
+        if (job.action == FileAction::OpenWatch) {
+          // A reported Rescan root must also be a valid walkDir root.
+          TreeCursor verified(path, false, job.abandoned);
+          if (job.abandoned)
+            return;
+          job.output->tree = std::make_unique<WatchCursor>(path, job.mode == 1, job.abandoned);
+          job.output->isWatch = true;
+        } else job.output->tree = std::make_unique<TreeCursor>(path, false, job.abandoned);
         job.output->isDirectory = true;
       }
     }
@@ -402,7 +411,7 @@ void treeOperation(Job &job) noexcept {
 void execute(Job &job) noexcept {
   if (job.abandoned)
     return;
-  if (job.action >= FileAction::OpenWalk) {
+  if (job.action >= FileAction::OpenWalk && job.action <= FileAction::OpenWatch) {
     treeOperation(job);
     return;
   }
@@ -433,7 +442,7 @@ void execute(Job &job) noexcept {
   auto &file = *job.file;
   std::lock_guard lock(file.mutex);
   if (file.isDirectory) {
-    if (job.action == FileAction::ReadDirectory && file.closeSlot != noFileSlot) {
+    if (job.action == (file.isWatch ? FileAction::ReadWatch : FileAction::ReadDirectory) && file.closeSlot != noFileSlot) {
       if (file.tree)
         treeOperation(job);
       else
@@ -855,7 +864,8 @@ Operation *prepare(Invocation &ctx, ProcessResult &out, FileAction action,
   else if (filePathAction(action)) {
     if (!validateString(ctx, args.path))
       return nullptr;
-    if ((action == FileAction::Open && args.mode > std::uint64_t(FileMode::ReadWrite)) ||
+    if ((action == FileAction::OpenWatch && args.mode > 1) ||
+        (action == FileAction::Open && args.mode > std::uint64_t(FileMode::ReadWrite)) ||
         (args.path.byteLength && std::memchr(args.path.data, 0, args.path.byteLength))) {
       out.kind = FileKind::InvalidArgument;
       return nullptr;
@@ -919,7 +929,7 @@ Operation *prepare(Invocation &ctx, ProcessResult &out, FileAction action,
       job->fileOwner = std::move(*ctx.lease(file));
     if (commandAction(action) ||
         (action >= FileAction::TakeStdin && action <= FileAction::TakeStderr) ||
-        action == FileAction::Open || action == FileAction::OpenWalk ||
+        action == FileAction::Open || action == FileAction::OpenWalk || action == FileAction::OpenWatch ||
         action == FileAction::OpenDirectory || action == FileAction::BufferedReader ||
         action == FileAction::BufferedWriter) {
       job->output = createFile(ctx, action == FileAction::OpenDirectory ? sizeof(DirectoryData)
@@ -1013,7 +1023,7 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
   }
   out.kind = job.kind;
   out.code = job.kind == FileKind::Success &&
-                     (action == FileAction::Metadata || action == FileAction::ReadDirectory ||
+                     (action == FileAction::Metadata || action == FileAction::ReadWatch || action == FileAction::ReadDirectory ||
                       action == FileAction::Wait || action == FileAction::Capture)
                  ? std::int32_t(job.mode)
                  : job.error;
@@ -1076,7 +1086,7 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
           job.data()[i];
     }
   } else if ((returnsBytes(action) || action == FileAction::ReadLine ||
-              action == FileAction::ReadDirectory) &&
+              action == FileAction::ReadDirectory || action == FileAction::ReadWatch) &&
              job.count) {
     auto *data = static_cast<std::uint8_t *>(ctx.allocateRecord(job.count));
     if (!data)
@@ -1091,7 +1101,7 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
       std::memcpy(data + offset, source + offset, n);
       offset += n;
     }
-    if (action == FileAction::ReadLine || action == FileAction::ReadDirectory)
+    if (action == FileAction::ReadLine || action == FileAction::ReadDirectory || action == FileAction::ReadWatch)
       out.text = {data, reinterpret_cast<const char *>(data), std::int64_t(job.count)};
     else {
       out.bytes.allocated = out.bytes.aligned = data;
@@ -1109,7 +1119,7 @@ extern "C" bool kalandra_file_step_v2(Invocation *ctx, ProcessResult *out, std::
   bool done = true;
   try {
     if (healthy(*ctx)) {
-      if (action > std::uint32_t(FileAction::RemoveTree))
+      if (action > std::uint32_t(FileAction::ReadWatch))
         ctx->fault(3);
       else
         done = step(*ctx, *out, static_cast<FileAction>(action), *args, state);

@@ -678,6 +678,15 @@ export enum FileKind:
   Directory
   Symlink
   Other
+export enum WatchScope:
+  Direct
+  Recursive
+export enum WatchKind:
+  Changed
+  Rescan
+export type WatchEvent:
+  path: String
+  kind: WatchKind
 export type WalkEntry:
   path: String
   kind: FileKind
@@ -750,6 +759,14 @@ export fn readDir(path: String) -> Iterator[DirEntry, FsError] ! FsError:
       Option.Some {value}:
         yield value
         ()
+fn __openWatch(path: String, scope: WatchScope) -> File ! FsError:
+  return __kalandra_fs_open_watch(path, scope)
+fn __readWatch(watcher: File) -> WatchEvent ! FsError:
+  return __kalandra_fs_read_watch(watcher)
+export fn watchDir(root: String, scope: WatchScope) -> Iterator[WatchEvent, FsError] ! FsError:
+  watcher = try __openWatch(root, scope)
+  return while true:
+    yield try __readWatch(watcher)
 fn __openWalk(path: String) -> File ! FsError:
   return __kalandra_fs_open_walk(path)
 export fn walkDir(root: String) -> Iterator[WalkEntry, FsError] ! FsError:

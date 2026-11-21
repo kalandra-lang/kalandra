@@ -514,6 +514,10 @@
     {
       "kind": "cpu",
       "expected": "build.txt"
+    },
+    {
+      "kind": "cpu",
+      "expected": "ready"
     }
   ],
   "parsing": [

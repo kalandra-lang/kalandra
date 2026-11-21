@@ -67,6 +67,9 @@ def exercise(compiler, variant, target, compile_only):
 
         link(root / "tree" / "link", outside)
         link(root / "tree" / "cycle", root / "tree")
+        (outside / "child").mkdir()
+        run("watch", Path("tree") / "link" / "child", False)
+        run("watch", Path("tree") / "link", False)
         run("walk", Path("tree") / "link", False)
         run("remove", Path("tree") / "link" / "keep", False)
         entries = [(kind, Path(name)) for kind, name in

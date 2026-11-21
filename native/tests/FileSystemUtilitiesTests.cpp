@@ -1,5 +1,6 @@
 #include "../runtime/FileSystem.h"
 #include "../runtime/TreeLocation.h"
+#include "DirectoryWatchTests.h"
 #include <atomic>
 #include <cerrno>
 #include <chrono>
@@ -50,6 +51,39 @@ ProcessResult callTree(Invocation &ctx, FileAction action, const FileArguments &
   ProcessResult result{};
   kalandra_file_v2(&ctx, &result, unsigned(action), &args);
   return result;
+}
+void testIdleWatch(const std::filesystem::path &root) {
+  for (bool faulted : {false, true}) {
+    std::atomic<bool> stop{false};
+    Invocation ctx;
+    ctx.bindCancellation(&stop);
+    const auto opened = callTree(ctx, FileAction::OpenWatch, pathArgument(ctx, root));
+    require(opened.kind == FileKind::Success && !ctx.status(), "watch registration failed");
+    ProcessArguments input{};
+    input.file = opened.file;
+    ProcessResult out{};
+    void *state = nullptr;
+    // Drive several service retries with no filesystem activity.
+    auto quiet = std::chrono::steady_clock::now();
+    const auto deadline = quiet + std::chrono::seconds(5);
+    while (std::chrono::steady_clock::now() - quiet < std::chrono::milliseconds(60) || !state) {
+      require(std::chrono::steady_clock::now() < deadline, "watch never became idle");
+      if (kalandra_file_step_v2(&ctx, &out, unsigned(FileAction::ReadWatch), &input, &state)) {
+        // Native backends may coalesce earlier changes to the root into a hint.
+        require(out.kind == FileKind::Success && !ctx.status(), "watch failed before cancellation");
+        quiet = std::chrono::steady_clock::now();
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    if (faulted)
+      ctx.fault(7);
+    stop.store(true);
+    require(kalandra_file_step_v2(&ctx, &out, unsigned(FileAction::ReadWatch), &input, &state) &&
+                !state && !out.text.allocated && ctx.status() == (faulted ? 7 : 0),
+            "idle cancellation published data or lost fault precedence");
+    settle(ctx);
+    drain();
+  }
 }
 void testTreeCursor(const std::filesystem::path &parent) {
   namespace fs = std::filesystem;
@@ -121,7 +155,8 @@ void testTreeCursor(const std::filesystem::path &parent) {
     require(callTree(ctx, FileAction::DirectoryCreateAll, pathArgument(ctx, path)).kind ==
                 FileKind::Success,
             "deep parent creation failed");
-    require(callTree(ctx, FileAction::RemoveTree, pathArgument(ctx, root)).kind == FileKind::Success,
+    require(callTree(ctx, FileAction::RemoveTree, pathArgument(ctx, root)).kind ==
+                FileKind::Success,
             "deep tree removal failed");
     require(!fs::exists(root), "recursive removal left its root");
     settle(ctx);
@@ -130,6 +165,12 @@ void testTreeCursor(const std::filesystem::path &parent) {
 }
 } // namespace
 void testFileSystemUtilities(const std::filesystem::path &root) {
+  const auto watchRoot = std::filesystem::canonical(root) / "watch";
+  directory_watch_tests::exercise(watchRoot);
+  const auto idle = watchRoot / "idle";
+  std::filesystem::create_directory(idle);
+  testIdleWatch(idle);
+  std::filesystem::remove_all(watchRoot);
   testTreeCursor(root);
   const auto directory = root / std::filesystem::path(std::u8string(u8"directory Ω"));
   std::filesystem::create_directory(directory);
@@ -138,7 +179,9 @@ void testFileSystemUtilities(const std::filesystem::path &root) {
     std::ofstream output(directory / "sample.bin", std::ios::binary);
     output << "hello";
   }
-  { std::ofstream output(directory / std::filesystem::path(std::u8string(u8"é 文.txt"))); }
+  {
+    std::ofstream output(directory / std::filesystem::path(std::u8string(u8"é 文.txt")));
+  }
   {
     Invocation ctx;
     auto info = call(ctx, FileAction::Metadata, pathArgument(ctx, directory / "sample.bin"));
