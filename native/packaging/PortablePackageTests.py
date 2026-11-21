@@ -23,9 +23,8 @@ def digest(path):
 def prepare_tests(repository, tests):
     """Carry the expected identity into isolation without reading the checkout."""
     tests.mkdir()
-    for name in ("PortableCPUAcceptance.py", "VersionCheck.py", "WindowsPlatform.py", "LoopCases.py", "FileSystemCases.py", "ParseCases.py", "PathCases.py", "EnvironmentCases.py", "TimeCases.py", "CallCases.py", "BufferCases.py", "GenericsCases.py"):
+    for name in ("PortableCPUAcceptance.py", "VersionCheck.py", "WindowsPlatform.py", "LoopCases.py", "FileSystemCases.py", "ParseCases.py", "PathCases.py", "EnvironmentCases.py", "TimeCases.py", "CallCases.py", "BufferCases.py", "GenericsCases.py", "PackageRemoveManifests.py"):
         shutil.copy2(Path(__file__).with_name(name), tests)
-    shutil.copy2(repository / "native/tests/PackageRemoveManifests.py", tests)
     for name in ("ProtocolClient.py", "ProtocolTests.py", "RecoveryProtocolTests.py"):
         shutil.copy2(repository / "native/lsp" / name, tests)
     (tests / "expected-version.txt").write_text(expected_version() + "\n", encoding="utf-8")

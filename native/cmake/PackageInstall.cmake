@@ -43,7 +43,7 @@ endif()
 
 if(BUILD_TESTING)
   add_test(NAME native-package-remove-manifests COMMAND "${KALANDRA_PYTHON3}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/tests/PackageRemoveManifests.py" "$<TARGET_FILE:kalandra>")
+    "${CMAKE_CURRENT_SOURCE_DIR}/packaging/PackageRemoveManifests.py" "$<TARGET_FILE:kalandra>")
   foreach(VARIANT IN ITEMS debug sanitized)
     add_executable(kalandra-package-update-tests-${VARIANT} tests/PackageUpdateTests.cpp)
     target_compile_options(kalandra-package-update-tests-${VARIANT} PRIVATE -Wall -Wextra -Werror)
