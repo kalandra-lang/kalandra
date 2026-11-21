@@ -46,11 +46,11 @@ inline void exercise(const fs::path &root) {
 
   // One pending detail is enough to exercise the same bounded delivery path
   // as the production limit without changing the host's OS configuration.
-  watch::DirectoryWatch small(root, true, stop, 1);
+  watch::DirectoryWatch bounded(root, true, stop, 1);
   for (unsigned i = 0; i < 512; ++i)
     std::ofstream(root / std::to_string(i)) << i;
   until(
-      small, stop, [&](const auto &e) { return e.kind == watch::Kind::Rescan && e.path == root; },
+      bounded, stop, [&](const auto &e) { return e.kind == watch::Kind::Rescan && e.path == root; },
       "overflow failed to produce Rescan(root)");
   std::set<fs::path> actual, expected = {"child", "top"};
   for (unsigned i = 0; i < 512; ++i)
@@ -65,13 +65,13 @@ inline void exercise(const fs::path &root) {
   while (std::chrono::steady_clock::now() - quiet < 150ms) {
     if (std::chrono::steady_clock::now() > deadline)
       throw std::runtime_error("watch never settled");
-    if (small.next(stop))
+    if (bounded.next(stop))
       quiet = std::chrono::steady_clock::now();
     std::this_thread::sleep_for(5ms);
   }
   std::ofstream(root / "recovered") << "new";
   until(
-      small, stop,
+      bounded, stop,
       [&](const auto &e) { return e.kind == watch::Kind::Changed && e.path == root / "recovered"; },
       "same watcher missed event after rescan");
 

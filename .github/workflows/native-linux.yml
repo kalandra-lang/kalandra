@@ -95,6 +95,8 @@ jobs:
         run: |
           cmake --build build/linux --target native-cpu-toolchain kalandra kalandra-type-capability-tests -j2
           build/linux/native/kalandra-type-capability-tests
+      - name: Run the public watchDir iterator
+        run: python3 native/tests/FileSystemSourceTests.py --compiler build/linux/native/kalandra --variant optimized --case watch-directory --output build/linux/watch-source
       - name: Qualify cooperative workgroup source and safety proofs
         run: |
           cmake --build build/linux --target native-workgroup-qualification -j2

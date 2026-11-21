@@ -103,6 +103,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native CPU toolchain build failed' }
           & build/windows/native/kalandra-type-capability-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Type-capability contracts failed' }
+      - name: Run the public watchDir iterator
+        run: python native/tests/FileSystemSourceTests.py --compiler build/windows/native/kalandra.exe --variant optimized --case watch-directory --output build/windows/watch-source
       - name: Qualify cooperative workgroup source and safety proofs
         run: |
           foreach ($suite in @('WorkgroupSafety', 'WorkgroupGeometry')) {
