@@ -388,6 +388,10 @@ void treeOperation(Job &job) noexcept {
         cursor.advance(nullptr, job.mode, job.abandoned);
       } else if (reserveOutputSlot(job)) {
         if (job.action == FileAction::OpenWatch) {
+          // A reported Rescan root must also be a valid walkDir root.
+          TreeCursor verified(path, false, job.abandoned);
+          if (job.abandoned)
+            return;
           job.output->tree = std::make_unique<WatchCursor>(path, job.mode == 1, job.abandoned);
           job.output->isWatch = true;
         } else job.output->tree = std::make_unique<TreeCursor>(path, false, job.abandoned);

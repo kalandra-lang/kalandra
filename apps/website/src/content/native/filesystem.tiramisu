@@ -392,7 +392,7 @@ h2 { "watchDir" }
 
 code { "watchDir(root: String, scope: WatchScope) -> Iterator[WatchEvent, FsError] ! FsError" }
 
-Watch an existing directory for changes. Registration is active when watchDir returns, so you can open a watcher before reading the initial directory contents. WatchScope.Direct covers immediate entries. WatchScope.Recursive includes descendants and newly created directories. Waiting for the next event suspends the consuming task. Breaking out of the loop, propagating an error or cancelling releases the watcher.
+Watch an existing directory for changes. As with walkDir, the supplied root path must reach the directory without traversing a link. Registration is active when watchDir returns, so you can open a watcher before reading the initial directory contents. WatchScope.Direct covers immediate entries. WatchScope.Recursive includes descendants and newly created directories. Waiting for the next event suspends the consuming task. Breaking out of the loop, propagating an error or cancelling releases the watcher.
 
 A WatchEvent has a path (String) and a kind (WatchKind). Changed means you should recheck that path. By the time you read the event the entry may have disappeared. An editor saving one file can produce several hints, and multiple edits can produce one hint. Paths include the root as supplied by the caller.
 
