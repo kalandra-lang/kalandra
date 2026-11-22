@@ -34,6 +34,11 @@ with tempfile.TemporaryDirectory() as tmp:
         ('dependencies = { ' + survivor + ', "gone"=' + request + ' }',
          'dependencies = { ' + survivor + '}'),
         ('dependencies = {gone=' + request + '}', 'dependencies = {}'),
+        ("dependencies = {\n  " + survivor + ", # keep this comment, comma included\n  gone=" + request
+         + ",\n  # closing comment\n}", "dependencies = {\n  " + survivor
+         + " # keep this comment, comma included\n  \n  # closing comment\n}"),
+        ("dependencies = {\n  gone=" + request + ",\n  " + survivor + ",\n}",
+         "dependencies = {\n  \n  " + survivor + ",\n}"),
         ('dependencies.gone=' + request, ''),
         ('dependencies.gone.rev="""\\\nmain"""\ndependencies.gone.git=\'https://example.com/library\'', ''),
     ]

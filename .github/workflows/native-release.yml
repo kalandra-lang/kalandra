@@ -72,10 +72,8 @@ jobs:
       - name: Install native dependencies
         run: |
           brew update
-          brew install cmake ninja zstd z3
+          brew install cmake ninja tomlplusplus zstd z3
           brew upgrade zstd z3
-      - name: Install pinned toml++ headers and CMake config
-        run: bash .github/scripts/provision_tomlplusplus.sh
       - name: Install verified pinned LLVM bottle
         run: python3 .github/scripts/provision_native_llvm.py --install --directory "$RUNNER_TEMP/pinned-llvm"
       - name: Build verified host cross linkers
@@ -87,7 +85,6 @@ jobs:
           cmake -S . -B build/native -G Ninja
           -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
           -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
-          -Dtomlplusplus_DIR="$KALANDRA_TOML_CMAKE_DIR"
           -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0
           -DKALANDRA_SPIRV_CROSS_ROOT="$KALANDRA_SPIRV_CROSS_ROOT"
           -DKALANDRA_SPIRV_TOOLS_ROOT="$KALANDRA_SPIRV_TOOLS_ROOT"
@@ -146,7 +143,6 @@ jobs:
           cmake -S . -B build/native-repro -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" \
-            -Dtomlplusplus_DIR="$KALANDRA_TOML_CMAKE_DIR" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
             -DKALANDRA_SPIRV_CROSS_ROOT="$KALANDRA_SPIRV_CROSS_ROOT" \
             -DKALANDRA_SPIRV_TOOLS_ROOT="$KALANDRA_SPIRV_TOOLS_ROOT" \

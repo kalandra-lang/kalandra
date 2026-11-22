@@ -45,6 +45,8 @@ int main(int argc, char **argv) {
                 !library->projectEntry && library->packages.size() == 1 &&
                 library->packages[0].entry == (root / "library/src/helper.k").string(),
             "library metadata/path selection failed");
+    auto escaped = load(replace(valid, "'src/public.k'", R"("src/\x70ublic.k")"));
+    require(escaped && escaped->entry == library->entry, "TOML 1.1 entry escape was lost");
     auto node = library->node("repo@exact-commit", {{"numbers", 2}});
     require(node.identity == "repo@exact-commit" && node.root == (root / "library").string() &&
                 node.entry == library->entry && node.dependencies.size() == 1 &&

@@ -48,6 +48,18 @@ bool literalTable(const toml::table &table, const Locations &locations, const st
   return source.at(locations.offset(table.source().begin)) == '{';
 }
 
+// The parser already validated the table. Skip its whitespace and line comments
+// without mistaking a comma inside a comment for an entry separator.
+std::size_t skipTrivia(const std::string &source, std::size_t pos, std::size_t limit) {
+  while (pos < limit) {
+    pos = std::min(source.find_first_not_of(" \t\r\n", pos), limit);
+    if (pos == limit || source[pos] != '#')
+      break;
+    pos = std::min(source.find('\n', pos), limit);
+  }
+  return pos;
+}
+
 // An inline dependencies table may interleave dotted fields from several aliases.
 // Walk complete TOML values, so commas in strings or nested tables stay untouched.
 std::string inlineEntries(const toml::table &dependencies, std::string_view alias,
@@ -66,18 +78,30 @@ std::string inlineEntries(const toml::table &dependencies, std::string_view alia
   }
   std::ranges::sort(entries, {}, &Entry::end);
   std::string result;
+  auto remaining = std::ranges::count(entries, true, &Entry::keep);
   auto start = body.begin;
   for (const auto &[end, keep] : entries) {
-    const auto comma = source.find_first_not_of(" \t", end);
-    if (comma == std::string::npos || comma > body.end)
+    const auto separator = skipTrivia(source, end, body.end);
+    const bool comma = separator < body.end;
+    if (comma && source[separator] != ',')
       throw std::runtime_error("cannot locate inline dependency separator");
     if (keep) {
-      if (!result.empty())
+      result.append(source, start, separator - start);
+      --remaining;
+      if (remaining > 0 || (comma && end == entries.back().end))
         result += ',';
-      result.append(source, start, comma - start);
+    } else {
+      // Preserve multiline layout and comments surrounding the removed key/value.
+      const auto key = skipTrivia(source, start, end);
+      for (const auto span : {Span{start, key}, Span{end, separator}}) {
+        const auto trivia = std::string_view(source).substr(span.begin, span.end - span.begin);
+        if (trivia.find_first_of("\n#") != std::string_view::npos)
+          result.append(trivia);
+      }
     }
-    start = comma + 1;
+    start = separator + (comma ? 1 : 0);
   }
+  result.append(source, start, body.end - start);
   return result;
 }
 } // namespace

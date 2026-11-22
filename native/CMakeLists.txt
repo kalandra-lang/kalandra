@@ -41,8 +41,14 @@ set(KALANDRA_SYNTAX_SOURCES lib/Source.cpp lib/Diagnostics.cpp lib/Lexer.cpp lib
 add_library(kalandra-syntax STATIC ${KALANDRA_SYNTAX_SOURCES})
 target_include_directories(kalandra-syntax PUBLIC include)
 target_compile_options(kalandra-syntax PRIVATE -Wall -Wextra -Werror)
-find_package(tomlplusplus 3.4.0 EXACT REQUIRED CONFIG
-  HINTS "/opt/homebrew/opt/tomlplusplus/lib/cmake/tomlplusplus")
+include(FetchContent)
+# Use the platform package when available. Older distributions need the same TOML 1.1 parser.
+FetchContent_Declare(tomlplusplus
+  URL https://codeload.github.com/marzer/tomlplusplus/tar.gz/32908904d5032b5023da2bc2cefeda81733ebc24
+  URL_HASH SHA256=cdd43bbbc40d73ecab2c7ad1736eb62ff30ce9c3217021a802dce27ff2c894aa
+  EXCLUDE_FROM_ALL
+  FIND_PACKAGE_ARGS 3.5...<3.6 CONFIG HINTS "/opt/homebrew/opt/tomlplusplus")
+FetchContent_MakeAvailable(tomlplusplus)
 get_target_property(KALANDRA_TOML_INCLUDES tomlplusplus::tomlplusplus INTERFACE_INCLUDE_DIRECTORIES)
 # Use the installed headers in header-only mode: compiler distributions need no TOML dylib.
 add_library(kalandra-project STATIC lib/Project.cpp lib/Scaffold.cpp)

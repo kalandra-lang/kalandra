@@ -92,7 +92,7 @@ jobs:
       - name: Install hosted compiler prerequisites
         run: |
           sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
-          sudo apt-get install -y cmake ninja-build libtomlplusplus-dev libvulkan-dev glslc spirv-tools zlib1g-dev libzstd-dev libxml2-dev patchelf
+          sudo apt-get install -y cmake ninja-build libvulkan-dev glslc spirv-tools zlib1g-dev libzstd-dev libxml2-dev patchelf
       - name: Configure private Vulkan source qualification
         run: >-
           cmake -S . -B build/vulkan-source -G Ninja -DCMAKE_BUILD_TYPE=Release

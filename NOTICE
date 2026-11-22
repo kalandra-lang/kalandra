@@ -5,8 +5,8 @@ The initial website scaffold and supporting card components come from Tiramisu D
 https://github.com/pouya-eghbali/tiramisu-docs
 Scaffold source revision: c5a3ca2b59f7845a75d9de38a4cfa4cf8763315a
 
-Native project manifest parsing uses toml++ 3.4.0 (MIT), by Mark Gillard:
-https://github.com/marzer/tomlplusplus/tree/v3.4.0
+Native project manifest parsing uses toml++ 3.5 (MIT), by Mark Gillard:
+https://github.com/marzer/tomlplusplus/tree/v3.5.0
 The license is retained in native/third-party/tomlplusplus-LICENSE.
 
 Experimental Vulkan runtime shaders reuse the MIT-licensed ggml/llama.cpp sources:

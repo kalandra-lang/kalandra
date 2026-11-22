@@ -7,8 +7,8 @@
 #include <fstream>
 #include <sstream>
 #include <toml++/toml.hpp>
-static_assert(TOML_LIB_MAJOR == 3 && TOML_LIB_MINOR == 4 && TOML_LIB_PATCH == 0,
-              "native manifests require toml++ 3.4.0 headers");
+static_assert(TOML_LANG_MAJOR == 1 && TOML_LANG_MINOR == 1,
+              "native manifests require TOML 1.1");
 namespace kalandra {
 namespace {
 bool packageName(std::string_view name) {

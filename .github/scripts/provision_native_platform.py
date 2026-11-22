@@ -126,7 +126,7 @@ def build_windows_dependencies(root, work, lock):
     (manifest / "vcpkg.json").write_text(json.dumps({
         "name": "kalandra-native-llvm-dependencies", "version-string": "1",
         "builtin-baseline": baseline,
-        "dependencies": ["zlib", "zstd", "tomlplusplus", {"name": "libxml2", "default-features": False}]}))
+        "dependencies": ["zlib", "zstd", {"name": "libxml2", "default-features": False}]}))
     destination = root / "dependencies"
     subprocess.run([str(repository / "vcpkg.exe"), "install", f"--triplet={windows_triplet()}",
                     f"--x-install-root={destination}", f"--x-manifest-root={manifest}"], check=True)
