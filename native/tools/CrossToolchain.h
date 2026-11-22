@@ -1,4 +1,5 @@
 #pragma once
+#include "BuildTool.h"
 #include "kalandra/Backend.h"
 #include "kalandra/Version.h"
 #include "llvm/AsmParser/Parser.h"
@@ -150,7 +151,7 @@ struct CrossToolchain {
 };
 
 inline std::expected<CrossToolchain, std::string>
-loadCrossToolchain(const std::filesystem::path &profile, const std::string &clang,
+loadCrossToolchain(cli::BuildProgress &progress, const std::filesystem::path &profile, const std::string &clang,
                    const std::filesystem::path &hostPrefix = {},
                    std::optional<llvm::json::Object> direct = {}) {
   auto readJson = [](const std::filesystem::path &path) -> std::expected<llvm::json::Value, std::string> {
@@ -304,7 +305,7 @@ loadCrossToolchain(const std::filesystem::path &profile, const std::string &clan
   std::string failure;
   auto environment = crossToolEnvironment();
   std::vector<llvm::StringRef> env(environment.begin(), environment.end());
-  if (llvm::sys::ExecuteAndWait(clang, invocation, env, {}, 30, 0, &failure) != 0)
+  if (cli::runBuildTool(progress, clang, invocation, env, {}, 30, failure) != 0)
     return std::unexpected("cannot query destination ABI: " + failure);
   llvm::LLVMContext context;
   llvm::SMDiagnostic diagnostic;

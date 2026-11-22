@@ -80,7 +80,7 @@ if(KALANDRA_BUILD_CUDA_RUNTIME AND NOT KALANDRA_CUDA_SANITIZERS)
   add_library(kalandra-cuda-source-backend STATIC Command.cpp Build.cpp)
   target_include_directories(kalandra-cuda-source-backend SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_include_directories(kalandra-cuda-source-backend PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
-  target_link_libraries(kalandra-cuda-source-backend PUBLIC kalandra-semantics PRIVATE
+  target_link_libraries(kalandra-cuda-source-backend PUBLIC kalandra-semantics PRIVATE kalandra-cli-progress
     kalandra-gpu-supervisor kalandra-packages kalandra-backend LLVM MLIR)
   target_compile_options(kalandra-cuda-source-backend PRIVATE -Wall -Wextra -Werror)
   target_link_libraries(kalandra PRIVATE kalandra-cuda-source-backend)

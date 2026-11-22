@@ -19,7 +19,7 @@
 #include <string_view>
 #include <vector>
 using namespace kalandra;
-int kalandra::compileMetalCommand(int argc, char **argv, bool application) {
+int kalandra::compileMetalCommand(int argc, char **argv, bool application, cli::Output feedback) {
   const auto usage = [] {
     std::cerr << "usage: kalandra-metal-source <source.k | --project "
                  "manifest.toml> -o directory "
@@ -101,10 +101,12 @@ int kalandra::compileMetalCommand(int argc, char **argv, bool application) {
     return usage();
   if (arithmetic == ArithmeticMode::Software)
     matmul = MatmulPolicy::FixedTree;
+  cli::BuildProgress progress(feedback);
+  progress.phase("Checking", projectPath.empty() ? sourcePath : projectPath);
   if (!projectPath.empty()) {
     auto loaded = loadNativeProject(projectPath);
     if (!loaded) {
-      std::cerr << loaded.error() << '\n';
+      progress.diagnostic() << loaded.error() << '\n';
       return 1;
     }
     project = std::move(*loaded);
@@ -117,7 +119,7 @@ int kalandra::compileMetalCommand(int argc, char **argv, bool application) {
   if (project && !project->dependencies.empty()) {
     auto loaded = loadInstalledNativeProject(*project);
     if (!loaded) {
-      std::cerr << loaded.error() << '\n';
+      progress.diagnostic() << loaded.error() << '\n';
       return 1;
     }
     managed = std::move(*loaded);
@@ -126,20 +128,21 @@ int kalandra::compileMetalCommand(int argc, char **argv, bool application) {
   auto parsed =
       managed ? loadPackageModules(managed->nodes) : loadModules(sourcePath, {}, {}, packages);
   if (!parsed) {
-    std::cerr << parsed.error() << '\n';
+    progress.diagnostic() << parsed.error() << '\n';
     return 1;
   }
   auto source = parsed->module.source;
   try {
     if (!parsed->ok()) {
       for (auto &d : parsed->diagnostics)
-        std::cerr << renderDiagnostic(*source, d);
+        progress.diagnostic() << renderDiagnostic(*source, d);
       return 1;
     }
+    progress.phase("Compiling", sourcePath);
     auto emitted = emitGpuSupervisor(std::move(parsed->module), arithmetic, testCpuExports,
                                      GpuBackend::Metal, application);
     if (!emitted) {
-      std::cerr << renderDiagnostic(*source, emitted.error());
+      progress.diagnostic() << renderDiagnostic(*source, emitted.error());
       return 1;
     }
     auto outputs = std::move(*emitted);
@@ -219,11 +222,13 @@ int kalandra::compileMetalCommand(int argc, char **argv, bool application) {
         throw std::runtime_error("cannot write compiler output");
       std::filesystem::rename(std::string(temporary), target);
     }
-    if (build)
-      buildMetalProgram(directory, outputs, variant, arithmetic, matmul);
+    if (build) {
+      buildMetalProgram(progress, directory, outputs, variant, arithmetic, matmul);
+      progress.built(directory.string(), "metal");
+    }
     return 0;
   } catch (const std::exception &e) {
-    std::cerr << "Metal source compilation: " << e.what() << '\n';
+    progress.diagnostic() << "Metal source compilation: " << e.what() << '\n';
   }
   return 1;
 }

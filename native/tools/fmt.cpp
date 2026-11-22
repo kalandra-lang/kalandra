@@ -1,8 +1,10 @@
 #include "kalandra/Formatter.h"
+#include "kalandra/CliOutput.h"
 #include "kalandra/Version.h"
 #include <iostream>
 #include <span>
 int main(int argc, char **argv) {
+  const auto feedback = kalandra::cli::Output::take(argc, argv, {});
   if (kalandra::printVersion(argc, argv, "kalandra-fmt"))
     return 0;
   const std::span<char *> args(argv, static_cast<std::size_t>(argc));
@@ -23,6 +25,7 @@ int main(int argc, char **argv) {
     std::cerr << "usage: kalandra-fmt [--check] <source.k>\n";
     return 2;
   }
+  feedback.trace("Formatting", path);
   auto source = kalandra::loadSource(path);
   if (!source) {
     std::cerr << path << ": " << source.error() << '\n';
