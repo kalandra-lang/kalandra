@@ -37,3 +37,13 @@ resident inputs from uploads, record numerical policy and disclose readback and
 cold setup. Raw outputs and `.build/` are ignored; preserve the original data when
 writing a reviewed summary. Retired research scripts are recoverable through the
 [archive record](../../benchmarks/research-archive.json).
+
+
+## Native optimization levels
+
+Run `python3 native/benchmarks/optimization-levels/run.py /path/to/kalandra timings.json`
+from the repository root. It measures end-to-end compile time, executable size and
+whole-process runtime at all four levels. Each shuffled block repeats O2 as a
+control. The three programs check a billion integer remainder iterations, binary
+recursion and floating-point accumulation against independent expected results.
+[PR #332](https://github.com/kalandra-lang/kalandra/pull/332) records the M2 Max measurements.

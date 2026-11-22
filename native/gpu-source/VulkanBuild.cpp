@@ -163,6 +163,7 @@ void buildVulkanProgram(kalandra::cli::BuildProgress &progress,
       ? std::vector<std::string>{"-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all", "-fno-omit-frame-pointer"}
       : std::vector<std::string>{};
   const auto compile = [&](std::vector<std::string> command) {
+    command.emplace_back("-ffp-contract=off");
     command.insert(command.end(), sanitizerFlags.begin(), sanitizerFlags.end());
     command.insert(command.end(), resourceFlags.begin(), resourceFlags.end());
     run(progress, std::move(command));

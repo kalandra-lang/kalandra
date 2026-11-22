@@ -49,6 +49,8 @@ h2 { "Choose an optimization level" }
 
 Use -O0 (the default) for an ordinary development build. Use -O1 for LLVM’s lighter optimization pipeline, -O2 for general optimization, or -O3 to try more aggressive transformations such as loop optimization and inlining. Compare build time, execution time and binary size on your workload before choosing a release setting.
 
+For example, on an Apple M2 Max the billion-iteration integer benchmark took about 0.59 seconds at each of -O1, -O2 and -O3. Its median build time was 0.58 seconds at -O1 and 0.66 seconds at -O2. The recursive benchmark ran about 6% faster at -O3 than at -O2. These measurements include process startup.
+
 The flag applies to native CPU code, including the host portion of a Metal, Vulkan or CUDA application. GPU shaders use their backend’s compiler settings. Prebuilt runtime libraries and kernel catalogs keep their packaged settings. Choose GPU arithmetic and matrix behavior separately with --arithmetic and --matmul-policy.
 
 All four levels preserve checked integer arithmetic, floating-point policy, ownership and cancellation. Even at -O0 the compiler prepares and checks native call frames before final code generation.
