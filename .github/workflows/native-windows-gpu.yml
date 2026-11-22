@@ -131,7 +131,8 @@ jobs:
             arch: arm64
             msvc: arm64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 120
+    # Includes both installed-package suites, reproducibility builds and archive upload.
+    timeout-minutes: 150
     defaults:
       run:
         shell: pwsh

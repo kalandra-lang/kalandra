@@ -14,7 +14,8 @@ concurrency:
 jobs:
   packages:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # The Windows package producer has a 180-minute build budget.
+    timeout-minutes: 200
     outputs:
       linux: ${{ steps.packages.outputs.linux }}
       windows: ${{ steps.packages.outputs.windows }}
@@ -30,7 +31,7 @@ jobs:
               linux: ['native-linux-assets', 'native-linux-arm64-assets', 'linux-cross-sdk-x86_64', 'linux-cross-sdk-arm64'],
               windows: ['native-windows-assets', 'native-windows-arm64-assets'],
             };
-            for (let attempt = 0; attempt < 100; attempt++) {
+            for (let attempt = 0; attempt < 360; attempt++) {
               const found = {};
               for (const system of Object.keys(wanted)) {
                 const runs = await github.rest.actions.listWorkflowRuns({
@@ -71,15 +72,17 @@ jobs:
       - name: Install native dependencies
         run: |
           brew update
-          brew install cmake ninja tomlplusplus zstd z3
+          brew install cmake ninja zstd z3
           brew upgrade zstd z3
+      - name: Install pinned toml++ headers and CMake config
+        run: bash .github/scripts/provision_tomlplusplus.sh
       - run: python3 .github/scripts/provision_native_llvm.py --install --directory "$RUNNER_TEMP/pinned-llvm"
       - run: python3 .github/scripts/provision_cross_lld.py --llvm "$KALANDRA_LLVM_ROOT" --directory "$RUNNER_TEMP/cross-lld"
       - name: Build host compiler with private cross linkers
         run: |
           cmake -S . -B build/macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
-            -Dtomlplusplus_DIR="$(brew --prefix tomlplusplus)/lib/cmake/tomlplusplus" \
+            -Dtomlplusplus_DIR="$KALANDRA_TOML_CMAKE_DIR" \
             -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
           cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-test-observer kalandra-cross-target-tests kalandra-type-capability-tests -j2
           build/macos/native/kalandra-type-capability-tests
@@ -180,6 +183,8 @@ jobs:
           if-no-files-found: error
 
   windows-sdk-send:
+    # Receiver keys are created by cross-build jobs after the runtime bundle exists.
+    needs: runtime-bundle
     name: Encrypted Windows SDK ${{ matrix.target }}
     strategy:
       fail-fast: false
