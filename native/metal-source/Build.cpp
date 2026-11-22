@@ -119,10 +119,11 @@ std::string resource(const char *configured, bool include = false) {
 #endif
 }
 } // namespace
-void buildMetalProgram(kalandra::cli::BuildProgress &progress, const std::filesystem::path &directory,
+void buildMetalProgram(kalandra::cli::BuildProgress &progress,
+                       const std::filesystem::path &directory,
                        const std::map<std::string, std::string> &outputs,
-                       const std::string &variant, kalandra::ArithmeticMode arithmetic,
-                       kalandra::MatmulPolicy matmul) {
+                       const std::string &variant, kalandra::Optimization level,
+                       kalandra::ArithmeticMode arithmetic, kalandra::MatmulPolicy matmul) {
   const bool optimizedMatmul = matmul == kalandra::MatmulPolicy::Optimized &&
                                arithmetic != kalandra::ArithmeticMode::Software;
   const auto strict = resource(KALANDRA_GPU_STRICT);
@@ -294,7 +295,7 @@ void buildMetalProgram(kalandra::cli::BuildProgress &progress, const std::filesy
   }
 #endif
   if (variant == "optimized") {
-    command.push_back("-O2");
+    command.push_back(kalandra::optimizationFlag(level));
   } else if (variant == "sanitized") {
     command.insert(command.end(), {"-O1", "-g", "-fsanitize=address,undefined",
                                    "-fno-sanitize-recover=all", "-fno-omit-frame-pointer"});

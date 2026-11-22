@@ -11,6 +11,8 @@ parser.add_argument('--clang', required=True, type=Path)
 parser.add_argument('--output', required=True, type=Path)
 parser.add_argument('--quick', action='store_true')
 parser.add_argument('--matrices-only', action='store_true')
+parser.add_argument('--level', choices=['-O0', '-O1', '-O2', '-O3'],
+                    help='Run only the chosen compiler and harness optimization level.')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
 compiler, clang = args.compiler.resolve(), args.clang.absolute()
@@ -40,6 +42,8 @@ if not args.quick:
                  ('sanitized', '--sanitize', ['-O1', '-g', '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-fno-omit-frame-pointer'])]
     if sys.platform != 'win32':
         variants += [('thread-sanitized', '--thread-sanitize', ['-O1', '-g', '-fsanitize=thread', '-fno-omit-frame-pointer'])]
+if args.level:
+    variants = [(args.level[1:], args.level, [args.level])]
 for numeric in ('f32', 'f64'):
     path = args.output / (numeric + '.k')
     path.write_text(source.replace('NUM', numeric))
@@ -71,11 +75,11 @@ for numeric in (() if args.matrices_only else ('f32', 'f64')):
         path = args.output / f'{numeric}-{name}.k'
         path.write_text(f'fn f(a:Tensor[{numeric},{dims}])->{numeric}:\n  return reduceSum(a*3+1)\nfn main()->{numeric}:\n  return f({literal})\n')
         output = path.with_suffix('')
-        run([compiler, path, '-O2', '-o', output])
+        run([compiler, path, args.level or '-O2', '-o', output])
         assert run([output]).strip() == expected
     path = args.output / f'{numeric}-long.k'
     path.write_text(f'fn f(a:Tensor[{numeric},?])->{numeric}:\n  return reduceSum(a' + '+1'*40 + f')\nfn main()->{numeric}:\n  return f(tensor([1,2,3]))\n')
-    run([compiler, path, '-O2', '-o', path.with_suffix('')])
+    run([compiler, path, args.level or '-O2', '-o', path.with_suffix('')])
     assert run([path.with_suffix('')]).strip() == '126'
 if not args.matrices_only:
     print('Higher-rank fused maps, empty interior dimensions and long expression chains: passed')

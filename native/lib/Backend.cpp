@@ -61,13 +61,43 @@
 #include <unordered_set>
 
 namespace kalandra {
-std::expected<BackendOutput, std::string>
-lowerTaskNative(const TypedModule &, std::optional<std::string>, ArithmeticMode, const CpuTarget &);
+std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &,
+                                                          std::optional<std::string>,
+                                                          ArithmeticMode, const CpuTarget &,
+                                                          Optimization);
 std::expected<BackendOutput, std::string> lowerTaskNativeExports(const TypedModule &,
                                                                  const std::vector<std::string> &,
-                                                                 ArithmeticMode, const CpuTarget &);
+                                                                 ArithmeticMode, const CpuTarget &,
+                                                                 Optimization);
 std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool functionValues);
-std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module) {
+// Even -O0 has always finalized the checked call ABI with the O2 pipeline.
+// Preserve its frame admission and specialization behavior before -O0 codegen.
+static llvm::OptimizationLevel callPipelineLevel(Optimization level) {
+  if (level == Optimization::O1)
+    return llvm::OptimizationLevel::O1;
+  if (level == Optimization::O3)
+    return llvm::OptimizationLevel::O3;
+  return llvm::OptimizationLevel::O2;
+}
+
+template <Optimization Level> static void simplifyNativeFunction(llvm::Function &fn, bool) {
+  llvm::LoopAnalysisManager loops;
+  llvm::FunctionAnalysisManager functions;
+  llvm::CGSCCAnalysisManager calls;
+  llvm::ModuleAnalysisManager modules;
+  llvm::PassBuilder passes;
+  passes.registerLoopAnalyses(loops);
+  passes.registerFunctionAnalyses(functions);
+  passes.registerCGSCCAnalyses(calls);
+  passes.registerModuleAnalyses(modules);
+  passes.crossRegisterProxies(loops, functions, calls, modules);
+  auto simplify = passes.buildFunctionSimplificationPipeline(callPipelineLevel(Level),
+                                                             llvm::ThinOrFullLTOPhase::None);
+  simplify.run(fn, functions);
+}
+
+std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module,
+                                               Optimization level) {
   // Fault exits are already explicit: optimizing unchecked fault helpers could
   // execute operations after failure. Optimize the complete internal call graph
   // now, before sealing the final physical-frame boundaries for code generation.
@@ -105,23 +135,11 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   passes.registerCGSCCAnalyses(calls);
   passes.registerModuleAnalyses(modules);
   passes.crossRegisterProxies(loops, functions, calls, modules);
-  auto pipeline = passes.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
+  auto pipeline = passes.buildPerModuleDefaultPipeline(callPipelineLevel(level));
   pipeline.run(*candidate, modules);
-  auto simplifyLeaf = [](llvm::Function &fn, bool) {
-    llvm::LoopAnalysisManager loops;
-    llvm::FunctionAnalysisManager functions;
-    llvm::CGSCCAnalysisManager calls;
-    llvm::ModuleAnalysisManager modules;
-    llvm::PassBuilder passes;
-    passes.registerLoopAnalyses(loops);
-    passes.registerFunctionAnalyses(functions);
-    passes.registerCGSCCAnalyses(calls);
-    passes.registerModuleAnalyses(modules);
-    passes.crossRegisterProxies(loops, functions, calls, modules);
-    auto simplify = passes.buildFunctionSimplificationPipeline(llvm::OptimizationLevel::O2,
-                                                               llvm::ThinOrFullLTOPhase::None);
-    simplify.run(fn, functions);
-  };
+  const auto simplifyLeaf = level == Optimization::O1   ? simplifyNativeFunction<Optimization::O1>
+                            : level == Optimization::O3 ? simplifyNativeFunction<Optimization::O3>
+                                                        : simplifyNativeFunction<Optimization::O2>;
   const bool scalarArrays = scalarizeNativeArrayPhis(*candidate);
   if (removeInlinedNativeStackGuards(*candidate) || scalarArrays)
     for (auto &fn : *candidate)
@@ -129,7 +147,7 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
         simplifyLeaf(fn, true);
   outlineNativeLeafPaths(*candidate, simplifyLeaf);
   modules.clear();
-  auto finish = passes.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
+  auto finish = passes.buildPerModuleDefaultPipeline(callPipelineLevel(level));
   finish.run(*candidate, modules);
   // The complete graph pipeline can expose a local environment only on its
   // final inlining round. Promote afterwards, then replace its loads/stores
@@ -4240,7 +4258,8 @@ private:
 static std::expected<BackendOutput, std::string>
 lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
                 const std::vector<std::string> &exports, ArithmeticMode arithmetic,
-                bool deferCallFinalization, bool arrayTailLoops, const CpuTarget &target) {
+                bool deferCallFinalization, bool arrayTailLoops, const CpuTarget &target,
+                Optimization level) {
   if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
     return std::unexpected(*error);
   const auto storage = planRecordStorage(input);
@@ -4261,8 +4280,8 @@ lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
                (!recursive && std::holds_alternative<MatchOperation>(e.operation));
       })) {
     if (!exports.empty())
-      return lowerTaskNativeExports(input, exports, arithmetic, target);
-    return lowerTaskNative(input, testEntry, arithmetic, target);
+      return lowerTaskNativeExports(input, exports, arithmetic, target, level);
+    return lowerTaskNative(input, testEntry, arithmetic, target, level);
   }
   DialectRegistry registry;
   registerAllDialects(registry);
@@ -4458,7 +4477,7 @@ lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
         if (function.name == "main" && function.resultType.tensor)
           collectionMetadata(*native, function.resultType);
     if (!deferCallFinalization)
-      if (auto error = optimizeNativeCalls(native))
+      if (auto error = optimizeNativeCalls(native, level))
         return std::unexpected(*error);
     std::string errors;
     llvm::raw_string_ostream errorStream(errors);
@@ -4476,7 +4495,7 @@ lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
 std::expected<BackendOutput, std::string>
 lowerNative(const TypedModule &input, std::optional<std::string> testEntry,
             const std::vector<std::string> &exports, ArithmeticMode arithmetic,
-            bool deferCallFinalization, CpuTarget target) {
+            bool deferCallFinalization, CpuTarget target, Optimization level) {
   const auto compileTimeExport = [&](const std::string &name) {
     // Match the same first declaration selected by the export lowering. An
     // unrelated standard generic template may share a root function's name.
@@ -4501,11 +4520,11 @@ lowerNative(const TypedModule &input, std::optional<std::string> testEntry,
     return std::unexpected(llvm::toString(layout.takeError()));
   if (!layout->isLittleEndian() || layout->getPointerSizeInBits() != 64)
     return std::unexpected("CPU target requires a little-endian 64-bit layout");
-  auto result =
-      lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, true, target);
+  auto result = lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, true,
+                                target, level);
   if (!result && result.error().find("native stack budget") != std::string::npos)
     return lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, false,
-                           target);
+                           target, level);
   return result;
 }
 } // namespace kalandra

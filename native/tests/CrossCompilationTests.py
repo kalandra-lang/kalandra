@@ -288,7 +288,10 @@ def build(a):
         observation = [] if case.get('application') else ['--test-entry', 'main']
         source = a.output / (name + '.k')
         source.write_text(case['source'], encoding='utf-8')
-        for mode in ('-O0', '-O2'):
+        modes = ('-O0', '-O1', '-O2', '-O3') if name in {
+            'calls', 'captures', 'floating', 'fault', 'wide-tensor-arguments'
+        } else ('-O0', '-O2')
+        for mode in modes:
             binary = products / (name + mode + suffix)
             run([compiler, *observation, source, *selected_command, mode, '-o', binary], env=environment)
             # A second independent invocation must reproduce the same bytes.

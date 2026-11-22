@@ -45,6 +45,14 @@ list {
   link { url = "/docs/cross-compilation", "Build for another CPU platform using --platform or a toolchain profile" }
 }
 
+h2 { "Choose an optimization level" }
+
+Use -O0 (the default) for an ordinary development build. Use -O1 for LLVM’s lighter optimization pipeline, -O2 for general optimization, or -O3 to try more aggressive transformations such as loop optimization and inlining. Compare build time, execution time and binary size on your workload before choosing a release setting.
+
+The flag applies to native CPU code, including the host portion of a Metal, Vulkan or CUDA application. GPU shaders use their backend’s compiler settings. Prebuilt runtime libraries and kernel catalogs keep their packaged settings. Choose GPU arithmetic and matrix behavior separately with --arithmetic and --matmul-policy.
+
+All four levels preserve checked integer arithmetic, floating-point policy, ownership and cancellation. Even at -O0 the compiler prepares and checks native call frames before final code generation.
+
 h2 { "Build feedback and logging" }
 
 In an interactive terminal, kalandra shows the current build phase once a build has taken 200 milliseconds. A successful build ends with the output path, target and elapsed time. GPU builds report shader compilation when the backend compiles a kernel.

@@ -98,6 +98,7 @@ struct Value {
 };
 class Compiler {
   ArithmeticMode arithmetic_;
+  Optimization optimization_;
   GpuBackend backend_;
   bool testCpuExports_;
   bool application_;
@@ -1408,7 +1409,8 @@ class Compiler {
             symbol.parameter = symbol.mutableAccess = symbol.owned = symbol.reassignable = false;
           }
       }
-      auto lowered = lowerNative(host ? *host : source, {}, exports, arithmetic_);
+      auto lowered =
+          lowerNative(host ? *host : source, {}, exports, arithmetic_, false, {}, optimization_);
       if (!lowered)
         reject(span, lowered.error());
       outputs[stepsModule ? "cpu-steps.mlir" : "cpu.mlir"] = lowered->mlir;
@@ -5841,9 +5843,9 @@ class Compiler {
 
 public:
   explicit Compiler(Module module, ArithmeticMode arithmetic, bool testCpuExports,
-                    GpuBackend backend, bool application)
-      : arithmetic_(arithmetic), backend_(backend), testCpuExports_(testCpuExports),
-        application_(application), syntax(std::move(module)) {}
+                    GpuBackend backend, bool application, Optimization level)
+      : arithmetic_(arithmetic), optimization_(level), backend_(backend),
+        testCpuExports_(testCpuExports), application_(application), syntax(std::move(module)) {}
   std::map<std::string, std::string> run() {
     auto checkedPlacement = kalandra::check({syntax, {}}, {}, {.placement = true});
     if (!checkedPlacement.ok())
@@ -6716,9 +6718,10 @@ void resume(Task &task) {
 } // namespace
 std::expected<std::map<std::string, std::string>, Diagnostic>
 kalandra::emitGpuSupervisor(Module module, ArithmeticMode arithmetic, bool testCpuExports,
-                            GpuBackend backend, bool application) {
+                            GpuBackend backend, bool application, Optimization level) {
   try {
-    return Compiler(std::move(module), arithmetic, testCpuExports, backend, application).run();
+    return Compiler(std::move(module), arithmetic, testCpuExports, backend, application, level)
+        .run();
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }

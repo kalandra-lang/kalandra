@@ -13,7 +13,7 @@ kalandra main.k --target metal -O2 -o app
 The output is an application directory, not one standalone executable. Keep its
 `program` and generated `.metallib` files together. Copy the entire application
 directory to move it. Normal, optimized, ASan/UBSan and separate TSan host builds
-are supported through the existing `-O0`, `-O2`, `--sanitize` and
+are supported through `-O0`, `-O1`, `-O2`, `-O3`, `--sanitize` and
 `--thread-sanitize` options. CPU compilation remains available without `--target`.
 
 This external-toolchain variant requires macOS 26 or later on ARM64. LLVM/MLIR and

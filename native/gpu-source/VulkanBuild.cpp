@@ -77,10 +77,11 @@ void transform(const std::filesystem::path &path, const std::string &contents) {
     throw std::runtime_error("cannot write Vulkan transform module");
 }
 } // namespace
-void buildVulkanProgram(kalandra::cli::BuildProgress &progress, const std::filesystem::path &directory,
+void buildVulkanProgram(kalandra::cli::BuildProgress &progress,
+                        const std::filesystem::path &directory,
                         const std::map<std::string, std::string> &outputs,
-                        const std::string &variant, kalandra::ArithmeticMode arithmetic,
-                        kalandra::MatmulPolicy matmul) {
+                        const std::string &variant, kalandra::Optimization level,
+                        kalandra::ArithmeticMode arithmetic, kalandra::MatmulPolicy matmul) {
   const auto lower = tool(KALANDRA_VULKAN_LOWER, "kalandra-vulkan-lower" KALANDRA_VULKAN_EXE_SUFFIX);
   const auto opt = tool(KALANDRA_VULKAN_OPT, "mlir-opt" KALANDRA_VULKAN_EXE_SUFFIX);
   const auto extract = tool(KALANDRA_VULKAN_EXTRACT, "kalandra-vulkan-extract" KALANDRA_VULKAN_EXE_SUFFIX);
@@ -157,7 +158,7 @@ void buildVulkanProgram(kalandra::cli::BuildProgress &progress, const std::files
   resourceFlags.emplace_back("-fms-runtime-lib=static");
 #endif
   const bool sanitized = variant == "sanitized";
-  const auto optimization = sanitized ? "-O1" : variant == "optimized" ? "-O2" : "-O0";
+  const auto optimization = sanitized ? "-O1" : kalandra::optimizationFlag(level);
   const std::vector<std::string> sanitizerFlags = sanitized
       ? std::vector<std::string>{"-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all", "-fno-omit-frame-pointer"}
       : std::vector<std::string>{};

@@ -1408,6 +1408,13 @@ if(BUILD_TESTING)
       --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/cpu-optimization")
   set_tests_properties(native-cpu-optimization PROPERTIES TIMEOUT 600)
+  foreach(level IN ITEMS O1 O3)
+    add_test(NAME native-cpu-optimization-${level}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CpuOptimizationTests.py"
+        --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"
+        --level=-${level} --output "${CMAKE_CURRENT_BINARY_DIR}/cpu-optimization-${level}")
+    set_tests_properties(native-cpu-optimization-${level} PROPERTIES TIMEOUT 600)
+  endforeach()
   add_test(NAME native-tensor-transforms
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TensorTransformTests.py"
       --compiler "$<TARGET_FILE:kalandra-test-observer>" --clang "${CMAKE_CXX_COMPILER}"

@@ -32,7 +32,7 @@ Compiler options:
 | `-o path`               | Required executable destination                                                                         |
 | `--emit-mlir path`      | Save generated, verified tensor-level MLIR                                                              |
 | `--emit-llvm path`      | Save translated, verified LLVM IR                                                                       |
-| `-O0` / `-O2`           | Native optimization setting; default O0; both preserve strict numerical policy                          |
+| `-O0`, `-O1`, `-O2`, `-O3` | Native host optimization level. O0 is the default. All levels preserve numerical policy                          |
 | `--sanitize`            | Instrument generated code/runtime with AddressSanitizer and available UndefinedBehaviorSanitizer checks |
 | `--test-entry function` | Add a private C-interface wrapper for runtime-input tests; not a public FFI                             |
 

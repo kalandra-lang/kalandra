@@ -7,9 +7,9 @@ import threading
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--compiler',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
-p.add_argument('--variant',choices=('debug','optimized','sanitized','thread-sanitized'),required=True)
+p.add_argument('--variant',choices=('debug','optimized','O1','O3','sanitized','thread-sanitized'),required=True)
 a=p.parse_args();a.compiler=a.compiler.resolve();a.output.mkdir(parents=True,exist_ok=True)
-flags={'debug':['-O0'],'optimized':['-O2'],'sanitized':['--sanitize'],'thread-sanitized':['--thread-sanitize']}[a.variant]
+flags={'debug':['-O0'],'optimized':['-O2'],'O1':['-O1'],'O3':['-O3'],'sanitized':['--sanitize'],'thread-sanitized':['--thread-sanitize']}[a.variant]
 prelude='from "std/io" import print, println, eprint, eprintln, readLine, Line, IoError\nfrom "std/fmt" import format\n'
 def build(name,source):
     directory=a.output/name;directory.mkdir(exist_ok=True)
