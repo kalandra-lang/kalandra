@@ -596,7 +596,7 @@ if(BUILD_TESTING AND KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME
 endif()
 
 if(BUILD_TESTING OR KALANDRA_BUILD_TEST_OBSERVER)
-  add_executable(kalandra-native-subscription-tests EXCLUDE_FROM_ALL tests/NativeSubscriptionTests.cpp)
+  add_executable(kalandra-native-subscription-tests tests/NativeSubscriptionTests.cpp)
   target_link_libraries(kalandra-native-subscription-tests PRIVATE kalandra-native-runtime)
 endif()
 if(BUILD_TESTING)
