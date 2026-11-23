@@ -105,9 +105,11 @@ Runtime::create(Options options, std::vector<DeviceInfo> devices) noexcept {
     return std::unexpected(Error::Allocation);
   }
 }
-std::expected<void, Error> Runtime::admitModule(const std::filesystem::path &path, bool matmul) noexcept {
+std::expected<void, Error> Runtime::admitModule(const std::filesystem::path &path, std::uint32_t index, bool matmul) noexcept {
   try {
-    auto &driver = *state_->contexts[state_->options.defaultDevice].driver;
+    auto ready = state_->ensure(index);
+    if (!ready) return std::unexpected(ready.error());
+    auto &driver = *state_->contexts[index].driver;
     auto kernel = matmul ? driver.loadMatmulKernel(path) : driver.loadKernel(path);
     if (!kernel && kernel.error() == Error::Unsupported && !matmul && state_->options.allowSoftwareFallback) {
       auto alternate = path;
@@ -148,6 +150,12 @@ std::expected<Buffer, Error> Runtime::fromCpu(const Invocation &context,
 }
 std::expected<void, Error> Runtime::validateHost(const Buffer &value) const noexcept {
   return validateTransfer(*state_->contexts[state_->options.defaultDevice].driver, value, true);
+}
+TaskHandle Runtime::reject(TaskCore &core, GroupHandle group, Error error) noexcept {
+  return state_->contexts[state_->options.defaultDevice].async->reject(core, group, error);
+}
+TaskHandle Runtime::reject(Task &task, GroupHandle group, Error error) noexcept {
+  return state_->contexts[state_->options.defaultDevice].async->reject(task, group, error);
 }
 template <class Caller>
 TaskHandle Runtime::transfer(Caller &caller, GroupHandle group, Buffer value, Device device,

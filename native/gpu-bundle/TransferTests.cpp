@@ -1,7 +1,9 @@
 #include "Language.h"
 #include <array>
+#include <barrier>
 #include <cstdio>
 #include <stdexcept>
+#include <thread>
 
 using namespace kalandra;
 using namespace kalandra::runtime;
@@ -27,10 +29,27 @@ b::Buffer observe(TaskCore &core, GroupHandle group, TaskHandle child) {
   check(core.release(group), "group release");
   return result;
 }
-int main() {
+int main(int argc, char **argv) {
   try {
     auto runtime = take(b::Runtime::create());
     check(runtime->stats().initializedDevices == 0, "early GPU discovery");
+    const bool unavailable = argc == 2 && std::string_view(argv[1]) == "--unavailable";
+    std::atomic<bool> passed = true;
+    std::barrier firstUse(12);
+    std::vector<std::jthread> workers;
+    for (int i = 0; i < 12; ++i)
+      workers.emplace_back([&] {
+        firstUse.arrive_and_wait();
+        for (int repeat = 0; repeat < 32; ++repeat)
+          if (bool(runtime->device()) == unavailable)
+            passed = false;
+      });
+    workers.clear();
+    check(passed, "concurrent first-use result");
+    if (unavailable) {
+      check(runtime->stats().initializedDevices == 0, "negative discovery");
+      return 0;
+    }
     auto device = take(runtime->device());
     auto core = TaskCore::create({.workers = 4});
     check(bool(core), "task core");

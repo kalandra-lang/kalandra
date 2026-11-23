@@ -192,7 +192,10 @@ jobs:
       - name: Build both standalone compiler archives
         run: cmake --build build/windows-gpu --parallel 2 --target kalandra native-cuda-standalone-package native-vulkan-standalone-package
       - name: Compile and test the multi-backend application
-        run: python native/gpu-bundle/qualify.py --compiler build/windows-gpu/native/kalandra.exe --output build/gpu-bundle
+        run: |
+          cmake --build build/windows-gpu --parallel 2 --target kalandra-gpu-installed
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python native/gpu-bundle/qualify.py --compiler build/windows-gpu/native/kalandra.exe --output build/gpu-bundle
       - name: Compile resumable host calls through both Windows GPU backends
         run: |
           foreach ($backend in @('cuda', 'vulkan')) {

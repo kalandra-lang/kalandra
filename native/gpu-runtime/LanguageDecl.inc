@@ -80,7 +80,7 @@ class Runtime {
 public:
   static std::expected<std::unique_ptr<Runtime>, Error> create(Options = {}) noexcept;
   static std::expected<std::unique_ptr<Runtime>, Error> create(Options, std::vector<DeviceInfo>) noexcept;
-  std::expected<void, Error> admitModule(const std::filesystem::path &, bool matmul) noexcept;
+  std::expected<void, Error> admitModule(const std::filesystem::path &, std::uint32_t device, bool matmul) noexcept;
   ~Runtime();
   std::uint32_t deviceCount() const noexcept;
   std::expected<Device, Error> device() const noexcept;
@@ -94,6 +94,8 @@ public:
       return std::unexpected(valid.error());
     return raw::toCpuTyped<Element, Rank>(context, value);
   }
+  TaskHandle reject(TaskCore &, GroupHandle, Error) noexcept;
+  TaskHandle reject(Task &, GroupHandle, Error) noexcept;
   TaskHandle upload(TaskCore &, GroupHandle, Buffer, Device) noexcept;
   TaskHandle upload(Task &, GroupHandle, Buffer, Device) noexcept;
   static std::expected<std::span<const std::byte>, Error> arrayPageBytes(const Buffer &value) noexcept {

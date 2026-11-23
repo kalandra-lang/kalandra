@@ -77,7 +77,8 @@ jobs:
           kalandra-cuda-artifact-tests kalandra-cuda-float-tests kalandra-cuda-catalog-tests
       - name: Compile and test the multi-backend application
         run: |
-          python3 native/gpu-bundle/qualify.py --compiler build/cuda/native/kalandra --output build/gpu-bundle
+          cmake --build build/cuda --parallel 2 --target native-gpu-standalone-package
+          python3 native/gpu-bundle/qualify.py --compiler build/cuda/native-gpu-standalone/package-stage/kalandra-native-gpu-standalone/bin/kalandra --output build/gpu-bundle
           tar -C build/gpu-bundle -czf build/gpu-bundle-linux.tar.gz .
       - uses: actions/upload-artifact@v4
         with:

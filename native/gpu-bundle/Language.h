@@ -33,15 +33,24 @@ struct Buffer {
     return std::visit([](auto &v) { return v.format(); }, value);
   }
 };
-using Device = std::variant<cl::Device, vk::Device>;
+struct Device {
+  std::variant<cl::Device, vk::Device> value;
+  explicit operator bool() const {
+    return std::visit([](const auto &device) { return bool(device); }, value);
+  }
+};
 using Kernel = std::variant<cl::Kernel, vk::Kernel>;
 struct NumericExecutable {
   std::variant<cl::NumericExecutable, vk::NumericExecutable> value;
+  explicit operator bool() const {
+    return std::visit([](const auto &plan) { return bool(plan); }, value);
+  }
   bool on(const Device &device) const {
     if (auto cuda = std::get_if<cl::NumericExecutable>(&value))
-      return std::holds_alternative<cl::Device>(device) && cuda->on(std::get<cl::Device>(device));
-    return std::holds_alternative<vk::Device>(device) &&
-           std::get<vk::NumericExecutable>(value).on(std::get<vk::Device>(device));
+      return std::holds_alternative<cl::Device>(device.value) &&
+             cuda->on(std::get<cl::Device>(device.value));
+    return std::holds_alternative<vk::Device>(device.value) &&
+           std::get<vk::NumericExecutable>(value).on(std::get<vk::Device>(device.value));
   }
 };
 struct NumericInstruction {
@@ -54,6 +63,7 @@ struct NumericInstruction {
 
 struct Module {
   const char *stem;
+  std::uint32_t device;
   bool matmul;
 };
 
@@ -63,7 +73,7 @@ class Runtime {
   using For = std::conditional_t<std::is_same_v<std::remove_reference_t<R>, cl::Runtime>, C, V>;
 
   const Selection<Context, Error>::Result &selected() {
-    return selection_.get(
+    const auto &selection = selection_.get(
         []() -> std::string_view {
           const char *forced = std::getenv("KALANDRA_GPU_BACKEND");
           if (!forced || !*forced)
@@ -78,11 +88,31 @@ class Runtime {
           auto result = backend == Backend::Cuda
                             ? admit<cl::Runtime, cl::Options, cuda::TensorPublication>(backend)
                             : admit<vk::Runtime, vk::Options, vulkan::TensorPublication>(backend);
-          if (!result)
-            std::fprintf(stderr, "Kalandra GPU: %s admission failed (%lld)\n", name(backend).data(),
-                         static_cast<long long>(result.error()));
+          if (!result) {
+            errors_[backend == Backend::Cuda ? 0 : 1] = result.error();
+            if (std::getenv("KALANDRA_GPU_TRACE"))
+              report(backend, result.error());
+          }
           return result;
         });
+    if (!selection) {
+      std::call_once(failureReported_, [&] {
+        if (!std::getenv("KALANDRA_GPU_TRACE"))
+          for (auto backend : {Backend::Cuda, Backend::Vulkan})
+            if (auto error = errors_[backend == Backend::Cuda ? 0 : 1])
+              report(backend, *error);
+      });
+    }
+    return selection;
+  }
+  static void report(Backend backend, Error error) {
+    const char *reason = error == Error::Unavailable ? "driver or requested device unavailable"
+                         : error == Error::Unsupported
+                             ? "device does not support the compiled program"
+                         : error == Error::Invalid ? "invalid module or runtime configuration"
+                                                   : "runtime initialization failed";
+    std::fprintf(stderr, "Kalandra GPU: %s: %s (%lld)\n", name(backend).data(), reason,
+                 static_cast<long long>(error));
   }
   template <class R, class Options, class Publication>
   std::expected<Context, Error> admit(Backend backend) {
@@ -115,10 +145,19 @@ class Runtime {
         std::rotate(ordered.begin(), ordered.begin() + index, ordered.begin() + index + 1);
         auto runtime = R::create(options, std::move(ordered));
         if (runtime) {
+          for (auto requested : devices_) {
+            auto device = (*runtime)->device(requested);
+            if (!device) {
+              runtime = std::unexpected(device.error());
+              break;
+            }
+          }
+        }
+        if (runtime) {
           for (const auto &module : modules_) {
             auto path = directory_ / module.stem;
             path += backend == Backend::Cuda ? ".ptx" : ".spv";
-            auto compatible = (*runtime)->admitModule(path, module.matmul);
+            auto compatible = (*runtime)->admitModule(path, module.device, module.matmul);
             if (!compatible) {
               runtime = std::unexpected(compatible.error());
               break;
@@ -170,7 +209,7 @@ class Runtime {
       using D = For<R, cl::Device, vk::Device>;
       using K = For<R, cl::Kernel, vk::Kernel>;
       using E = For<R, cl::Error, vk::Error>;
-      auto *target = std::get_if<D>(&device);
+      auto *target = std::get_if<D>(&device.value);
       if (!target)
         return std::expected<K, E>(std::unexpected(E::Residency));
       auto module = std::filesystem::path(std::u8string(path.begin(), path.end()));
@@ -182,10 +221,6 @@ class Runtime {
   }
 
 public:
-  void setModules(std::string_view directory, std::span<const Module> modules) {
-    directory_ = std::u8string(directory.begin(), directory.end());
-    modules_ = modules;
-  }
   struct Options {
     bool allowSoftwareFallback = false;
   };
@@ -193,6 +228,23 @@ public:
     auto result = std::unique_ptr<Runtime>(new (std::nothrow) Runtime(options));
     if (!result)
       return std::unexpected(Error::Allocation);
+    return result;
+  }
+  static std::expected<std::unique_ptr<Runtime>, Error>
+  create(std::string_view directory, std::span<const Module> modules,
+         std::span<const std::uint32_t> devices, Options options) noexcept {
+    auto result = create(options);
+    if (result) {
+      try {
+        (*result)->directory_ = std::u8string(directory.begin(), directory.end());
+        (*result)->modules_ = modules;
+        (*result)->devices_ = devices;
+      } catch (const std::bad_alloc &) {
+        return std::unexpected(Error::Allocation);
+      } catch (const std::filesystem::filesystem_error &) {
+        return std::unexpected(Error::Invalid);
+      }
+    }
     return result;
   }
   static auto create() noexcept { return create({}); }
@@ -285,7 +337,7 @@ public:
       using E = For<R, cl::Error, vk::Error>;
       using Exec = For<R, cl::NumericExecutable, vk::NumericExecutable>;
       std::vector<For<R, cl::NumericInstruction, vk::NumericInstruction>> code;
-      auto target = std::get_if<D>(&d);
+      auto target = std::get_if<D>(&d.value);
       if (!target)
         return std::expected<Exec, E>(std::unexpected(E::Residency));
       if (instructions.size_bytes() > 1024 * 1024)
@@ -307,20 +359,20 @@ public:
   }
   template <class Caller>
   TaskHandle upload(Caller &c, GroupHandle g, const Buffer &b, const Device &d) {
-    return withTask(c, [&](auto &r) {
+    return withTask(c, g, [&](auto &r) {
       using R = decltype(r);
       return r.upload(c, g, std::get<For<R, cl::Buffer, vk::Buffer>>(b.value),
-                      std::get<For<R, cl::Device, vk::Device>>(d));
+                      std::get<For<R, cl::Device, vk::Device>>(d.value));
     });
   }
   template <class Caller> TaskHandle download(Caller &c, GroupHandle g, const Buffer &b) {
-    return withTask(c, [&](auto &r) {
+    return withTask(c, g, [&](auto &r) {
       return r.download(c, g, std::get<For<decltype(r), cl::Buffer, vk::Buffer>>(b.value));
     });
   }
   TaskHandle downloadArrayPage(Task &c, GroupHandle g, const Buffer &b, std::uint64_t offset,
                                std::uint64_t words) {
-    return withTask(c, [&](auto &r) {
+    return withTask(c, g, [&](auto &r) {
       return r.downloadArrayPage(c, g, std::get<For<decltype(r), cl::Buffer, vk::Buffer>>(b.value),
                                  offset, words);
     });
@@ -329,16 +381,23 @@ public:
   TaskHandle executeNumericProgram(Caller &c, GroupHandle g, const NumericExecutable &ex,
                                    std::span<const Buffer> inputs,
                                    std::span<const std::uint64_t> args = {}) {
-    return withTask(c, [&](auto &r) {
+    return withTask(c, g, [&](auto &r) {
       using R = decltype(r);
       using B = For<R, cl::Buffer, vk::Buffer>;
-      std::vector<B> native;
-      native.reserve(inputs.size());
-      for (auto &b : inputs)
-        native.push_back(std::get<B>(b.value));
-      return r.executeNumericProgram(
-          c, g, std::get<For<R, cl::NumericExecutable, vk::NumericExecutable>>(ex.value), native,
-          args);
+      using E = For<R, cl::Error, vk::Error>;
+      if (inputs.size() > (1024 * 1024) / sizeof(B))
+        return r.reject(c, g, E::Budget);
+      const auto &plan = std::get<For<R, cl::NumericExecutable, vk::NumericExecutable>>(ex.value);
+      // Most dispatches have only one or two resident operands.
+      std::array<B, 4> small;
+      std::vector<B> large;
+      if (inputs.size() > small.size())
+        large.resize(inputs.size());
+      std::span<B> native =
+          large.empty() ? std::span(small).first(inputs.size()) : std::span(large);
+      for (std::size_t i = 0; i < inputs.size(); ++i)
+        native[i] = std::get<B>(inputs[i].value);
+      return r.executeNumericProgram(c, g, plan, native, args);
     });
   }
   cl::Stats stats() {
@@ -354,7 +413,7 @@ public:
 
 private:
   explicit Runtime(Options options) : options_(options) {}
-  template <class Caller, class F> TaskHandle withTask(Caller &caller, F &&fn) {
+  template <class Caller, class F> TaskHandle withTask(Caller &caller, GroupHandle group, F &&fn) {
     const auto &result = selected();
     auto error = Error::Unavailable;
     if (result) {
@@ -365,8 +424,14 @@ private:
       } catch (const std::bad_alloc &) {
         error = Error::Allocation;
       }
-    } else
-      error = result.error();
+      return std::visit(
+          [&](auto &r) {
+            using E = For<decltype(*r), cl::Error, vk::Error>;
+            return r->reject(caller, group, static_cast<E>(error));
+          },
+          *result);
+    }
+    error = result.error();
     if constexpr (std::is_same_v<Caller, Task>)
       caller.fault(static_cast<std::int64_t>(error));
     return {};
@@ -374,7 +439,10 @@ private:
   Options options_;
   Selection<Context, Error> selection_;
   std::atomic<bool> active_{};
+  std::array<std::optional<Error>, 2> errors_{};
+  std::once_flag failureReported_;
   std::filesystem::path directory_;
   std::span<const Module> modules_;
+  std::span<const std::uint32_t> devices_;
 };
 } // namespace kalandra::runtime::bundle

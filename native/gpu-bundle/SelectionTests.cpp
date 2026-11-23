@@ -15,24 +15,29 @@ bool check(std::string_view forced, Cache::Result cuda, Cache::Result vulkan,
   Cache cache;
   std::array<std::atomic<int>, 2> calls{};
   std::atomic<bool> correct = true;
+  std::atomic<int> overrideReads = 0;
   std::barrier start(16);
   std::vector<std::jthread> tasks;
   for (int i = 0; i < 16; ++i) {
     tasks.emplace_back([&] {
       start.arrive_and_wait();
       for (int n = 0; n < 100; ++n) {
-        const auto &got = cache.get([&] { return forced; },
-                                    [&](Backend backend) {
-                                      ++calls[backend == Backend::Cuda ? 0 : 1];
-                                      return backend == Backend::Cuda ? cuda : vulkan;
-                                    });
+        const auto &got = cache.get(
+            [&] {
+              ++overrideReads;
+              return forced;
+            },
+            [&](Backend backend) {
+              ++calls[backend == Backend::Cuda ? 0 : 1];
+              return backend == Backend::Cuda ? cuda : vulkan;
+            });
         if (got != expected)
           correct = false;
       }
     });
   }
   tasks.clear();
-  return correct && calls[0] == cudaCalls && calls[1] == vulkanCalls;
+  return correct && overrideReads == 1 && calls[0] == cudaCalls && calls[1] == vulkanCalls;
 }
 int main() {
   const auto absent = std::unexpected(Error::Unavailable);

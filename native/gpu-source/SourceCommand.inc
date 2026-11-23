@@ -128,7 +128,8 @@
       return 1;
     }
     progress.phase("Compiling", sourcePath);
-    auto emitted = emitGpuSupervisor(std::move(parsed->module), arithmetic, testCpuExports, selectedGpuBackend, application, level);
+    auto emitted = emitGpuSupervisor(std::move(parsed->module), arithmetic, testCpuExports, selectedGpuBackend, application, level,
+                                     bundle && selectedGpuBackend == GpuBackend::Vulkan);
     if (!emitted) {
       progress.diagnostic() << renderDiagnostic(*source, emitted.error());
       return 1;
