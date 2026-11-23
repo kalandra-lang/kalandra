@@ -6,14 +6,25 @@ using Release = void (*)(std::uint64_t);
 struct Subscription final : OwnedState {
   Release release;
   std::uint64_t token = 0;
-  std::atomic<bool> armed{false};
+  // This lock protects the native token. The OwnedState lock independently
+  // protects scope retirement, which can be reentrant from a native callback.
+  std::mutex lifetime;
+  std::size_t borrowers = 0;
+  bool armed = false;
   explicit Subscription(Release fn) noexcept
       : OwnedState(OwnedKind::NativeSubscription, sizeof(Subscription), destroySubscription, close),
         release(fn) {}
   static void close(void *p) noexcept {
     auto &s = *static_cast<Subscription *>(p);
-    if (s.armed.exchange(false, std::memory_order_acq_rel))
-      s.release(s.token);
+    {
+      std::lock_guard lock(s.lifetime);
+      if (!s.armed)
+        return;
+      s.armed = false;
+      if (s.borrowers)
+        return;
+    }
+    s.release(s.token);
   }
   static void destroySubscription(void *p) noexcept {
     close(p);
@@ -36,7 +47,7 @@ extern "C" bool kalandra_subscription_publish_v1(Invocation *ctx, void *memory, 
                                                  OwnedDescriptor *out) noexcept {
   auto *s = static_cast<Subscription *>(memory);
   s->token = token;
-  s->armed.store(true, std::memory_order_release);
+  s->armed = true;
   if (auto *scope = currentScope(*ctx))
     adopt(*ctx, *s, scope->scope);
   if (ctx->poll() || !ctx->usable()) {
@@ -45,6 +56,34 @@ extern "C" bool kalandra_subscription_publish_v1(Invocation *ctx, void *memory, 
   }
   *out = ownedDescriptor(s);
   return true;
+}
+// The instruction owns its input descriptor through end_borrow. Closing the
+// logical owner during a call prevents new borrows and defers disposal.
+extern "C" void *kalandra_handle_borrow_v1(Invocation *ctx, const OwnedDescriptor *value,
+                                            std::uint64_t *token) noexcept {
+  if (ctx->poll() || !ctx->usable())
+    return nullptr;
+  auto *owned = inspectOwned(*ctx, *value);
+  if (owned && owned->kind == OwnedKind::NativeSubscription) {
+    auto *s = static_cast<Subscription *>(owned);
+    std::lock_guard lock(s->lifetime);
+    if (s->armed && !s->retired.load(std::memory_order_acquire)) {
+      ++s->borrowers;
+      *token = s->token;
+      return s;
+    }
+  }
+  ctx->fault(3);
+  return nullptr;
+}
+extern "C" void kalandra_handle_end_borrow_v1(void *state) noexcept {
+  auto *s = static_cast<Subscription *>(state);
+  {
+    std::lock_guard lock(s->lifetime);
+    if (--s->borrowers || s->armed)
+      return;
+  }
+  s->release(s->token);
 }
 extern "C" bool kalandra_subscription_close_v1(Invocation *ctx,
                                                const OwnedDescriptor *value) noexcept {

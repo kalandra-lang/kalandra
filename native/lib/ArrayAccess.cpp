@@ -963,10 +963,10 @@ private:
               if (!op.subscriptionRelease.empty()) {
                 for (auto value : op.arguments) {
                   auto roots = input(value);
-                  if (!op.block)
+                  if (op.symbol == op.subscriptionRelease)
                     consume(value, roots, env);
                 }
-                return op.block ? fresh(id) : Roots{};
+                return op.symbol == op.subscriptionRelease ? Roots{} : fresh(id);
               }
             }
             if constexpr (std::is_same_v<T, FormatOperation>)

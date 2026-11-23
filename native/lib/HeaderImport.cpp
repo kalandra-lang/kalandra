@@ -114,20 +114,18 @@ loadApplicationModules(const std::string &entry, std::span<const ModulePackage> 
         if (target)
           return importPortableCHeader(path, clang, resources, found->second, *bounds, target);
 #ifdef __APPLE__
+        // Check upstream ownership/type attributes first. The CIndex fallback
+        // only admits a positively verified Xcode counted_by contract.
+        auto portable = importPortableCHeader(path, clang, resources, found->second, *bounds);
+        if (portable)
+          return portable;
         HeaderContracts appleBounds;
         auto apple = importAppleCHeader(path, found->second, appleBounds);
-        if (apple) {
+        if (apple && !appleBounds.empty()) {
           *bounds = std::move(appleBounds);
           return apple;
         }
-        // Preserve Apple's diagnostics for counted_by. Only take the portable
-        // route here when its AST independently verifies the buffer or callback contract.
-        auto portable = importPortableCHeader(path, clang, resources, found->second, *bounds);
-        if (portable && !bounds->empty())
-          return portable;
-        if (!portable)
-          return std::unexpected(apple.error() + "\nPortable C contract: " + portable.error());
-        return apple;
+        return std::unexpected((apple ? "" : apple.error() + "\n") + portable.error());
 #else
         return importPortableCHeader(path, clang, resources, found->second, *bounds);
 #endif

@@ -19,6 +19,19 @@ struct SourceSpan {
   std::size_t begin = 0;
   std::size_t end = 0;
 };
+// The ABI type of a verified, borrowed native handle parameter.
+enum class NativeParameterABI { Scalar, Token, Pointer, Text, TextLength, Record };
+struct NativeParameterLayout {
+  NativeParameterABI abi = NativeParameterABI::Scalar;
+  unsigned argument = 0;
+  unsigned width = 0;
+  std::vector<std::uint64_t> offsets = {};
+  std::uint64_t bytes = 0, alignment = 0;
+};
+struct NativeHandles {
+  std::vector<NativeParameterLayout> parameters;
+  bool pointerResult = false;
+};
 // Indexed by the C parameter ordinal. A negative value denotes a scalar.
 struct HeaderFunctionContract {
   std::string subscriptionFamily = {};
@@ -27,6 +40,7 @@ struct HeaderFunctionContract {
   std::optional<unsigned> blockParameter = {};
   std::vector<std::string> forwardedCaptures = {};
   std::string subscriptionRelease = {};
+  NativeHandles nativeHandles = {};
   bool mainThreadOnly = false;
 };
 using HeaderContracts = std::unordered_map<std::string, HeaderFunctionContract>;
@@ -328,6 +342,7 @@ struct Function {
   std::optional<unsigned> blockParameter = {};
   std::vector<std::string> forwardedCaptures = {};
   std::string subscriptionRelease = {};
+  NativeHandles nativeHandles = {};
   bool nativeMainThread = false;
   std::vector<int> bufferCounts = {};
   std::string specializedName = {}; // Internal only; source names/spans remain unchanged.

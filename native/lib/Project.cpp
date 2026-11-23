@@ -208,8 +208,6 @@ std::expected<Manifest, std::string> loadManifest(std::string path, ProjectLimit
           return fail(value, "dependency requests require git and rev strings");
         if (request->contains("system") || request->contains("library") ||
             request->contains("header")) {
-          if (!result.project || result.library)
-            return fail(value, "host library imports currently require an application manifest");
           auto entry = resolve(name, ".kalandra/native/" + name + ".k", false);
           if (!entry)
             return fail(value, "invalid native import alias");
@@ -219,18 +217,51 @@ std::expected<Manifest, std::string> loadManifest(std::string path, ProjectLimit
               return fail(value, "expected a system library name");
             result.headers.push_back({{}, *entry, *system});
           } else {
-            const auto file = [&](const char *field) -> std::optional<fs::path> {
-              auto path = (*request)[field].value<std::string>();
+            const auto file = [&](std::optional<std::string> path) -> std::optional<fs::path> {
               if (!path || path->empty() || path->find('\0') != std::string::npos ||
                   path->find('\\') != std::string::npos || fs::path(*path).has_root_path())
                 return {};
-              return (manifest.parent_path() / *path).lexically_normal();
+              std::error_code ec;
+              auto full = fs::weakly_canonical(manifest.parent_path() / *path, ec);
+              if (ec) return {};
+              auto relative = full.lexically_relative(manifest.parent_path());
+              if (result.library && (relative.empty() || relative.has_root_path() || *relative.begin() == ".."))
+                return {};
+              return full;
             };
-            const auto library = file("library"), header = file("header");
-            if (request->size() != 2 || !library || !header || header->extension() != ".h")
+            auto header = file((*request)["header"].value<std::string>());
+            if (request->size() != 2 || !header || header->extension() != ".h")
               return fail(value, "expected a relative library path and a C header path");
-            result.linkLibraries.push_back(library->string());
-            result.headers.push_back({header->string(), *entry, {}});
+            HeaderImport imported{header->string(), *entry, {}};
+            if (const auto *targets = (*request)["targets"].as_table()) {
+              if (targets->empty()) return fail(value, "expected native adapter targets");
+              for (const auto &[platform, node] : *targets) {
+                const auto *target = node.as_table();
+                if (!target || (platform != "macos" && platform != "windows" && platform != "linux") ||
+                    target->size() != (target->contains("libraries") ? 2u : 1u))
+                  return fail(node, "invalid native adapter target");
+                const auto source = file((*target)["source"].value<std::string>());
+                if (!source || (source->extension() != ".c" &&
+                                !(platform == "macos" && source->extension() == ".m")))
+                  return fail(node, "expected a relative C or Objective-C adapter source");
+                HeaderImplementation impl{std::string(platform.str()), source->string(), {}};
+                if (target->contains("libraries")) {
+                  const auto *libraries = (*target)["libraries"].as_array();
+                  if (!libraries) return fail(node, "expected system library names");
+                  for (const auto &item : *libraries) {
+                    auto lib = item.value<std::string>();
+                    if (!lib || !packageName(*lib)) return fail(item, "invalid system library name");
+                    impl.libraries.push_back(*lib);
+                  }
+                }
+                imported.targets.push_back(std::move(impl));
+              }
+            } else {
+              auto library = file((*request)["library"].value<std::string>());
+              if (!library) return fail(value, "expected a relative library path and a C header path");
+              result.linkLibraries.push_back(library->string());
+            }
+            result.headers.push_back(std::move(imported));
           }
           result.packages.push_back({name, *entry});
           continue;
@@ -293,7 +324,8 @@ std::expected<NativePackage, std::string> loadNativePackage(std::string path,
   return NativePackage{std::move(manifest->path),        std::move(library.name),
                        std::move(library.version),       std::move(library.entry),
                        std::move(manifest->project),     std::move(manifest->packages),
-                       std::move(manifest->dependencies)};
+                       std::move(manifest->dependencies), std::move(manifest->linkLibraries),
+                       std::move(manifest->headers)};
 }
 PackageNode NativePackage::node(std::string identity,
                                 std::vector<PackageDependency> dependencies) const {

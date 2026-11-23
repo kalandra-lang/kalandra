@@ -1568,8 +1568,11 @@ private:
         };
         for (const auto parameter : fn.parameters) {
           const auto &type = output_.symbols[parameter].type;
-          if (!function.subscriptionRelease.empty() &&
+          if ((!function.subscriptionRelease.empty() || !function.nativeHandles.parameters.empty()) &&
               ownedResourceKind(output_, type) == OwnedResourceKind::Subscription)
+            continue;
+          if (!function.nativeHandles.parameters.empty() &&
+              (type.record || type.builtin == BuiltinValue::String))
             continue;
           if (function.nativeCallbacks && type.callable)
             continue;
@@ -1890,6 +1893,7 @@ private:
     }
     ForeignCall call{name(fn.declaration), {}};
     call.mainThreadOnly = syntax.nativeMainThread;
+    call.nativeHandles = syntax.nativeHandles;
     if (!syntax.nativeCallbacks)
       call.subscriptionRelease = syntax.subscriptionRelease;
     for (auto param : fn.parameters) {

@@ -2,6 +2,7 @@
 #include <clang/AST/ASTContext.h>
 #include <clang/AST/Attr.h>
 #include <clang/AST/Expr.h>
+#include <clang/AST/RecordLayout.h>
 #include <clang/Basic/Builtins.h>
 #include <clang/Frontend/ASTUnit.h>
 #include <clang/Tooling/Tooling.h>
@@ -157,10 +158,24 @@ std::string resourceName(llvm::StringRef family) {
   }
   return result;
 }
+// Native pointer handles are references to named, incomplete C structs. No
+// pointee layout or address is ever exposed to the Kalandra program.
+bool opaquePointer(clang::QualType t) {
+  const auto *ptr = t->getAs<clang::PointerType>();
+  if (!ptr || t->getNullability() != clang::NullabilityKind::NonNull)
+    return false;
+  auto target = ptr->getPointeeType();
+  const auto *record = target->getAsRecordDecl();
+  return record && record->isStruct() && record->getIdentifier() &&
+         !record->getDefinition() && !target.hasQualifiers() && !target.hasAddressSpace();
+}
+bool handleType(clang::ASTContext &ctx, clang::QualType t) {
+  return scalar(ctx, t) == "u64" || opaquePointer(t);
+}
 const clang::ReleaseHandleAttr *subscriptionRelease(const clang::FunctionDecl &fn) {
   if (fn.getNumParams() != 1 || !fn.getReturnType()->isVoidType() || fn.isVariadic() ||
       fn.isInlined() || !fn.isExternallyVisible() ||
-      scalar(fn.getASTContext(), fn.getParamDecl(0)->getType()) != "u64")
+      !handleType(fn.getASTContext(), fn.getParamDecl(0)->getType()))
     return nullptr;
   // Ownership does not imply that release is valid on a cleanup worker.
   // Accept an explicit nonisolated declaration, including SDK macro expansion.
@@ -186,8 +201,52 @@ const clang::ReleaseHandleAttr *subscriptionRelease(const clang::FunctionDecl &f
              : nullptr;
 }
 
+// Verify both the nominal family and the target C type before borrowing or
+// transferring a handle. A shared family spelling cannot coerce pointer types.
+std::expected<std::string, std::string> disposer(clang::ASTContext &ctx, llvm::StringRef family,
+                                                clang::QualType type) {
+  std::string name;
+  for (auto *decl : ctx.getTranslationUnitDecl()->decls()) {
+    const auto *fn = llvm::dyn_cast<clang::FunctionDecl>(decl);
+    const auto *release = fn ? subscriptionRelease(*fn) : nullptr;
+    if (!release || release->getHandleType() != family)
+      continue;
+    if (!ctx.hasSameUnqualifiedType(type, fn->getParamDecl(0)->getType()) ||
+        (!name.empty() && name != fn->getNameAsString()))
+      return std::unexpected("incompatible or ambiguous native handle release");
+    name = fn->getNameAsString();
+  }
+  if (name.empty())
+    return std::unexpected("missing subscription release operation");
+  return name;
+}
+using NativeRecords = std::map<std::string, std::string>;
+std::expected<std::string, std::string>
+recordArgument(const clang::RecordDecl &decl, NativeRecords &records, NativeParameterLayout &abi) {
+  const auto *record = decl.getDefinition();
+  if (!record || !record->isStruct() || !record->getIdentifier() || record->field_empty() ||
+      record->hasAttrs() || record->hasFlexibleArrayMember())
+    return std::unexpected("expected a named, fixed-layout C struct");
+  auto &ctx = record->getASTContext();
+  const auto &layout = ctx.getASTRecordLayout(record);
+  abi.abi = NativeParameterABI::Record;
+  abi.bytes = layout.getSize().getQuantity();
+  abi.alignment = layout.getAlignment().getQuantity();
+  std::string name = record->getNameAsString(), source = "export type " + name + ":\n";
+  for (const auto *field : record->fields()) {
+    auto type = scalar(ctx, field->getType());
+    if (!field->getIdentifier() || field->hasAttrs() || field->isBitField() ||
+        field->getType().hasQualifiers() || type.empty() || type == "unit")
+      return std::unexpected("unsupported native struct field in " + name);
+    abi.offsets.push_back(layout.getFieldOffset(field->getFieldIndex()) / ctx.getCharWidth());
+    source += "  " + field->getNameAsString() + ": " + type + "\n";
+  }
+  records.emplace(name, std::move(source));
+  return name;
+}
+
 std::expected<std::string, std::string> declaration(const clang::FunctionDecl &fn,
-                                                    HeaderContracts &bounds) {
+                                                    HeaderContracts &bounds, NativeRecords &records) {
   const auto name = fn.getNameAsString();
   auto reject = [&](const char *reason) { return std::unexpected(name + ": " + reason); };
   // acquire_handle on a return can decorate the function *type*, so fn.attrs()
@@ -263,19 +322,82 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
     borrowed = true;
   }
   auto &ctx = fn.getASTContext();
+  std::vector<NativeParameterLayout> native(fn.getNumParams());
+  bool adapted = false;
+  bool byteBuffers = false;
+  for (unsigned i = 0; i < counts.size(); ++i) {
+    if (counts[i] < 0)
+      continue;
+    auto *arg = fn.getParamDecl(i);
+    auto t = arg->getType();
+    if (!ctx.hasSameType(t->getPointeeType().getCanonicalType(), ctx.CharTy.withConst())) {
+      byteBuffers = true;
+      continue;
+    }
+    auto count = unsigned(counts[i]);
+    auto size = scalar(ctx, fn.getParamDecl(count)->getType());
+    if ((size != "u32" && size != "u64") ||
+        t->getNullability() != clang::NullabilityKind::NonNull ||
+        !arg->hasAttr<clang::NoEscapeAttr>() ||
+        std::distance(arg->attr_begin(), arg->attr_end()) != 1 ||
+        fn.getParamDecl(count)->hasAttrs() || std::ranges::count(counts, counts[i]) != 1)
+      return reject("text requires a dedicated unsigned byte count and a nonescaping non-null pointer");
+    native[i].abi = NativeParameterABI::Text;
+    native[count].abi = NativeParameterABI::TextLength;
+    native[count].argument = i;
+    native[count].width = size == "u32" ? 32 : 64;
+    adapted = true;
+  }
+  if (byteBuffers && adapted)
+    return reject("mixed text and ByteBuffer contracts are unsupported");
+  borrowed = byteBuffers;
   auto result = scalar(ctx, fn.getReturnType());
-  if (result.empty() || (borrowed && result != "unit"))
+  if ((result.empty() && !(acquire && opaquePointer(fn.getReturnType()))) || (borrowed && result != "unit"))
     return reject("unsupported native result");
   bool callbacks = false;
   std::string source = "export extern \"C\" fn " + name + "(";
   unsigned hidden = bounds.contains(name) ? bounds.at(name).forwardedCaptures.size() : 0;
+  unsigned argument = 0;
   for (unsigned i = 0; i < fn.getNumParams() - hidden; ++i) {
+    if (native[i].abi == NativeParameterABI::TextLength)
+      continue;
+    native[i].argument = argument++;
     const auto *arg = fn.getParamDecl(i);
     auto t = arg->getType();
     std::string type;
-    if (i)
+    if (native[i].argument)
       source += ", ";
-    if (t->isFunctionPointerType() || t->isBlockPointerType()) {
+    if (native[i].abi == NativeParameterABI::Text) {
+      type = "String";
+    } else if (const auto *array = ctx.getAsConstantArrayType(arg->getOriginalType());
+               array && array->getSizeModifier() == clang::ArraySizeModifier::Static &&
+               array->getSize() == 1 && array->getElementType().isConstQualified() &&
+               array->getElementType()->getAsRecordDecl()) {
+      if (borrowed || !arg->hasAttr<clang::NoEscapeAttr>() ||
+          std::distance(arg->attr_begin(), arg->attr_end()) != 1 ||
+          array->getElementType().isVolatileQualified())
+        return reject("record requires a nonescaping read-only single-element borrow");
+      auto name = recordArgument(*array->getElementType()->getAsRecordDecl(), records, native[i]);
+      if (!name)
+        return reject(name.error().c_str());
+      type = *name;
+      adapted = true;
+    } else if (auto *use = arg->getAttr<clang::UseHandleAttr>()) {
+      const bool pointer = opaquePointer(t);
+      if (!handleType(ctx, t) || resourceName(use->getHandleType()).empty() ||
+          (pointer && !arg->hasAttr<clang::NoEscapeAttr>()) || borrowed ||
+          std::ranges::any_of(arg->attrs(), [](auto *a) {
+            return !llvm::isa<clang::UseHandleAttr, clang::NoEscapeAttr>(a);
+          }))
+        return reject("unsupported native handle borrow");
+      auto close = disposer(ctx, use->getHandleType(), t);
+      if (!close)
+        return std::unexpected(name + ": " + close.error());
+      adapted = true;
+      native[i].abi = pointer ? NativeParameterABI::Pointer : NativeParameterABI::Token;
+      type = resourceName(use->getHandleType());
+      bounds[type].subscriptionFamily = use->getHandleType().str();
+    } else if (t->isFunctionPointerType() || t->isBlockPointerType()) {
       auto cb = callbackType(ctx, *arg, hidden);
       if (!cb || borrowed)
         return reject("unsupported native callback signature or lifetime");
@@ -310,24 +432,25 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
     }
     source += "arg" + std::to_string(i) + ": " + type;
   }
+  if (adapted) {
+    if (borrowed || callbacks)
+      return reject("unsupported combination of native call contracts");
+    for (auto &param : native)
+      if (param.abi == NativeParameterABI::TextLength)
+        param.argument = native[param.argument].argument;
+    bounds[name].nativeHandles.parameters = std::move(native);
+  }
   if (acquire) {
-    if (result != "u64" || !bounds.contains(name) || !bounds.at(name).blockParameter ||
-        mainThreadOnly)
-      return reject("subscription acquisition requires a block and an unsigned 64-bit token");
-    std::string close;
-    for (auto *decl : ctx.getTranslationUnitDecl()->decls()) {
-      auto *candidate = llvm::dyn_cast<clang::FunctionDecl>(decl);
-      auto *release = candidate ? subscriptionRelease(*candidate) : nullptr;
-      if (!release || release->getHandleType() != acquire->getHandleType())
-        continue;
-      auto next = candidate->getNameAsString();
-      if (!close.empty() && next != close)
-        return reject("ambiguous subscription release operation");
-      close = next;
-    }
-    if (close.empty())
-      return reject("missing subscription release operation");
-    bounds[name].subscriptionRelease = close;
+    bool pointer = opaquePointer(fn.getReturnType());
+    if (!handleType(ctx, fn.getReturnType()) || borrowed ||
+        (callbacks && (pointer || !bounds[name].blockParameter ||
+                       !bounds[name].nativeHandles.parameters.empty())))
+      return reject("unsupported native handle acquisition");
+    auto close = disposer(ctx, acquire->getHandleType(), fn.getReturnType());
+    if (!close)
+      return std::unexpected(name + ": " + close.error());
+    bounds[name].nativeHandles.pointerResult = pointer;
+    bounds[name].subscriptionRelease = *close;
     bounds[name].subscriptionFamily = acquire->getHandleType().str();
     result = resourceName(acquire->getHandleType());
   }
@@ -335,6 +458,8 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
     bounds[name].mainThreadOnly = true;
   if (borrowed)
     bounds[name].bufferCounts = std::move(counts);
+  if (callbacks && bounds.contains(name) && !bounds[name].nativeHandles.parameters.empty())
+    return reject("callback registration with a borrowed native handle is unsupported");
   if (callbacks)
     bounds[name].hasCallbacks = true;
   return source + ") -> " + result + (borrowed ? " ! BufferError\n" : "\n");
@@ -374,6 +499,7 @@ importPortableCHeader(const std::string &path, const std::string &driver,
   std::string source;
   std::map<std::string, std::string> families;
   std::set<std::string> released;
+  NativeRecords records;
   for (auto *decl : ctx.getTranslationUnitDecl()->decls()) {
     auto *candidate = llvm::dyn_cast<clang::FunctionDecl>(decl);
     if (!candidate)
@@ -399,15 +525,33 @@ importPortableCHeader(const std::string &path, const std::string &driver,
       continue;
     }
     const clang::FunctionDecl *fn = nullptr;
+    const clang::RecordDecl *requestedRecord = nullptr;
     for (auto *decl : ctx.getTranslationUnitDecl()->lookup(&ctx.Idents.get(name))) {
+      if (const auto *r = llvm::dyn_cast<clang::RecordDecl>(decl)) {
+        requestedRecord = r;
+        continue;
+      }
+      if (const auto *alias = llvm::dyn_cast<clang::TypedefNameDecl>(decl);
+          alias && alias->getUnderlyingType()->getAsRecordDecl() &&
+          alias->getUnderlyingType()->getAsRecordDecl()->getName() == name) {
+        requestedRecord = alias->getUnderlyingType()->getAsRecordDecl();
+        continue;
+      }
       const auto *candidate = llvm::dyn_cast<clang::FunctionDecl>(decl);
       if (!candidate || (fn && fn->getCanonicalDecl() != candidate->getCanonicalDecl()))
         return std::unexpected(path + ": ambiguous native declaration for " + name);
       fn = candidate->getMostRecentDecl();
     }
+    if (requestedRecord && !fn) {
+      NativeParameterLayout layout;
+      auto r = recordArgument(*requestedRecord, records, layout);
+      if (!r)
+        return std::unexpected(r.error());
+      continue;
+    }
     if (!fn || fn->isImplicit())
       return std::unexpected(path + ": missing C prototype for " + name);
-    auto line = declaration(*fn, verified);
+    auto line = declaration(*fn, verified, records);
     if (!line)
       return std::unexpected(line.error());
     source += *line;
@@ -422,6 +566,11 @@ importPortableCHeader(const std::string &path, const std::string &driver,
       source = "export type " + type + ":\n  __storage: [u8]\n" + source;
       verified[type].subscriptionFamily = family;
     }
+  for (const auto &[name, definition] : records) {
+    if (families.contains(name))
+      return std::unexpected("native record and handle use the same name: " + name);
+    source = definition + source;
+  }
   bounds = std::move(verified);
   return source;
 }

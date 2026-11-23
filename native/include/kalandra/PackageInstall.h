@@ -12,6 +12,8 @@ struct PackageInstallLimits {
 };
 struct InstalledNativeProject {
   std::vector<PackageNode> nodes;
+  std::vector<HeaderImport> headers = {};
+  std::vector<std::string> libraries = {};
 };
 using PackageTrace = std::function<void(std::string_view, std::string_view)>;
 struct PackageInstallOptions {

@@ -139,6 +139,20 @@ h2 { "Call a main-thread API" }
 
 Some native libraries require a particular function to run on the application's main thread. If the C header marks the function with Clang’s swift_attr("@MainActor") attribute, call it from Kalandra’s main function. The main task can await other work and resume on the same thread. Spawned tasks may run on worker threads. If a worker tries to call the marked function, Kalandra reports a fault before entering C.
 
+h2 { "Use a native window from Kalandra" }
+
+The window example opens a resizable window with a title, text and a background color. The Kalandra main function sets its appearance, reads events and returns when the user presses a key or closes the window. Build it from its directory with kalandra --project kalandra.toml -o hello-window. The same program uses AppKit on macOS, Win32 on Windows and X11 on Linux.
+
+link { url = "https://github.com/kalandra-lang/kalandra/tree/develop/native/examples/window", "Window example, binding sources and platform build instructions" }
+
+An owning result marked acquire_handle introduces a nominal Kalandra type. A library can use a non-null pointer to an incomplete C struct as its native representation. To borrow it, a C parameter declares the same handle family with use_handle, _Nonnull and noescape. The compiler checks the family's release function and its C parameter type. Pass the resulting object directly to functions that take that type. Move it into the release function to close it immediately, or let its owning scope exit. An in-flight borrow keeps the native object alive through the call.
+
+A named C struct with ordinary 32-bit and 64-bit scalar fields can be passed through a const, noescape array parameter with a static extent of one. Import the struct by name and supply a Kalandra record. The compiler writes the fields at the destination C ABI's offsets before entering the function. The record may contain padding. Unsupported fields, including bit-fields and nested pointers, produce an import diagnostic.
+
+For read-only UTF-8 text, a binding can take a non-null, nonescaping const char pointer with a dedicated unsigned byte count. Use the checked object-size condition described for buffers. The Kalandra caller supplies one String. The compiler supplies its exact byte count, including embedded zero bytes. The callee reads that many bytes and copies the text if it needs to retain it. Empty text passes a valid address and a count of zero.
+
+A package can ship a C header and one adapter source per operating system. Under its dependency's targets table, each platform selects a C source or, on macOS, an Objective-C source. Add a libraries array for system link libraries such as X11. The compiler builds the selected adapter for the destination. Native library code must honor the ownership and extent contracts in its header.
+
 h2 { "Export types deliberately" }
 
 Record, enum and error declarations can be exported and imported. Aliasing preserves their nominal identity rather than creating a new type. A helper continues resolving its own private names in its declaring module; importing it does not expose all of that module.

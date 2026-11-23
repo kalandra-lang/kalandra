@@ -1736,7 +1736,7 @@ private:
       plan.code.push_back(
           {Code::Field, output, {subject}, static_cast<std::size_t>(field->field), 0, 0, id});
     } else if (const auto *native = std::get_if<ForeignCall>(&node.operation);
-               native && !native->subscriptionRelease.empty()) {
+               native && (!native->subscriptionRelease.empty() || !native->nativeHandles.parameters.empty())) {
       std::vector<Slot> arguments;
       for (auto argument : native->arguments)
         arguments.push_back(expression(plan, argument, env, stack));

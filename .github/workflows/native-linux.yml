@@ -80,7 +80,7 @@ jobs:
       - name: Install system build prerequisites
         run: |
           sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
-          sudo apt-get install -y cmake ninja-build patchelf bubblewrap
+          sudo apt-get install -y cmake ninja-build patchelf bubblewrap libx11-dev xvfb xauth xfonts-base
           sudo sysctl -w vm.mmap_rnd_bits=28
       - name: Configure native CPU compiler
         run: >-
@@ -97,6 +97,10 @@ jobs:
           build/linux/native/kalandra-type-capability-tests
       - name: Link and run C and C++ callers
         run: ctest --test-dir build/linux --output-on-failure -R "^native-(c-exports|c-portable-buffer-imports|c-header-imports)$"
+      - name: Verify native values through an installed package
+        run: python3 native/tests/NativeValueImportTests.py --compiler build/linux/native/kalandra
+      - name: Exercise X11 windows and native event delivery
+        run: xvfb-run -a python3 native/tests/WindowInteropTests.py --compiler build/linux/native/kalandra
       - name: Run the public watchDir iterator
         run: python3 native/tests/FileSystemSourceTests.py --compiler build/linux/native/kalandra --variant optimized --case watch-directory --output build/linux/watch-source
       - name: Qualify cooperative workgroup source and safety proofs

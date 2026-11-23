@@ -110,6 +110,10 @@ jobs:
           python native/tests/CExportTests.py --compiler "$pwd/build/windows/native/kalandra.exe"
           --checker "$pwd/build/windows/native/kalandra-check.exe"
           --cc "$env:KALANDRA_LLVM_ROOT/bin/clang.exe" --cxx "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+      - name: Verify native values through an installed package
+        run: python native/tests/NativeValueImportTests.py --compiler build/windows/native/kalandra.exe
+      - name: Exercise Win32 windows and native event delivery
+        run: python native/tests/WindowInteropTests.py --compiler build/windows/native/kalandra.exe
       - name: Run the public watchDir iterator
         run: python native/tests/FileSystemSourceTests.py --compiler build/windows/native/kalandra.exe --variant optimized --case watch-directory --output build/windows/watch-source
       - name: Qualify cooperative workgroup source and safety proofs

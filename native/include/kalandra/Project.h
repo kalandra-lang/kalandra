@@ -6,10 +6,15 @@ struct NativeDependency {
   std::string repository;
   std::string revision; // Requested commit or ref; source identity uses the locked commit.
 };
+struct HeaderImplementation {
+  std::string platform, source;
+  std::vector<std::string> libraries;
+};
 struct HeaderImport {
   std::string header;
   std::string moduleEntry;
   std::string system;
+  std::vector<HeaderImplementation> targets = {};
 };
 struct NativeProject {
   std::string manifest;
@@ -30,6 +35,8 @@ struct NativePackage {
   std::optional<std::string> projectEntry;
   std::vector<ModulePackage> packages;
   std::vector<NativeDependency> dependencies = {};
+  std::vector<std::string> linkLibraries = {};
+  std::vector<HeaderImport> headers = {};
   // Metadata does not select a resolved identity. The offline resolver supplies
   // that identity and dependency edges; graph validation remains in the loader.
   [[nodiscard]] PackageNode node(std::string identity,

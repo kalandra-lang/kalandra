@@ -2864,33 +2864,138 @@ private:
       case Code::Kernel: {
         if (const auto *op =
                 std::get_if<ForeignCall>(&planner.input.expressions[instruction.source].operation);
-            op && !op->subscriptionRelease.empty()) {
-          if (!op->block) {
+            op && (!op->subscriptionRelease.empty() || !op->nativeHandles.parameters.empty())) {
+          if (op->mainThreadOnly) {
+            auto *ok = call("kalandra_application_is_main_thread_v1", builder.getInt32Ty(), {});
+            auto *admitted = Block::Create(context, "native.main", resume);
+            auto *wrong = Block::Create(context, "native.wrong.thread", resume);
+            builder.CreateCondBr(builder.CreateIsNotNull(ok), admitted, wrong);
+            builder.SetInsertPoint(wrong);
+            call("kalandra_fault_v1", voidType, {ctx, c64(3), c64(0), c64(0)});
+            builder.CreateBr(abort);
+            builder.SetInsertPoint(admitted);
+          }
+          if (op->symbol == op->subscriptionRelease) {
             auto *ok = call("kalandra_subscription_close_v1", boolean,
                             {ctx, payload(instruction.args.at(0))});
             builder.CreateCondBr(ok, next, abort);
             break;
           }
-          auto release = module.getOrInsertFunction(op->subscriptionRelease, builder.getVoidTy(),
-                                                    builder.getInt64Ty());
-          auto *state = call("kalandra_subscription_prepare_v1", builder.getPtrTy(),
-                             {ctx, release.getCallee()});
-          auto *admitted = Block::Create(context, "subscription.admitted", resume);
-          builder.CreateCondBr(builder.CreateIsNotNull(state), admitted, abort);
-          builder.SetInsertPoint(admitted);
-          llvm::SmallVector<llvm::Type *> parameters;
-          llvm::SmallVector<Value *> captured;
-          for (unsigned i = 0; i < instruction.args.size(); ++i) {
-            auto *t = taskTypes->scalar(planner.input.expressions.at(op->arguments.at(i)).type);
-            parameters.push_back(t);
-            captured.push_back(builder.CreateLoad(t, payload(instruction.args[i])));
+          auto *word = builder.getInt64Ty();
+          auto *ptr = builder.getPtrTy();
+          Value *owner = nullptr;
+          if (!op->subscriptionRelease.empty()) {
+            llvm::FunctionCallee release = module.getOrInsertFunction(op->subscriptionRelease,
+                voidType, op->nativeHandles.pointerResult ? static_cast<llvm::Type *>(ptr) : word);
+            if (op->nativeHandles.pointerResult) {
+              std::string name = "kalandra.dispose." + op->subscriptionRelease;
+              auto *bridge = module.getFunction(name);
+              if (!bridge) {
+                auto *signature = llvm::FunctionType::get(voidType, {word}, false);
+                bridge = llvm::Function::Create(signature, llvm::Function::InternalLinkage, name, module);
+                llvm::IRBuilder<> body(Block::Create(context, "entry", bridge));
+                body.CreateCall(release, {body.CreateIntToPtr(bridge->getArg(0), ptr)});
+                body.CreateRetVoid();
+              }
+              release = bridge;
+            }
+            owner = call("kalandra_subscription_prepare_v1", ptr, {ctx, release.getCallee()});
+            auto *admitted = Block::Create(context, "handle.admitted", resume);
+            builder.CreateCondBr(builder.CreateIsNotNull(owner), admitted, abort);
+            builder.SetInsertPoint(admitted);
           }
-          auto registrar = module.getOrInsertFunction(
-              op->symbol, llvm::FunctionType::get(builder.getInt64Ty(), parameters, false));
-          auto *token = builder.CreateCall(registrar, captured);
-          auto *published = call("kalandra_subscription_publish_v1", boolean,
-                                 {ctx, state, token, payload(instruction.output)});
-          builder.CreateCondBr(published, next, abort);
+          llvm::SmallVector<llvm::Type *> parameters;
+          llvm::SmallVector<Value *> args, borrows;
+          auto endBorrows = [&] {
+            for (auto *lease : llvm::reverse(borrows))
+              call("kalandra_handle_end_borrow_v1", voidType, {lease});
+          };
+          const auto &layouts = op->nativeHandles.parameters;
+          for (unsigned i = 0, n = layouts.empty() ? instruction.args.size() : layouts.size();
+               i < n; ++i) {
+            NativeParameterLayout fallback{NativeParameterABI::Scalar, i};
+            const auto &layout = layouts.empty() ? fallback : layouts[i];
+            auto ordinal = layout.argument;
+            auto *input = payload(instruction.args.at(ordinal));
+            auto *t = taskTypes->scalar(planner.input.expressions.at(op->arguments.at(ordinal)).type);
+            Value *value;
+            if (layout.abi == NativeParameterABI::Scalar) {
+              value = builder.CreateLoad(t, input);
+            } else if (layout.abi == NativeParameterABI::Record) {
+              llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+              auto *bytes = entry.CreateAlloca(llvm::ArrayType::get(builder.getInt8Ty(), layout.bytes));
+              bytes->setAlignment(llvm::Align(layout.alignment));
+              builder.CreateMemSet(bytes, builder.getInt8(0), layout.bytes, bytes->getAlign());
+              auto *record = builder.CreateLoad(t, input);
+              for (unsigned f = 0; f < layout.offsets.size(); ++f) {
+                auto *address = builder.CreateConstGEP1_64(builder.getInt8Ty(), bytes, layout.offsets[f]);
+                builder.CreateAlignedStore(builder.CreateExtractValue(record, {f}), address, llvm::Align(1));
+              }
+              value = bytes;
+            } else if (layout.abi == NativeParameterABI::Text ||
+                       layout.abi == NativeParameterABI::TextLength) {
+              auto *text = builder.CreateLoad(t, input);
+              auto *length = builder.CreateExtractValue(text, {2});
+              if (layout.abi == NativeParameterABI::Text) {
+                auto *data = builder.CreateExtractValue(text, {1});
+                value = builder.CreateSelect(builder.CreateIsNull(length),
+                    builder.CreateGlobalString("", "native.empty.text"), data);
+              } else if (layout.width == 64) {
+                value = length;
+              } else {
+                auto *valid = Block::Create(context, "text.count.fits", resume);
+                auto *invalid = Block::Create(context, "text.count.overflow", resume);
+                builder.CreateCondBr(builder.CreateICmpULE(length, c64(UINT32_MAX)), valid, invalid);
+                builder.SetInsertPoint(invalid);
+                endBorrows();
+                call("kalandra_fault_v1", voidType, {ctx, c64(3), c64(0), c64(0)});
+                builder.CreateBr(abort);
+                builder.SetInsertPoint(valid);
+                value = builder.CreateTrunc(length, builder.getInt32Ty());
+              }
+            } else {
+              llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+              auto *token = entry.CreateAlloca(word, nullptr, "handle.token");
+              auto *lease = call("kalandra_handle_borrow_v1", ptr, {ctx, input, token});
+              auto *borrowed = Block::Create(context, "handle.borrowed", resume);
+              auto *failed = Block::Create(context, "handle.borrow.failed", resume);
+              builder.CreateCondBr(builder.CreateIsNotNull(lease), borrowed, failed);
+              builder.SetInsertPoint(failed);
+              endBorrows();
+              builder.CreateBr(abort);
+              builder.SetInsertPoint(borrowed);
+              borrows.push_back(lease);
+              value = builder.CreateLoad(word, token);
+              if (layout.abi == NativeParameterABI::Pointer)
+                value = builder.CreateIntToPtr(value, ptr);
+            }
+            args.push_back(value);
+            parameters.push_back(value->getType());
+          }
+          llvm::Type *result = owner ? (op->nativeHandles.pointerResult ? static_cast<llvm::Type *>(ptr) : word)
+                              : type.builtin == BuiltinValue::Unit ? voidType : taskTypes->scalar(type);
+          auto callee = module.getOrInsertFunction(op->symbol, llvm::FunctionType::get(result, parameters, false));
+          Value *value = builder.CreateCall(callee, args);
+          endBorrows();
+          if (owner) {
+            if (op->nativeHandles.pointerResult) {
+              auto *valid = Block::Create(context, "handle.nonnull", resume);
+              auto *invalid = Block::Create(context, "handle.null", resume);
+              builder.CreateCondBr(builder.CreateIsNotNull(value), valid, invalid);
+              builder.SetInsertPoint(invalid);
+              call("kalandra_fault_v1", voidType, {ctx, c64(3), c64(0), c64(0)});
+              builder.CreateBr(abort);
+              builder.SetInsertPoint(valid);
+              value = builder.CreatePtrToInt(value, word);
+            }
+            auto *ok = call("kalandra_subscription_publish_v1", boolean,
+                            {ctx, owner, value, payload(instruction.output)});
+            builder.CreateCondBr(ok, next, abort);
+          } else {
+            if (!result->isVoidTy())
+              builder.CreateStore(value, payload(instruction.output));
+            builder.CreateBr(next);
+          }
           break;
         }
         if (const auto *iterator = std::get_if<IteratorOperation>(

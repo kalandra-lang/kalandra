@@ -256,6 +256,7 @@ struct ForeignCall {
   std::vector<std::string> callbacks = {};
   std::optional<NativeBlockCall> block = {};
   std::string subscriptionRelease = {};
+  NativeHandles nativeHandles = {};
   bool mainThreadOnly = false;
 };
 struct TimeOperation {
