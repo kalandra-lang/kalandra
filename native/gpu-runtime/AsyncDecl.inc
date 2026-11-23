@@ -1,8 +1,15 @@
 // Private declarations/implementation included inside an explicit backend namespace.
+// Generated bundle supervisors publish tensors using one tagged host layout.
+// Single-backend tasks retain their original descriptors and result layout.
+struct TensorPublication {
+  const TaskEntry &(*entry)(const TaskEntry &) noexcept;
+  void (*complete)(Task &, const TensorValue &) noexcept;
+};
 struct AsyncLimits {
   std::uint32_t maxPending = 64;
   std::uint64_t maxCaptureBytes = 1024 * 1024;
   std::shared_ptr<ByteBudget> metadataBudget{}, pendingBudget{};
+  const TensorPublication *publication = nullptr;
 };
 struct AsyncStats {
   std::uint32_t pending = 0, queued = 0, running = 0, held = 0;

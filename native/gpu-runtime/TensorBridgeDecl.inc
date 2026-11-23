@@ -2,6 +2,7 @@
 // Private descriptor/transfer bridge. CPU descriptors are validated against the
 // invocation ledger; retained backing is immutable and survives its producer.
 std::expected<TensorValue, Error> fromCpu(Runtime &, const Invocation &, CpuTensorView);
+std::expected<TensorValue, Error> fromCpu(const std::shared_ptr<ByteBudget> &, const Invocation &, CpuTensorView);
 std::expected<TensorValue, Error> hostTensor(Runtime &, NumericType, std::span<const std::byte>,
                                              std::span<const std::int64_t>);
 std::expected<std::span<const std::byte>, Error> hostBytes(const TensorValue &);

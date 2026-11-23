@@ -27,6 +27,9 @@
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
+#if defined(KALANDRA_HAS_CUDA_SOURCE) && defined(KALANDRA_HAS_VULKAN_SOURCE)
+#include "GpuBundle.h"
+#endif
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -58,6 +61,7 @@ constexpr std::string_view usage =
     "  remove <alias> [--project <manifest>]  Remove a direct dependency\n"
     "\nBuild options\n"
     "  --target cpu|metal|vulkan|cuda      Select the build backend\n"
+    "  --target cuda,vulkan                Bundle both GPU backends\n"
     "  -O0, -O1, -O2, -O3                  Select the optimization level\n"
     "  --package name=path.k               Map a local source library\n"
     "  --emit-mlir <file>, --emit-llvm <file>  Write intermediate code\n"
@@ -261,6 +265,18 @@ int main(int argc, char **argv) {
     platformOptions["target"] = found->second;
   }
   const bool selectedCpuToolchain = !toolchainPath.empty() || !platform.empty();
+  if (target == "cuda,vulkan" || target == "vulkan,cuda") {
+    if (selectedCpuToolchain) {
+      std::cerr << "GPU bundles require a native host target\n";
+      return 2;
+    }
+#if defined(KALANDRA_HAS_CUDA_SOURCE) && defined(KALANDRA_HAS_VULKAN_SOURCE)
+    return kalandra::cli::compileGpuBundle(filtered, feedback);
+#else
+    std::cerr << "GPU bundles require a compiler with both CUDA and Vulkan enabled\n";
+    return 2;
+#endif
+  }
   if ((target == "metal" || target == "vulkan" || target == "cuda") && selectedCpuToolchain) {
     std::cerr << "--toolchain selects a CPU ABI and cannot be combined with --target " << target
               << '\n';

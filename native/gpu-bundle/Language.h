@@ -1,0 +1,509 @@
+#pragma once
+#include "../cuda/Language.h"
+#include "../vulkan/Language.h"
+#include "Selection.h"
+#include <algorithm>
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
+#include <variant>
+
+namespace kalandra::runtime::bundle {
+namespace cl = cuda::language;
+namespace vk = vulkan::language;
+using Error = cl::Error;
+using Format = NumericType;
+using cl::storageFormat;
+using NumericInstructionKind = NumericProgramKind;
+using ElementwiseSignature = cl::ElementwiseSignature;
+using ElementwiseBinding = cl::ElementwiseBinding;
+
+// Both descriptors pin the same immutable CPU allocation. Each possible
+// backend accounts it in its own byte ledger before a driver has been selected.
+struct HostTensor {
+  cl::Buffer cuda;
+  vk::Buffer vulkan;
+  std::shared_ptr<cuda::ByteBudget> owner;
+};
+struct Buffer {
+  std::variant<cl::Buffer, vk::Buffer, std::shared_ptr<const HostTensor>> value;
+  template <class F> auto inspect(F fn) const {
+    return std::visit(
+        [&](const auto &v) {
+          if constexpr (std::is_same_v<std::decay_t<decltype(v)>,
+                                       std::shared_ptr<const HostTensor>>)
+            return fn(v->cuda);
+          else
+            return fn(v);
+        },
+        value);
+  }
+  template <class B> const B &native() const {
+    if (auto host = std::get_if<std::shared_ptr<const HostTensor>>(&value)) {
+      if constexpr (std::is_same_v<B, cl::Buffer>)
+        return (*host)->cuda;
+      else
+        return (*host)->vulkan;
+    }
+    return std::get<B>(value);
+  }
+  explicit operator bool() const {
+    return inspect([](auto &v) { return bool(v); });
+  }
+  bool onDevice() const {
+    return inspect([](auto &v) { return v.onDevice(); });
+  }
+  auto shape() const {
+    return inspect([](auto &v) { return v.shape(); });
+  }
+  Format format() const {
+    return inspect([](auto &v) { return v.format(); });
+  }
+};
+struct Device {
+  std::variant<cl::Device, vk::Device> value;
+  explicit operator bool() const {
+    return std::visit([](const auto &device) { return bool(device); }, value);
+  }
+};
+using Kernel = std::variant<cl::Kernel, vk::Kernel>;
+struct NumericExecutable {
+  std::variant<cl::NumericExecutable, vk::NumericExecutable> value;
+  explicit operator bool() const {
+    return std::visit([](const auto &plan) { return bool(plan); }, value);
+  }
+  bool on(const Device &device) const {
+    if (auto cuda = std::get_if<cl::NumericExecutable>(&value))
+      return std::holds_alternative<cl::Device>(device.value) &&
+             cuda->on(std::get<cl::Device>(device.value));
+    return std::holds_alternative<vk::Device>(device.value) &&
+           std::get<vk::NumericExecutable>(value).on(std::get<vk::Device>(device.value));
+  }
+};
+struct NumericInstruction {
+  NumericInstructionKind kind;
+  Kernel kernel{};
+  std::span<const std::uint32_t> inputs{};
+  std::span<const std::uint64_t> scalars{};
+  std::uint32_t output = UINT32_MAX, target = 0, workPerElement = 0;
+};
+
+struct Module {
+  const char *stem;
+  std::uint32_t device;
+  bool matmul;
+};
+
+class Runtime {
+  using Context = std::variant<std::unique_ptr<cl::Runtime>, std::unique_ptr<vk::Runtime>>;
+  template <class R, class C, class V>
+  using For = std::conditional_t<std::is_same_v<std::remove_reference_t<R>, cl::Runtime>, C, V>;
+
+  const Selection<Context, Error>::Result &selected() {
+    const auto &selection = selection_.get(
+        []() -> std::string_view {
+          const char *forced = std::getenv("KALANDRA_GPU_BACKEND");
+          if (!forced || !*forced)
+            return {};
+          std::string_view value(forced);
+          if (value != "cuda" && value != "vulkan")
+            std::fprintf(stderr,
+                         "Kalandra GPU: invalid KALANDRA_GPU_BACKEND (expected cuda or vulkan)\n");
+          return value;
+        },
+        [&](Backend backend) -> std::expected<Context, Error> {
+          auto result = backend == Backend::Cuda
+                            ? admit<cl::Runtime, cl::Options, cuda::TensorPublication>(backend)
+                            : admit<vk::Runtime, vk::Options, vulkan::TensorPublication>(backend);
+          if (!result) {
+            errors_[backend == Backend::Cuda ? 0 : 1] = result.error();
+            if (std::getenv("KALANDRA_GPU_TRACE"))
+              report(backend, result.error());
+          }
+          return result;
+        });
+    if (!selection) {
+      std::call_once(failureReported_, [&] {
+        if (!std::getenv("KALANDRA_GPU_TRACE"))
+          for (auto backend : {Backend::Cuda, Backend::Vulkan})
+            if (auto error = errors_[backend == Backend::Cuda ? 0 : 1])
+              report(backend, *error);
+      });
+    }
+    return selection;
+  }
+  static void report(Backend backend, Error error) {
+    const char *reason = error == Error::Unavailable ? "driver or requested device unavailable"
+                         : error == Error::Unsupported
+                             ? "device does not support the compiled program"
+                         : error == Error::Invalid ? "invalid module or runtime configuration"
+                                                   : "runtime initialization failed";
+    std::fprintf(stderr, "Kalandra GPU: %s: %s (%lld)\n", name(backend).data(), reason,
+                 static_cast<long long>(error));
+  }
+  template <class R, class Options, class Publication>
+  std::expected<Context, Error> admit(Backend backend) {
+    using Tensor = For<R, cl::Buffer, vk::Buffer>;
+    static const Publication publication{[](const TaskEntry &native) noexcept -> const TaskEntry & {
+                                           static const TaskEntry published = [&] {
+                                             auto entry = native;
+                                             entry.result = &bufferLayout();
+                                             return entry;
+                                           }();
+                                           return published;
+                                         },
+                                         [](Task &task, const Tensor &tensor) noexcept {
+                                           Buffer item{tensor};
+                                           task.complete(&item);
+                                         }};
+    Options options;
+    options.allowSoftwareFallback = options_.allowSoftwareFallback;
+    options.publication = &publication;
+    if constexpr (std::is_same_v<R, cl::Runtime>)
+      options.byteBudget = cudaBytes_;
+    else
+      options.byteBudget = vulkanBytes_;
+    using Driver = For<R, cuda::Runtime, vulkan::Runtime>;
+    try {
+      auto devices = Driver::enumerate(false, true);
+      if (!devices)
+        return std::unexpected(static_cast<Error>(devices.error()));
+      Error last = Error::Unavailable;
+      for (std::size_t index = 0; index < devices->size(); ++index) {
+        // Logical GPU zero is the first compatible physical adapter. Its stable
+        // UUID is also validated by the concrete driver when opening the context.
+        auto ordered = *devices;
+        std::rotate(ordered.begin(), ordered.begin() + index, ordered.begin() + index + 1);
+        auto runtime = R::create(options, std::move(ordered));
+        if (runtime) {
+          for (auto requested : devices_) {
+            auto device = (*runtime)->device(requested);
+            if (!device) {
+              runtime = std::unexpected(device.error());
+              break;
+            }
+          }
+        }
+        if (runtime) {
+          for (const auto &module : modules_) {
+            auto path = directory_ / module.stem;
+            path += backend == Backend::Cuda ? ".ptx" : ".spv";
+            auto compatible = (*runtime)->admitModule(path, module.device, module.matmul);
+            if (!compatible) {
+              runtime = std::unexpected(compatible.error());
+              break;
+            }
+          }
+        }
+        if (runtime) {
+          if (std::getenv("KALANDRA_GPU_TRACE")) {
+            auto device = (*runtime)->device();
+            if (device)
+              std::fprintf(stderr, "Kalandra GPU: selected %s (%.*s)\n", name(backend).data(),
+                           int(device->name().size()), device->name().data());
+          }
+          active_.store(true, std::memory_order_release);
+          return Context{std::move(*runtime)};
+        }
+        last = static_cast<Error>(runtime.error());
+        if (last != Error::Unsupported && last != Error::Unavailable)
+          break;
+      }
+      return std::unexpected(last);
+    } catch (const std::bad_alloc &) {
+      return std::unexpected(Error::Allocation);
+    } catch (const std::filesystem::filesystem_error &) {
+      return std::unexpected(Error::Invalid);
+    }
+  }
+  template <class T, class F> std::expected<T, Error> withRuntime(F &&fn) {
+    auto &runtime = selected();
+    if (!runtime)
+      return std::unexpected(runtime.error());
+    try {
+      return std::visit(
+          [&](auto &pointer) -> std::expected<T, Error> {
+            auto result = fn(*pointer);
+            if (!result)
+              return std::unexpected(static_cast<Error>(result.error()));
+            return T{std::move(*result)};
+          },
+          *runtime);
+    } catch (const std::bad_alloc &) {
+      return std::unexpected(Error::Allocation);
+    }
+  }
+  template <class F>
+  std::expected<Kernel, Error> load(const std::string &path, const Device &device, F &&fn) {
+    return withRuntime<Kernel>([&](auto &runtime) {
+      using R = decltype(runtime);
+      using D = For<R, cl::Device, vk::Device>;
+      using K = For<R, cl::Kernel, vk::Kernel>;
+      using E = For<R, cl::Error, vk::Error>;
+      auto *target = std::get_if<D>(&device.value);
+      if (!target)
+        return std::expected<K, E>(std::unexpected(E::Residency));
+      auto module = std::filesystem::path(std::u8string(path.begin(), path.end()));
+      module.replace_extension(std::is_same_v<D, cl::Device> ? ".ptx" : ".spv");
+      const auto utf8 = module.u8string();
+      return fn(runtime, std::string_view(reinterpret_cast<const char *>(utf8.data()), utf8.size()),
+                *target);
+    });
+  }
+
+public:
+  struct Options {
+    bool allowSoftwareFallback = false;
+  };
+  static std::expected<std::unique_ptr<Runtime>, Error> create(Options options) noexcept {
+    auto result = std::unique_ptr<Runtime>(new (std::nothrow) Runtime(options));
+    if (!result)
+      return std::unexpected(Error::Allocation);
+    try {
+      auto cuda = cuda::Runtime::createByteBudget(cl::Options{}.maxBytes);
+      if (!cuda)
+        return std::unexpected(cuda.error());
+      auto vulkan = vulkan::Runtime::createByteBudget(vk::Options{}.maxBytes);
+      if (!vulkan)
+        return std::unexpected(static_cast<Error>(vulkan.error()));
+      result->cudaBytes_ = std::move(*cuda);
+      result->vulkanBytes_ = std::move(*vulkan);
+    } catch (const std::bad_alloc &) {
+      return std::unexpected(Error::Allocation);
+    }
+    return result;
+  }
+  static std::expected<std::unique_ptr<Runtime>, Error>
+  create(std::string_view directory, std::span<const Module> modules,
+         std::span<const std::uint32_t> devices, Options options) noexcept {
+    auto result = create(options);
+    if (result) {
+      try {
+        (*result)->directory_ = std::u8string(directory.begin(), directory.end());
+        (*result)->modules_ = modules;
+        (*result)->devices_ = devices;
+      } catch (const std::bad_alloc &) {
+        return std::unexpected(Error::Allocation);
+      } catch (const std::filesystem::filesystem_error &) {
+        return std::unexpected(Error::Invalid);
+      }
+    }
+    return result;
+  }
+  static auto create() noexcept { return create({}); }
+  auto device(std::uint32_t index = 0) {
+    return withRuntime<Device>([&](auto &r) { return r.device(index); });
+  }
+  std::expected<Buffer, Error> fromCpu(const Invocation &context, CpuTensorView view) {
+    if (active_.load(std::memory_order_acquire))
+      return withRuntime<Buffer>([&](auto &r) { return r.fromCpu(context, view); });
+    try {
+      auto cpu = cuda::fromCpu(cudaBytes_, context, view);
+      if (!cpu)
+        return std::unexpected(cpu.error());
+      auto vk = vulkan::fromCpu(vulkanBytes_, context, view);
+      if (!vk)
+        return std::unexpected(static_cast<Error>(vk.error()));
+      return Buffer{std::make_shared<const HostTensor>(
+          HostTensor{std::move(*cpu), std::move(*vk), cudaBytes_})};
+    } catch (const std::bad_alloc &) {
+      return std::unexpected(Error::Allocation);
+    }
+  }
+  template <NumericType Element, std::size_t Rank>
+  auto toCpuTyped(Invocation &context, const Buffer &buffer) {
+    if (auto host = std::get_if<std::shared_ptr<const HostTensor>>(&buffer.value)) {
+      if ((*host)->owner != cudaBytes_)
+        return std::expected<CpuTensor<Element, Rank>, Error>(std::unexpected(Error::Residency));
+      return cuda::toCpuTyped<Element, Rank>(context, (*host)->cuda);
+    }
+    return withRuntime<CpuTensor<Element, Rank>>([&](auto &r) {
+      using B = For<decltype(r), cl::Buffer, vk::Buffer>;
+      using E = For<decltype(r), cl::Error, vk::Error>;
+      if (auto value = std::get_if<B>(&buffer.value))
+        return r.template toCpuTyped<Element, Rank>(context, *value);
+      return std::expected<CpuTensor<Element, Rank>, E>(std::unexpected(E::Residency));
+    });
+  }
+  static const ValueLayout &bufferLayout() {
+    static const ValueLayout layout{
+        0x4b424e444c01, sizeof(Buffer), alignof(Buffer),
+        [](Invocation &, void *out, const Invocation &, const void *in) noexcept {
+          new (out) Buffer(*static_cast<const Buffer *>(in));
+          return true;
+        },
+        [](void *out) noexcept { std::destroy_at(static_cast<Buffer *>(out)); }};
+    return layout;
+  }
+  static auto arrayResult(const Buffer &b) {
+    return b.inspect([](auto &v) { return v.arrayResult; });
+  }
+  static auto workgroupOutcome(const Buffer &b) {
+    return b.inspect([](auto &v) { return v.workgroupOutcome; });
+  }
+  static std::expected<std::span<const std::byte>, Error> arrayPageBytes(const Buffer &b) {
+    return b.inspect([](auto &v) -> std::expected<std::span<const std::byte>, Error> {
+      using R = std::conditional_t<std::is_same_v<std::decay_t<decltype(v)>, cl::Buffer>,
+                                   cl::Runtime, vk::Runtime>;
+      auto bytes = R::arrayPageBytes(v);
+      if (!bytes)
+        return std::unexpected(static_cast<Error>(bytes.error()));
+      return *bytes;
+    });
+  }
+  auto loadNumericGraphKernel(const std::string &path, const Device &d, NumericType t,
+                              ElementwiseSignature s, std::span<const NumericType> tensors,
+                              std::span<const NumericType> scalars,
+                              std::span<const std::uint32_t> reads,
+                              std::span<const std::uint8_t> roles) {
+    return load(path, d, [&](auto &r, auto p, auto dev) {
+      using Binding = For<decltype(r), cl::ElementwiseBinding, vk::ElementwiseBinding>;
+      return r.loadNumericGraphKernel(p, dev, t,
+                                      {s.tensors, s.scalars, static_cast<Binding>(s.binding)},
+                                      tensors, scalars, reads, roles);
+    });
+  }
+  auto loadNumericReductionKernel(const std::string &p, const Device &d, NumericType t) {
+    return load(p, d, [&](auto &r, auto path, auto dev) {
+      return r.loadNumericReductionKernel(path, dev, t);
+    });
+  }
+  auto loadNumericMatmulKernel(const std::string &p, const Device &d, NumericType t) {
+    return load(p, d, [&](auto &r, auto path, auto dev) {
+      return r.loadNumericMatmulKernel(path, dev, t);
+    });
+  }
+  auto loadTensorTransformKernel(const std::string &p, const Device &d, TensorTransformKind kind,
+                                 NumericType t, bool epsilon) {
+    return load(p, d, [&](auto &r, auto path, auto dev) {
+      return r.loadTensorTransformKernel(path, dev, kind, t, epsilon);
+    });
+  }
+  auto loadWorkgroupKernel(const std::string &p, const Device &d, NumericType t,
+                           std::span<const NumericType> tensors,
+                           std::span<const NumericType> scalars, const WorkgroupLaunch &launch) {
+    return load(p, d, [&](auto &r, auto path, auto dev) {
+      return r.loadWorkgroupKernel(path, dev, t, tensors, scalars, launch);
+    });
+  }
+  auto prepareNumericProgram(std::uint32_t count, std::span<const NumericInstruction> instructions,
+                             std::uint32_t result, NumericType type, bool scalar, bool boolean,
+                             const Device &d) {
+    return withRuntime<NumericExecutable>([&](auto &r) {
+      using R = decltype(r);
+      using D = For<R, cl::Device, vk::Device>;
+      using K = For<R, cl::Kernel, vk::Kernel>;
+      using E = For<R, cl::Error, vk::Error>;
+      using Exec = For<R, cl::NumericExecutable, vk::NumericExecutable>;
+      std::vector<For<R, cl::NumericInstruction, vk::NumericInstruction>> code;
+      auto target = std::get_if<D>(&d.value);
+      if (!target)
+        return std::expected<Exec, E>(std::unexpected(E::Residency));
+      if (instructions.size_bytes() > 1024 * 1024)
+        return std::expected<Exec, E>(std::unexpected(E::Budget));
+      code.reserve(instructions.size());
+      for (auto &op : instructions) {
+        auto k = std::get_if<K>(&op.kernel);
+        if (!k && std::visit([](auto &native) { return bool(native); }, op.kernel))
+          return std::expected<Exec, E>(std::unexpected(E::Residency));
+        code.push_back({op.kind, k ? *k : K{}, op.inputs, op.scalars, op.output, op.target,
+                        op.workPerElement});
+      }
+      return r.prepareNumericProgram(count, code, result, type, scalar, boolean, *target);
+    });
+  }
+  auto prepareNumericProgram(std::uint32_t count, std::span<const NumericInstruction> code,
+                             std::uint32_t result, NumericType type, bool scalar, const Device &d) {
+    return prepareNumericProgram(count, code, result, type, scalar, false, d);
+  }
+  template <class Caller>
+  TaskHandle upload(Caller &c, GroupHandle g, const Buffer &b, const Device &d) {
+    return withTask(c, g, [&](auto &r) {
+      using R = decltype(r);
+      return r.upload(c, g, b.native<For<R, cl::Buffer, vk::Buffer>>(),
+                      std::get<For<R, cl::Device, vk::Device>>(d.value));
+    });
+  }
+  template <class Caller> TaskHandle download(Caller &c, GroupHandle g, const Buffer &b) {
+    return withTask(c, g, [&](auto &r) {
+      return r.download(c, g, b.native<For<decltype(r), cl::Buffer, vk::Buffer>>());
+    });
+  }
+  TaskHandle downloadArrayPage(Task &c, GroupHandle g, const Buffer &b, std::uint64_t offset,
+                               std::uint64_t words) {
+    return withTask(c, g, [&](auto &r) {
+      return r.downloadArrayPage(c, g, b.native<For<decltype(r), cl::Buffer, vk::Buffer>>(), offset,
+                                 words);
+    });
+  }
+  template <class Caller>
+  TaskHandle executeNumericProgram(Caller &c, GroupHandle g, const NumericExecutable &ex,
+                                   std::span<const Buffer> inputs,
+                                   std::span<const std::uint64_t> args = {}) {
+    return withTask(c, g, [&](auto &r) {
+      using R = decltype(r);
+      using B = For<R, cl::Buffer, vk::Buffer>;
+      using E = For<R, cl::Error, vk::Error>;
+      if (inputs.size() > (1024 * 1024) / sizeof(B))
+        return r.reject(c, g, E::Budget);
+      const auto &plan = std::get<For<R, cl::NumericExecutable, vk::NumericExecutable>>(ex.value);
+      // Most dispatches have only one or two resident operands.
+      std::array<B, 4> small;
+      std::vector<B> large;
+      if (inputs.size() > small.size())
+        large.resize(inputs.size());
+      std::span<B> native =
+          large.empty() ? std::span(small).first(inputs.size()) : std::span(large);
+      for (std::size_t i = 0; i < inputs.size(); ++i)
+        native[i] = inputs[i].native<B>();
+      return r.executeNumericProgram(c, g, plan, native, args);
+    });
+  }
+  cl::Stats stats() {
+    if (!active_.load(std::memory_order_acquire))
+      return {.bytes = cuda::Runtime::reservedBytes(cudaBytes_)};
+    return std::visit(
+        [](auto &r) {
+          auto s = r->stats();
+          return cl::Stats{s.bytes, s.inFlight, s.argumentBytes, s.initializedDevices};
+        },
+        *selected());
+  }
+
+private:
+  explicit Runtime(Options options) : options_(options) {}
+  template <class Caller, class F> TaskHandle withTask(Caller &caller, GroupHandle group, F &&fn) {
+    const auto &result = selected();
+    auto error = Error::Unavailable;
+    if (result) {
+      try {
+        return std::visit([&](auto &r) { return fn(*r); }, *result);
+      } catch (const std::bad_variant_access &) {
+        error = Error::Residency;
+      } catch (const std::bad_alloc &) {
+        error = Error::Allocation;
+      }
+      return std::visit(
+          [&](auto &r) {
+            using E = For<decltype(*r), cl::Error, vk::Error>;
+            return r->reject(caller, group, static_cast<E>(error));
+          },
+          *result);
+    }
+    error = result.error();
+    if constexpr (std::is_same_v<Caller, Task>)
+      caller.fault(static_cast<std::int64_t>(error));
+    return {};
+  }
+  Options options_;
+  std::shared_ptr<cuda::ByteBudget> cudaBytes_;
+  std::shared_ptr<vulkan::ByteBudget> vulkanBytes_;
+  Selection<Context, Error> selection_;
+  std::atomic<bool> active_{};
+  std::array<std::optional<Error>, 2> errors_{};
+  std::once_flag failureReported_;
+  std::filesystem::path directory_;
+  std::span<const Module> modules_;
+  std::span<const std::uint32_t> devices_;
+};
+} // namespace kalandra::runtime::bundle

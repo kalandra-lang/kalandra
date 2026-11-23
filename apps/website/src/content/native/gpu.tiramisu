@@ -58,6 +58,22 @@ The program displays 23. The computation runs on the GPU; format and println dis
 
 The output is an application directory containing program and its metallib resources. Keep them together when moving the application. The generated application can run without the compiler distribution; compatible hardware and system frameworks remain required.
 
+h2 { "Ship one application for CUDA and Vulkan" }
+
+For Linux or Windows, use a compiler built with both backends. A single build produces one application directory for the build machine’s operating system and CPU architecture. When building the compiler from source, enable both backend runtimes and the CUDA source compiler. The CMake target native-gpu-standalone-package produces the combined compiler package. Choose a new application output directory and distribute its entire contents together.
+
+codeblock { language = bash, """kalandra main.k --target cuda,vulkan -O2 -o app
+./app/program
+""" }
+
+On Windows, run app/program.exe. End users need a compatible NVIDIA driver for CUDA, or a Vulkan loader and a compatible device driver for Vulkan. The compiler and CUDA toolkit are build tools and are unnecessary to run the application.
+
+The first GPU request tries CUDA, then Vulkan. Each candidate must support the program’s device modules with the arithmetic policy chosen at build time. Concurrent requests share this check. Later requests reuse the selection, including a failure to find a compatible device. A new process starts a fresh selection.
+
+To inspect the choice, set KALANDRA_GPU_TRACE=1 before launch. To test a specific backend, set KALANDRA_GPU_BACKEND to cuda or vulkan. A forced backend must qualify on its own. An execution fault reaches the application through its normal task error path. Resident tensors stay on their original device. To offer a CPU path, implement it explicitly in the application.
+
+On macOS, build with --target metal. Single-backend CUDA and Vulkan builds are also available when the deployment hardware is known.
+
 h2 { "Experimental Vulkan backend" }
 
 A compiler built with Vulkan support accepts the following command for the same example:

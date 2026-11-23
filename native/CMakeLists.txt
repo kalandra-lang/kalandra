@@ -1249,6 +1249,7 @@ include(cmake/CPUCompilerInstall.cmake)
 include(cmake/MetalCompilerInstall.cmake)
 include(cmake/VulkanCompilerInstall.cmake)
 include(cmake/CudaCompilerInstall.cmake)
+include(cmake/GpuBundleCompilerInstall.cmake)
 
 include(cmake/Scaffold.cmake)
 
@@ -1434,7 +1435,8 @@ endif()
 
 # All public CLI variants share the configured toolchain version.
 foreach(_tool IN ITEMS kalandra kalandra-installed kalandra-metal-installed kalandra-vulkan-installed
-    kalandra-cuda-installed kalandra-check kalandra-check-sanitized kalandra-parse kalandra-mlir-check
+    kalandra-cuda-installed kalandra-gpu-installed kalandra-check kalandra-check-sanitized
+    kalandra-parse kalandra-mlir-check
     kalandra-lsp kalandra-lsp-sanitized kalandra-fmt kalandra-fmt-debug
     kalandra-fmt-optimized kalandra-fmt-sanitized kalandra-fmt-thread-sanitized)
   if(TARGET ${_tool})

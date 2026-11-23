@@ -21,5 +21,5 @@ constexpr CapabilityTarget capabilityTarget(GpuBackend backend) {
 std::expected<std::map<std::string, std::string>, Diagnostic>
 emitGpuSupervisor(Module, ArithmeticMode, bool testCpuExports = false,
                   GpuBackend = GpuBackend::Metal, bool application = false,
-                  Optimization level = Optimization::O0);
+                  Optimization level = Optimization::O0, bool bundledHost = false);
 } // namespace kalandra

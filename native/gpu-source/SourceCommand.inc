@@ -128,7 +128,8 @@
       return 1;
     }
     progress.phase("Compiling", sourcePath);
-    auto emitted = emitGpuSupervisor(std::move(parsed->module), arithmetic, testCpuExports, selectedGpuBackend, application, level);
+    auto emitted = emitGpuSupervisor(std::move(parsed->module), arithmetic, testCpuExports, selectedGpuBackend, application, level,
+                                     bundle && selectedGpuBackend == GpuBackend::Vulkan);
     if (!emitted) {
       progress.diagnostic() << renderDiagnostic(*source, emitted.error());
       return 1;
@@ -213,8 +214,8 @@
         throw std::runtime_error(error.message());
     }
     if (build) {
-      buildGpuProgram(progress, directory, outputs, variant, level, arithmetic, matmul);
-      progress.built(directory.string(), backendFlag);
+      buildGpuProgram(progress, directory, outputs, variant, level, arithmetic, matmul, bundle);
+      if (!bundle) progress.built(directory.string(), backendFlag);
     }
     return 0;
   } catch (const std::exception &e) {

@@ -147,8 +147,12 @@ struct ByteBudget {
   mutable std::mutex mutex;
   std::uint64_t bytes = 0, maximum = 0;
 };
+struct DiscoveredAdapter {
+  std::shared_ptr<Instance> instance;
+  VkPhysicalDevice physical;
+};
 struct State {
-  std::unique_ptr<Instance> instance;
+  std::shared_ptr<Instance> instance;
   VkPhysicalDevice physical = VK_NULL_HANDLE;
   VkPhysicalDeviceProperties properties{};
   VkPhysicalDeviceMemoryProperties memory{};
@@ -596,7 +600,7 @@ struct KernelState {
 };
 std::uint64_t Buffer::bytes() const noexcept { return storage_ ? storage_->bytes : 0; }
 Runtime::~Runtime() = default;
-std::expected<std::vector<DeviceInfo>, Error> Runtime::enumerate(bool debug) {
+std::expected<std::vector<DeviceInfo>, Error> Runtime::enumerate(bool debug, bool retain) {
   try {
     auto context = instance(debug);
     if (!context)
@@ -605,8 +609,13 @@ std::expected<std::vector<DeviceInfo>, Error> Runtime::enumerate(bool debug) {
     if (!devices)
       return std::unexpected(devices.error());
     std::vector<DeviceInfo> result;
-    for (auto device : *devices)
-      result.push_back(description(device));
+    std::shared_ptr<Instance> retained;
+    if (retain) retained = std::move(*context);
+    for (auto device : *devices) {
+      auto info = description(device);
+      if (retain) info.adapter = std::make_shared<DiscoveredAdapter>(DiscoveredAdapter{retained,device});
+      result.push_back(std::move(info));
+    }
     return result;
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
@@ -616,24 +625,30 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
   try {
     auto state = std::make_shared<State>();
     state->tiledMatmul = options.enableTiledMatmul;
-    auto context = instance(options.validation);
-    if (!context)
-      return std::unexpected(context.error());
-    state->instance = std::move(*context);
-    auto devices = physicals(state->instance->handle);
-    if (!devices)
-      return std::unexpected(devices.error());
-    if (options.deviceUuid) {
-      auto found = std::find_if(devices->begin(), devices->end(), [&](auto device) {
-        return description(device).uuid == *options.deviceUuid;
-      });
-      if (found == devices->end())
-        return std::unexpected(Error::Unavailable);
-      state->physical = *found;
+    if (options.discovered && options.discovered->adapter) {
+      const auto &adapter = *options.discovered->adapter;
+      state->instance = adapter.instance;
+      state->physical = adapter.physical;
     } else {
-      if (options.deviceIndex >= devices->size())
-        return std::unexpected(Error::Unavailable);
-      state->physical = (*devices)[options.deviceIndex];
+      auto context = instance(options.validation);
+      if (!context)
+        return std::unexpected(context.error());
+      state->instance = std::move(*context);
+      auto devices = physicals(state->instance->handle);
+      if (!devices)
+        return std::unexpected(devices.error());
+      if (options.deviceUuid) {
+        auto found = std::find_if(devices->begin(), devices->end(), [&](auto device) {
+          return description(device).uuid == *options.deviceUuid;
+        });
+        if (found == devices->end())
+          return std::unexpected(Error::Unavailable);
+        state->physical = *found;
+      } else {
+        if (options.deviceIndex >= devices->size())
+          return std::unexpected(Error::Unavailable);
+        state->physical = (*devices)[options.deviceIndex];
+      }
     }
     if (options.budget)
       state->budget = std::move(options.budget);

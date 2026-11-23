@@ -23,11 +23,13 @@ enum class Error : std::int64_t {
   Device = 105,
   Unsupported = 106
 };
+struct DiscoveredAdapter;
 struct DeviceInfo {
   std::string name;
   std::uint32_t vendor = 0x10de, device = 0, apiVersion = 0;
   bool discrete = true, integrated = false;
   std::array<std::uint8_t, 16> uuid{};
+  std::shared_ptr<const DiscoveredAdapter> adapter{};
 };
 struct ByteBudget;
 struct HostCharge;
@@ -56,6 +58,7 @@ struct Options {
   std::optional<std::array<std::uint8_t, 16>> deviceUuid{};
   bool enableFloat64 = true, enableTiledMatmul = true;
   unsigned maxModules = 64;
+  const DeviceInfo *discovered = nullptr;
 };
 class Buffer {
   std::shared_ptr<Storage> storage_;
@@ -113,7 +116,7 @@ public:
   Runtime &operator=(const Runtime &) = delete;
   ~Runtime() = default;
   static std::expected<std::unique_ptr<Runtime>, Error> create(Options = {});
-  static std::expected<std::vector<DeviceInfo>, Error> enumerate(bool validation = false);
+  static std::expected<std::vector<DeviceInfo>, Error> enumerate(bool validation = false, bool retain = false);
   static std::expected<std::shared_ptr<ByteBudget>, Error> createByteBudget(std::uint64_t);
   static std::expected<std::shared_ptr<const HostCharge>, Error>
   reserveBytes(const std::shared_ptr<ByteBudget> &, std::uint64_t);

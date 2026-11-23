@@ -37,8 +37,7 @@ TensorValue metadata(NumericType type, std::span<const std::int64_t> shape) {
   return value;
 }
 std::expected<std::shared_ptr<HostTensorStorage>, Error>
-backing(Runtime &runtime, const TensorValue &value, std::uint64_t bytes) {
-  auto charge = runtime.reserveHostBytes(bytes);
+backing(const TensorValue &value, std::expected<std::shared_ptr<const HostCharge>, Error> charge) {
   if (!charge)
     return std::unexpected(charge.error());
   auto result = std::make_shared<HostTensorStorage>();
@@ -48,15 +47,14 @@ backing(Runtime &runtime, const TensorValue &value, std::uint64_t bytes) {
   result->rank = value.rank;
   return result;
 }
-} // namespace
-std::expected<TensorValue, Error> fromCpu(Runtime &runtime, const Invocation &context,
-                                          CpuTensorView view) {
+template<class Reserve>
+std::expected<TensorValue, Error> importCpu(const Invocation &context, CpuTensorView view, Reserve reserve) {
   auto retained = retainCpuTensor(context, view);
   if (!retained)
     return std::unexpected(Error::Invalid);
   try {
     auto value = metadata(retained->element(), retained->shape());
-    auto storage = backing(runtime, value, retained->retainedBytes());
+    auto storage = backing(value, reserve(retained->retainedBytes()));
     if (!storage)
       return std::unexpected(storage.error());
     (*storage)->retained.emplace(std::move(*retained));
@@ -66,6 +64,14 @@ std::expected<TensorValue, Error> fromCpu(Runtime &runtime, const Invocation &co
     return std::unexpected(Error::Allocation);
   }
 }
+} // namespace
+std::expected<TensorValue, Error> fromCpu(Runtime &runtime, const Invocation &context, CpuTensorView view) {
+  return importCpu(context,view,[&](auto size){return runtime.reserveHostBytes(size);});
+}
+std::expected<TensorValue, Error> fromCpu(const std::shared_ptr<ByteBudget> &budget,
+                                          const Invocation &context, CpuTensorView view) {
+  return importCpu(context,view,[&](auto size){return Runtime::reserveBytes(budget,size);});
+}
 std::expected<TensorValue, Error> hostTensor(Runtime &runtime, NumericType type,
                                              std::span<const std::byte> bytes,
                                              std::span<const std::int64_t> shape) {
@@ -74,7 +80,7 @@ std::expected<TensorValue, Error> hostTensor(Runtime &runtime, NumericType type,
     return std::unexpected(Error::Invalid);
   try {
     auto value = metadata(type, shape);
-    auto storage = backing(runtime, value, bytes.size());
+    auto storage = backing(value, runtime.reserveHostBytes(bytes.size()));
     if (!storage)
       return std::unexpected(storage.error());
     (*storage)->owned.assign(bytes.begin(), bytes.end());
@@ -130,7 +136,7 @@ std::expected<TensorValue, Error> transferTensor(Runtime &runtime, const TensorV
       value.data = std::move(*result);
       value.host.reset();
     } else {
-      auto storage = backing(runtime, input, input.data.bytes());
+      auto storage = backing(input, runtime.reserveHostBytes(input.data.bytes()));
       if (!storage)
         return std::unexpected(storage.error());
       (*storage)->owned.resize(input.data.bytes());
@@ -168,7 +174,7 @@ std::expected<TensorValue, Error> downloadArrayPagePayload(Runtime &runtime, con
   try {
     const std::int64_t size = words;
     auto value = metadata(NumericType::UInt64, std::span(&size, 1));
-    auto storage = backing(runtime, value, words * 8);
+    auto storage = backing(value, runtime.reserveHostBytes(words * 8));
     if (!storage)
       return std::unexpected(storage.error());
     (*storage)->owned.resize(words * 8);

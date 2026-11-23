@@ -22,7 +22,8 @@ struct Registry {
                                            .budget = bytes,
                                            .deviceUuid = devices[index].uuid,
                                            .enableFloat64 = options.enableFloat64,
-                                           .enableTiledMatmul = options.enableTiledMatmul});
+                                           .enableTiledMatmul = options.enableTiledMatmul,
+                                           .discovered = &devices[index]});
       if (!made)
         return std::unexpected(made.error());
       Context context;
@@ -31,7 +32,8 @@ struct Registry {
           AsyncRuntime::create(context.driver, {.maxPending = options.maxInFlight,
                                                 .maxCaptureBytes = options.maxArgumentBytes,
                                                 .metadataBudget = metadata,
-                                                .pendingBudget = pending});
+                                                .pendingBudget = pending,
+                                                .publication = options.publication});
       if (!context.async)
         return std::unexpected(Error::Allocation);
       context.async->holdCompletions(held);
@@ -64,15 +66,26 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
   if (!options.maxInFlight || options.maxInFlight > 4096)
     return std::unexpected(Error::Invalid);
   try {
-    auto state = std::make_shared<Registry>();
-    state->options = options;
     auto devices = raw::Runtime::enumerate(options.validation);
     if (!devices)
       return std::unexpected(devices.error());
-    if (options.defaultDevice >= devices->size())
-      return std::unexpected(Error::Unavailable);
-    state->devices = std::move(*devices);
-    auto bytes = raw::Runtime::createByteBudget(options.maxBytes);
+    return create(options, std::move(*devices));
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
+}
+std::expected<std::unique_ptr<Runtime>, Error>
+Runtime::create(Options options, std::vector<DeviceInfo> devices) noexcept {
+  if (!options.maxInFlight || options.maxInFlight > 4096)
+    return std::unexpected(Error::Invalid);
+  if (options.defaultDevice >= devices.size())
+    return std::unexpected(Error::Unavailable);
+  try {
+    auto state = std::make_shared<Registry>();
+    state->options = options;
+    state->devices = std::move(devices);
+    auto bytes = options.byteBudget ? std::expected<std::shared_ptr<ByteBudget>,Error>(options.byteBudget)
+                                    : raw::Runtime::createByteBudget(options.maxBytes);
     auto metadata = raw::Runtime::createByteBudget(options.maxArgumentBytes);
     auto pending = raw::Runtime::createByteBudget(options.maxInFlight);
     if (!bytes || !metadata || !pending)
@@ -91,6 +104,29 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     return std::unique_ptr<Runtime>(new Runtime(std::move(state)));
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
+  }
+}
+std::expected<void, Error> Runtime::admitModule(const std::filesystem::path &path, std::uint32_t index, bool matmul) noexcept {
+  try {
+    auto ready = state_->ensure(index);
+    if (!ready) return std::unexpected(ready.error());
+    auto &driver = *state_->contexts[index].driver;
+    auto kernel = matmul ? driver.loadMatmulKernel(path) : driver.loadKernel(path);
+    if (!kernel && kernel.error() == Error::Unsupported && !matmul && state_->options.allowSoftwareFallback) {
+      auto alternate = path;
+      alternate += backendSoftwareSuffix;
+      kernel = driver.loadKernel(alternate);
+    }
+    if (!kernel) return std::unexpected(kernel.error());
+    if (kernel->rightTransposedMatmul()) {
+      auto transpose = driver.loadBuiltinTransposeFloat32();
+      if (!transpose) return std::unexpected(transpose.error());
+    }
+    return {};
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  } catch (const std::filesystem::filesystem_error &) {
+    return std::unexpected(Error::Invalid);
   }
 }
 Runtime::~Runtime() = default;
@@ -115,6 +151,12 @@ std::expected<Buffer, Error> Runtime::fromCpu(const Invocation &context,
 }
 std::expected<void, Error> Runtime::validateHost(const Buffer &value) const noexcept {
   return validateTransfer(*state_->contexts[state_->options.defaultDevice].driver, value, true);
+}
+TaskHandle Runtime::reject(TaskCore &core, GroupHandle group, Error error) noexcept {
+  return state_->contexts[state_->options.defaultDevice].async->reject(core, group, error);
+}
+TaskHandle Runtime::reject(Task &task, GroupHandle group, Error error) noexcept {
+  return state_->contexts[state_->options.defaultDevice].async->reject(task, group, error);
 }
 template <class Caller>
 TaskHandle Runtime::transfer(Caller &caller, GroupHandle group, Buffer value, Device device,

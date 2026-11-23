@@ -100,6 +100,9 @@ class Compiler {
   ArithmeticMode arithmetic_;
   Optimization optimization_;
   GpuBackend backend_;
+  bool bundledHost_;
+  std::set<std::uint32_t> bundleDevices;
+  std::set<std::tuple<std::string, std::uint32_t, bool>> bundleModules;
   bool testCpuExports_;
   bool application_;
   bool hostText = false, hostTextArray = false;
@@ -519,7 +522,8 @@ class Compiler {
   std::string check(std::string expr) const {
     return "if (!(" + expr + ")) { " + error("m::Error::Invalid") + " }\n";
   }
-  std::string device(const Value &target) const {
+  std::string device(const Value &target) {
+    if (bundledHost_) bundleDevices.insert(target.device);
     return "r.device(" + std::to_string(target.device) + ")";
   }
   static std::optional<std::uint64_t> extent(const Value &value, unsigned axis) {
@@ -2943,7 +2947,8 @@ class Compiler {
     for (std::size_t i = 0; i < program.kernels.size(); ++i) {
       const auto &kernel = program.kernels[i];
       const auto name = "kernel" + std::to_string(i);
-      const auto path = base + (i ? "-stage" + std::to_string(i) : "") +
+      const auto stem = base + (i ? "-stage" + std::to_string(i) : "");
+      const auto path = stem +
                         (backend_ == GpuBackend::Vulkan ? ".spv"
                          : backend_ == GpuBackend::Cuda ? ".ptx"
                                                         : ".metallib");
@@ -2952,6 +2957,9 @@ class Compiler {
       if (instruction == program.code.end())
         reject(span, "unreferenced typed numerical program kernel");
       const auto kind = instruction->kind;
+      if (bundledHost_)
+        bundleModules.emplace(stem, target.device, kind == NumericProgramKind::Matmul &&
+                                                   kernel.element == NumericType::Float32);
       if (kernel.workgroup) {
         const auto &launch = *kernel.workgroup;
         auto vector = [&](const auto &values) {
@@ -5843,8 +5851,8 @@ class Compiler {
 
 public:
   explicit Compiler(Module module, ArithmeticMode arithmetic, bool testCpuExports,
-                    GpuBackend backend, bool application, Optimization level)
-      : arithmetic_(arithmetic), optimization_(level), backend_(backend),
+                    GpuBackend backend, bool application, Optimization level, bool bundledHost)
+      : arithmetic_(arithmetic), optimization_(level), backend_(backend), bundledHost_(bundledHost),
         testCpuExports_(testCpuExports), application_(application), syntax(std::move(module)) {}
   std::map<std::string, std::string> run() {
     auto checkedPlacement = kalandra::check({syntax, {}}, {}, {.placement = true});
@@ -6187,7 +6195,9 @@ public:
     }
     lowerCpuModules(outputs, fn.span);
     std::ostringstream host;
-    host << (backend_ != GpuBackend::Metal ? "#include \"Language.h\"\n" : "#include \"Metal.h\"\n")
+    host << (bundledHost_ ? "#include \"../gpu-bundle/Language.h\"\n"
+                          : backend_ == GpuBackend::Metal ? "#include \"Metal.h\"\n"
+                                                         : "#include \"Language.h\"\n")
          << R"(#include "../runtime/HostArrays.h"
 #include "../runtime/Console.h"
 #include "../runtime/FileSystem.h"
@@ -6213,7 +6223,7 @@ extern "C" const ValueLayout kalandra_gpu_string_layout;
 extern "C" const ValueLayout kalandra_gpu_string_array_layout;
 )"
          << (backend_ != GpuBackend::Metal
-                 ? (backend_ == GpuBackend::Cuda
+                 ? (bundledHost_ ? "namespace m = kalandra::runtime::bundle;\n" : backend_ == GpuBackend::Cuda
                         ? "namespace m = kalandra::runtime::cuda::language;\n"
                         : "namespace m = kalandra::runtime::vulkan::language;\n")
                  : "namespace m = kalandra::runtime::metal;\n")
@@ -6347,8 +6357,20 @@ void resume(Task &task) {
       host << "Invocation context;\n"
               "if(!kalandra_environment_initialize_v1(&context))"
               "context.reportApplicationFailure();\n";
+    if (bundledHost_) {
+      host << "static constexpr std::array<m::Module,"
+           << bundleModules.size() << "> bundleModules{{";
+      for (const auto &[stem, deviceIndex, matmul] : bundleModules)
+        host << "{\"" << stem << "\"," << deviceIndex << "," << (matmul ? "true" : "false") << "},";
+      host << "}};\nstatic constexpr std::array<std::uint32_t," << bundleDevices.size()
+           << "> bundleDevices{";
+      for (auto deviceIndex : bundleDevices) host << deviceIndex << ",";
+      host << "};\nauto made=m::Runtime::create(directory,bundleModules,bundleDevices,{"
+           << (arithmetic_ == ArithmeticMode::HardwareWithSoftwareFallback ? "true" : "false") << "});\n";
+    } else {
+      host << "auto made=m::Runtime::create();\n";
+    }
     host << R"(
-  auto made=m::Runtime::create();
   if (!made) { std::fprintf(stderr,"Metal unavailable: %lld\n",(long long)made.error()); return 1; }
   auto runtime=std::move(*made);
   TaskLimits limits;
@@ -6493,7 +6515,7 @@ void resume(Task &task) {
               "  if (!resolvedDirectory) { std::fprintf(stderr,\"Vulkan artifact "
               "directory unavailable\\n\"); return 1; }\n"
               "  const auto &directory=*resolvedDirectory;");
-      if (arithmetic_ == ArithmeticMode::HardwareWithSoftwareFallback) {
+      if (!bundledHost_ && arithmetic_ == ArithmeticMode::HardwareWithSoftwareFallback) {
         const std::string create = "auto made=m::Runtime::create();";
         const auto at = hostText.find(create);
         if (at == std::string::npos)
@@ -6506,10 +6528,10 @@ void resume(Task &task) {
         hostText.replace(at, destruction.size(), "std::destroy_at(value)");
       for (std::size_t at = 0; (at = hostText.find("Metal unavailable", at)) != std::string::npos;)
         hostText.replace(at, 17,
-                         backend_ == GpuBackend::Cuda ? "CUDA unavailable" : "Vulkan unavailable");
+                         bundledHost_ ? "GPU unavailable" : backend_ == GpuBackend::Cuda ? "CUDA unavailable" : "Vulkan unavailable");
       for (std::size_t at = 0; (at = hostText.find("Metal task failed", at)) != std::string::npos;)
         hostText.replace(at, 17,
-                         backend_ == GpuBackend::Cuda ? "CUDA task failed" : "Vulkan task failed");
+                         bundledHost_ ? "GPU task failed" : backend_ == GpuBackend::Cuda ? "CUDA task failed" : "Vulkan task failed");
       const std::string metalCleanup =
           "s.bytes || s.metalBuffers || s.hostBackings || s.deviceBackings || s.inFlight || "
           "s.stagingBuffers || s.argumentBytes || s.argumentPacks";
@@ -6718,9 +6740,9 @@ void resume(Task &task) {
 } // namespace
 std::expected<std::map<std::string, std::string>, Diagnostic>
 kalandra::emitGpuSupervisor(Module module, ArithmeticMode arithmetic, bool testCpuExports,
-                            GpuBackend backend, bool application, Optimization level) {
+                            GpuBackend backend, bool application, Optimization level, bool bundledHost) {
   try {
-    return Compiler(std::move(module), arithmetic, testCpuExports, backend, application, level)
+    return Compiler(std::move(module), arithmetic, testCpuExports, backend, application, level, bundledHost)
         .run();
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);

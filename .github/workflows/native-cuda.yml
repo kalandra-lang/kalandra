@@ -60,12 +60,12 @@ jobs:
       - name: Install hosted build prerequisites
         run: |
           sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
-          sudo apt-get install -y ninja-build zlib1g-dev libzstd-dev libxml2-dev patchelf
+          sudo apt-get install -y libvulkan-dev glslc spirv-tools ninja-build zlib1g-dev libzstd-dev libxml2-dev patchelf
       - name: Configure opt-in CUDA compiler
         run: >-
           cmake -S . -B build/cuda -G Ninja -DCMAKE_BUILD_TYPE=Release
           -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
-          -DKALANDRA_BUILD_CUDA_SOURCE=ON -DKALANDRA_BUILD_CUDA_RUNTIME=ON
+          -DKALANDRA_BUILD_VULKAN_RUNTIME=ON -DKALANDRA_BUILD_CUDA_SOURCE=ON -DKALANDRA_BUILD_CUDA_RUNTIME=ON
           -DKALANDRA_CUDA_HEADERS="$KALANDRA_CUDA_HEADERS"
           -DKALANDRA_CUDA_NVRTC="$KALANDRA_CUDA_NVRTC"
           -DKALANDRA_CUDA_CCCL_HEADERS="$KALANDRA_CUDA_CCCL_HEADERS"
@@ -75,6 +75,15 @@ jobs:
         run: >-
           cmake --build build/cuda --parallel 2 --target kalandra kalandra-test-observer native-cuda-standalone-package
           kalandra-cuda-artifact-tests kalandra-cuda-float-tests kalandra-cuda-catalog-tests
+      - name: Compile and test the multi-backend application
+        run: |
+          cmake --build build/cuda --parallel 2 --target native-gpu-standalone-package
+          python3 native/gpu-bundle/qualify.py --compiler build/cuda/native-gpu-standalone/package-stage/kalandra-native-gpu-standalone/bin/kalandra --output build/gpu-bundle
+          tar -C build/gpu-bundle -czf build/gpu-bundle-linux.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gpu-bundle-linux
+          path: build/gpu-bundle-linux.tar.gz
       - name: Compile generic algorithms and static trait dispatch
         run: >-
           python3 native/tests/GenericsSourceTests.py

@@ -3,6 +3,9 @@
 #include "BuiltinShaders.h"
 #include "SpirvInterface.h"
 #include "VulkanBuildConfig.h"
+#ifdef KALANDRA_BUNDLE_COMPILER
+#include "CudaBuildConfig.h"
+#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #include <array>
@@ -81,7 +84,7 @@ void buildVulkanProgram(kalandra::cli::BuildProgress &progress,
                         const std::filesystem::path &directory,
                         const std::map<std::string, std::string> &outputs,
                         const std::string &variant, kalandra::Optimization level,
-                        kalandra::ArithmeticMode arithmetic, kalandra::MatmulPolicy matmul) {
+                        kalandra::ArithmeticMode arithmetic, kalandra::MatmulPolicy matmul, bool bundle) {
   const auto lower = tool(KALANDRA_VULKAN_LOWER, "kalandra-vulkan-lower" KALANDRA_VULKAN_EXE_SUFFIX);
   const auto opt = tool(KALANDRA_VULKAN_OPT, "mlir-opt" KALANDRA_VULKAN_EXE_SUFFIX);
   const auto extract = tool(KALANDRA_VULKAN_EXTRACT, "kalandra-vulkan-extract" KALANDRA_VULKAN_EXE_SUFFIX);
@@ -157,6 +160,9 @@ void buildVulkanProgram(kalandra::cli::BuildProgress &progress,
 #ifdef _WIN32
   resourceFlags.emplace_back("-fms-runtime-lib=static");
 #endif
+#ifndef KALANDRA_BUNDLE_COMPILER
+  if (bundle) throw std::runtime_error("this compiler does not include both GPU toolchains");
+#endif
   const bool sanitized = variant == "sanitized";
   const auto optimization = sanitized ? "-O1" : kalandra::optimizationFlag(level);
   const std::vector<std::string> sanitizerFlags = sanitized
@@ -200,6 +206,11 @@ void buildVulkanProgram(kalandra::cli::BuildProgress &progress,
   if (sanitized)
     throw std::runtime_error("Vulkan sanitizer runtime unavailable");
   const auto &libraries = normalLibraries;
+#endif
+#ifdef KALANDRA_BUNDLE_COMPILER
+  if (bundle)
+    for (auto library : {KALANDRA_CUDA_LANGUAGE, KALANDRA_CUDA_PROGRAM, KALANDRA_CUDA_DRIVER})
+      link.push_back(resource(library));
 #endif
   for (const auto &library : libraries)
     link.push_back(resource(library.c_str()));
