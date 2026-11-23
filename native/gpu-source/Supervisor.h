@@ -1,5 +1,6 @@
 #pragma once
 #include "kalandra/Arithmetic.h"
+#include "kalandra/Optimization.h"
 #include "kalandra/Syntax.h"
 #include "kalandra/TypeCapabilities.h"
 #include <expected>
@@ -19,5 +20,6 @@ constexpr CapabilityTarget capabilityTarget(GpuBackend backend) {
 }
 std::expected<std::map<std::string, std::string>, Diagnostic>
 emitGpuSupervisor(Module, ArithmeticMode, bool testCpuExports = false,
-                  GpuBackend = GpuBackend::Metal, bool application = false);
+                  GpuBackend = GpuBackend::Metal, bool application = false,
+                  Optimization level = Optimization::O0);
 } // namespace kalandra

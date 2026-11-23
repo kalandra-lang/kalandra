@@ -1,4 +1,5 @@
 #pragma once
+#include "kalandra/Optimization.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/InlineAsm.h"
@@ -144,7 +145,8 @@ inline void finalizeNativeCallResolvers(llvm::Module &module) {
 // Retry oversized generated plans after the existing semantics-preserving
 // checked simplifier, before applying the unchanged physical stack admission.
 void simplifyNativeStackAdmission(llvm::Function &function);
-std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module);
+std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module,
+                                               Optimization level = Optimization::O0);
 // Windows ARM64 must retain stack cleanup when crossing between tailcc
 // (callee-pop) and ordinary C/fastcc (caller-pop) functions. Optional tail
 // transfers can otherwise discard the required epilogue. Matching-convention

@@ -6,7 +6,7 @@
                  "[--arithmetic hardware|software|hardware-with-software-fallback] "
                  "[--matmul-policy optimized|fixed-tree] "
                  "[--package name=path.k ...] [--build "
-                 "[-O0|-O2|--sanitize]]\n";
+                 "[-O0|-O1|-O2|-O3|--sanitize]]\n";
     return 2;
   };
   bool build = false, testCpuExports = false, selectedTestEntry = false;
@@ -14,6 +14,7 @@
   bool selectedArithmetic = false;
   MatmulPolicy matmul = MatmulPolicy::FixedTree;
   bool selectedMatmul = false;
+  auto level = Optimization::O0;
   std::string variant = "debug", sourcePath, projectPath;
   std::filesystem::path directory;
   std::optional<NativeProject> project;
@@ -65,13 +66,13 @@
       testCpuExports = true;
     } else if (option == "--build" && !build)
       build = true;
-    else if (!selected && (option == "-O0" || option == "-O2" || option == "--sanitize" ||
-                           option == "--thread-sanitize")) {
+    else if (const auto parsedLevel = parseOptimization(option); !selected && parsedLevel) {
       selected = true;
-      variant = option == "-O2"          ? "optimized"
-                : option == "--sanitize" ? "sanitized"
-                : option == "-O0"        ? "debug"
-                                         : "thread-sanitized";
+      level = *parsedLevel;
+      variant = level == Optimization::O0 ? "debug" : "optimized";
+    } else if (!selected && (option == "--sanitize" || option == "--thread-sanitize")) {
+      selected = true;
+      variant = option == "--sanitize" ? "sanitized" : "thread-sanitized";
     } else if (!option.starts_with('-') && sourcePath.empty())
       sourcePath = option;
     else
@@ -127,7 +128,7 @@
       return 1;
     }
     progress.phase("Compiling", sourcePath);
-    auto emitted = emitGpuSupervisor(std::move(parsed->module), arithmetic, testCpuExports, selectedGpuBackend, application);
+    auto emitted = emitGpuSupervisor(std::move(parsed->module), arithmetic, testCpuExports, selectedGpuBackend, application, level);
     if (!emitted) {
       progress.diagnostic() << renderDiagnostic(*source, emitted.error());
       return 1;
@@ -212,7 +213,7 @@
         throw std::runtime_error(error.message());
     }
     if (build) {
-      buildGpuProgram(progress, directory, outputs, variant, arithmetic, matmul);
+      buildGpuProgram(progress, directory, outputs, variant, level, arithmetic, matmul);
       progress.built(directory.string(), backendFlag);
     }
     return 0;

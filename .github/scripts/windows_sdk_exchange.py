@@ -29,12 +29,27 @@ def api(path):
 def wait_download(name, destination, seconds=4500):
     repo, run = os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_RUN_ID']
     deadline = time.monotonic() + seconds
+    missing_downloads = 0
     while time.monotonic() < deadline:
         artifacts = api(f'repos/{repo}/actions/runs/{run}/artifacts?per_page=100')['artifacts']
         if any(v['name'] == name and not v['expired'] for v in artifacts):
-            subprocess.run(['gh', 'run', 'download', run, '--repo', repo, '--name', name,
-                            '--dir', str(destination)], check=True)
-            return
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(dir=destination.parent) as staging:
+                payload = Path(staging) / 'payload'
+                try:
+                    subprocess.run(['gh', 'run', 'download', run, '--repo', repo, '--name', name,
+                                    '--dir', str(payload)], check=True, stderr=subprocess.PIPE, text=True)
+                except subprocess.CalledProcessError as error:
+                    missing_downloads += 1
+                    if 'HTTP 404' not in (error.stderr or '') or missing_downloads >= 5:
+                        print(error.stderr, file=sys.stderr)
+                        raise
+                    print(f'{name} is listed but its download returned HTTP 404; retrying', flush=True)
+                else:
+                    payload.rename(destination)
+                    return
+            time.sleep(min(45, max(0, deadline - time.monotonic())))
+            continue
         if name.startswith('sdk-receiver-'):
             producers = {'CPU cross-build from ' + name.removeprefix('sdk-receiver-'),
                          'packages', 'macos-package', 'runtime-bundle'}

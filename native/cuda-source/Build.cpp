@@ -54,9 +54,11 @@ void run(kalandra::cli::BuildProgress &progress, std::vector<std::string> comman
     throw std::runtime_error("CUDA build stage failed: " + command[0] + " " + error);
 }
 } // namespace
-void buildCudaProgram(kalandra::cli::BuildProgress &progress, const std::filesystem::path &directory,
+void buildCudaProgram(kalandra::cli::BuildProgress &progress,
+                      const std::filesystem::path &directory,
                       const std::map<std::string, std::string> &outputs, const std::string &variant,
-                      kalandra::ArithmeticMode arithmetic, kalandra::MatmulPolicy matmul) {
+                      kalandra::Optimization level, kalandra::ArithmeticMode arithmetic,
+                      kalandra::MatmulPolicy matmul) {
   if ((matmul != kalandra::MatmulPolicy::FixedTree &&
        matmul != kalandra::MatmulPolicy::Optimized) ||
       (variant != "debug" && variant != "optimized"))
@@ -122,7 +124,7 @@ void buildCudaProgram(kalandra::cli::BuildProgress &progress, const std::filesys
       }
     }
   }
-  const auto optimization = variant == "optimized" ? "-O2" : "-O0";
+  const auto optimization = kalandra::optimizationFlag(level);
   progress.phase("Compiling host", (directory / "host.cpp").string());
   std::vector<std::string> link{clang};
   link.insert(link.end(), clangFlags.begin(), clangFlags.end());

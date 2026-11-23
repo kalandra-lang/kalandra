@@ -68,9 +68,11 @@ logs are retained, including failures. Full platform and cross-target qualificat
 remains the final PR gate; focused local runs do not replace it.
 
 
-CMake 3.28+, Ninja, toml++ 3.4.0 and the pinned
-[LLVM/MLIR/Clang toolchain](toolchain-proof/toolchain.json) are required. Metal builds
-also require the pinned [Apple toolchain](metal-proof/toolchain.json). Follow the
+CMake 3.28+, Ninja and the pinned
+[LLVM/MLIR/Clang toolchain](toolchain-proof/toolchain.json) are required. CMake uses installed toml++ 3.5.x headers when available and otherwise
+downloads the verified 3.5.0 source. For offline builds, install the headers and their CMake
+package or point `FETCHCONTENT_SOURCE_DIR_TOMLPLUSPLUS` at an extracted 3.5.0 source tree.
+Metal builds also require the pinned [Apple toolchain](metal-proof/toolchain.json). Follow the
 [platform qualification guide](../docs/design/native-distribution-qualification.md)
 for source builds and standalone packaging. Release targets are macOS 26+ ARM64
 CPU/Metal, Linux x86-64/ARM64 CPU, Linux x86-64 CUDA/Vulkan, and Windows x86-64/ARM64 CPU. Windows CUDA/Vulkan packages are experimental and hardware-unqualified. Windows TSan and Windows ARM64 sanitizers are unsupported.

@@ -58,7 +58,7 @@ constexpr std::string_view usage =
     "  remove <alias> [--project <manifest>]  Remove a direct dependency\n"
     "\nBuild options\n"
     "  --target cpu|metal|vulkan|cuda      Select the build backend\n"
-    "  -O0, -O2                            Select the optimization level\n"
+    "  -O0, -O1, -O2, -O3                  Select the optimization level\n"
     "  --package name=path.k               Map a local source library\n"
     "  --emit-mlir <file>, --emit-llvm <file>  Write intermediate code\n"
     "  --arithmetic hardware|software|hardware-with-software-fallback\n"
@@ -335,7 +335,7 @@ int main(int argc, char **argv) {
   kalandra::ArithmeticMode arithmetic = kalandra::ArithmeticMode::Hardware;
   bool selectedArithmetic = false;
   bool selectedMatmul = false;
-  std::string optimization = "-O0";
+  auto optimization = kalandra::Optimization::O0;
   for (std::size_t i = 1; i < arguments.size(); ++i) {
     const std::string option = arguments[i];
     if ((option == "-o" || option == "--emit-mlir" || option == "--emit-llvm" ||
@@ -384,8 +384,8 @@ int main(int argc, char **argv) {
       sanitize = true;
     else if (option == "--thread-sanitize")
       threadSanitize = true;
-    else if (option == "-O0" || option == "-O2")
-      optimization = option;
+    else if (auto level = kalandra::parseOptimization(option))
+      optimization = *level;
     else if (!option.empty() && !option.starts_with('-') && sourcePath.empty())
       sourcePath = option;
     else {
@@ -564,7 +564,7 @@ int main(int argc, char **argv) {
   }
   progress.phase("Compiling", sourcePath);
   auto lowered = kalandra::lowerNative(*typed.module, testEntry, {}, arithmetic, false,
-                                       cross ? cross->target : kalandra::CpuTarget{});
+                                       cross ? cross->target : kalandra::CpuTarget{}, optimization);
   if (!lowered) {
     progress.diagnostic() << "native lowering: " << lowered.error() << '\n';
     return 1;
@@ -735,7 +735,8 @@ int main(int argc, char **argv) {
   LinkDirectory staged{std::string(linkedDirectory)};
   // LLD's Mach-O signing code recognizes '/' on every build host.
   const auto linkedOutput = (staged.path / output.filename()).generic_string();
-  std::vector<std::string> command{clang, optimization, "-ffp-contract=off", "-Wno-override-module",
+  std::vector<std::string> command{clang, kalandra::optimizationFlag(optimization),
+                                   "-ffp-contract=off", "-Wno-override-module",
                                    std::string(temporary)};
   if (clangResources && !cross)
     command.push_back("-resource-dir=" + clangResources->string());

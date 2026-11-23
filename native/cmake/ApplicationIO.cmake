@@ -81,6 +81,13 @@ if(BUILD_TESTING)
         --variant "${variant}")
     set_tests_properties(native-application-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io")
   endforeach()
+  foreach(level IN ITEMS O1 O3)
+    add_test(NAME native-console-source-${level}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ConsoleSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/console-source-${level}"
+        --variant "${level}")
+    set_tests_properties(native-console-source-${level} PROPERTIES TIMEOUT 600 LABELS "feature-io")
+  endforeach()
 endif()
 
 foreach(target IN ITEMS kalandra-semantics kalandra-semantics-sanitized)
@@ -161,7 +168,7 @@ if(BUILD_TESTING)
     if((backend STREQUAL "metal" AND KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
        OR (backend STREQUAL "vulkan" AND KALANDRA_BUILD_VULKAN_RUNTIME)
        OR (backend STREQUAL "cuda" AND KALANDRA_BUILD_CUDA_SOURCE AND KALANDRA_BUILD_CUDA_RUNTIME))
-      foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+      foreach(variant IN ITEMS debug optimized O1 O3 sanitized thread-sanitized)
         if(NOT backend STREQUAL "metal" AND variant STREQUAL "thread-sanitized")
           continue()
         endif()
@@ -171,11 +178,15 @@ if(BUILD_TESTING)
         if(backend STREQUAL "vulkan" AND variant STREQUAL "sanitized" AND NOT KALANDRA_VULKAN_HAS_ASAN)
           continue()
         endif()
+        set(cases)
+        if(variant MATCHES "^O[13]$")
+          set(cases --case streams --case text-tasks)
+        endif()
         add_test(NAME native-console-${backend}-source-${variant}
           COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/GpuConsoleSourceTests.py"
             --compiler "$<TARGET_FILE:kalandra>"
             --output "${CMAKE_CURRENT_BINARY_DIR}/console-${backend}-source-${variant}"
-            --target "${backend}" --variant "${variant}")
+            --target "${backend}" --variant "${variant}" ${cases})
         set_tests_properties(native-console-${backend}-source-${variant} PROPERTIES
           TIMEOUT 600 LABELS "feature-io;feature-gpu" RESOURCE_LOCK "${backend}-gpu")
         if(backend STREQUAL "metal")

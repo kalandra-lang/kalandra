@@ -1,5 +1,6 @@
 #pragma once
 #include "kalandra/Arithmetic.h"
+#include "kalandra/Optimization.h"
 #include "kalandra/Semantics.h"
 #include <expected>
 namespace kalandra {
@@ -25,5 +26,6 @@ struct BackendOutput {
 lowerNative(const TypedModule &module, std::optional<std::string> testEntry = {},
             const std::vector<std::string> &exports = {},
             ArithmeticMode arithmetic = ArithmeticMode::Hardware,
-            bool deferCallFinalization = false, CpuTarget target = {});
+            bool deferCallFinalization = false, CpuTarget target = {},
+            Optimization level = Optimization::O0);
 } // namespace kalandra

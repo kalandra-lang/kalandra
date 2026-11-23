@@ -135,7 +135,7 @@ fn main()->[i64]:
                           'fn main(args:[String])->ExitStatus ! IoError:\n'
                           '  try println(format("{}:{}",length(args),args[0]))\n'
                           '  return ExitStatus {code:42}\n', encoding="utf-8")
-        for flags in ([], ["-O2"]):
+        for flags in ([], ["-O1"], ["-O2"], ["-O3"]):
             run([compiler, source, "-o", executable, *flags])
             assert run([executable, "é🙂"], expected=42).stdout.strip() == "1:é🙂"
         # Normal filesystem entry, owned handles and buffered transport must also
@@ -173,7 +173,7 @@ fn main()->[i64]:
             (ENV_SOURCE, env_expected(windows), lambda env: with_environment(env, windows=windows)),
         ):
             source.write_text(app_source, encoding="utf-8")
-            for mode, flags in modes:
+            for mode, flags in [*modes, ("O1", ["-O1"]), ("O3", ["-O3"])]:
                 run([compiler, source, "-o", executable, *flags])
                 environment = dict(os.environ)
                 if windows and mode == "address-undefined":

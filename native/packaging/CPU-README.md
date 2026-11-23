@@ -26,8 +26,7 @@ The pinned Windows ARM64 SDK has no ASan/UBSan/TSan runtimes: both sanitizer
 options fail explicitly before replacing an output. Normal and optimized
 builds retain checked arithmetic, bounds checks and task safety.
 macOS and Linux also include separate TSan (`--thread-sanitize`) archives;
-Windows rejects that unsupported mode before changing an output. `-O0` and `-O2` select the
-existing native compilation modes.
+Windows rejects that unsupported mode before changing an output. Choose the native optimization level with `-O0` (default), `-O1`, `-O2` or `-O3`.
 
 Standalone archives include private LLVM/MLIR and Clang 23.1.3 dependencies,
 compiler resources, licenses and an inventory. External-toolchain archives

@@ -85,7 +85,6 @@ jobs:
           cmake -S . -B build/native -G Ninja
           -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
           -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
-          -Dtomlplusplus_DIR="$(brew --prefix tomlplusplus)/lib/cmake/tomlplusplus"
           -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0
           -DKALANDRA_SPIRV_CROSS_ROOT="$KALANDRA_SPIRV_CROSS_ROOT"
           -DKALANDRA_SPIRV_TOOLS_ROOT="$KALANDRA_SPIRV_TOOLS_ROOT"
@@ -144,7 +143,6 @@ jobs:
           cmake -S . -B build/native-repro -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" \
-            -Dtomlplusplus_DIR="$(brew --prefix tomlplusplus)/lib/cmake/tomlplusplus" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
             -DKALANDRA_SPIRV_CROSS_ROOT="$KALANDRA_SPIRV_CROSS_ROOT" \
             -DKALANDRA_SPIRV_TOOLS_ROOT="$KALANDRA_SPIRV_TOOLS_ROOT" \

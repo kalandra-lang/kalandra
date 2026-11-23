@@ -1,5 +1,6 @@
 """Keep private SDK transfers independent and stop waiting on failed producers."""
 from pathlib import Path
+import subprocess
 from types import SimpleNamespace
 import tempfile
 import unittest
@@ -11,6 +12,12 @@ import windows_sdk_exchange as exchange
 class WindowsSDKExchangeTests(unittest.TestCase):
     def environment(self):
         return patch.dict(exchange.os.environ, GITHUB_REPOSITORY='example/kalandra', GITHUB_RUN_ID='123')
+
+    @staticmethod
+    def write_download(command, **kwargs):
+        path = Path(command[-1])
+        path.mkdir()
+        (path / 'downloaded').write_text('complete')
 
     def test_failed_producers_stop_waiting_without_downloading(self):
         cases = (
@@ -31,25 +38,53 @@ class WindowsSDKExchangeTests(unittest.TestCase):
 
     def test_published_cipher_is_available_even_if_other_receivers_failed(self):
         name = 'sdk-sealed-x86_64-linux-arm64'
-        with self.environment(), patch.object(exchange, 'api', return_value={
+        with tempfile.TemporaryDirectory() as folder, self.environment(), patch.object(exchange, 'api', return_value={
                 'artifacts': [dict(name=name, expired=False)]}) as api, \
-                patch.object(exchange.subprocess, 'run') as download:
-            exchange.wait_download(name, Path('destination'), seconds=10)
+                patch.object(exchange.subprocess, 'run', side_effect=self.write_download) as download:
+            exchange.wait_download(name, Path(folder) / 'destination', seconds=10)
             self.assertEqual(api.call_count, 1)  # No dependency on the producer's final job status.
             self.assertIn(name, download.call_args.args[0])
-            self.assertEqual(download.call_args.kwargs, {'check': True})
+            self.assertTrue((Path(folder) / 'destination/downloaded').is_file())
 
     def test_successful_producer_allows_eventual_artifact_visibility(self):
         name = 'sdk-receiver-linux-x86_64'
-        with self.environment(), patch.object(exchange, 'api', side_effect=[
+        with tempfile.TemporaryDirectory() as folder, self.environment(), patch.object(exchange, 'api', side_effect=[
                 {'artifacts': []}, {'jobs': [dict(name='CPU cross-build from linux-x86_64',
                                                  status='completed', conclusion='success')]},
                 {'artifacts': [dict(name=name, expired=False)]}]), \
-                patch.object(exchange.subprocess, 'run') as download, \
+                patch.object(exchange.subprocess, 'run', side_effect=self.write_download) as download, \
                 patch.object(exchange.time, 'sleep') as sleep:
-            exchange.wait_download(name, Path('destination'), seconds=10)
+            exchange.wait_download(name, Path(folder) / 'destination', seconds=10)
             sleep.assert_called_once_with(45)
             download.assert_called_once()
+
+    def test_download_visibility_and_failure_cleanup(self):
+        name = 'sdk-sealed-x86_64-linux-arm64'
+        for statuses in ([404, 0], [404] * 5, [403]):
+            with self.subTest(statuses=statuses), tempfile.TemporaryDirectory() as folder:
+                calls = []
+                def download(command, **kwargs):
+                    self.write_download(command)
+                    status = statuses[len(calls)]
+                    calls.append(status)
+                    if status:
+                        (Path(command[-1]) / 'partial').touch()
+                        raise subprocess.CalledProcessError(1, command, stderr=f'HTTP {status}')
+
+                destination = Path(folder) / 'sdk'
+                with self.environment(), patch.object(exchange, 'api', return_value={
+                        'artifacts': [dict(name=name, expired=False)]}), \
+                        patch.object(exchange.subprocess, 'run', side_effect=download), \
+                        patch.object(exchange.time, 'sleep') as sleep:
+                    if statuses[-1]:
+                        with self.assertRaises(subprocess.CalledProcessError):
+                            exchange.wait_download(name, destination)
+                        self.assertEqual(list(Path(folder).iterdir()), [])
+                    else:
+                        exchange.wait_download(name, destination)
+                        self.assertEqual(list(destination.iterdir()), [destination / 'downloaded'])
+                    self.assertEqual(calls, statuses)
+                    self.assertEqual(sleep.call_count, len(statuses) - 1)
 
     def test_timeout_is_bounded(self):
         with self.environment(), patch.object(exchange, 'api') as api:

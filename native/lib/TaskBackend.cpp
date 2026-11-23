@@ -3857,7 +3857,7 @@ void emitIteratorHostBridges(const TypedModule &input, llvm::Module &module,
 }
 static std::expected<BackendOutput, std::string>
 lowerTaskNativeImpl(const TypedModule &checked, std::optional<std::string> testEntry,
-                    ArithmeticMode arithmetic, const CpuTarget &target,
+                    ArithmeticMode arithmetic, const CpuTarget &target, Optimization level,
                     const std::vector<std::string> &exports) {
   auto optimized = checked;
   fuseLocalIterators(optimized);
@@ -3872,7 +3872,7 @@ lowerTaskNativeImpl(const TypedModule &checked, std::optional<std::string> testE
       return std::unexpected(planned.error());
     std::optional<continuation::ModulePlan> fallback;
     auto *planner = &*planned;
-    auto kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true, target);
+    auto kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true, target, level);
     if (!kernels) {
       // Native subgraphs are an optimization, not a new source admission
       // requirement. A large synchronous body can still use budgeted checked
@@ -3885,7 +3885,7 @@ lowerTaskNativeImpl(const TypedModule &checked, std::optional<std::string> testE
         return std::unexpected(legacy.error());
       fallback.emplace(std::move(*legacy));
       planner = &*fallback;
-      kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true, target);
+      kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true, target, level);
     }
     if (!kernels)
       return kernels;
@@ -3909,7 +3909,7 @@ lowerTaskNativeImpl(const TypedModule &checked, std::optional<std::string> testE
     for (auto &fn : *module)
       if (!fn.isDeclaration() && !kernelFunctions.contains(&fn))
         fn.addFnAttr("kalandra.task.frame");
-    if (auto error = optimizeNativeCalls(module))
+    if (auto error = optimizeNativeCalls(module, level))
       return std::unexpected(*error);
     std::string errors;
     llvm::raw_string_ostream stream(errors);
@@ -3926,15 +3926,14 @@ lowerTaskNativeImpl(const TypedModule &checked, std::optional<std::string> testE
     return std::unexpected(error.what());
   }
 }
-std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &input,
-                                                          std::optional<std::string> testEntry,
-                                                          ArithmeticMode arithmetic,
-                                                          const CpuTarget &target) {
-  return lowerTaskNativeImpl(input, std::move(testEntry), arithmetic, target, {});
+std::expected<BackendOutput, std::string>
+lowerTaskNative(const TypedModule &input, std::optional<std::string> testEntry,
+                ArithmeticMode arithmetic, const CpuTarget &target, Optimization level) {
+  return lowerTaskNativeImpl(input, std::move(testEntry), arithmetic, target, level, {});
 }
 std::expected<BackendOutput, std::string>
 lowerTaskNativeExports(const TypedModule &input, const std::vector<std::string> &exports,
-                       ArithmeticMode arithmetic, const CpuTarget &target) {
-  return lowerTaskNativeImpl(input, {}, arithmetic, target, exports);
+                       ArithmeticMode arithmetic, const CpuTarget &target, Optimization level) {
+  return lowerTaskNativeImpl(input, {}, arithmetic, target, level, exports);
 }
 } // namespace kalandra

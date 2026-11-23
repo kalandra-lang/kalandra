@@ -9,12 +9,12 @@ p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--compiler', type=Path, required=True)
 p.add_argument('--output', type=Path, required=True)
 p.add_argument('--target', choices=('metal', 'vulkan', 'cuda'), required=True)
-p.add_argument('--variant', choices=('debug', 'optimized', 'sanitized', 'thread-sanitized'), required=True)
+p.add_argument('--variant', choices=('debug', 'optimized', 'O1', 'O3', 'sanitized', 'thread-sanitized'), required=True)
 p.add_argument('--case', action='append', dest='cases', help='Run only the named fixture; repeat to select several.')
 p.add_argument('--compile-only', action='store_true', help='Check application linking without claiming GPU execution.')
 a = p.parse_args()
 a.output.mkdir(parents=True, exist_ok=True)
-flag = {'debug': '-O0', 'optimized': '-O2', 'sanitized': '--sanitize',
+flag = {'debug': '-O0', 'optimized': '-O2', 'O1': '-O1', 'O3': '-O3', 'sanitized': '--sanitize',
         'thread-sanitized': '--thread-sanitize'}[a.variant]
 prelude = '''from "std/io" import println, readLine, Line, IoError
 from "std/fmt" import format
