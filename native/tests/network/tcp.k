@@ -125,6 +125,7 @@ fn timedRead() -> unit ! (NetError | StreamError | BufferError | TimeError | IoE
   timed = readAppend(client, chunk, 3) catch fn(e): return match e:
     StreamError.TimedOut: u64(42)
     _: u64(0)
+  try setTimeout(client, try milliseconds(5000))
   try writeAll(server, chunk)
   n = try readAppend(client, chunk, 1)
   bytes = toArray(chunk)
@@ -144,9 +145,11 @@ fn takeAgain(halves: TcpHalves) -> i64 ! (NetError | StreamError):
 
 fn sendUntilBlocked(port: u16, timeoutMs: u64) -> i64 ! (NetError | StreamError | BufferError | TimeError):
   peer = try connectTcp("127.0.0.1", port)
-  try setTimeout(peer, try milliseconds(timeoutMs))
   chunk = try byteBuffer(65536)
-  zeros: [u8] = generate(65536, fn(i: i64): return u8(0))
+  try append(chunk, [0])
+  try writeAll(peer, chunk)
+  if timeoutMs > 0: try setTimeout(peer, try milliseconds(timeoutMs))
+  zeros: [u8] = generate(65535, fn(i: i64): return u8(0))
   try append(chunk, zeros)
   for i in range(2048):
     try writeAll(peer, chunk)
@@ -156,7 +159,7 @@ fn main(args: [String]) -> unit ! (NetError | StreamError | FsError | BufferErro
   if args[0] == "fill" or args[0] == "reset":
     port = u16(try parseU64(args[1]))
     timeoutMs: u64 = 30
-    if args[0] == "reset": timeoutMs = 5000
+    if args[0] == "reset": timeoutMs = 0
     result = sendUntilBlocked(port, timeoutMs) catch fn(e): return match e:
       StreamError.TimedOut: 42
       StreamError.BrokenPipe {code}: 43
