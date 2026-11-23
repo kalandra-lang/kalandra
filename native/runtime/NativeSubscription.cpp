@@ -10,7 +10,8 @@ struct Subscription final : OwnedState {
   // protects scope retirement, which can be reentrant from a native callback.
   std::mutex lifetime;
   std::size_t borrowers = 0;
-  bool armed = false;
+  AllocationLease borrowOwner;
+  bool armed = false, writing = false;
   explicit Subscription(Release fn) noexcept
       : OwnedState(OwnedKind::NativeSubscription, sizeof(Subscription), destroySubscription, close),
         release(fn) {}
@@ -57,17 +58,27 @@ extern "C" bool kalandra_subscription_publish_v1(Invocation *ctx, void *memory, 
   *out = ownedDescriptor(s);
   return true;
 }
-// The instruction owns its input descriptor through end_borrow. Closing the
-// logical owner during a call prevents new borrows and defers disposal.
+// A borrow pins both the state and its native token. Retirement can detach
+// the logical owner while native code is executing, including during reentry.
 extern "C" void *kalandra_handle_borrow_v1(Invocation *ctx, const OwnedDescriptor *value,
-                                           std::uint64_t *token) noexcept {
+                                           std::uint64_t *token, std::uint32_t exclusive) noexcept {
   if (ctx->poll() || !ctx->usable())
     return nullptr;
   auto *owned = inspectOwned(*ctx, *value);
   if (owned && owned->kind == OwnedKind::NativeSubscription) {
     auto *s = static_cast<Subscription *>(owned);
     std::lock_guard lock(s->lifetime);
-    if (s->armed && !s->retired.load(std::memory_order_acquire)) {
+    if (s->armed && !s->retired.load(std::memory_order_acquire) && !s->writing &&
+        (!exclusive || !s->borrowers)) {
+      if (!s->borrowers) {
+        auto pin = ctx->lease(s);
+        if (!pin) {
+          ctx->fault(3);
+          return nullptr;
+        }
+        s->borrowOwner = std::move(*pin);
+      }
+      s->writing = exclusive != 0;
       ++s->borrowers;
       *token = s->token;
       return s;
@@ -78,12 +89,18 @@ extern "C" void *kalandra_handle_borrow_v1(Invocation *ctx, const OwnedDescripto
 }
 extern "C" void kalandra_handle_end_borrow_v1(void *state) noexcept {
   auto *s = static_cast<Subscription *>(state);
+  AllocationLease pin;
+  bool dispose;
   {
     std::lock_guard lock(s->lifetime);
-    if (--s->borrowers || s->armed)
+    if (--s->borrowers)
       return;
+    s->writing = false;
+    pin = std::move(s->borrowOwner);
+    dispose = !s->armed;
   }
-  s->release(s->token);
+  if (dispose)
+    s->release(s->token);
 }
 extern "C" bool kalandra_subscription_close_v1(Invocation *ctx,
                                                const OwnedDescriptor *value) noexcept {

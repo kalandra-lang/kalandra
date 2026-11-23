@@ -2888,20 +2888,22 @@ private:
             llvm::FunctionCallee release = module.getOrInsertFunction(
                 op->subscriptionRelease, voidType,
                 op->nativeABI.pointerResult ? static_cast<llvm::Type *>(ptr) : word);
-            if (op->nativeABI.pointerResult) {
-              std::string name = "kalandra.dispose." + op->subscriptionRelease;
-              auto *bridge = module.getFunction(name);
-              if (!bridge) {
-                auto *signature = llvm::FunctionType::get(voidType, {word}, false);
-                bridge = llvm::Function::Create(signature, llvm::Function::InternalLinkage, name,
-                                                module);
-                llvm::IRBuilder<> body(Block::Create(context, "entry", bridge));
-                body.CreateCall(release, {body.CreateIntToPtr(bridge->getArg(0), ptr)});
-                body.CreateRetVoid();
-              }
-              release = bridge;
+            // Call each destructor through its declared ABI. Even two 64-bit
+            // integer types can be distinct C function types on the same target.
+            std::string name = "kalandra.dispose." + op->subscriptionRelease;
+            auto *bridge = module.getFunction(name);
+            if (!bridge) {
+              auto *signature = llvm::FunctionType::get(voidType, {word}, false);
+              bridge =
+                  llvm::Function::Create(signature, llvm::Function::InternalLinkage, name, module);
+              llvm::IRBuilder<> body(Block::Create(context, "entry", bridge));
+              Value *token = bridge->getArg(0);
+              if (op->nativeABI.pointerResult)
+                token = body.CreateIntToPtr(token, ptr);
+              body.CreateCall(release, {token});
+              body.CreateRetVoid();
             }
-            owner = call("kalandra_subscription_prepare_v1", ptr, {ctx, release.getCallee()});
+            owner = call("kalandra_subscription_prepare_v1", ptr, {ctx, bridge});
             auto *admitted = Block::Create(context, "handle.admitted", resume);
             builder.CreateCondBr(builder.CreateIsNotNull(owner), admitted, abort);
             builder.SetInsertPoint(admitted);
@@ -2924,6 +2926,10 @@ private:
             Value *value;
             if (layout.abi == NativeParameterABI::Scalar) {
               value = builder.CreateLoad(t, input);
+            } else if (layout.abi == NativeParameterABI::SignedNarrow ||
+                       layout.abi == NativeParameterABI::UnsignedNarrow) {
+              value = builder.CreateIntCast(builder.CreateLoad(t, input), builder.getInt32Ty(),
+                                            layout.abi == NativeParameterABI::SignedNarrow);
             } else if (layout.abi == NativeParameterABI::Record) {
               llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
               auto *bytes =
@@ -2964,7 +2970,9 @@ private:
             } else {
               llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
               auto *token = entry.CreateAlloca(word, nullptr, "handle.token");
-              auto *lease = call("kalandra_handle_borrow_v1", ptr, {ctx, input, token});
+              auto *lease =
+                  call("kalandra_handle_borrow_v1", ptr,
+                       {ctx, input, token, c32(layout.abi != NativeParameterABI::ReadPointer)});
               auto *borrowed = Block::Create(context, "handle.borrowed", resume);
               auto *failed = Block::Create(context, "handle.borrow.failed", resume);
               builder.CreateCondBr(builder.CreateIsNotNull(lease), borrowed, failed);
@@ -2974,7 +2982,7 @@ private:
               builder.SetInsertPoint(borrowed);
               borrows.push_back(lease);
               value = builder.CreateLoad(word, token);
-              if (layout.abi == NativeParameterABI::Pointer)
+              if (layout.abi != NativeParameterABI::Token)
                 value = builder.CreateIntToPtr(value, ptr);
             }
             args.push_back(value);
@@ -2995,11 +3003,15 @@ private:
               owner ? (op->nativeABI.pointerResult ? static_cast<llvm::Type *>(ptr) : word)
               : (recordOutput || type.builtin == BuiltinValue::Unit) ? voidType
                                                                      : taskTypes->scalar(type);
+          if (op->nativeABI.narrowResult)
+            result = builder.getInt32Ty();
           auto callee = module.getOrInsertFunction(
               op->nativeABI.bridge.empty() ? op->symbol : op->nativeABI.bridge,
               llvm::FunctionType::get(result, parameters, false));
           Value *value = builder.CreateCall(callee, args);
           endBorrows();
+          if (op->nativeABI.narrowResult)
+            value = builder.CreateTrunc(value, taskTypes->scalar(type));
           if (owner) {
             if (op->nativeABI.pointerResult) {
               auto *valid = Block::Create(context, "handle.nonnull", resume);

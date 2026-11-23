@@ -42,7 +42,7 @@ static LRESULT CALLBACK events(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
       w->resized = 1;
       return 0;
     case WM_APP + 1:
-      if (InterlockedCompareExchange(&w->released, 0, 0))
+      if (InterlockedCompareExchange(&w->released, 2, 1) == 1)
         dispose(w);
       return 0;
     case WM_PAINT: {
@@ -152,8 +152,9 @@ void windowRelease(NativeWindow *w) {
   if (!w->hwnd || w->owner == GetCurrentThreadId())
     dispose(w);
   else {
+    HWND hwnd = w->hwnd;
     InterlockedExchange(&w->released, 1);
-    PostMessageW(w->hwnd, WM_APP + 1, 0, 0);
+    SendNotifyMessageW(hwnd, WM_APP + 1, 0, 0);
   }
 }
 int windowLive(void) { return (int)InterlockedCompareExchange(&live, 0, 0); }

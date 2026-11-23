@@ -13,6 +13,8 @@ struct NativeWindow {
   Display *display;
   Window id;
   GC pen;
+  unsigned long background;
+  int ownsColor;
   XFontSet font;
   Atom protocols, close;
   int width, height, textLength;
@@ -79,6 +81,11 @@ void windowColor(NativeWindow *w, unsigned rgb) {
               .blue = (rgb & 255) * 257};
   if (XAllocColor(w->display, DefaultColormap(w->display, DefaultScreen(w->display)), &c)) {
     XSetWindowBackground(w->display, w->id, c.pixel);
+    if (w->ownsColor)
+      XFreeColors(w->display, DefaultColormap(w->display, DefaultScreen(w->display)),
+                  &w->background, 1, 0);
+    w->background = c.pixel;
+    w->ownsColor = 1;
     XClearArea(w->display, w->id, 0, 0, 0, 0, True);
   }
 }

@@ -447,10 +447,6 @@ int main(int argc, char **argv) {
     return 2;
   }
   const bool library = emit == "object" || emit == "static" || emit == "shared";
-  if (project && !project->headers.empty() && !emit.empty()) {
-    progress.diagnostic() << "native dependencies currently require an executable build\n";
-    return 2;
-  }
   if ((!headerPath.empty() && !library) || (library && testEntry)) {
     std::cerr << "--header requires a library output; --test-entry requires an executable\n";
     return 2;
@@ -492,6 +488,10 @@ int main(int argc, char **argv) {
                             managed->headers.end());
     linkLibraries.insert(linkLibraries.end(), managed->libraries.begin(), managed->libraries.end());
     managed->nodes[0].localPackages = packages;
+  }
+  if (project && !project->headers.empty() && !emit.empty()) {
+    progress.diagnostic() << "native dependencies currently require an executable build\n";
+    return 2;
   }
   static int executableAnchor;
   std::error_code resourceError;
@@ -927,7 +927,8 @@ int main(int argc, char **argv) {
                                   source,     "-o",
                                   obj};
     if (objc)
-      args.insert(args.end(), {"-fobjc-arc", "-fblocks", "-fmodules"});
+      args.insert(args.end(), {"-fobjc-arc", "-fblocks", "-fmodules",
+                               "-fmodules-cache-path=" + (staged.path / "modules").string()});
     if (cross) {
       auto flags = cross->clangArguments();
       args.insert(args.end(), flags.begin(), flags.end());

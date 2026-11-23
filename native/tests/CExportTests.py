@@ -176,7 +176,7 @@ def check_captured_subscription(args, path):
             modes.append("--sanitize")
         for mode in modes:
             instrument = ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] if (
-                mode == "--sanitize" and os.name != "nt") else []
+                mode == "--sanitize") else []
             runtime = ["-fms-runtime-lib=static"] if os.name == "nt" else []
             run(args.cxx, "-std=c++17", *runtime, *(["-fblocks"] if blocks else []), *instrument,
                 "-c", "sensor.cpp", "-o", "sensor.o", cwd=path)

@@ -53,6 +53,19 @@ std::string scalar(clang::ASTContext &ctx, clang::QualType t) {
   }
 }
 
+// Widen the private ABI for narrow scalar calls. Clang then supplies the
+// extension required by the destination C calling convention.
+std::string narrowScalar(clang::ASTContext &ctx, clang::QualType type) {
+  if (type->isBooleanType())
+    return "bool";
+  if (!type->isIntegerType() || type->isEnumeralType() || !type->isBuiltinType())
+    return {};
+  const auto bits = ctx.getTypeSize(type);
+  if (bits != 8 && bits != 16)
+    return {};
+  return std::string(type->isSignedIntegerType() ? "i" : "u") + std::to_string(bits);
+}
+
 // Only direct references to this function's parameters carry a byte extent.
 // Inherited attributes may still point into an earlier declaration of the same function.
 const clang::ParmVarDecl *parameter(const clang::Expr *expr, const clang::FunctionDecl &fn) {
@@ -160,14 +173,17 @@ std::string resourceName(llvm::StringRef family) {
 }
 // Native pointer handles are references to named, incomplete C structs. No
 // pointee layout or address is ever exposed to the Kalandra program.
-bool opaquePointer(clang::QualType t) {
+bool opaquePointer(clang::QualType t, bool allowConst = false) {
   const auto *ptr = t->getAs<clang::PointerType>();
   if (!ptr || t->getNullability() != clang::NullabilityKind::NonNull)
     return false;
   auto target = ptr->getPointeeType();
   const auto *record = target->getAsRecordDecl();
   return record && record->isStruct() && record->getIdentifier() && !record->getDefinition() &&
-         !target.hasQualifiers() && !target.hasAddressSpace();
+         (!target.hasQualifiers() ||
+          (allowConst &&
+           target.getQualifiers() == clang::Qualifiers::fromCVRMask(clang::Qualifiers::Const))) &&
+         !target.hasAddressSpace();
 }
 bool handleType(clang::ASTContext &ctx, clang::QualType t) {
   return scalar(ctx, t) == "u64" || opaquePointer(t);
@@ -235,6 +251,8 @@ recordArgument(const clang::RecordDecl &decl, NativeRecords &records, NativePara
   std::string name = record->getNameAsString(), source = "export type " + name + ":\n";
   for (const auto *field : record->fields()) {
     auto type = scalar(ctx, field->getType());
+    if (type.empty())
+      type = narrowScalar(ctx, field->getType());
     if (!field->getIdentifier() || field->hasAttrs() || field->isBitField() ||
         field->getType().hasQualifiers() || type.empty() || type == "unit")
       return std::unexpected("unsupported native struct field in " + name);
@@ -354,6 +372,13 @@ declaration(const clang::FunctionDecl &fn, HeaderContracts &bounds, NativeRecord
   borrowed = byteBuffers;
   auto result = scalar(ctx, fn.getReturnType());
   bool bridge = false;
+  if (result.empty()) {
+    auto narrow = narrowScalar(ctx, fn.getReturnType());
+    if (!narrow.empty()) {
+      result = narrow;
+      bridge = bounds[name].nativeABI.narrowResult = true;
+    }
+  }
   std::vector<bool> indirect(fn.getNumParams());
   if (const auto *record = fn.getReturnType()->getAsRecordDecl()) {
     NativeParameterLayout layout;
@@ -405,18 +430,23 @@ declaration(const clang::FunctionDecl &fn, HeaderContracts &bounds, NativeRecord
       indirect[i] = true;
       adapted = bridge = true;
     } else if (auto *use = arg->getAttr<clang::UseHandleAttr>()) {
-      const bool pointer = opaquePointer(t);
-      if (!handleType(ctx, t) || resourceName(use->getHandleType()).empty() ||
+      const bool pointer = opaquePointer(t, true);
+      const bool readOnly = pointer && t->getPointeeType().isConstQualified();
+      if ((!pointer && scalar(ctx, t) != "u64") || resourceName(use->getHandleType()).empty() ||
           (pointer && !arg->hasAttr<clang::NoEscapeAttr>()) || borrowed ||
           std::ranges::any_of(arg->attrs(), [](auto *a) {
             return !llvm::isa<clang::UseHandleAttr, clang::NoEscapeAttr>(a);
           }))
         return reject("unsupported native handle borrow");
-      auto close = disposer(ctx, use->getHandleType(), t);
+      auto close =
+          disposer(ctx, use->getHandleType(),
+                   readOnly ? ctx.getPointerType(t->getPointeeType().getUnqualifiedType()) : t);
       if (!close)
         return std::unexpected(name + ": " + close.error());
       adapted = true;
-      native[i].abi = pointer ? NativeParameterABI::Pointer : NativeParameterABI::Token;
+      native[i].abi = readOnly  ? NativeParameterABI::ReadPointer
+                      : pointer ? NativeParameterABI::Pointer
+                                : NativeParameterABI::Token;
       type = resourceName(use->getHandleType());
       bounds[type].subscriptionFamily = use->getHandleType().str();
     } else if (t->isFunctionPointerType() || t->isBlockPointerType()) {
@@ -448,6 +478,14 @@ declaration(const clang::FunctionDecl &fn, HeaderContracts &bounds, NativeRecord
       type = "ByteBuffer";
     } else {
       type = scalar(ctx, t);
+      if (type.empty()) {
+        type = narrowScalar(ctx, t);
+        if (!type.empty()) {
+          native[i].abi = t->isSignedIntegerType() ? NativeParameterABI::SignedNarrow
+                                                   : NativeParameterABI::UnsignedNarrow;
+          adapted = bridge = true;
+        }
+      }
       if (arg->hasAttrs() || type.empty() || type == "unit" ||
           (borrowed && type != "u32" && type != "u64"))
         return reject("unsupported C parameter");
@@ -465,14 +503,18 @@ declaration(const clang::FunctionDecl &fn, HeaderContracts &bounds, NativeRecord
   if (bridge) {
     if (callbacks || borrowed)
       return reject("unsupported native record call contract");
-    const auto symbol = "__kalandra_record_" + name;
+    const auto symbol = "__kalandra_native_call_" + name;
     auto &contract = bounds[name];
     contract.nativeABI.bridge = symbol;
     // Only Clang classifies a struct passed or returned by value. The compiler
     // and bridge share a private pointer ABI, independent of the target's
     // register classification, hidden result pointers and stack arguments.
     const bool out = contract.nativeABI.recordResult.has_value();
-    const auto cResult = fn.getReturnType().getUnqualifiedType().getAsString();
+    const auto cResult =
+        contract.nativeABI.narrowResult
+            ? (fn.getReturnType()->isSignedIntegerType() ? std::string("int")
+                                                         : std::string("unsigned int"))
+            : fn.getReturnType().getUnqualifiedType().getAsString();
     std::string params = out ? ("struct " + result + " *output") : "";
     std::string args;
     for (unsigned i = 0; i < fn.getNumParams(); ++i) {
@@ -485,8 +527,11 @@ declaration(const clang::FunctionDecl &fn, HeaderContracts &bounds, NativeRecord
       // Array parameters decay at the C function boundary.
       if (t->isArrayType())
         t = ctx.getArrayDecayedType(t);
-      params +=
-          (indirect[i] ? "const " : "") + t.getAsString() + (indirect[i] ? " *" : " ") + pname;
+      if (!narrowScalar(ctx, t).empty())
+        params += (t->isSignedIntegerType() ? "int " : "unsigned int ") + pname;
+      else
+        params +=
+            (indirect[i] ? "const " : "") + t.getAsString() + (indirect[i] ? " *" : " ") + pname;
       args += (indirect[i] ? "*" : "") + pname;
     }
     if (params.empty())

@@ -20,7 +20,17 @@ struct SourceSpan {
   std::size_t end = 0;
 };
 // The ABI type of a verified, borrowed native handle parameter.
-enum class NativeParameterABI { Scalar, Token, Pointer, Text, TextLength, Record };
+enum class NativeParameterABI {
+  Scalar,
+  Token,
+  Pointer,
+  ReadPointer,
+  Text,
+  TextLength,
+  SignedNarrow,
+  UnsignedNarrow,
+  Record
+};
 struct NativeParameterLayout {
   NativeParameterABI abi = NativeParameterABI::Scalar;
   unsigned argument = 0;
@@ -33,7 +43,8 @@ struct NativeCallABI {
   bool pointerResult = false;
   std::optional<NativeParameterLayout> recordResult;
   std::string bridge;
-  bool adapted() const { return !parameters.empty() || recordResult.has_value(); }
+  bool narrowResult = false;
+  bool adapted() const { return !parameters.empty() || recordResult.has_value() || narrowResult; }
 };
 // Indexed by the C parameter ordinal. A negative value denotes a scalar.
 struct HeaderFunctionContract {

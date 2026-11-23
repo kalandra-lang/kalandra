@@ -1560,10 +1560,12 @@ private:
       }
       if (function.cImport) {
         const auto &fn = output_.functions[id];
-        const auto allowed = [](const ValueType &t, bool result) {
+        const auto allowed = [&](const ValueType &t, bool result) {
           const auto facts = typeFacts(t);
           return facts.plainHostScalar() &&
-                 ((facts.numeric() && describeNumeric(t.element)->bits >= 32) ||
+                 ((facts.numeric() &&
+                   (describeNumeric(t.element)->bits >= 32 || function.nativeABI.adapted())) ||
+                  (t.builtin == BuiltinValue::Bool && function.nativeABI.adapted()) ||
                   (result && t.builtin == BuiltinValue::Unit));
         };
         for (const auto parameter : fn.parameters) {
@@ -1578,17 +1580,15 @@ private:
           if (!function.bufferCounts.empty() && isByteBuffer(output_, type))
             continue;
           if (!allowed(type, false))
-            error(
-                "S093",
-                "native imports accept 32/64-bit numbers or header-verified ByteBuffer parameters",
-                function.name);
+            error("S093", "unsupported native parameter type for this C declaration",
+                  function.name);
         }
         if (!fn.declaredResult ||
             (function.bufferCounts.empty() && !function.nativeABI.recordResult &&
              !allowed(*fn.declaredResult, true) &&
              (function.subscriptionRelease.empty() ||
               ownedResourceKind(output_, *fn.declaredResult) != OwnedResourceKind::Subscription)))
-          error("S093", "native imports return a 32/64-bit number or unit", function.name);
+          error("S093", "unsupported native return type for this C declaration", function.name);
       }
       if (function.cExport) {
         const auto &fn = output_.functions[id];

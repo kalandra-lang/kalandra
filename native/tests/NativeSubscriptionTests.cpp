@@ -51,16 +51,29 @@ int main() {
     auto *state = kalandra_subscription_prepare_v1(&ctx, dispose);
     require(state && kalandra_subscription_publish_v1(&ctx, state, 0, &object));
     std::uint64_t token = 123;
-    auto *first = kalandra_handle_borrow_v1(&ctx, &object, &token);
-    auto *second = kalandra_handle_borrow_v1(&ctx, &object, &token);
+    auto *first = kalandra_handle_borrow_v1(&ctx, &object, &token, 0);
+    auto *second = kalandra_handle_borrow_v1(&ctx, &object, &token, 0);
     require(first && second && token == 0);
     require(kalandra_subscription_close_v1(&ctx, &object));
     require(calls == 2);
-    require(!kalandra_handle_borrow_v1(&ctx, &object, &token));
+    require(!kalandra_handle_borrow_v1(&ctx, &object, &token, 0));
+    ctx.settle(); // The foreign call can finish after the invocation releases its backing.
+    require(calls == 2);
     kalandra_handle_end_borrow_v1(first);
     require(calls == 2);
     kalandra_handle_end_borrow_v1(second);
     require(calls == 3);
   }
-  require(calls == 3);
+  {
+    Invocation ctx;
+    OwnedDescriptor object{};
+    auto *state = kalandra_subscription_prepare_v1(&ctx, dispose);
+    require(state && kalandra_subscription_publish_v1(&ctx, state, 0, &object));
+    std::uint64_t token;
+    auto *writer = kalandra_handle_borrow_v1(&ctx, &object, &token, 1);
+    require(writer);
+    require(!kalandra_handle_borrow_v1(&ctx, &object, &token, 0));
+    kalandra_handle_end_borrow_v1(writer);
+  }
+  require(calls == 4);
 }
