@@ -5,8 +5,9 @@
 #include <sstream>
 
 namespace kalandra {
-SourceFile::SourceFile(std::string path, std::string text)
-    : path_(std::move(path)), text_(std::move(text)), lines_{0} {
+SourceFile::SourceFile(std::string path, std::string text,
+                       std::shared_ptr<const HeaderContracts> header)
+    : header_(std::move(header)), path_(std::move(path)), text_(std::move(text)), lines_{0} {
   for (std::size_t i = 0; i < text_.size(); ++i)
     if (text_[i] == '\n')
       lines_.push_back(i + 1);

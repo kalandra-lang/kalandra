@@ -182,6 +182,8 @@ private:
                : module.expressions.at(reader.identity()).span;
   }
   std::string resourceName(const ValueType &type) const {
+    if (ownedResourceKind(module, type) == OwnedResourceKind::Subscription)
+      return module.records[*type.record].name;
     return isIterator(module, type)     ? "Iterator"
            : isByteBuffer(module, type) ? "ByteBuffer"
                                         : "file handle";
@@ -921,7 +923,11 @@ private:
               rememberResource(argument, args.back(), env, uses);
             }
             validateResources(uses, env);
-            if (op.action != BufferAction::Create && mutatesBuffer(op.action)) {
+            if (op.action == BufferAction::NativeCall) {
+              for (size_t i = 0; i < op.writable.size(); ++i)
+                if (op.writable[i])
+                  write(op.arguments[i], args[i], env, spawned);
+            } else if (op.action != BufferAction::Create && mutatesBuffer(op.action)) {
               write(op.arguments[0], args[0], env, spawned);
               if (op.action == BufferAction::IntoArray)
                 consume(op.arguments[0], args[0], env);
@@ -952,12 +958,25 @@ private:
             input(op.input);
             return {};
           } else if constexpr (std::is_same_v<T, FormatOperation> ||
-                               std::is_same_v<T, TimeOperation>) {
+                               std::is_same_v<T, ForeignCall> || std::is_same_v<T, TimeOperation>) {
+            if constexpr (std::is_same_v<T, ForeignCall>) {
+              if (!op.subscriptionRelease.empty()) {
+                for (auto value : op.arguments) {
+                  auto roots = input(value);
+                  if (op.symbol == op.subscriptionRelease)
+                    consume(value, roots, env);
+                }
+                return op.symbol == op.subscriptionRelease ? Roots{} : fresh(id);
+              }
+            }
             if constexpr (std::is_same_v<T, FormatOperation>)
               for (auto value : op.originalArguments)
                 input(value);
             for (auto value : op.arguments)
               input(value);
+            if constexpr (std::is_same_v<T, ForeignCall>)
+              if (isOwnedResource(module, node.type))
+                return fresh(id);
             return {};
           } else if constexpr (std::is_same_v<T, ArraySort>) {
             auto destination = input(op.input);

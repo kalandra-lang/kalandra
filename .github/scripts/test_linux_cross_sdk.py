@@ -45,13 +45,13 @@ class LinuxSDKTests(unittest.TestCase):
             self.assertEqual(download_package(url, 4), b'abcd')
         self.assertEqual(get.call_args_list, [call(url, timeout=120), call(mirror, timeout=120)])
 
-    def test_other_origin_denial_is_not_retried_as_an_archive_download(self):
-        url = 'https://ports.ubuntu.com/ubuntu-ports/pool/main/a/a/x.deb'
+    def test_ports_denial_falls_back_to_locked_launchpad_publication(self):
+        url = 'https://ports.ubuntu.com/ubuntu-ports/pool/main/a/a/x%2by.deb'
+        publication = 'https://launchpad.net/ubuntu/+archive/primary/+files/x%2by.deb'
         denied = HTTPError(url, 403, 'Forbidden', {}, io.BytesIO())
-        with patch('linux_cross_sdk.urlopen', side_effect=denied) as get:
-            with self.assertRaises(HTTPError):
-                download_package(url, 4)
-        get.assert_called_once_with(url, timeout=120)
+        with patch('linux_cross_sdk.urlopen', side_effect=[denied, io.BytesIO(b'abcdef')]) as get:
+            self.assertEqual(download_package(url, 4), b'abcd')
+        self.assertEqual(get.call_args_list, [call(url, timeout=120), call(publication, timeout=120)])
 
     def test_materializes_cross_package_links_and_usr_merge(self):
         with tempfile.TemporaryDirectory() as work:

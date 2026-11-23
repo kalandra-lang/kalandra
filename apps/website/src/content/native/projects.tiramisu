@@ -78,6 +78,56 @@ entry = "src/public.k"
 
 Save that library manifest in a separate library root, with the exported area function above in src/public.k. A source library declares the module callers import and resolves its own dependencies. Its entry and local mappings must stay within its canonical root. Version metadata does not introduce version-range solving.
 
+h2 { "Import a system library" }
+
+In an application or package manifest, add a system library to the dependencies table.
+
+code { """sqlite = { system = "sqlite3" }""" }
+
+Use the name on the left in an import. For example, import sqlite3_libversion_number from "sqlite" and call sqlite3_libversion_number() to get SQLite's version as an integer. The compiler locates the public header and links the library for the selected target. For a library you build with your project, give its header and object or library paths relative to the manifest.
+
+code { """bytes = { header = "bytes.h", library = "bytes.o" }""" }
+
+A C binding can expose 8-, 16-, 32- and 64-bit integers, f32, f64, bool and functions returning void. On Linux, Windows and macOS, a C function can borrow ByteBuffer contents for the duration of a call. The following header uses a Clang diagnostic to bind both pointers to the byte count n. Clang can diagnose undersized objects in C calls when their size is known. Kalandra also checks dynamically sized buffers at runtime.
+
+codeblock { language = c, """#include <stddef.h>
+#include <stdint.h>
+
+#define BYTE_EXTENT(p, n) __attribute__((diagnose_if((n) > __builtin_object_size((p), 0), "byte count exceeds buffer", "error")))
+
+void copyPrefix(size_t n,
+                uint8_t * _Nonnull dst __attribute__((noescape)),
+                const uint8_t * _Nonnull src __attribute__((noescape)))
+    BYTE_EXTENT(dst, n) BYTE_EXTENT(src, n);
+""" }
+
+Apple SDK bindings may also use counted_by on pointer parameters with a bounds-safety-capable Xcode.
+
+In Kalandra, import copyPrefix from "bytes" and call it with two initialized buffers.
+
+code { """try copyPrefix(2, dst, src)""" }
+
+If either buffer contains fewer than two bytes, the call returns BufferError.OutOfRange before entering C. Reserving capacity does not initialize bytes. The destination requires an exclusive borrow. The source is passed as a read-only snapshot. A zero-length borrow supplies a non-null address for the duration of the call.
+
+The binding author is responsible for matching the linked implementation to the header. The C function must stay within the declared bounds. It may neither free the borrowed storage nor retain its address after returning. For an owning native object, use a header that identifies the handle family, its borrow operations and its destructor. For callbacks, declare whether the pointer escapes and how the library releases captured state. A native adapter can translate an Objective-C message or a platform event into one of these contracts.
+
+An application or package can build a different adapter for each operating system. For example, a single dependency can select these sources in its manifest:
+
+code { """[dependencies.desktop]
+header = "window.h"
+
+[dependencies.desktop.targets]
+macos = { source = "appkit.m" }
+windows = { source = "win32.c" }
+linux = { source = "x11.c", libraries = ["X11"] }""" }
+
+A caller imports the same functions from "desktop" on all three systems. Building the example requires a C toolchain and the destination platform's development headers and libraries.
+
+list {
+  link { url = "/docs/modules", "Call native functions, use handles and register callbacks" },
+  link { url = "/docs/cross-compilation", "Configure the destination SDK" }
+}
+
 h2 { "Build modes" }
 
 codeblock { language = bash, """kalandra --project my-app/kalandra.toml -O2 -o program

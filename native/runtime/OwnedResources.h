@@ -7,7 +7,7 @@ namespace kalandra::runtime {
 struct OwnedDescriptor {
   CpuTensor<NumericType::UInt8, 1> storage;
 };
-enum class OwnedKind { File, ByteBuffer, Generator };
+enum class OwnedKind { File, ByteBuffer, Generator, NativeSubscription };
 class BorrowedGroupOwner;
 struct BorrowedCleanup;
 struct ResourceScope;

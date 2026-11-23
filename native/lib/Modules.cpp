@@ -85,7 +85,9 @@ loadModuleGraph(std::string path, SyntaxLimits syntaxLimits, ModuleLimits module
     }
     overlayBytes += overlay.text.size() + 1;
     const auto key = canonical.string();
-    if (!replacements.emplace(key, std::make_shared<const SourceFile>(key, overlay.text)).second) {
+    if (!replacements
+             .emplace(key, std::make_shared<const SourceFile>(key, overlay.text, overlay.header))
+             .second) {
       fail(root, {}, "M006", "duplicate source overlay for '" + key + "'");
       return std::move(*failure);
     }

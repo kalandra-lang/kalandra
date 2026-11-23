@@ -224,6 +224,10 @@ struct BufferOperation {
   BufferAction action;
   std::vector<ValueId> arguments;
   SourceSpan source = {};
+  std::string nativeSymbol = {};
+  std::vector<int> counts = {};
+  std::vector<bool> writable = {};
+  bool mainThreadOnly = false;
 };
 struct WorkgroupOperation {
   WorkgroupOperationMetadata metadata;
@@ -240,6 +244,22 @@ struct GeneratorCreate {
   std::vector<ValueId> captures;
 };
 
+struct NativeBlockCall {
+  std::string callee;
+  FunctionId function;
+  unsigned position;
+  bool byValue = false;
+};
+struct ForeignCall {
+  std::string symbol;
+  std::vector<ValueId> arguments;
+  std::vector<std::string> callbacks = {};
+  std::optional<NativeBlockCall> block = {};
+  std::string subscriptionRelease = {};
+  NativeCallABI nativeABI = {};
+  bool mainThreadOnly = false;
+  bool requiresNativeFrame() const { return !subscriptionRelease.empty() || nativeABI.adapted(); }
+};
 struct TimeOperation {
   TimeAction action;
   std::vector<ValueId> arguments;
@@ -527,6 +547,7 @@ struct TypedRecord {
   std::vector<std::pair<std::size_t, std::size_t>> errorOrigins =
       {};                                      // Original family/variant per case.
   std::optional<StandardRecord> standard = {}; // Loader-proven nominal standard type.
+  bool nativeSubscription = false;
   bool uninhabited = false; // The compiler-owned empty type has no constructors/variants.
   // Phantom arguments still determine identity and intrinsic signatures even
   // when they do not contribute fields to an opaque runtime representation.
@@ -535,20 +556,19 @@ struct TypedRecord {
 struct TypedExpr {
   SourceSpan span;
   ValueType type; // Concrete scalar/tensor numeric identity; builtins retain explicit tags.
-  std::variant<Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal,
-               UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
-               FormatOperation, ConsoleOperation, FileOperation, BufferOperation, IteratorOperation,
-               ParseOperation, PathOperation, EnvironmentLookup, TimeOperation,
-               ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary,
-               TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall,
-               Matmul, ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape,
-               TensorToArray, ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery,
-               ShapeCheck, DeviceSelection, Transfer, TaskOperation, ParallelOperation,
-               ConditionalOperation, WhileOperation, LoopTransferOperation, IntegerRangeOperation,
-               YieldOperation, CatchOperation, MatchOperation, ErrorFieldRead, FailOperation,
-               GuardOperation, RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference,
-               FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort, GeneratorCreate,
-               WorkgroupOperation>
+  std::variant<
+      Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal, UInt64Literal,
+      StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral, FormatOperation,
+      ConsoleOperation, FileOperation, BufferOperation, IteratorOperation, ParseOperation,
+      PathOperation, EnvironmentLookup, TimeOperation, ForeignCall, ApplicationArguments,
+      BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary, TensorUnary, ScalarBinary, TensorBinary,
+      TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum, TensorTransform, ArrayMap,
+      ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat, ArraySlice, ArrayIndex, TensorIndex,
+      CollectionQuery, ShapeCheck, DeviceSelection, Transfer, TaskOperation, ParallelOperation,
+      ConditionalOperation, WhileOperation, LoopTransferOperation, IntegerRangeOperation,
+      YieldOperation, CatchOperation, MatchOperation, ErrorFieldRead, FailOperation, GuardOperation,
+      RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke,
+      ArrayBoundsCheck, ArrayStore, ArraySort, GeneratorCreate, WorkgroupOperation>
       operation;
 };
 struct ShapeEquality {
@@ -593,6 +613,8 @@ struct TypedFunction {
   bool standardComparatorSort = false;
   // Private expected-error export adapter; never inferred from source spelling.
   std::optional<FunctionId> deviceErrorEntry = {};
+  std::string cExportName = {}; // Public symbol before module qualification.
+  bool checkedCExport = false;
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.
@@ -629,10 +651,20 @@ struct TypedModule {
 };
 // Canonical resource identity is independent of storage validity. Callers
 // retain their scalar/wrapper/layout checks; names never establish identity.
-enum class OwnedResourceKind { None, File, BufferedReader, BufferedWriter, ByteBuffer, Iterator };
+enum class OwnedResourceKind {
+  None,
+  File,
+  BufferedReader,
+  BufferedWriter,
+  ByteBuffer,
+  Iterator,
+  Subscription
+};
 inline OwnedResourceKind ownedResourceKind(const TypedModule &module, const ValueType &type) {
   if (!type.record || *type.record >= module.records.size())
     return OwnedResourceKind::None;
+  if (module.records[*type.record].nativeSubscription)
+    return OwnedResourceKind::Subscription;
   const auto standard = module.records[*type.record].standard;
   if (!standard)
     return OwnedResourceKind::None;

@@ -39,3 +39,12 @@ BufferStats bufferStats(Invocation &, const BufferDescriptor &) noexcept;
 extern "C" void kalandra_buffer_v1(kalandra::runtime::Invocation *,
                                    kalandra::runtime::BufferResult *, std::uint32_t,
                                    const kalandra::runtime::BufferArguments *) noexcept;
+
+struct KalandraNativeArgument {
+  void *slot;
+  std::uint64_t count;
+  std::uint32_t access; // 0 scalar, 1 read, 2 mutate
+};
+extern "C" std::uint32_t kalandra_native_buffers_v1(kalandra::runtime::Invocation *,
+                                                    const KalandraNativeArgument *, std::uint32_t,
+                                                    void (*)(void **)) noexcept;

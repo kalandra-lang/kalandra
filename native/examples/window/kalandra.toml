@@ -1,0 +1,9 @@
+format = 1
+[project]
+entry = "main.k"
+[dependencies.desktop]
+header = "window.h"
+[dependencies.desktop.targets]
+macos = { source = "appkit.m" }
+windows = { source = "win32.c" }
+linux = { source = "x11.c", libraries = ["X11"] }

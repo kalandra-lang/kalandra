@@ -27,6 +27,7 @@ def prepare_tests(repository, tests):
         shutil.copy2(Path(__file__).with_name(name), tests)
     for name in ("ProtocolClient.py", "ProtocolTests.py", "RecoveryProtocolTests.py"):
         shutil.copy2(repository / "native/lsp" / name, tests)
+    shutil.copy2(repository / "native/tests/CountedImportTests.py", tests)
     (tests / "expected-version.txt").write_text(expected_version() + "\n", encoding="utf-8")
 
 
@@ -60,6 +61,12 @@ def qualify(archive):
         prepare_tests(repository, tests)
         compiler = prefix / "bin" / ("kalandra.exe" if windows else "kalandra")
         commands = [[sys.executable, str(tests / "PortableCPUAcceptance.py"), "--compiler", str(compiler)]]
+        suffix = ".exe" if windows else ""
+        commands.append([sys.executable, str(tests / "CountedImportTests.py"), "--portable",
+                         "--cc", str(prefix / "libexec/kalandra" / ("clang++" + suffix)),
+                         "--resource-dir", str(prefix / "lib/kalandra/toolchain/clang"),
+                         "--object-only", "--skip-sanitizer", "--compiler", str(compiler),
+                         "--checker", str(prefix / "bin" / ("kalandra-check" + suffix))])
         commands.append([sys.executable, str(tests / "PackageRemoveManifests.py"), str(compiler)])
         commands.append([sys.executable, str(tests / "CliFeedbackTests.py"), str(compiler)])
         server = prefix / "bin" / ("kalandra-lsp.exe" if windows else "kalandra-lsp")

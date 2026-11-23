@@ -1,0 +1,6 @@
+format=1
+[project]
+entry="main.k"
+[dependencies.bytes]
+header="bytes.h"
+library="bytes.o"

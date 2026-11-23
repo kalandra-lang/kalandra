@@ -31,6 +31,130 @@ kalandra main.k -o program
 
 The executable displays 42. The import path is relative to main.k, not to the terminal's working directory. Keep both files in the same directory for this example.
 
+h2 { "Call a Kalandra function from C or C++" }
+
+Use export "C" to give a function a public C symbol. The same function can be imported by another Kalandra module. Give it a library-specific name so other libraries can link alongside it.
+
+In geometry.k:
+
+codeblock { language = kalandra, """export "C" fn geometry_twice(value: i32) -> i32:
+  return value * 2
+
+export "C" direct fn geometry_scale(value: f64) -> f64:
+  return value * 2.0
+""" }
+
+Build a static library and its matching header:
+
+codeblock { language = bash, """kalandra geometry.k --emit static --header geometry.h -o libgeometry.a
+""" }
+
+In caller.c:
+
+codeblock { language = c, """#include "geometry.h"
+#include <stdio.h>
+
+int main(void) {
+  int32_t result = 17;
+  if (geometry_twice(INT32_MAX, &result) != KALANDRA_C_FAULT || result != 17)
+    return 1;
+  if (geometry_twice(21, &result) != KALANDRA_C_OK)
+    return 1;
+  printf("%.0f", geometry_scale(result / 2.0));
+  return 0;
+}
+""" }
+
+codeblock { language = bash, """cc caller.c libgeometry.a -o caller
+./caller
+""" }
+
+The caller prints 42. The generated header also works in C++. Use object or shared in place of static to produce a relocatable object or a shared library for the target platform.
+
+By default, an exported C function returns an int32_t status. For a value result, pass a writable pointer as the final argument. On success the function writes the value and returns KALANDRA_C_OK. On an execution fault, such as signed overflow, it returns KALANDRA_C_FAULT and leaves the output untouched. A null output pointer returns KALANDRA_C_INVALID_ARGUMENT. For a unit result the caller receives just the status. Parameters can use fixed-width integers, f32, f64 or bool.
+
+Each supported scalar export is ready to call after the host links or loads the library. The host owns the input values and output storage. Each checked call has its own status and fault state, which ends when the call returns. After a fault, the host can call the same function again. Keep a shared library loaded until every outstanding call and callback into its code has returned.
+
+Use export "C" direct fn when a C API requires a function that returns its value directly. The compiler must prove that the body can run without a Kalandra execution context or a fault. A direct export returning unit has the C return type void.
+
+h2 { "Cross-compile a C dependency" }
+
+When building an application with --platform or --toolchain, supply the dependency for the destination architecture. Kalandra reads its C header using the destination ABI. For example, C long imports as i32 on 64-bit Windows and i64 on 64-bit Linux and macOS. A project-relative C header can accompany a separately cross-compiled object or archive. For a system library, its header and library must be available in the selected target SDK.
+
+h2 { "Pass a callback to C" }
+
+Declare a callback as a non-null C function pointer. Add Clang’s noescape attribute when the library borrows the pointer only for the duration of the call. For example, a native event library can accept a callback that maps an event number to an i32.
+
+codeblock { language = c, """#include <stdint.h>
+typedef int32_t (*Event)(int32_t);
+int32_t dispatch(Event _Nonnull handler __attribute__((noescape)), int32_t event);
+""" }
+
+codeblock { language = kalandra, """from "events" import dispatch
+from "std/process" import ExitStatus
+
+export "C" direct fn eventNumber(value: i32) -> i32:
+  return value
+
+fn main() -> ExitStatus:
+  if dispatch(eventNumber, 17) == 17:
+    return ExitStatus {code: 0}
+  return ExitStatus {code: 1}
+""" }
+
+Here C calls the function with an i32 and receives its result directly. The compiler checks the signature and proves that the function can complete without a fault. The native implementation must finish using the function pointer before dispatch returns. For an event subscription, a C header can instead declare a non-null callback without noescape. Pass a named direct export in the same way. Its code lives for the entire execution of the application, so the library can invoke it later or on another thread. Call the library’s unregistration function to stop delivery. The library defines when in-flight calls have finished. Both forms accept scalar callbacks without captured state.
+
+h2 { "Subscribe with a captured value" }
+
+A native adapter can let each subscription carry its own copy of a value. Here each sensor keeps the limit supplied to start, even after start returns. Pass the returned Subscription to unsubscribe to stop delivery. If it leaves its owning scope first, Kalandra calls the same release function automatically.
+
+codeblock { language = kalandra, """from "sensor" import subscribe, unsubscribe, Subscription
+from "std/process" import ExitStatus
+
+fn cap(value: i32, limit: i32) -> i32:
+  return if value > limit: limit
+  else: value
+
+fn start(limit: i32) -> Subscription:
+  return subscribe(fn(value: i32) -> i32: return cap(value, limit))
+
+fn main() -> ExitStatus:
+  sensor = start(80)
+  unsubscribe(sensor)
+  return ExitStatus {code: 0}
+""" }
+
+For a portable C adapter, declare how the library forwards the captured value. The first argument to the handler below comes from the sensor. The second comes from the limit supplied at registration. The acquire and release annotations must name the same handle family. This header names it Subscription. A different family, such as sensor_listener, imports as a distinct SensorListener type.
+
+codeblock { language = c, """typedef int (*Reading)(int value, int limit);
+unsigned long long subscribe(Reading _Nonnull handler, int limit)
+    __attribute__((callback(handler, -1, limit), acquire_handle("Subscription")));
+void unsubscribe(unsigned long long token
+    __attribute__((release_handle("Subscription")))) __attribute__((swift_attr("nonisolated")));
+""" }
+
+The adapter must synchronize registration, delivery and release. Before delivering a reading, it takes an independent copy of the callback and its captured values, or retains the registration until that delivery returns. The nonisolated attribute declares that release can run on any cleanup thread. Release must stop new deliveries. A callback already in progress can finish with its copy. Release must also be safe on the delivering thread. A native library that requires teardown on a particular thread needs an adapter that arranges that teardown.
+
+The C form accepts a function pointer followed by its captured scalar arguments. Their order and types must match the values captured by the function literal. An adapter using a non-null Clang block may instead copy the block when registering or admitting a delivery and release each copy when finished. The callback body must be provably fault-free. Captures can be 32-bit or 64-bit integers or floating-point values.
+
+h2 { "Call a main-thread API" }
+
+Some native libraries require a particular function to run on the application's main thread. If the C header marks the function with Clang’s swift_attr("@MainActor") attribute, call it from Kalandra’s main function. The main task can await other work and resume on the same thread. Spawned tasks may run on worker threads. If a worker tries to call the marked function, Kalandra reports a fault before entering C.
+
+h2 { "Use a native window from Kalandra" }
+
+The window example opens a resizable window with a title, text and a background color. The Kalandra main function sets its appearance, reads events and returns when the user presses a key or closes the window. Build it from its directory with kalandra --project kalandra.toml -o hello-window. The same program uses AppKit on macOS, Win32 on Windows and X11 on Linux.
+
+link { url = "https://github.com/kalandra-lang/kalandra/tree/develop/native/examples/window", "Window example, binding sources and platform build instructions" }
+
+An owning result marked acquire_handle introduces a nominal Kalandra type. A library can use a non-null pointer to an incomplete C struct as its native representation. To borrow it, a C parameter declares the same handle family with use_handle, _Nonnull and noescape. The compiler checks the family's release function and its C parameter type. Pass the resulting object directly to functions that take that type. Move it into the release function to close it immediately, or let its owning scope exit. An in-flight borrow keeps the native object alive through the call. A pointer to const can share a read borrow with other readers. A writable pointer or an integer handle requires exclusive access. Conflicting calls fault before entering the native function.
+
+A named C struct with fixed-width scalar fields can be passed and returned by value. A const, noescape array parameter with a static extent of one borrows a single struct. Import the struct by name and supply a Kalandra record. Kalandra copies each field at its C offset. For a by-value call the target C compiler places the record in registers or on the stack as its ABI requires. The record may contain padding. Unsupported fields, including bit-fields and nested pointers, produce an import diagnostic.
+
+For read-only UTF-8 text, a binding can take a non-null, nonescaping const char pointer with a dedicated unsigned byte count. Use the checked object-size condition described for buffers. The Kalandra caller supplies one String. The compiler supplies its exact byte count, including embedded zero bytes. The callee reads that many bytes and copies the text if it needs to retain it. Empty text passes a valid address and a count of zero.
+
+A package can ship a C header and one adapter source per operating system. Under its dependency's targets table, each platform selects a C source or, on macOS, an Objective-C source. Add a libraries array for system link libraries such as X11. The compiler builds the selected adapter for the destination. Native library code must honor the ownership and extent contracts in its header.
+
 h2 { "Export types deliberately" }
 
 Record, enum and error declarations can be exported and imported. Aliasing preserves their nominal identity rather than creating a new type. A helper continues resolving its own private names in its declaring module; importing it does not expose all of that module.

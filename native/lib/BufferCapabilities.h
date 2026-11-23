@@ -1,5 +1,6 @@
 #pragma once
 #include "kalandra/TypeCapabilities.h"
+#include <algorithm>
 namespace kalandra {
 inline std::optional<std::string>
 bufferCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericTarget target) {
@@ -10,7 +11,7 @@ bufferCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericT
     return std::optional<std::string>("ByteBuffer operations require completed host values and "
                                       "their declared result/error types");
   };
-  if (!hostExecutionAvailable(target) || unsigned(op->action) > unsigned(BufferAction::WriteByte))
+  if (!hostExecutionAvailable(target) || unsigned(op->action) > unsigned(BufferAction::NativeCall))
     return bad();
   const auto scalar = [](const ValueType &t) {
     return typeFacts(t).plainHostScalar();
@@ -49,6 +50,26 @@ bufferCapabilityError(const TypedModule &module, const TypedExpr &expr, NumericT
     return bad();
   result.fallible = false;
   result.errorRecord.reset();
+  if (op->action == BufferAction::NativeCall) {
+    if (op->nativeSymbol.empty() || !scalar(result) || result.builtin != BuiltinValue::Unit ||
+        std::ranges::none_of(op->counts, [](int count) { return count >= 0; }) ||
+        op->counts.size() != op->arguments.size() || op->writable.size() != op->counts.size())
+      return bad();
+    for (size_t i = 0; i < op->counts.size(); ++i) {
+      if (op->arguments[i] >= module.expressions.size())
+        return bad();
+      const auto &type = module.expressions[op->arguments[i]].type;
+      if (op->counts[i] < 0) {
+        if (op->counts[i] != -1 || op->writable[i] || !scalar(type) ||
+            type.builtin != BuiltinValue::Numeric ||
+            (type.element != NumericType::UInt32 && type.element != NumericType::UInt64))
+          return bad();
+      } else if (!buffer(type) || size_t(op->counts[i]) >= op->counts.size() ||
+                 op->counts[op->counts[i]] >= 0)
+        return bad();
+    }
+    return {};
+  }
   const auto count = op->action == BufferAction::Reserve || op->action == BufferAction::Append ||
                              op->action == BufferAction::Truncate ||
                              op->action == BufferAction::CheckIndex ||

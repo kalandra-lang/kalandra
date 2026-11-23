@@ -19,13 +19,55 @@ struct SourceSpan {
   std::size_t begin = 0;
   std::size_t end = 0;
 };
+// The ABI type of a verified, borrowed native handle parameter.
+enum class NativeParameterABI {
+  Scalar,
+  Token,
+  Pointer,
+  ReadPointer,
+  Text,
+  TextLength,
+  SignedNarrow,
+  UnsignedNarrow,
+  Record
+};
+struct NativeParameterLayout {
+  NativeParameterABI abi = NativeParameterABI::Scalar;
+  unsigned argument = 0;
+  unsigned width = 0;
+  std::vector<std::uint64_t> offsets = {};
+  std::uint64_t bytes = 0, alignment = 0;
+};
+struct NativeCallABI {
+  std::vector<NativeParameterLayout> parameters;
+  bool pointerResult = false;
+  std::optional<NativeParameterLayout> recordResult;
+  std::string bridge;
+  bool narrowResult = false;
+  bool adapted() const { return !parameters.empty() || recordResult.has_value() || narrowResult; }
+};
+// Indexed by the C parameter ordinal. A negative value denotes a scalar.
+struct HeaderFunctionContract {
+  std::string bridgeDefinition = {};
+  std::string subscriptionFamily = {};
+  std::vector<int> bufferCounts;
+  bool hasCallbacks = false;
+  std::optional<unsigned> blockParameter = {};
+  std::vector<std::string> forwardedCaptures = {};
+  std::string subscriptionRelease = {};
+  NativeCallABI nativeABI = {};
+  bool mainThreadOnly = false;
+};
+using HeaderContracts = std::unordered_map<std::string, HeaderFunctionContract>;
 class SourceFile {
 public:
   struct Part {
     std::size_t begin;
     std::shared_ptr<const SourceFile> source;
   };
-  SourceFile(std::string path, std::string text);
+  SourceFile(std::string path, std::string text,
+             std::shared_ptr<const HeaderContracts> header = {});
+  std::shared_ptr<const HeaderContracts> header() const { return header_; }
   SourceFile(std::string path, std::string text, std::vector<Part> parts);
   [[nodiscard]] const std::string &path() const { return path_; }
   [[nodiscard]] const std::string &text() const { return text_; }
@@ -38,6 +80,7 @@ public:
   [[nodiscard]] const std::vector<Part> &parts() const { return parts_; }
 
 private:
+  std::shared_ptr<const HeaderContracts> header_;
   std::string path_;
   std::string text_;
   std::vector<std::size_t> lines_;
@@ -307,6 +350,16 @@ struct Function {
   std::optional<SourceSpan> errorType = {};
   std::vector<SourceSpan> errorTypes = {};
   std::vector<GenericParameter> generics = {};
+  bool cExport = false;
+  bool checkedCExport = false;
+  bool cImport = false;
+  bool nativeCallbacks = false;
+  std::optional<unsigned> blockParameter = {};
+  std::vector<std::string> forwardedCaptures = {};
+  std::string subscriptionRelease = {};
+  NativeCallABI nativeABI = {};
+  bool nativeMainThread = false;
+  std::vector<int> bufferCounts = {};
   std::string specializedName = {}; // Internal only; source names/spans remain unchanged.
 };
 struct ImportedName {
@@ -401,6 +454,7 @@ struct PackageNode {
 struct SourceOverlay {
   std::string path;
   std::string text;
+  std::shared_ptr<const HeaderContracts> header = {};
 };
 // Explicit offline package entry mappings; no filesystem or network work while parsing.
 [[nodiscard]] std::expected<ModulePackage, std::string> parseModulePackage(std::string_view value);

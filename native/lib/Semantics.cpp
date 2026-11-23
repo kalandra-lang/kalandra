@@ -24,6 +24,26 @@
 
 namespace kalandra {
 namespace {
+// These names cannot be public functions in a header consumed by both C17
+// and C++20. Include typedefs/macros supplied by our own fixed-width header.
+bool portableCExportName(std::string_view symbol) {
+  static const std::unordered_set<std::string_view> reserved = {
+      "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor", "bool", "break",
+      "case", "catch", "char", "char8_t", "char16_t", "char32_t", "class", "compl", "concept",
+      "const", "consteval", "constexpr", "constinit", "const_cast", "continue", "co_await",
+      "co_return", "co_yield", "decltype", "default", "delete", "do", "double", "dynamic_cast",
+      "else", "enum", "explicit", "export", "extern", "false", "float", "for", "friend", "goto",
+      "if", "inline", "int", "long", "main", "mutable", "namespace", "new", "noexcept", "not",
+      "not_eq", "nullptr", "operator", "or", "or_eq", "private", "protected", "public",
+      "register", "reinterpret_cast", "requires", "restrict", "return", "short", "signed",
+      "sizeof", "static", "static_assert", "static_cast", "struct", "switch", "template", "this",
+      "thread_local", "throw", "true", "try", "typedef", "typeid", "typename", "union",
+      "unsigned", "using", "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq",
+      "int8_t", "uint8_t", "int16_t", "uint16_t", "int32_t", "uint32_t", "int64_t", "uint64_t",
+      "intptr_t", "uintptr_t", "intmax_t", "uintmax_t"};
+  return !symbol.starts_with('_') && !symbol.starts_with("kalandra_") && !symbol.starts_with("KALANDRA_C_") &&
+         symbol.find("__") == std::string_view::npos && !reserved.contains(symbol);
+}
 class Checker {
   enum class State { Unseen, Checking, Complete, Failed };
   struct TaskChecks {
@@ -1151,6 +1171,11 @@ private:
         exports_.emplace(key, ExportBinding{true, output_.records.size()});
       TypedRecord header{label, record.name, {}};
       header.error = record.error;
+      if (auto contracts = syntax_.source->origin(record.name.begin).first->header()) {
+        auto found = contracts->find(label);
+        header.nativeSubscription =
+            found != contracts->end() && !found->second.subscriptionFamily.empty();
+      }
       const auto origin = syntax_.source->partIndex(record.name.begin);
       if (origin < syntax_.standardModules.size()) {
         if (syntax_.standardModules[origin] == StandardModule::Gpu && label == "WorkItem")
@@ -1393,6 +1418,28 @@ private:
                          proofOwnerForFunction(id));
       output_.functions[id].name = functionName(function);
       output_.functions[id].declaration = function.name;
+      if (function.cImport) {
+        const auto symbol = name(function.name);
+        if (!portableCExportName(symbol) || !function.result || !function.generics.empty() ||
+            (function.taskError != !function.bufferCounts.empty()) ||
+            !cImportNames_.insert(symbol).second)
+          error("S093",
+                "native imports require a unique C symbol and an explicit concrete signature",
+                function.name);
+      }
+      if (function.cExport) {
+        const auto symbol = name(function.name);
+        output_.functions[id].cExportName = symbol;
+        output_.functions[id].checkedCExport = function.checkedCExport;
+        if (!portableCExportName(symbol))
+          error("S092", "C export name '" + symbol + "' is reserved in a public C/C++ header", function.name);
+        if (!cExportNames_.insert(symbol).second)
+          error("S092", "duplicate C export symbol '" + symbol + "'", function.name);
+        if (!function.generics.empty())
+          error("S092", "C exports require a concrete function signature", function.name);
+        if (!function.result)
+          error("S092", "C exports require an explicit result type", function.name);
+      }
       if (!function.generics.empty()) {
         auto signature = sourceCallableSignature(function);
         if (implementationMethodOwners_.contains(id))
@@ -1510,6 +1557,55 @@ private:
                 instantiateGenericTerm(*function.result, *output_.functions[id].declaredResult,
                                        genericTermEnvironment(id));
         }
+      }
+      if (function.cImport) {
+        const auto &fn = output_.functions[id];
+        const auto allowed = [&](const ValueType &t, bool result) {
+          const auto facts = typeFacts(t);
+          return facts.plainHostScalar() &&
+                 ((facts.numeric() &&
+                   (describeNumeric(t.element)->bits >= 32 || function.nativeABI.adapted())) ||
+                  (t.builtin == BuiltinValue::Bool && function.nativeABI.adapted()) ||
+                  (result && t.builtin == BuiltinValue::Unit));
+        };
+        for (const auto parameter : fn.parameters) {
+          const auto &type = output_.symbols[parameter].type;
+          if ((!function.subscriptionRelease.empty() || function.nativeABI.adapted()) &&
+              ownedResourceKind(output_, type) == OwnedResourceKind::Subscription)
+            continue;
+          if (function.nativeABI.adapted() && (type.record || type.builtin == BuiltinValue::String))
+            continue;
+          if (function.nativeCallbacks && type.callable)
+            continue;
+          if (!function.bufferCounts.empty() && isByteBuffer(output_, type))
+            continue;
+          if (!allowed(type, false))
+            error("S093", "unsupported native parameter type for this C declaration",
+                  function.name);
+        }
+        if (!fn.declaredResult ||
+            (function.bufferCounts.empty() && !function.nativeABI.recordResult &&
+             !allowed(*fn.declaredResult, true) &&
+             (function.subscriptionRelease.empty() ||
+              ownedResourceKind(output_, *fn.declaredResult) != OwnedResourceKind::Subscription)))
+          error("S093", "unsupported native return type for this C declaration", function.name);
+      }
+      if (function.cExport) {
+        const auto &fn = output_.functions[id];
+        auto compatible = [](const ValueType &type, bool result) {
+          const auto facts = typeFacts(type);
+          return facts.plainHostScalar() &&
+                 (facts.numeric() || type.builtin == BuiltinValue::Bool ||
+                  (result && type.builtin == BuiltinValue::Unit));
+        };
+        for (auto parameter : fn.parameters) {
+          const auto &value = output_.symbols[parameter];
+          if (!compatible(value.type, false))
+            error("S092", "C export parameters require an ABI-compatible scalar", function.name);
+        }
+        if (fn.declaredResult && !compatible(*fn.declaredResult, true))
+          error("S092", "C export results require an ABI-compatible scalar or unit and no error channel",
+                function.name);
       }
       if (function.moduleIndex)
         output_.functions[id].name =
@@ -1774,6 +1870,39 @@ private:
     }
     return add(frame, *fn.declaredResult, fn.declaration,
                TimeOperation{action, std::move(arguments)});
+  }
+  std::optional<ValueId> foreignBody(Frame &frame, FunctionId id) {
+    const auto &fn = output_.functions[id];
+    const auto &syntax = syntax_.functions[id];
+    if (!fn.declaredResult)
+      return {};
+    if (!syntax.bufferCounts.empty()) {
+      BufferOperation op{BufferAction::NativeCall, {}, fn.declaration};
+      op.nativeSymbol = name(fn.declaration);
+      op.mainThreadOnly = syntax.nativeMainThread;
+      op.counts = syntax.bufferCounts;
+      for (const auto param : fn.parameters) {
+        const auto &sym = output_.symbols[param];
+        auto value = add(frame, sym.type, fn.declaration, SymbolRead{param});
+        if (!value)
+          return {};
+        op.arguments.push_back(*value);
+        op.writable.push_back(sym.mutableAccess);
+      }
+      return add(frame, *fn.declaredResult, fn.declaration, std::move(op));
+    }
+    ForeignCall call{name(fn.declaration), {}};
+    call.mainThreadOnly = syntax.nativeMainThread;
+    call.nativeABI = syntax.nativeABI;
+    if (!syntax.nativeCallbacks)
+      call.subscriptionRelease = syntax.subscriptionRelease;
+    for (auto param : fn.parameters) {
+      auto value = add(frame, output_.symbols[param].type, fn.declaration, SymbolRead{param});
+      if (!value)
+        return {};
+      call.arguments.push_back(*value);
+    }
+    return add(frame, *fn.declaredResult, fn.declaration, std::move(call));
   }
   bool standardEnvironmentLookup(FunctionId id) const {
     if (id >= syntax_.functions.size())
@@ -2295,7 +2424,8 @@ private:
     std::unordered_set<std::string> parameters;
     for (auto parameter : output_.functions[id].parameters)
       parameters.insert(output_.symbols[parameter].name);
-    output_.functions[id].compileTimeOnly = standardFormat(id);
+    output_.functions[id].compileTimeOnly =
+        standardFormat(id) || syntax_.functions[id].nativeCallbacks;
     output_.functions[id].standardIteratorTake =
         syntax_.functions[id].moduleIndex < syntax_.standardModules.size() &&
         syntax_.standardModules[syntax_.functions[id].moduleIndex] == StandardModule::Iteration &&
@@ -2305,23 +2435,25 @@ private:
         syntax_.standardModules[syntax_.functions[id].moduleIndex] == StandardModule::Comparison &&
         (name(syntax_.functions[id].name) == "__sortIndices" ||
          name(syntax_.functions[id].name) == "__sortedValues");
-    auto result = standardFormat(id)     ? add(frame, *output_.functions[id].declaredResult,
-                                               syntax_.functions[id].span, StringLiteral{std::string{}})
-                  : standardIterator(id) ? iteratorBody(frame, id, *standardIterator(id))
-                  : standardRange(id)    ? rangeBody(frame, id)
-                  : standardBuffer(id)   ? bufferBody(frame, id, *standardBuffer(id))
-                  : standardTime(id)     ? timeBody(frame, id, *standardTime(id))
-                  : standardEnvironmentLookup(id) ? environmentBody(frame, id)
-                  : standardPath(id)              ? pathBody(frame, id, *standardPath(id))
-                  : standardParse(id)             ? parseBody(frame, id, *standardParse(id))
-                  : standardFile(id)              ? fileBody(frame, id, *standardFile(id))
-                  : standardConsole(id)
-                      ? consoleBody(frame, id, *standardConsole(id))
-                      : functionSuite(frame, body, output_.functions[id].declaredResult, statements,
-                                      syntax_.functions[id].span, parameters);
-    if ((standardFormat(id) || standardConsole(id) || standardFile(id) || standardParse(id) ||
-         standardPath(id) || standardEnvironmentLookup(id) || standardTime(id) ||
-         standardIterator(id) || standardRange(id) || standardBuffer(id)) &&
+    auto result =
+        syntax_.functions[id].cImport ? foreignBody(frame, id)
+        : standardFormat(id)   ? add(frame, *output_.functions[id].declaredResult,
+                                     syntax_.functions[id].span, StringLiteral{std::string{}})
+        : standardIterator(id) ? iteratorBody(frame, id, *standardIterator(id))
+        : standardRange(id)    ? rangeBody(frame, id)
+        : standardBuffer(id)   ? bufferBody(frame, id, *standardBuffer(id))
+        : standardTime(id)     ? timeBody(frame, id, *standardTime(id))
+        : standardEnvironmentLookup(id) ? environmentBody(frame, id)
+        : standardPath(id)              ? pathBody(frame, id, *standardPath(id))
+        : standardParse(id)             ? parseBody(frame, id, *standardParse(id))
+        : standardFile(id)              ? fileBody(frame, id, *standardFile(id))
+        : standardConsole(id) ? consoleBody(frame, id, *standardConsole(id))
+                              : functionSuite(frame, body, output_.functions[id].declaredResult,
+                                              statements, syntax_.functions[id].span, parameters);
+    if ((syntax_.functions[id].cImport || standardFormat(id) || standardConsole(id) ||
+         standardFile(id) || standardParse(id) || standardPath(id) ||
+         standardEnvironmentLookup(id) || standardTime(id) || standardIterator(id) ||
+         standardRange(id) || standardBuffer(id)) &&
         result)
       statements.push_back({syntax_.functions[id].span, {}, *result});
     output_.functions[id].body = std::move(statements);
@@ -3204,6 +3336,10 @@ private:
       const auto id = found->second;
       if (!syntax_.functions[id].generics.empty()) {
         error("S082", "generic function value requires explicit type arguments", read.name);
+        return {};
+      }
+      if (syntax_.functions[id].cImport) {
+        error("S093", "use a named wrapper to take a native function as a value", read.name);
         return {};
       }
       if (standardFormat(id)) {
@@ -7267,6 +7403,60 @@ private:
     resultType.identity = 0;
     if (!validSize(resultType, span))
       return {};
+    if (syntax_.functions[id].nativeCallbacks) {
+      if (spawned || selection) {
+        error("S093", "native callback registration requires a synchronous host call", span);
+        return {};
+      }
+      ForeignCall call{name(syntax_.functions[id].name), operands};
+      call.mainThreadOnly = syntax_.functions[id].nativeMainThread;
+      if (auto pos = syntax_.functions[id].blockParameter) {
+        const auto *ref = std::get_if<FunctionReference>(&node(operands[*pos]).operation);
+        if (!ref || std::ranges::any_of(ref->captures, [&](ValueId capture) {
+              const auto &t = node(capture).type;
+              return !typeFacts(t).plainHostScalar() || t.builtin != BuiltinValue::Numeric ||
+                     describeNumeric(t.element)->bits < 32;
+            })) {
+          error("S093",
+                "a native block requires a function literal or named function with scalar captures",
+                span);
+          return {};
+        }
+        call.subscriptionRelease = syntax_.functions[id].subscriptionRelease;
+        const auto &forwarded = syntax_.functions[id].forwardedCaptures;
+        if (!forwarded.empty()) {
+          if (ref->captures.size() != forwarded.size() ||
+              !std::equal(forwarded.begin(), forwarded.end(), ref->captures.begin(),
+                          [&](const auto &expected, ValueId value) {
+                            return describeNumeric(node(value).type.element)->sourceName ==
+                                   expected;
+                          })) {
+            error("S093", "captured values must match the adapter's forwarded scalar types", span);
+            return {};
+          }
+        }
+        call.block = NativeBlockCall{call.symbol, ref->function, *pos, !forwarded.empty()};
+        call.symbol = "kalandra.block.register." + std::to_string(output_.expressions.size());
+        call.arguments.erase(call.arguments.begin() + *pos);
+        call.arguments.insert(call.arguments.begin() + *pos, ref->captures.begin(),
+                              ref->captures.end());
+        return add(frame, std::move(resultType), span, std::move(call));
+      }
+      call.callbacks.resize(operands.size());
+      for (std::size_t i = 0; i < operands.size(); ++i) {
+        if (!node(operands[i]).type.callable)
+          continue;
+        auto *ref = std::get_if<FunctionReference>(&node(operands[i]).operation);
+        if (!ref || !ref->captures.empty() ||
+            output_.functions[ref->function].cExportName.empty() ||
+            output_.functions[ref->function].checkedCExport) {
+          error("S093", "a direct C callback requires a named, fault-free direct C export", span);
+          return {};
+        }
+        call.callbacks[i] = output_.functions[ref->function].cExportName;
+      }
+      return add(frame, std::move(resultType), span, std::move(call));
+    }
     return add(frame, std::move(resultType), span, FunctionCall{id, std::move(operands)});
   }
 #include "GenericChecking.h"
@@ -7287,6 +7477,8 @@ private:
   bool registeringRecords_ = true, recursiveValues_ = false;
   std::size_t recordDepth_ = 0;
   std::unordered_map<std::size_t, std::optional<std::size_t>> resolvedAliases_;
+  std::unordered_set<std::string> cExportNames_;
+  std::unordered_set<std::string> cImportNames_;
   std::unordered_map<std::string, std::optional<ExportBinding>> exports_;
   std::unordered_set<std::string> resolvingExports_;
   std::unordered_map<std::string, std::pair<std::size_t, std::string>> reexports_;

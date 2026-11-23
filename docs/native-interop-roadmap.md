@@ -1,19 +1,19 @@
-# Native C/C++ integration roadmap
+# Native C integration
 
-C/C++ integration is a separate roadmap from the main native language release. It remains a project goal and is not required to finish the main roadmap. Existing LLVM output and private test interfaces establish an implementation foundation; they are not a supported public library ABI.
+Kalandra applications import native functions from their C headers. Native applications call Kalandra through a generated C header. The [modules and native interop guide](https://kalandra.dev/docs/modules) describes both interfaces. [Issue #334](https://github.com/kalandra-lang/kalandra/issues/334) tracks the first qualification.
 
-## Scope
+## Calling a native library
 
-Support embedding compiled Kalandra in native applications and calling explicitly declared native libraries. Keep object/library output, public ABI design, foreign imports and host runtime lifecycle in this roadmap.
+A package declares the header and link dependency in its manifest. Kalandra reads declarations and attributes for the destination ABI. It uses those declarations to check buffer extents, UTF-8 byte counts, nonescaping borrows and opaque handle lifetimes. Ordinary C library code is responsible for honoring its declarations. A binding author can supply a small native adapter when the upstream API expresses its contract only in prose.
 
-## Milestones
+Function pointers to named direct exports support capture-free callbacks. An adapter can retain a callback with copied scalar captures through a subscription with an explicit release protocol. The adapter synchronizes delivery and detachment. The runtime pins admitted handle borrows until the native call returns.
 
-1. **Object and library output.** Define explicit export selection and supported object, static-library and shared-library builds. Specify symbol naming, visibility, target/platform compatibility and linking requirements.
-2. **Public interface contract.** Define C-compatible scalar, record and collection interfaces; generated headers; borrowed versus owned storage; errors; and ABI versioning. Do not expose private LLVM structs or scheduler layouts as the public contract.
-3. **Host runtime lifecycle.** Specify initialization, shutdown, invocation isolation, CPU/GPU resources, thread use and synchronization. Define asynchronous completion, cancellation and ownership through final completion.
-4. **Foreign calls.** Design explicit native declarations and safe wrappers for C APIs usable from C++. State which operations are unsafe, how external errors are represented, and how borrowed/retained memory is handled.
-5. **Qualification and delivery.** Build independent C and C++ consumers, test lifetime/error/cancellation behavior under sanitizers, verify supported link combinations, and document a complete integration example.
+The [window example](../native/examples/window) has a Kalandra entry point and event loop. Its adapters connect to AppKit on macOS, Win32 on Windows and X11 on Linux.
 
-Exporting a library does not automatically implement foreign imports or callbacks. Each boundary needs its own ownership and error rules. Initial platform scope and the public ABI must be reviewed before implementation; no release date or stable layout is implied here.
+## Embedding Kalandra
 
-Progress on this roadmap is tracked separately from the [main native roadmap](roadmap.md#native-implementation-status).
+Build a relocatable object, static library or shared library with a matching C header. An `export "C" fn` returns a 32-bit status. The host supplies a writable output pointer for a scalar result. A failed call preserves the previous output. The next call starts with independent fault state. A unit result requires no output pointer.
+
+An `export "C" direct fn` exposes its scalar result directly. The compiler must prove the body can run without a fault or an invocation context. Keep the library loaded until all calls and callbacks into its code have returned.
+
+The public export ABI covers scalars. A general embedding API for asynchronous tasks, GPU runtime ownership or arbitrary Kalandra-managed objects would require additional lifecycle contracts.

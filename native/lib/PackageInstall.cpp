@@ -171,9 +171,18 @@ Resolved resolve(const NativeProject &project, const NativePackageLock &active, 
     }
     require(fs::is_regular_file(fs::symlink_status(snapshot.library.entry)),
             "library public entry is missing");
-    for (const auto &local : snapshot.library.packages)
+    for (const auto &local : snapshot.library.packages) {
+      if (std::ranges::any_of(snapshot.library.headers,
+                              [&](const auto &h) { return h.moduleEntry == local.entry; }))
+        continue;
       require(fs::is_regular_file(fs::symlink_status(local.entry)),
               "library local mapping entry is missing");
+    }
+    result.graph.headers.insert(result.graph.headers.end(), snapshot.library.headers.begin(),
+                                snapshot.library.headers.end());
+    result.graph.libraries.insert(result.graph.libraries.end(),
+                                  snapshot.library.linkLibraries.begin(),
+                                  snapshot.library.linkLibraries.end());
     const auto id = result.graph.nodes.size();
     known.emplace(key, id);
     result.selected.packages.emplace(key, std::move(record));
@@ -203,7 +212,11 @@ Resolved resolve(const NativeProject &project, const NativePackageLock &active, 
   require(!strict || result.selected.packages.size() == active.packages.size(),
           "kalandra.lock contains unexpected graph nodes");
   if (validateSources) {
-    auto parsed = loadPackageModules(result.graph.nodes, {}, {128, limits.maxDepth});
+    std::vector<SourceOverlay> overlays;
+    for (const auto *headers : {&project.headers, &std::as_const(result.graph.headers)})
+      for (const auto &header : *headers)
+        overlays.push_back({header.moduleEntry, "fn placeholder() -> unit:\n  return ()\n"});
+    auto parsed = loadPackageModules(result.graph.nodes, {}, {128, limits.maxDepth}, overlays);
     require(bool(parsed), parsed ? "" : parsed.error());
     if (!parsed->ok())
       throw std::runtime_error(

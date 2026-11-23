@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstring>
 #include <utility>
+#include <vector>
 namespace kalandra::runtime {
 namespace {
 bool healthy(Invocation &ctx) noexcept { return !ctx.poll() && ctx.usable(); }
@@ -276,6 +277,9 @@ extern "C" void kalandra_buffer_v1(Invocation *ctx, BufferResult *out, std::uint
     out->bytes.strides[0] = 1;
     break;
   }
+  case BufferAction::NativeCall:
+    ctx->fault(3);
+    return;
   case BufferAction::IntoArray:
     if (s->payload && s->payload.uniquelyRetained()) {
       if (!ctx->retainLease(s->payload))
@@ -295,4 +299,82 @@ extern "C" void kalandra_buffer_v1(Invocation *ctx, BufferResult *out, std::uint
     s->retired.store(true, std::memory_order_release);
     break;
   }
+}
+
+extern "C" std::uint32_t kalandra_native_buffers_v1(Invocation *ctx,
+                                                    const KalandraNativeArgument *args,
+                                                    std::uint32_t count,
+                                                    void (*invoke)(void **)) noexcept {
+  // Pins stay live through the synchronous native call. A mutable borrow detaches
+  // storage retained by older I/O. A read borrow isolates Kalandra's shared bytes
+  // even if C casts away const.
+  struct Borrow {
+    BufferState *state = nullptr;
+    BufferIO pin;
+    unsigned char empty = 0;
+    AllocationLease snapshot;
+  };
+  try {
+    std::vector<Borrow> borrows(count);
+    std::vector<void *> slots(count);
+    for (unsigned i = 0; i < count; ++i) {
+      if (!healthy(*ctx))
+        return 0;
+      slots[i] = args[i].slot;
+      if (!args[i].access)
+        continue;
+      const auto &desc = *static_cast<const BufferDescriptor *>(args[i].slot);
+      auto *s = inspect(*ctx, desc);
+      if (!s)
+        return 0;
+      std::lock_guard lock(s->mutex);
+      if (args[i].count > s->length)
+        return unsigned(BufferKind::OutOfRange);
+      borrows[i].state = s;
+      for (unsigned j = 0; j < i; ++j)
+        if (borrows[j].state == s && (args[i].access == 2 || args[j].access == 2)) {
+          ctx->fault(3);
+          return 0;
+        }
+    }
+    // All extents and aliases are checked before allocating snapshots or
+    // detaching any destination. The caller holds the Kalandra resource loans.
+    for (unsigned i = 0; i < count; ++i) {
+      auto *s = borrows[i].state;
+      if (!s)
+        continue;
+      if (!healthy(*ctx))
+        return 0;
+      std::lock_guard lock(s->mutex);
+      slots[i] = &borrows[i].empty;
+      if (!args[i].count)
+        continue;
+      if (args[i].access == 2 && !grow(*ctx, *s, s->length, false, true))
+        return 0;
+      if (!pin(*ctx, *s, borrows[i].pin))
+        return 0;
+      if (args[i].access == 2) {
+        slots[i] = s->data;
+      } else {
+        auto *bytes = static_cast<unsigned char *>(ctx->allocate(args[i].count));
+        if (!bytes)
+          return 0;
+        auto lease = ctx->lease(bytes);
+        if (!lease) {
+          ctx->fault(3);
+          return 0;
+        }
+        borrows[i].snapshot = std::move(*lease);
+        ctx->release(bytes);
+        if (!copy(*ctx, bytes, s->data, args[i].count))
+          return 0;
+        slots[i] = bytes;
+      }
+    }
+    if (healthy(*ctx))
+      invoke(slots.data());
+  } catch (const std::bad_alloc &) {
+    ctx->fault(2);
+  }
+  return 0;
 }

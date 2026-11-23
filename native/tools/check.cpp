@@ -1,8 +1,9 @@
+#include "kalandra/CliOutput.h"
 #include "kalandra/Continuation.h"
 #include "kalandra/Diagnostics.h"
+#include "kalandra/HeaderImport.h"
 #include "kalandra/PackageInstall.h"
 #include "kalandra/Project.h"
-#include "kalandra/CliOutput.h"
 #include "kalandra/Version.h"
 #include <algorithm>
 #include <iostream>
@@ -116,10 +117,17 @@ int main(int argc, char **argv) {
     if (!loaded)
       return failure("PRJ001", loaded.error(), 1, projectPath);
     managed = std::move(*loaded);
+    project->headers.insert(project->headers.end(), managed->headers.begin(),
+                            managed->headers.end());
     managed->nodes[0].localPackages = packages;
   }
-  auto syntax = managed ? kalandra::loadPackageModules(managed->nodes, {}, {}, overlays)
-                        : kalandra::loadModules(path, {}, {}, packages, overlays);
+  auto syntax = kalandra::loadApplicationModules(
+      path, packages,
+      managed ? std::span<const kalandra::PackageNode>(managed->nodes)
+              : std::span<const kalandra::PackageNode>{},
+      std::move(overlays),
+      project ? std::span<const kalandra::HeaderImport>(project->headers)
+              : std::span<const kalandra::HeaderImport>{});
   if (!syntax) {
     return failure("IO001", std::string(path) + ": " + syntax.error(), 1, path);
   }

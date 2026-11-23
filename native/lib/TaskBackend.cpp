@@ -23,7 +23,7 @@
 #include "TaskValueCopy.h"
 #include "TaskValueTypes.h"
 #include "TimeLowering.h"
-#include "kalandra/Backend.h"
+#include "TaskBackend.h"
 #include "kalandra/Continuation.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Constants.h"
@@ -583,6 +583,14 @@ public:
       returnFailure();
       builder.SetInsertPoint(ready);
     }
+    const bool nativeApplication = planner.input.applicationEntry &&
+        std::ranges::any_of(planner.input.expressions, [](const auto &expr) {
+          if (const auto *call = std::get_if<ForeignCall>(&expr.operation))
+            return call->mainThreadOnly;
+          const auto *buffer = std::get_if<BufferOperation>(&expr.operation);
+          return buffer && buffer->mainThreadOnly;
+        });
+    const auto *runner = nativeApplication ? "kalandra_run_native_application_v1" : "kalandra_run_task_v1";
     if (synchronousEntries[id] && !coordinating.at(id) && !main->resultType.fallible) {
       Value *value = builder.CreateCall(synchronousEntries[id],
                                         {llvm::ConstantPointerNull::get(builder.getPtrTy()), ctx});
@@ -620,11 +628,11 @@ public:
       }
       builder.CreateBr(observed);
       builder.SetInsertPoint(scheduled);
-      call("kalandra_run_task_v1", voidType, {entries[id], packet, result, ctx, failure});
+      call(runner, voidType, {entries[id], packet, result, ctx, failure});
       builder.CreateBr(observed);
       builder.SetInsertPoint(observed);
     } else
-      call("kalandra_run_task_v1", voidType, {entries[id], packet, result, ctx, failure});
+      call(runner, voidType, {entries[id], packet, result, ctx, failure});
     auto *bad = Block::Create(context, "root.fault", entry);
     auto *ok = Block::Create(context, "root.result", entry);
     builder.CreateCondBr(hasFailure(failure), bad, ok);
@@ -2854,6 +2862,188 @@ private:
         break;
       }
       case Code::Kernel: {
+        if (const auto *op =
+                std::get_if<ForeignCall>(&planner.input.expressions[instruction.source].operation);
+            op && op->requiresNativeFrame()) {
+          if (op->mainThreadOnly) {
+            auto *ok = call("kalandra_application_is_main_thread_v1", builder.getInt32Ty(), {});
+            auto *admitted = Block::Create(context, "native.main", resume);
+            auto *wrong = Block::Create(context, "native.wrong.thread", resume);
+            builder.CreateCondBr(builder.CreateIsNotNull(ok), admitted, wrong);
+            builder.SetInsertPoint(wrong);
+            call("kalandra_fault_v1", voidType, {ctx, c64(3), c64(0), c64(0)});
+            builder.CreateBr(abort);
+            builder.SetInsertPoint(admitted);
+          }
+          if (op->symbol == op->subscriptionRelease) {
+            auto *ok = call("kalandra_subscription_close_v1", boolean,
+                            {ctx, payload(instruction.args.at(0))});
+            builder.CreateCondBr(ok, next, abort);
+            break;
+          }
+          auto *word = builder.getInt64Ty();
+          auto *ptr = builder.getPtrTy();
+          Value *owner = nullptr;
+          if (!op->subscriptionRelease.empty()) {
+            llvm::FunctionCallee release = module.getOrInsertFunction(
+                op->subscriptionRelease, voidType,
+                op->nativeABI.pointerResult ? static_cast<llvm::Type *>(ptr) : word);
+            // Call each destructor through its declared ABI. Even two 64-bit
+            // integer types can be distinct C function types on the same target.
+            std::string name = "kalandra.dispose." + op->subscriptionRelease;
+            auto *bridge = module.getFunction(name);
+            if (!bridge) {
+              auto *signature = llvm::FunctionType::get(voidType, {word}, false);
+              bridge =
+                  llvm::Function::Create(signature, llvm::Function::InternalLinkage, name, module);
+              llvm::IRBuilder<> body(Block::Create(context, "entry", bridge));
+              Value *token = bridge->getArg(0);
+              if (op->nativeABI.pointerResult)
+                token = body.CreateIntToPtr(token, ptr);
+              body.CreateCall(release, {token});
+              body.CreateRetVoid();
+            }
+            owner = call("kalandra_subscription_prepare_v1", ptr, {ctx, bridge});
+            auto *admitted = Block::Create(context, "handle.admitted", resume);
+            builder.CreateCondBr(builder.CreateIsNotNull(owner), admitted, abort);
+            builder.SetInsertPoint(admitted);
+          }
+          llvm::SmallVector<llvm::Type *> parameters;
+          llvm::SmallVector<Value *> args, borrows;
+          auto endBorrows = [&] {
+            for (auto *lease : llvm::reverse(borrows))
+              call("kalandra_handle_end_borrow_v1", voidType, {lease});
+          };
+          const auto &layouts = op->nativeABI.parameters;
+          for (unsigned i = 0, n = layouts.empty() ? instruction.args.size() : layouts.size();
+               i < n; ++i) {
+            NativeParameterLayout fallback{NativeParameterABI::Scalar, i};
+            const auto &layout = layouts.empty() ? fallback : layouts[i];
+            auto ordinal = layout.argument;
+            auto *input = payload(instruction.args.at(ordinal));
+            auto *t =
+                taskTypes->scalar(planner.input.expressions.at(op->arguments.at(ordinal)).type);
+            Value *value;
+            if (layout.abi == NativeParameterABI::Scalar) {
+              value = builder.CreateLoad(t, input);
+            } else if (layout.abi == NativeParameterABI::SignedNarrow ||
+                       layout.abi == NativeParameterABI::UnsignedNarrow) {
+              value = builder.CreateIntCast(builder.CreateLoad(t, input), builder.getInt32Ty(),
+                                            layout.abi == NativeParameterABI::SignedNarrow);
+            } else if (layout.abi == NativeParameterABI::Record) {
+              llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+              auto *bytes =
+                  entry.CreateAlloca(llvm::ArrayType::get(builder.getInt8Ty(), layout.bytes));
+              bytes->setAlignment(llvm::Align(layout.alignment));
+              builder.CreateMemSet(bytes, builder.getInt8(0), layout.bytes, bytes->getAlign());
+              auto *record = builder.CreateLoad(t, input);
+              for (unsigned f = 0; f < layout.offsets.size(); ++f) {
+                auto *address =
+                    builder.CreateConstGEP1_64(builder.getInt8Ty(), bytes, layout.offsets[f]);
+                builder.CreateAlignedStore(builder.CreateExtractValue(record, {f}), address,
+                                           llvm::Align(1));
+              }
+              value = bytes;
+            } else if (layout.abi == NativeParameterABI::Text ||
+                       layout.abi == NativeParameterABI::TextLength) {
+              auto *text = builder.CreateLoad(t, input);
+              auto *length = builder.CreateExtractValue(text, {2});
+              if (layout.abi == NativeParameterABI::Text) {
+                auto *data = builder.CreateExtractValue(text, {1});
+                value =
+                    builder.CreateSelect(builder.CreateIsNull(length),
+                                         builder.CreateGlobalString("", "native.empty.text"), data);
+              } else if (layout.width == 64) {
+                value = length;
+              } else {
+                auto *valid = Block::Create(context, "text.count.fits", resume);
+                auto *invalid = Block::Create(context, "text.count.overflow", resume);
+                builder.CreateCondBr(builder.CreateICmpULE(length, c64(UINT32_MAX)), valid,
+                                     invalid);
+                builder.SetInsertPoint(invalid);
+                endBorrows();
+                call("kalandra_fault_v1", voidType, {ctx, c64(3), c64(0), c64(0)});
+                builder.CreateBr(abort);
+                builder.SetInsertPoint(valid);
+                value = builder.CreateTrunc(length, builder.getInt32Ty());
+              }
+            } else {
+              llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+              auto *token = entry.CreateAlloca(word, nullptr, "handle.token");
+              auto *lease =
+                  call("kalandra_handle_borrow_v1", ptr,
+                       {ctx, input, token, c32(layout.abi != NativeParameterABI::ReadPointer)});
+              auto *borrowed = Block::Create(context, "handle.borrowed", resume);
+              auto *failed = Block::Create(context, "handle.borrow.failed", resume);
+              builder.CreateCondBr(builder.CreateIsNotNull(lease), borrowed, failed);
+              builder.SetInsertPoint(failed);
+              endBorrows();
+              builder.CreateBr(abort);
+              builder.SetInsertPoint(borrowed);
+              borrows.push_back(lease);
+              value = builder.CreateLoad(word, token);
+              if (layout.abi != NativeParameterABI::Token)
+                value = builder.CreateIntToPtr(value, ptr);
+            }
+            args.push_back(value);
+            parameters.push_back(value->getType());
+          }
+          Value *recordOutput = nullptr;
+          const auto &recordLayout = op->nativeABI.recordResult;
+          if (recordLayout) {
+            llvm::IRBuilder<> entry(&resume->getEntryBlock(), resume->getEntryBlock().begin());
+            auto *bytes =
+                entry.CreateAlloca(llvm::ArrayType::get(builder.getInt8Ty(), recordLayout->bytes));
+            bytes->setAlignment(llvm::Align(recordLayout->alignment));
+            recordOutput = bytes;
+            args.insert(args.begin(), bytes);
+            parameters.insert(parameters.begin(), ptr);
+          }
+          llvm::Type *result =
+              owner ? (op->nativeABI.pointerResult ? static_cast<llvm::Type *>(ptr) : word)
+              : (recordOutput || type.builtin == BuiltinValue::Unit) ? voidType
+                                                                     : taskTypes->scalar(type);
+          if (op->nativeABI.narrowResult)
+            result = builder.getInt32Ty();
+          auto callee = module.getOrInsertFunction(
+              op->nativeABI.bridge.empty() ? op->symbol : op->nativeABI.bridge,
+              llvm::FunctionType::get(result, parameters, false));
+          Value *value = builder.CreateCall(callee, args);
+          endBorrows();
+          if (op->nativeABI.narrowResult)
+            value = builder.CreateTrunc(value, taskTypes->scalar(type));
+          if (owner) {
+            if (op->nativeABI.pointerResult) {
+              auto *valid = Block::Create(context, "handle.nonnull", resume);
+              auto *invalid = Block::Create(context, "handle.null", resume);
+              builder.CreateCondBr(builder.CreateIsNotNull(value), valid, invalid);
+              builder.SetInsertPoint(invalid);
+              call("kalandra_fault_v1", voidType, {ctx, c64(3), c64(0), c64(0)});
+              builder.CreateBr(abort);
+              builder.SetInsertPoint(valid);
+              value = builder.CreatePtrToInt(value, word);
+            }
+            auto *ok = call("kalandra_subscription_publish_v1", boolean,
+                            {ctx, owner, value, payload(instruction.output)});
+            builder.CreateCondBr(ok, next, abort);
+          } else {
+            if (recordOutput) {
+              auto *outType = taskTypes->records()[*type.record];
+              Value *record = llvm::PoisonValue::get(outType);
+              for (unsigned f = 0; f < recordLayout->offsets.size(); ++f) {
+                auto *at = builder.CreateConstGEP1_64(builder.getInt8Ty(), recordOutput,
+                                                      recordLayout->offsets[f]);
+                auto *field =
+                    builder.CreateAlignedLoad(outType->getElementType(f), at, llvm::Align(1));
+                record = builder.CreateInsertValue(record, field, {f});
+              }
+              builder.CreateStore(record, payload(instruction.output));
+            } else if (!result->isVoidTy())
+              builder.CreateStore(value, payload(instruction.output));
+            builder.CreateBr(next);
+          }
+          break;
+        }
         if (const auto *iterator = std::get_if<IteratorOperation>(
                 &planner.input.expressions[instruction.source].operation)) {
           const bool maySuspend = !synchronous && (iterator->action == IteratorAction::Next ||

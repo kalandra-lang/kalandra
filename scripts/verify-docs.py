@@ -145,7 +145,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
         directory = BASE / page / str(ordinal)
         write(directory / 'main.k', source)
         if page in ['getting-started', 'modules']:
-            libraries = [s for _, s in blocks(page, 'kalandra') if s.startswith('export ')]
+            libraries = [s for _, s in blocks(page, 'kalandra') if s.startswith('export fn ')]
             assert len(libraries) == 1
             write(directory / 'math.k', libraries[0])
         if plan['kind'] == 'reject':
@@ -190,6 +190,49 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     for page in ['index', 'getting-started', 'tutorial', 'modules']:
         n = next(x for x in items if x[0] == page and 'fn main(' in x[3])
         shell(page, 0, BASE / page / str(n[1]), PLAN[page][n[1]]['expected'])
+    # Compile and run the authored C caller against the authored static library.
+    embed = BASE / 'modules' / 'embedding'
+    k_index, geometry = blocks('modules', 'kalandra')[2]
+    c_index, caller = blocks('modules', 'c')[0]
+    write(embed / 'geometry.k', geometry)
+    write(embed / 'caller.c', caller)
+    shell('modules', 1, embed)
+    shell('modules', 2, embed, '42')
+    for index in (k_index, c_index):
+        COVERED.add(('modules', index))
+        RESULTS.append({'page': 'modules', 'block': index, 'kind': 'embedding', 'status': 'passed'})
+    callback = BASE / 'modules' / 'callback'
+    k_index, program = blocks('modules', 'kalandra')[3]
+    c_index, header = blocks('modules', 'c')[1]
+    write(callback / 'events.h', header)
+    write(callback / 'main.k', program)
+    write(callback / 'events.c', '#include "events.h"\n'
+          'int32_t dispatch(Event _Nonnull handler __attribute__((noescape)), int32_t event) { return handler(event); }\n')
+    write(callback / 'kalandra.toml', 'format=1\n[project]\nentry="main.k"\n'
+          '[dependencies.events]\nheader="events.h"\nlibrary="events.o"\n')
+    command(['clang', '-std=c17', '-Werror', '-c', 'events.c', '-o', 'events.o'], callback)
+    command([TOOLS / 'kalandra', '--project', 'kalandra.toml', '-o', 'demo.exe'], callback)
+    command([callback / 'demo.exe'], callback)
+    for index in (k_index, c_index):
+        COVERED.add(('modules', index))
+        RESULTS.append({'page': 'modules', 'block': index, 'kind': 'native-callback', 'status': 'passed'})
+    subscription = BASE / 'modules' / 'subscription'
+    k_index, program = blocks('modules', 'kalandra')[4]
+    c_index, header = blocks('modules', 'c')[-1]
+    write(subscription / 'main.k', program)
+    write(subscription / 'sensor.h', header)
+    write(subscription / 'sensor.c', '#include "sensor.h"\n#include <stdlib.h>\n'
+          'unsigned long long subscribe(Reading _Nonnull handler, int limit) { '
+          'if (handler(100,limit) != 80) abort(); return 7; }\n'
+          'void unsubscribe(unsigned long long token) { if (token != 7) abort(); }\n')
+    write(subscription / 'kalandra.toml', 'format=1\n[project]\nentry="main.k"\n'
+          '[dependencies.sensor]\nheader="sensor.h"\nlibrary="sensor.o"\n')
+    command(['clang', '-std=c17', '-Werror', '-c', 'sensor.c', '-o', 'sensor.o'], subscription)
+    command([TOOLS / 'kalandra', '--project', 'kalandra.toml', '-o', 'demo.exe'], subscription)
+    command([subscription / 'demo.exe'], subscription)
+    for index in (k_index, c_index):
+        COVERED.add(('modules', index))
+        RESULTS.append({'page': 'modules', 'block': index, 'kind': 'native-subscription', 'status': 'passed'})
     parallel = next(x for x in reversed(items) if x[0] == 'parallelism')
     shell('parallelism', 0, BASE / 'parallelism' / str(parallel[1]), parallel[4]['expected'])
     for page in ['gpu', 'gpu-numerics']:
@@ -229,6 +272,18 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     write(project / 'my-app/kalandra.toml', tomls[1][1])
     shell('projects', 0, project, '42')
     shell('projects', 1, project, '42')
+
+    header_index, header = blocks('projects', 'c')[0]
+    # Build the rendered header and the example's unchanged implementation on the host.
+    consumer = BASE / 'counted-bytes'
+    for filename in ('bytes.c', 'main.k', 'kalandra.toml'):
+        write(consumer / filename, (ROOT / 'native/examples/counted-bytes' / filename).read_text())
+    write(consumer / 'bytes.h', header)
+    command(['clang', '-std=c17', '-Werror', '-c', 'bytes.c', '-o', 'bytes.o'], consumer)
+    command([TOOLS / 'kalandra', '--project', 'kalandra.toml', '-o', 'demo.exe'], consumer)
+    command([consumer / 'demo.exe'], consumer, '11 22 0')
+    RESULTS.append({'page': 'projects', 'block': header_index, 'kind': 'c-binding', 'status': 'passed'})
+    COVERED.add(('projects', header_index))
 
     # Real local Git installation, frozen/offline graph reuse, then a named update.
     packages = BASE / 'packages-workflow'

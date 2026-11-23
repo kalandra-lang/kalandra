@@ -586,6 +586,34 @@ private:
     const bool exported = word("export");
     if (exported)
       advance();
+    const bool cImport = word("extern");
+    const auto nativeHeader = source_->origin(current().span.begin).first->header();
+    if (cImport) {
+      if (!nativeHeader) {
+        error("P005", "native function signatures must come from an imported C header",
+              current().span);
+        return {};
+      }
+      advance();
+      if (!at(TokenKind::String) || source_->slice(current().span) != "\"C\"") {
+        error("P005", "expected extern \"C\" fn", current().span);
+        return {};
+      }
+      advance();
+    }
+    bool cExport = false;
+    bool checkedCExport = false;
+    if (exported && at(TokenKind::String)) {
+      if (source_->slice(current().span) != "\"C\"") {
+        error("P005", "expected the C ABI in export \"C\" fn", current().span);
+        return {};
+      }
+      advance();
+      cExport = true;
+      checkedCExport = !word("direct");
+      if (!checkedCExport || word("checked"))
+        advance();
+    }
     if (!word("fn")) {
       error(
           "P005",
@@ -599,6 +627,21 @@ private:
       return {};
     Function function;
     function.exported = exported;
+    function.cExport = cExport;
+    function.cImport = cImport;
+    if (cImport) {
+      const auto symbol = std::string(source_->slice(name->span));
+      if (auto it = nativeHeader->find(symbol); it != nativeHeader->end()) {
+        function.bufferCounts = it->second.bufferCounts;
+        function.nativeCallbacks = it->second.hasCallbacks;
+        function.blockParameter = it->second.blockParameter;
+        function.forwardedCaptures = it->second.forwardedCaptures;
+        function.subscriptionRelease = it->second.subscriptionRelease;
+        function.nativeABI = it->second.nativeABI;
+        function.nativeMainThread = it->second.mainThreadOnly;
+      }
+    }
+    function.checkedCExport = checkedCExport;
     function.name = name->span;
     auto generics = genericParameters();
     if (!generics)
@@ -648,8 +691,8 @@ private:
       function.errorTypes = std::move(*channels);
       function.taskError = true;
     }
-    if (requirement) {
-      auto end = expect(TokenKind::Newline, "trait functions declare signatures without bodies");
+    if (requirement || cImport) {
+      auto end = expect(TokenKind::Newline, "this declaration requires a signature without a body");
       if (!end)
         return {};
       function.span = {start, end->span.end};

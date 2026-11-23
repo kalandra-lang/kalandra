@@ -99,10 +99,34 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Filesystem runtime ownership qualification failed' }
       - name: Build native CPU toolchain
         run: |
-          cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized kalandra-type-capability-tests -j2 -- -k 0
+          cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized kalandra-type-capability-tests kalandra-native-subscription-tests -j2 -- -k 0
           if ($LASTEXITCODE -ne 0) { throw 'Native CPU toolchain build failed' }
           & build/windows/native/kalandra-type-capability-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Type-capability contracts failed' }
+      - name: Verify native handle and byte-buffer lifetimes
+        run: |
+          & build/windows/native/kalandra-native-subscription-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Native handle lifetime checks failed' }
+          $llvm = "$env:KALANDRA_LLVM_ROOT/bin"
+          $sanitizerFlags = @()
+          if ('${{ matrix.arch }}' -eq 'arm64') {
+            $sanitizerFlags += '--skip-sanitizer'
+          } else {
+            $resources = & "$llvm/clang.exe" -print-resource-dir
+            $env:PATH = "$resources/lib/windows;$llvm;$env:PATH"
+          }
+          python native/tests/CountedImportTests.py --portable --compiler "$pwd/build/windows/native/kalandra.exe" --checker "$pwd/build/windows/native/kalandra-check.exe" --cc "$llvm/clang.exe" --ar "$llvm/llvm-ar.exe" @sanitizerFlags
+          if ($LASTEXITCODE -ne 0) { throw 'Native byte-buffer contract checks failed' }
+          python native/tests/CImportTests.py --compiler "$pwd/build/windows/native/kalandra.exe" --checker "$pwd/build/windows/native/kalandra-check.exe" --cc "$llvm/clang.exe" --ar "$llvm/llvm-ar.exe"
+      - name: Link and run C and C++ callers
+        run: >-
+          python native/tests/CExportTests.py --compiler "$pwd/build/windows/native/kalandra.exe"
+          --checker "$pwd/build/windows/native/kalandra-check.exe"
+          --cc "$env:KALANDRA_LLVM_ROOT/bin/clang.exe" --cxx "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+      - name: Verify native values through an installed package
+        run: python native/tests/NativeValueImportTests.py --compiler build/windows/native/kalandra.exe
+      - name: Exercise Win32 windows and native event delivery
+        run: python native/tests/WindowInteropTests.py --compiler build/windows/native/kalandra.exe
       - name: Run the public watchDir iterator
         run: python native/tests/FileSystemSourceTests.py --compiler build/windows/native/kalandra.exe --variant optimized --case watch-directory --output build/windows/watch-source
       - name: Qualify cooperative workgroup source and safety proofs

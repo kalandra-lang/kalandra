@@ -4,7 +4,8 @@
 #include <iostream>
 
 int main(int argc, char **argv) {
-  if (argc != 5) return 2;
+  const bool library = argc == 6 && std::string_view(argv[5]) == "--library";
+  if (argc != 5 && !library) return 2;
   auto source = llvm::MemoryBuffer::getFile(argv[1]);
   auto layout = llvm::MemoryBuffer::getFile(argv[3]);
   if (!source || !layout) return 2;
@@ -15,8 +16,10 @@ int main(int argc, char **argv) {
       std::cerr << kalandra::renderDiagnostic(*typed.source, d);
     return 1;
   }
-  auto lowered = kalandra::lowerNative(*typed.module, {}, {}, kalandra::ArithmeticMode::Hardware,
-      false, {argv[2], (*layout)->getBuffer().trim().str()});
+  kalandra::CpuTarget target{argv[2], (*layout)->getBuffer().trim().str()};
+  auto lowered = library ? kalandra::lowerCLibrary(*typed.module, target, kalandra::Optimization::O2)
+                         : kalandra::lowerNative(*typed.module, {}, {}, kalandra::ArithmeticMode::Hardware,
+                                                 false, target);
   if (!lowered) { std::cerr << lowered.error() << '\n'; return 1; }
   std::error_code error;
   llvm::raw_fd_ostream output(argv[4], error);

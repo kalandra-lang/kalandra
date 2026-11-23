@@ -110,6 +110,11 @@ int kalandra::compileMetalCommand(int argc, char **argv, bool application, cli::
       progress.diagnostic() << loaded.error() << '\n';
       return 1;
     }
+    if (!loaded->headers.empty()) {
+      progress.diagnostic()
+          << "native dependencies currently require a host CPU executable build\n";
+      return 2;
+    }
     project = std::move(*loaded);
     sourcePath = project->entry;
     packages.insert(packages.end(), project->packages.begin(), project->packages.end());

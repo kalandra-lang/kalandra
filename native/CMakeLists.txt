@@ -64,11 +64,26 @@ target_link_libraries(kalandra-git-snapshots PUBLIC kalandra-project PRIVATE LLV
 target_include_directories(kalandra-git-snapshots SYSTEM PRIVATE ${KALANDRA_TOML_INCLUDES} ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(kalandra-git-snapshots PRIVATE TOML_HEADER_ONLY=1 TOML_ENABLE_UNRELEASED_FEATURES=0)
 target_compile_options(kalandra-git-snapshots PRIVATE -Wall -Wextra -Werror)
-add_library(kalandra-packages STATIC lib/PackageInstall.cpp lib/DependencyManifest.cpp lib/PackageLock.cpp)
-target_link_libraries(kalandra-packages PUBLIC kalandra-git-snapshots PRIVATE LLVM)
-target_include_directories(kalandra-packages SYSTEM PRIVATE ${KALANDRA_TOML_INCLUDES} ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(kalandra-packages PRIVATE TOML_HEADER_ONLY=1 TOML_ENABLE_UNRELEASED_FEATURES=0)
-target_compile_options(kalandra-packages PRIVATE -Wall -Wextra -Werror)
+find_package(Clang REQUIRED CONFIG PATHS "${KALANDRA_LLVM_ROOT}/lib/cmake/clang" NO_DEFAULT_PATH)
+if(NOT LLVM_ENABLE_RTTI)
+  # The diagnostic consumer derives from a Clang class in the pinned SDK.
+  set_property(SOURCE lib/PortableHeaderImport.cpp APPEND PROPERTY COMPILE_OPTIONS -fno-rtti)
+endif()
+function(kalandra_add_package_library target snapshots)
+  add_library(${target} STATIC lib/PackageInstall.cpp lib/DependencyManifest.cpp lib/PackageLock.cpp
+    lib/HeaderImport.cpp lib/AppleHeaderImport.cpp lib/PortableHeaderImport.cpp)
+  if(CLANG_LINK_CLANG_DYLIB AND TARGET clang-cpp)
+    target_link_libraries(${target} PRIVATE clang-cpp)
+  else()
+    target_link_libraries(${target} PRIVATE clangTooling)
+  endif()
+  target_link_libraries(${target} PUBLIC ${snapshots} PRIVATE LLVM)
+  target_include_directories(${target} SYSTEM PRIVATE ${KALANDRA_TOML_INCLUDES} ${LLVM_INCLUDE_DIRS})
+  target_compile_definitions(${target} PRIVATE KALANDRA_IMPORT_CLANG="${CMAKE_C_COMPILER}"
+    TOML_HEADER_ONLY=1 TOML_ENABLE_UNRELEASED_FEATURES=0)
+  target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+endfunction()
+kalandra_add_package_library(kalandra-packages kalandra-git-snapshots)
 add_executable(kalandra-parse tools/parse.cpp)
 target_link_libraries(kalandra-parse PRIVATE kalandra-syntax)
 target_compile_options(kalandra-parse PRIVATE -Wall -Wextra -Werror)
@@ -183,7 +198,7 @@ target_include_directories(kalandra-gpu-numeric SYSTEM PUBLIC ${MLIR_INCLUDE_DIR
 target_compile_options(kalandra-gpu-numeric PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(kalandra-gpu-numeric PUBLIC MLIR LLVM)
 
-add_library(kalandra-backend STATIC lib/Backend.cpp lib/CheckedABI.cpp lib/TaskBackend.cpp lib/TaskEnvironment.cpp lib/NumericConversion.cpp)
+add_library(kalandra-backend STATIC lib/Backend.cpp lib/CExport.cpp lib/CheckedABI.cpp lib/TaskBackend.cpp lib/TaskEnvironment.cpp lib/NumericConversion.cpp)
 target_include_directories(kalandra-backend SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
 target_link_libraries(kalandra-backend PUBLIC kalandra-semantics PRIVATE kalandra-strict-float MLIR LLVM)
 target_compile_options(kalandra-backend PRIVATE -Wall -Wextra -Werror)
@@ -286,6 +301,32 @@ target_include_directories(kalandra-cli-progress PUBLIC include)
 target_link_libraries(kalandra-cli-progress PRIVATE Threads::Threads)
 target_compile_options(kalandra-cli-progress PRIVATE -Wall -Wextra -Werror)
 if(BUILD_TESTING)
+  if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+    add_test(NAME native-apple-sdk-imports COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/AppleImportTests.py" --compiler "$<TARGET_FILE:kalandra>"
+      --checker "$<TARGET_FILE:kalandra-check>")
+    add_test(NAME native-c-counted-imports COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/CountedImportTests.py" --compiler "$<TARGET_FILE:kalandra>"
+      --checker "$<TARGET_FILE:kalandra-check>")
+    set_tests_properties(native-apple-sdk-imports native-c-counted-imports PROPERTIES TIMEOUT 180)
+  endif()
+  set(_buffer_test_flags)
+  if(WIN32 AND KALANDRA_NATIVE_PLATFORM STREQUAL "windows-arm64")
+    list(APPEND _buffer_test_flags --skip-sanitizer)
+  endif()
+  add_test(NAME native-c-portable-buffer-imports COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/CountedImportTests.py" --portable
+    --compiler "$<TARGET_FILE:kalandra>" --checker "$<TARGET_FILE:kalandra-check>"
+    --cc "${CMAKE_C_COMPILER}" --ar "${CMAKE_AR}" ${_buffer_test_flags})
+  set_tests_properties(native-c-portable-buffer-imports PROPERTIES TIMEOUT 180)
+  add_test(NAME native-c-header-imports COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/CImportTests.py" --compiler "$<TARGET_FILE:kalandra>"
+    --checker "$<TARGET_FILE:kalandra-check>" --cc "${CMAKE_C_COMPILER}" --ar "${CMAKE_AR}")
+  set_tests_properties(native-c-header-imports PROPERTIES TIMEOUT 120)
+  add_test(NAME native-c-exports COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/CExportTests.py" --compiler "$<TARGET_FILE:kalandra>"
+    --checker "$<TARGET_FILE:kalandra-check>" --cc "${CMAKE_C_COMPILER}" --cxx "${CMAKE_CXX_COMPILER}")
+  set_tests_properties(native-c-exports PROPERTIES TIMEOUT 180)
   add_test(NAME native-cli-feedback COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CliFeedbackTests.py" "$<TARGET_FILE:kalandra>")
   set_tests_properties(native-cli-feedback PROPERTIES TIMEOUT 150)
