@@ -284,6 +284,30 @@ def build(a):
     records = []
     repeats = a.output / 'independent repeat'
     repeats.mkdir()
+    # long is 32-bit on Windows and 64-bit on the Linux and macOS targets.
+    # The destination's Clang ABI determines the type imported into Kalandra.
+    ffi = a.output / 'native dependency'
+    ffi.mkdir()
+    (ffi / 'measure.h').write_text('long measure(long input);\n', encoding='utf-8')
+    (ffi / 'measure.c').write_text('#include "measure.h"\nlong measure(long n) { return n - 2; }\n',
+                                   encoding='utf-8')
+    width = 'i32' if windows else 'i64'
+    (ffi / 'main.k').write_text(
+        f'from "measurement" import measure\nfn main() -> {width}:\n  return measure({width}(-40))\n',
+        encoding='utf-8')
+    (ffi / 'kalandra.toml').write_text(
+        'format = 1\n[project]\nentry = "main.k"\n[dependencies.measurement]\n'
+        'header = "measure.h"\nlibrary = "measure.o"\n', encoding='utf-8')
+    run([clang, '--no-default-config', '--target=' + triple, '-x', 'c', '-fPIC' if not windows
+         else '-fno-ident', '-c', ffi / 'measure.c', '-o', ffi / 'measure.o'])
+    foreign_bin = products / ('native-import' + suffix)
+    foreign_env = {k: v for k, v in os.environ.items()
+                   if k not in ('CPATH', 'C_INCLUDE_PATH', 'CCC_OVERRIDE_OPTIONS')}
+    for dest in (foreign_bin, repeats / foreign_bin.name):
+        run([compiler, '--project', ffi / 'kalandra.toml', '--test-entry', 'main',
+             *selected_command, '-O2', '-o', dest], env=foreign_env)
+    assert digest(foreign_bin) == digest(repeats / foreign_bin.name)
+    records.append(dict(file=foreign_bin.name, sha256=digest(foreign_bin), case=dict(output='-42\n')))
     for name, case in cases.items():
         observation = [] if case.get('application') else ['--test-entry', 'main']
         source = a.output / (name + '.k')

@@ -208,12 +208,18 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
 std::expected<std::string, std::string>
 importPortableCHeader(const std::string &path, const std::string &driver,
                       const std::optional<std::filesystem::path> &resources,
-                      const std::set<std::string> &symbols, HeaderContracts &bounds) {
+                      const std::set<std::string> &symbols, HeaderContracts &bounds, const HeaderTarget *target) {
   std::vector<std::string> args{
       "-x",       "c", "-std=c17", "-Werror=unknown-attributes", "-Werror=ignored-attributes",
       "-include", path};
   if (resources)
     args.insert(args.end(), {"-resource-dir", resources->string()});
+  if (target) {
+    args.insert(args.end(), {"--no-default-config", "--target=" + target->triple,
+                             "--sysroot=" + target->sysroot.string(), "-nostdinc"});
+    for (const auto &dir : target->includes)
+      args.insert(args.end(), {"-isystem", dir.string()});
+  }
   HeaderDiagnostics diagnostics;
   auto ast = clang::tooling::buildASTFromCodeWithArgs(
       "", args, "kalandra-import.c", driver, std::make_shared<clang::PCHContainerOperations>(),

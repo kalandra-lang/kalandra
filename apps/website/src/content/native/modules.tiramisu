@@ -75,6 +75,10 @@ By default, an exported C function returns an int32_t status. For a value result
 
 Use export "C" direct fn when a C API requires a function that returns its value directly. The compiler must prove that the body can run without a Kalandra execution context or a fault. A direct export returning unit has the C return type void.
 
+h2 { "Cross-compile a C dependency" }
+
+When building an application with --platform or --toolchain, supply the dependency for the destination architecture. Kalandra reads its C header using the destination ABI. For example, C long imports as i32 on 64-bit Windows and i64 on 64-bit Linux and macOS. A project-relative C header can accompany a separately cross-compiled object or archive. For a system library, its header and library must be available in the selected target SDK.
+
 h2 { "Pass a callback to C" }
 
 A C function can borrow a named Kalandra callback for the duration of the call. Its header declares a non-null function pointer with Clang’s noescape parameter attribute. For example, a native event library can accept a callback that maps an event number to an i32.

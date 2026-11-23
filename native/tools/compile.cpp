@@ -447,8 +447,8 @@ int main(int argc, char **argv) {
     return 2;
   }
   const bool library = emit == "object" || emit == "static" || emit == "shared";
-  if (project && !project->headers.empty() && (selectedCpuToolchain || !emit.empty())) {
-    progress.diagnostic() << "native dependencies currently require a host executable build\n";
+  if (project && !project->headers.empty() && !emit.empty()) {
+    progress.diagnostic() << "native dependencies currently require an executable build\n";
     return 2;
   }
   if ((!headerPath.empty() && !library) || (library && testEntry)) {
@@ -582,6 +582,32 @@ int main(int argc, char **argv) {
     }
     paths.push_back(path);
   }
+  std::optional<kalandra::HeaderTarget> headerTarget;
+  if (cross && project && !project->headers.empty()) {
+    // Cross SDKs are explicitly selected by the caller. Clang also consults
+    // compiler environment variables even with -nostdinc enabled.
+    for (const char *var : {"CPATH", "C_INCLUDE_PATH", "CCC_OVERRIDE_OPTIONS"}) {
+      if (auto value = llvm::sys::Process::GetEnv(var); value && !value->empty()) {
+        progress.diagnostic() << "unset " << var << " when importing a cross-target header\n";
+        return 2;
+      }
+    }
+    const auto &sdk = cross->sysroot;
+    const llvm::Triple triple(cross->target.triple);
+    headerTarget.emplace(kalandra::HeaderTarget{cross->target.triple, sdk, {}});
+    auto &includes = headerTarget->includes;
+    includes.push_back(cross->resources / "include");
+    if (cross->windows()) {
+      for (const auto *dir : {"crt/include", "sdk/include/ucrt", "sdk/include/shared",
+                              "sdk/include/um", "include"})
+        includes.push_back(sdk / dir);
+    } else {
+      if (triple.isOSLinux())
+        includes.push_back(sdk / "usr/include" /
+                           (triple.isAArch64() ? "aarch64-linux-gnu" : "x86_64-linux-gnu"));
+      includes.push_back(sdk / "usr/include");
+    }
+  }
   auto syntax = kalandra::loadApplicationModules(
       sourcePath, packages,
       managed ? std::span<const kalandra::PackageNode>(managed->nodes)
@@ -589,7 +615,8 @@ int main(int argc, char **argv) {
       {},
       project ? std::span<const kalandra::HeaderImport>(project->headers)
               : std::span<const kalandra::HeaderImport>{},
-      clang, clangResources, &systemLinkArgs);
+      clang, cross ? std::optional(cross->resources) : clangResources, &systemLinkArgs,
+      headerTarget ? &*headerTarget : nullptr);
   if (!syntax) {
     progress.diagnostic() << sourcePath << ": " << syntax.error() << '\n';
     return 1;

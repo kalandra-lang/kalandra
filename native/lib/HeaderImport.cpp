@@ -59,7 +59,7 @@ loadApplicationModules(const std::string &entry, std::span<const ModulePackage> 
                        std::span<const PackageNode> graph, std::vector<SourceOverlay> overlays,
                        std::span<const HeaderImport> headers, std::string clang,
                        std::optional<std::filesystem::path> resources,
-                       std::vector<std::string> *systemLinkArgs) {
+                       std::vector<std::string> *systemLinkArgs, const HeaderTarget *target) {
   auto load = [&] {
     return graph.empty() ? loadModules(entry, {}, {}, packages, overlays)
                          : loadPackageModules(graph, {}, {}, overlays);
@@ -111,6 +111,8 @@ loadApplicationModules(const std::string &entry, std::span<const ModulePackage> 
     auto bounds = std::make_shared<HeaderContracts>();
     auto source = [&]() -> std::expected<std::string, std::string> {
       auto read = [&](const std::string &path) -> std::expected<std::string, std::string> {
+        if (target)
+          return importPortableCHeader(path, clang, resources, found->second, *bounds, target);
 #ifdef __APPLE__
         HeaderContracts appleBounds;
         auto apple = importAppleCHeader(path, found->second, appleBounds);
@@ -132,6 +134,18 @@ loadApplicationModules(const std::string &entry, std::span<const ModulePackage> 
       };
       if (import.system.empty())
         return read(import.header);
+      if (target) {
+        for (const auto &dir : target->includes) {
+          auto header = dir / (import.system + ".h");
+          if (!std::filesystem::is_regular_file(header))
+            continue;
+          if (systemLinkArgs)
+            systemLinkArgs->push_back("-l" + import.system);
+          return read(header.string());
+        }
+        return std::unexpected("missing target SDK header for '" + import.system +
+                               "' under " + target->sysroot.string());
+      }
 #ifdef __APPLE__
       auto framework = importAppleFramework(import.system, found->second, *bounds);
       if (!framework)
