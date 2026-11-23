@@ -79,6 +79,8 @@ struct Stats {
 class Runtime {
 public:
   static std::expected<std::unique_ptr<Runtime>, Error> create(Options = {}) noexcept;
+  static std::expected<std::unique_ptr<Runtime>, Error> create(Options, std::vector<DeviceInfo>) noexcept;
+  std::expected<void, Error> admitModule(const std::filesystem::path &, bool matmul) noexcept;
   ~Runtime();
   std::uint32_t deviceCount() const noexcept;
   std::expected<Device, Error> device() const noexcept;

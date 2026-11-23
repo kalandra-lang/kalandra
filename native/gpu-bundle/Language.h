@@ -2,6 +2,7 @@
 #include "../cuda/Language.h"
 #include "../vulkan/Language.h"
 #include "Selection.h"
+#include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -51,15 +52,29 @@ struct NumericInstruction {
   std::uint32_t output = UINT32_MAX, target = 0, workPerElement = 0;
 };
 
+struct Module {
+  const char *stem;
+  bool matmul;
+};
+
 class Runtime {
   using Context = std::variant<std::unique_ptr<cl::Runtime>, std::unique_ptr<vk::Runtime>>;
   template <class R, class C, class V>
   using For = std::conditional_t<std::is_same_v<std::remove_reference_t<R>, cl::Runtime>, C, V>;
 
   const Selection<Context, Error>::Result &selected() {
-    const char *forced = std::getenv("KALANDRA_GPU_BACKEND");
     return selection_.get(
-        forced ? forced : "", [&](Backend backend) -> std::expected<Context, Error> {
+        []() -> std::string_view {
+          const char *forced = std::getenv("KALANDRA_GPU_BACKEND");
+          if (!forced || !*forced)
+            return {};
+          std::string_view value(forced);
+          if (value != "cuda" && value != "vulkan")
+            std::fprintf(stderr,
+                         "Kalandra GPU: invalid KALANDRA_GPU_BACKEND (expected cuda or vulkan)\n");
+          return value;
+        },
+        [&](Backend backend) -> std::expected<Context, Error> {
           auto result = backend == Backend::Cuda
                             ? admit<cl::Runtime, cl::Options, cuda::TensorPublication>(backend)
                             : admit<vk::Runtime, vk::Options, vulkan::TensorPublication>(backend);
@@ -87,17 +102,49 @@ class Runtime {
     Options options;
     options.allowSoftwareFallback = options_.allowSoftwareFallback;
     options.publication = &publication;
-    auto runtime = R::create(options);
-    if (!runtime)
-      return std::unexpected(static_cast<Error>(runtime.error()));
-    if (std::getenv("KALANDRA_GPU_TRACE")) {
-      auto device = (*runtime)->device();
-      if (device)
-        std::fprintf(stderr, "Kalandra GPU: selected %s (%.*s)\n", name(backend).data(),
-                     int(device->name().size()), device->name().data());
+    using Driver = For<R, cuda::Runtime, vulkan::Runtime>;
+    try {
+      auto devices = Driver::enumerate(false, true);
+      if (!devices)
+        return std::unexpected(static_cast<Error>(devices.error()));
+      Error last = Error::Unavailable;
+      for (std::size_t index = 0; index < devices->size(); ++index) {
+        // Logical GPU zero is the first compatible physical adapter. Its stable
+        // UUID is also validated by the concrete driver when opening the context.
+        auto ordered = *devices;
+        std::rotate(ordered.begin(), ordered.begin() + index, ordered.begin() + index + 1);
+        auto runtime = R::create(options, std::move(ordered));
+        if (runtime) {
+          for (const auto &module : modules_) {
+            auto path = directory_ / module.stem;
+            path += backend == Backend::Cuda ? ".ptx" : ".spv";
+            auto compatible = (*runtime)->admitModule(path, module.matmul);
+            if (!compatible) {
+              runtime = std::unexpected(compatible.error());
+              break;
+            }
+          }
+        }
+        if (runtime) {
+          if (std::getenv("KALANDRA_GPU_TRACE")) {
+            auto device = (*runtime)->device();
+            if (device)
+              std::fprintf(stderr, "Kalandra GPU: selected %s (%.*s)\n", name(backend).data(),
+                           int(device->name().size()), device->name().data());
+          }
+          active_.store(true, std::memory_order_release);
+          return Context{std::move(*runtime)};
+        }
+        last = static_cast<Error>(runtime.error());
+        if (last != Error::Unsupported && last != Error::Unavailable)
+          break;
+      }
+      return std::unexpected(last);
+    } catch (const std::bad_alloc &) {
+      return std::unexpected(Error::Allocation);
+    } catch (const std::filesystem::filesystem_error &) {
+      return std::unexpected(Error::Invalid);
     }
-    active_.store(runtime->get(), std::memory_order_release);
-    return Context{std::move(*runtime)};
   }
   template <class T, class F> std::expected<T, Error> withRuntime(F &&fn) {
     auto &runtime = selected();
@@ -135,6 +182,10 @@ class Runtime {
   }
 
 public:
+  void setModules(std::string_view directory, std::span<const Module> modules) {
+    directory_ = std::u8string(directory.begin(), directory.end());
+    modules_ = modules;
+  }
   struct Options {
     bool allowSoftwareFallback = false;
   };
@@ -237,6 +288,8 @@ public:
       auto target = std::get_if<D>(&d);
       if (!target)
         return std::expected<Exec, E>(std::unexpected(E::Residency));
+      if (instructions.size_bytes() > 1024 * 1024)
+        return std::expected<Exec, E>(std::unexpected(E::Budget));
       code.reserve(instructions.size());
       for (auto &op : instructions) {
         auto k = std::get_if<K>(&op.kernel);
@@ -320,6 +373,8 @@ private:
   }
   Options options_;
   Selection<Context, Error> selection_;
-  std::atomic<void *> active_{};
+  std::atomic<bool> active_{};
+  std::filesystem::path directory_;
+  std::span<const Module> modules_;
 };
 } // namespace kalandra::runtime::bundle

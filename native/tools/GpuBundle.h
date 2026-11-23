@@ -1,6 +1,7 @@
 #pragma once
 #include "kalandra/CudaSource.h"
 #include "kalandra/VulkanSource.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
 #include <filesystem>
 #include <fstream>

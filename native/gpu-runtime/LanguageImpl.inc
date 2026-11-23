@@ -22,7 +22,8 @@ struct Registry {
                                            .budget = bytes,
                                            .deviceUuid = devices[index].uuid,
                                            .enableFloat64 = options.enableFloat64,
-                                           .enableTiledMatmul = options.enableTiledMatmul});
+                                           .enableTiledMatmul = options.enableTiledMatmul,
+                                           .discovered = &devices[index]});
       if (!made)
         return std::unexpected(made.error());
       Context context;
@@ -65,14 +66,24 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
   if (!options.maxInFlight || options.maxInFlight > 4096)
     return std::unexpected(Error::Invalid);
   try {
-    auto state = std::make_shared<Registry>();
-    state->options = options;
     auto devices = raw::Runtime::enumerate(options.validation);
     if (!devices)
       return std::unexpected(devices.error());
-    if (options.defaultDevice >= devices->size())
-      return std::unexpected(Error::Unavailable);
-    state->devices = std::move(*devices);
+    return create(options, std::move(*devices));
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
+}
+std::expected<std::unique_ptr<Runtime>, Error>
+Runtime::create(Options options, std::vector<DeviceInfo> devices) noexcept {
+  if (!options.maxInFlight || options.maxInFlight > 4096)
+    return std::unexpected(Error::Invalid);
+  if (options.defaultDevice >= devices.size())
+    return std::unexpected(Error::Unavailable);
+  try {
+    auto state = std::make_shared<Registry>();
+    state->options = options;
+    state->devices = std::move(devices);
     auto bytes = raw::Runtime::createByteBudget(options.maxBytes);
     auto metadata = raw::Runtime::createByteBudget(options.maxArgumentBytes);
     auto pending = raw::Runtime::createByteBudget(options.maxInFlight);
@@ -92,6 +103,27 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     return std::unique_ptr<Runtime>(new Runtime(std::move(state)));
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
+  }
+}
+std::expected<void, Error> Runtime::admitModule(const std::filesystem::path &path, bool matmul) noexcept {
+  try {
+    auto &driver = *state_->contexts[state_->options.defaultDevice].driver;
+    auto kernel = matmul ? driver.loadMatmulKernel(path) : driver.loadKernel(path);
+    if (!kernel && kernel.error() == Error::Unsupported && !matmul && state_->options.allowSoftwareFallback) {
+      auto alternate = path;
+      alternate += backendSoftwareSuffix;
+      kernel = driver.loadKernel(alternate);
+    }
+    if (!kernel) return std::unexpected(kernel.error());
+    if (kernel->rightTransposedMatmul()) {
+      auto transpose = driver.loadBuiltinTransposeFloat32();
+      if (!transpose) return std::unexpected(transpose.error());
+    }
+    return {};
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  } catch (const std::filesystem::filesystem_error &) {
+    return std::unexpected(Error::Invalid);
   }
 }
 Runtime::~Runtime() = default;

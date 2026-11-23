@@ -21,10 +21,11 @@ bool check(std::string_view forced, Cache::Result cuda, Cache::Result vulkan,
     tasks.emplace_back([&] {
       start.arrive_and_wait();
       for (int n = 0; n < 100; ++n) {
-        const auto &got = cache.get(forced, [&](Backend backend) {
-          ++calls[backend == Backend::Cuda ? 0 : 1];
-          return backend == Backend::Cuda ? cuda : vulkan;
-        });
+        const auto &got = cache.get([&] { return forced; },
+                                    [&](Backend backend) {
+                                      ++calls[backend == Backend::Cuda ? 0 : 1];
+                                      return backend == Backend::Cuda ? cuda : vulkan;
+                                    });
         if (got != expected)
           correct = false;
       }

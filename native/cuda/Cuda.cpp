@@ -135,8 +135,14 @@ struct HostCharge {
       budget->retained.fetch_sub(size);
   }
 };
+struct DiscoveredAdapter {
+  std::shared_ptr<Driver> driver;
+  CUdevice device;
+};
 struct State {
-  Driver driver;
+  explicit State(std::shared_ptr<Driver> owner) : driverOwner(std::move(owner)), driver(*driverOwner) {}
+  std::shared_ptr<Driver> driverOwner;
+  Driver &driver;
   CUcontext context = nullptr;
   std::mutex mutex, moduleMutex;
   std::vector<std::weak_ptr<KernelState>> moduleCache;
@@ -224,7 +230,19 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
   if (!options.maxBytes || !options.maxModules ||
       options.deviceIndex > unsigned(std::numeric_limits<int>::max()))
     return std::unexpected(Error::Invalid);
-  auto state = std::make_shared<State>();
+  if (!options.discovered || !options.discovered->adapter) {
+    auto infos = enumerate(false, true);
+    if (!infos) return std::unexpected(infos.error());
+    if (options.deviceUuid) {
+      auto found = std::find_if(infos->begin(), infos->end(), [&](const auto &info) {return info.uuid == *options.deviceUuid;});
+      if (found == infos->end()) return std::unexpected(Error::Unavailable);
+      options.deviceIndex = found - infos->begin();
+    }
+    if (options.deviceIndex >= infos->size()) return std::unexpected(Error::Unavailable);
+    options.discovered = &(*infos)[options.deviceIndex];
+    return create(options);
+  }
+  auto state = std::make_shared<State>(options.discovered->adapter->driver);
   state->maxModules = options.maxModules;
   state->enableFloat64 = options.enableFloat64;
   state->enableTiled = options.enableTiledMatmul;
@@ -232,26 +250,11 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     state->budget = options.budget;
   else
     state->budget = std::make_shared<ByteBudget>(options.maxBytes);
-  if (!state->driver.open())
-    return std::unexpected(Error::Unavailable);
-  CUdevice device{};
-  auto devices = enumerate();
-  if (!devices)
-    return std::unexpected(devices.error());
-  if (options.deviceUuid) {
-    auto found = std::find_if(devices->begin(), devices->end(),
-                              [&](const auto &d) { return d.uuid == *options.deviceUuid; });
-    if (found == devices->end())
-      return std::unexpected(Error::Unavailable);
-    options.deviceIndex = found - devices->begin();
-  }
-  if (options.deviceIndex >= devices->size())
-    return std::unexpected(Error::Unavailable);
-  state->info = (*devices)[options.deviceIndex];
+  CUdevice device = options.discovered->adapter->device;
+  state->info = *options.discovered;
   int major{}, minor{};
   auto &d = state->driver;
-  if (!driverSucceeded(d.deviceGet(&device, int(options.deviceIndex)), "cuDeviceGet") ||
-      !driverSucceeded(d.attribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device),
+  if (!driverSucceeded(d.attribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device),
                        "compute major") ||
       !driverSucceeded(d.attribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, device),
                        "compute minor") ||
@@ -705,8 +708,9 @@ bool Runtime::owns(const Kernel &k) const noexcept { return k.state_ && k.state_
 bool Runtime::owns(const std::shared_ptr<const HostCharge> &c) const noexcept {
   return c && c->budget == state_->budget;
 }
-std::expected<std::vector<DeviceInfo>, Error> Runtime::enumerate(bool) {
-  Driver d;
+std::expected<std::vector<DeviceInfo>, Error> Runtime::enumerate(bool, bool retain) {
+  auto owner = std::make_shared<Driver>();
+  auto &d = *owner;
   if (!d.open())
     return std::unexpected(Error::Unavailable);
   int count{}, version{};
@@ -733,6 +737,7 @@ std::expected<std::vector<DeviceInfo>, Error> Runtime::enumerate(bool) {
     info.integrated = integrated != 0;
     info.discrete = !info.integrated;
     std::memcpy(info.uuid.data(), uuid.bytes, 16);
+    if (retain) info.adapter = std::make_shared<DiscoveredAdapter>(DiscoveredAdapter{owner, device});
     result.push_back(std::move(info));
   }
   return result;

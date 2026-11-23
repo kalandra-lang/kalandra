@@ -1,6 +1,6 @@
 #pragma once
-#include <array>
 #include <expected>
+#include <initializer_list>
 #include <mutex>
 #include <string_view>
 #include <utility>
@@ -16,8 +16,10 @@ constexpr std::string_view name(Backend backend) {
 template <class Context, class Error> class Selection {
 public:
   using Result = std::expected<Context, Error>;
-  template <class Probe> const Result &get(std::string_view overrideName, Probe &&probe) noexcept {
+  template <class Override, class Probe>
+  const Result &get(Override &&override, Probe &&probe) noexcept {
     std::call_once(once_, [&] {
+      const std::string_view overrideName = override();
       for (auto backend : {Backend::Cuda, Backend::Vulkan}) {
         if (!overrideName.empty() && overrideName != name(backend))
           continue;

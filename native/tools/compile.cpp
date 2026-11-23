@@ -61,6 +61,7 @@ constexpr std::string_view usage =
     "  remove <alias> [--project <manifest>]  Remove a direct dependency\n"
     "\nBuild options\n"
     "  --target cpu|metal|vulkan|cuda      Select the build backend\n"
+    "  --target cuda,vulkan                Bundle both GPU backends\n"
     "  -O0, -O1, -O2, -O3                  Select the optimization level\n"
     "  --package name=path.k               Map a local source library\n"
     "  --emit-mlir <file>, --emit-llvm <file>  Write intermediate code\n"

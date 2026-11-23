@@ -19,11 +19,11 @@ def main():
     cpu = subprocess.run([program], env=env, capture_output=True, timeout=30)
     assert cpu.returncode == 0 and cpu.stdout.strip() == b"cpu" and not cpu.stderr, cpu
     missing = subprocess.run([program, "gpu"], env=env, capture_output=True, timeout=30)
-    assert missing.returncode != 0 and not missing.stdout, missing
+    assert missing.returncode != 0 and missing.stdout.splitlines() == [b"dispatch"], missing
     if args.vulkan:
         env["KALANDRA_GPU_BACKEND"] = "vulkan"
         gpu = subprocess.run([program, "gpu"], env=env, capture_output=True, timeout=45)
-        assert gpu.returncode == 0 and gpu.stdout.strip() == b"42", gpu
+        assert gpu.returncode == 0 and gpu.stdout.splitlines() == [b"dispatch", b"42"], gpu
         assert b"selected vulkan" in gpu.stderr, gpu
 if __name__ == "__main__":
     main()

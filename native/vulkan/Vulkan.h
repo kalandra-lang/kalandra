@@ -25,11 +25,13 @@ enum class Error : std::int64_t {
   Device = 105,
   Unsupported = 106
 };
+struct DiscoveredAdapter;
 struct DeviceInfo {
   std::string name;
   std::uint32_t vendor = 0, device = 0, apiVersion = 0;
   bool discrete = false, integrated = false;
   std::array<std::uint8_t, 16> uuid{};
+  std::shared_ptr<const DiscoveredAdapter> adapter{};
 };
 struct ByteBudget;
 struct Options {
@@ -46,6 +48,7 @@ struct Options {
   // Private source-selection ceiling; the raw right-transposed primitive is
   // unchanged. Used for capability-fallback qualification.
   bool enableTiledMatmul = true;
+  const DeviceInfo *discovered = nullptr;
 };
 struct State;
 struct Storage;
@@ -95,7 +98,7 @@ struct KernelContract {
 };
 class Runtime final {
 public:
-  static std::expected<std::vector<DeviceInfo>, Error> enumerate(bool validation = true);
+  static std::expected<std::vector<DeviceInfo>, Error> enumerate(bool validation = true, bool retain = false);
   static std::expected<std::unique_ptr<Runtime>, Error> create(Options = {});
   static std::expected<std::shared_ptr<ByteBudget>, Error> createByteBudget(std::uint64_t maximum);
   static std::expected<std::shared_ptr<const HostCharge>, Error>

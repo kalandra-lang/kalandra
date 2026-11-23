@@ -6215,7 +6215,7 @@ extern "C" const ValueLayout kalandra_gpu_string_array_layout;
          << (backend_ != GpuBackend::Metal
                  ? (backend_ == GpuBackend::Cuda
                         ? "namespace m = kalandra::runtime::cuda::language;\n"
-                        : "#ifdef KALANDRA_GPU_BUNDLE\nnamespace m = kalandra::runtime::bundle;\n#else\nnamespace m = kalandra::runtime::vulkan::language;\n#endif\n")
+                        : "#ifdef KALANDRA_GPU_BUNDLE\nnamespace m = kalandra::runtime::bundle;\n#include \"BundleModules.h\"\n#else\nnamespace m = kalandra::runtime::vulkan::language;\n#endif\n")
                  : "namespace m = kalandra::runtime::metal;\n")
          << " " << aggregateDeclarations << declarations << helperDeclarations << cpuEntries;
     if (mainArray)
@@ -6351,6 +6351,9 @@ void resume(Task &task) {
   auto made=m::Runtime::create();
   if (!made) { std::fprintf(stderr,"Metal unavailable: %lld\n",(long long)made.error()); return 1; }
   auto runtime=std::move(*made);
+#ifdef KALANDRA_GPU_BUNDLE
+  runtime->setModules(directory,bundleModules);
+#endif
   TaskLimits limits;
   if (auto *configured=std::getenv("KALANDRA_WORKERS")) {
     unsigned count=0; auto end=configured+std::strlen(configured); auto parsed=std::from_chars(configured,end,count);

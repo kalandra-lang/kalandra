@@ -214,7 +214,7 @@
     }
     if (build) {
       buildGpuProgram(progress, directory, outputs, variant, level, arithmetic, matmul, bundle);
-      progress.built(directory.string(), backendFlag);
+      if (!bundle) progress.built(directory.string(), backendFlag);
     }
     return 0;
   } catch (const std::exception &e) {

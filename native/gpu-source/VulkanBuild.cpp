@@ -11,6 +11,7 @@
 #include <array>
 #include <fstream>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <vector>
 
@@ -162,6 +163,21 @@ void buildVulkanProgram(kalandra::cli::BuildProgress &progress,
 #endif
   if (bundle) {
 #ifdef KALANDRA_BUNDLE_COMPILER
+    std::ostringstream table;
+    std::size_t count = 0;
+    for (const auto &[filename, contents] : outputs) {
+      if (!filename.ends_with(".vulkan-transform") &&
+          !(filename.starts_with("kernel") && filename.ends_with(".mlir"))) continue;
+      const auto stem = std::filesystem::path(filename).stem().string();
+      if (stem.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_") != std::string::npos)
+        throw std::runtime_error("unexpected generated module name");
+      table << "{\"" << stem << "\"," << (outputs.contains(stem + ".vulkan-matmul") ? "true" : "false") << "},";
+      ++count;
+    }
+    std::ofstream requirements(directory / "BundleModules.h");
+    requirements.exceptions(std::ios::badbit | std::ios::failbit);
+    requirements << "inline constexpr std::array<m::Module," << count << "> bundleModules{{" << table.str() << "}};\n";
+    requirements.close();
     resourceFlags.emplace_back("-DKALANDRA_GPU_BUNDLE");
 #else
     throw std::runtime_error("this compiler does not include both GPU toolchains");

@@ -1249,6 +1249,7 @@ include(cmake/CPUCompilerInstall.cmake)
 include(cmake/MetalCompilerInstall.cmake)
 include(cmake/VulkanCompilerInstall.cmake)
 include(cmake/CudaCompilerInstall.cmake)
+include(cmake/GpuBundleCompilerInstall.cmake)
 
 include(cmake/Scaffold.cmake)
 

@@ -13,9 +13,9 @@ if(PACKAGE_VULKAN AND (NOT PACKAGE_CPU OR PACKAGE_METAL OR
     NOT EXISTS "${BUILD_DIR}/native/vulkan-install/${CONFIG}/toolchain.json"))
   message(FATAL_ERROR "Vulkan packaging requires its configured component and CPU, without Metal")
 endif()
-if(PACKAGE_CUDA AND (NOT PACKAGE_CPU OR PACKAGE_METAL OR PACKAGE_VULKAN OR
+if(PACKAGE_CUDA AND (NOT PACKAGE_CPU OR PACKAGE_METAL OR
     NOT EXISTS "${BUILD_DIR}/native/cuda-install/${CONFIG}/toolchain.json"))
-  message(FATAL_ERROR "CUDA packaging requires its configured component and CPU, without another GPU backend")
+  message(FATAL_ERROR "CUDA packaging requires its configured component and CPU, without Metal")
 endif()
 # Keep GNUInstallDirs overrides for explicit installs. The archive has one
 # predictable relative layout; reject incompatible configured destinations.
@@ -52,6 +52,9 @@ if(PACKAGE_VULKAN)
 endif()
 if(PACKAGE_CUDA)
   set(_name "kalandra-native-cuda")
+endif()
+if(PACKAGE_VULKAN AND PACKAGE_CUDA)
+  set(_name "kalandra-native-gpu")
 endif()
 if(STANDALONE)
   string(APPEND _name "-standalone")
@@ -107,6 +110,12 @@ if(PACKAGE_CUDA)
   if(NOT _status EQUAL 0)
     message(FATAL_ERROR "CUDA compiler staging failed; no archive published")
   endif()
+endif()
+if(PACKAGE_VULKAN AND PACKAGE_CUDA)
+  file(REMOVE "${_prefix}/bin/kalandra" "${_prefix}/bin/kalandra.exe")
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=DESTDIR
+    "${CMAKE_COMMAND}" --install "${BUILD_DIR}" --config "${CONFIG}"
+    --prefix "${_prefix}" --component NativeBundleCompiler --strip COMMAND_ERROR_IS_FATAL ANY)
 endif()
 if(STANDALONE)
   find_program(_python NAMES python3 python REQUIRED)
