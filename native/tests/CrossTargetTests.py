@@ -6,9 +6,9 @@ import re
 import subprocess
 
 SOURCES = {
-    'c-library': '''export "C" fn geo_narrow(x: i16) -> i16:
+    'c-library': '''export "C" direct fn geo_narrow(x: i16) -> i16:
   return x
-export "C" checked fn geo_twice(x: i32) -> i32:
+export "C" fn geo_twice(x: i32) -> i32:
   return x * 2
 ''',
     'calls': '''fn count(n:i64,a:i64)->i64:

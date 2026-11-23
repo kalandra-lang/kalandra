@@ -595,10 +595,9 @@ private:
       }
       advance();
       cExport = true;
-      if (word("checked")) {
+      checkedCExport = !word("direct");
+      if (!checkedCExport || word("checked"))
         advance();
-        checkedCExport = true;
-      }
     }
     if (!word("fn")) {
       error(

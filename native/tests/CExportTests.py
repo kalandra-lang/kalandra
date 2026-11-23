@@ -23,25 +23,25 @@ def main():
     with tempfile.TemporaryDirectory(prefix="kalandra C export ") as root:
         path = Path(root)
         source = path / "geometry.k"
-        source.write_text('''export "C" fn geometry_positive(x: f64) -> bool:
+        source.write_text('''export "C" direct fn geometry_positive(x: f64) -> bool:
   return x > 0.0
 
-export "C" fn geometry_scale(x: f64) -> f64:
+export "C" direct fn geometry_scale(x: f64) -> f64:
   return x * 2.0
 
-export "C" fn geometry_id(x: i16) -> i16:
+export "C" direct fn geometry_id(x: i16) -> i16:
   return x
 
-export "C" checked fn geometry_twice(x: i32) -> i32:
+export "C" fn geometry_twice(x: i32) -> i32:
   return x * 2
 
 export "C" checked fn geometry_checked_float(x: f64) -> f64:
   return x
 
-export "C" checked fn geometry_checked_bool(x: bool) -> bool:
+export "C" fn geometry_checked_bool(x: bool) -> bool:
   return x
 
-export "C" checked fn geometry_finish() -> unit:
+export "C" fn geometry_finish() -> unit:
   return ()
 
 export fn packageOnly(x: i32) -> i32:
@@ -51,6 +51,9 @@ export fn packageOnly(x: i32) -> i32:
         run(args.compiler, source, "--emit", "c-header", "-o", "geometry.h", cwd=path)
         header = (path / "geometry.h").read_bytes()
         assert b"packageOnly" not in header and b"geometry_scale" in header
+        assert b"int32_t geometry_twice(int32_t arg_x, int32_t *out_value);" in header
+        assert b"int32_t geometry_finish(void);" in header
+        assert b"double geometry_scale(double arg_x);" in header
         (path / "caller.c").write_text('''#include "geometry.h"
 #include <limits.h>
 #include <math.h>
@@ -91,7 +94,7 @@ int main(void) {
         for symbol in ("class", "int32_t", "kalandra_reserved", "KALANDRA_C_OK"):
             source.write_text(f'export "C" fn {symbol}() -> i32:\n  return 42\n', encoding="utf-8")
             run(args.checker, source, cwd=path, expect="reserved")
-        source.write_text('export "C" fn signed_scale(x: i32) -> i32:\n  return x * 2\n', encoding="utf-8")
+        source.write_text('export "C" direct fn signed_scale(x: i32) -> i32:\n  return x * 2\n', encoding="utf-8")
         old_header = (path / "geometry.h").read_bytes()
         run(args.compiler, source, "--emit", "c-header", "-o", "geometry.h",
             cwd=path, expect="fault-free")

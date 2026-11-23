@@ -37,11 +37,11 @@ Use export "C" to give a function a public C symbol. The same function can be im
 
 In geometry.k:
 
-codeblock { language = kalandra, """export "C" fn geometry_scale(value: f64) -> f64:
-  return value * 2.0
-
-export "C" checked fn geometry_twice(value: i32) -> i32:
+codeblock { language = kalandra, """export "C" fn geometry_twice(value: i32) -> i32:
   return value * 2
+
+export "C" direct fn geometry_scale(value: f64) -> f64:
+  return value * 2.0
 """ }
 
 Build a static library and its matching header:
@@ -71,9 +71,9 @@ codeblock { language = bash, """cc caller.c libgeometry.a -o caller
 
 The caller prints 42. The generated header also works in C++. Use object or shared in place of static to produce a relocatable object or a shared library for the target platform.
 
-Parameters can use fixed-width integers, f32, f64 or bool. A plain C export returns its result directly. A unit result becomes void. The compiler must prove that the body can execute without a Kalandra runtime context or a fault.
+By default, an exported C function returns an int32_t status. For a value result, pass a writable pointer as the final argument. On success the function writes the value and returns KALANDRA_C_OK. On an execution fault, such as signed overflow, it returns KALANDRA_C_FAULT and leaves the output untouched. A null output pointer returns KALANDRA_C_INVALID_ARGUMENT. For a unit result the caller receives just the status. Parameters can use fixed-width integers, f32, f64 or bool.
 
-Use a checked export for arithmetic that can overflow. Its C function returns an int32_t status and takes a final pointer for the result. On success it writes the result and returns KALANDRA_C_OK. On a Kalandra execution fault it returns KALANDRA_C_FAULT and preserves the caller’s previous output. A null output pointer returns KALANDRA_C_INVALID_ARGUMENT. A checked function returning unit takes no output pointer. The caller owns the output storage and must supply a live, writable pointer of the declared type.
+Use export "C" direct fn when a C API requires a function that returns its value directly. The compiler must prove that the body can run without a Kalandra execution context or a fault. A direct export returning unit has the C return type void.
 
 h2 { "Export types deliberately" }
 
