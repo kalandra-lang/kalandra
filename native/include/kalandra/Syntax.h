@@ -307,6 +307,7 @@ struct Function {
   std::optional<SourceSpan> errorType = {};
   std::vector<SourceSpan> errorTypes = {};
   std::vector<GenericParameter> generics = {};
+  bool cExport = false;
   std::string specializedName = {}; // Internal only; source names/spans remain unchanged.
 };
 struct ImportedName {

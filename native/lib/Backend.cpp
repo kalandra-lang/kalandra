@@ -4461,8 +4461,13 @@ lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
       if (fn.name == "main")
         resultABI("kalandra_bool_entry", value);
       for (std::size_t n = 0; n != exports.size(); ++n)
-        if (exports[n] == fn.name)
-          resultABI("kalandra_cpu_" + std::to_string(n), value);
+        if (exports[n] == fn.name) {
+          const auto symbol = "kalandra_cpu_" + std::to_string(n);
+          resultABI(symbol, value);
+          if (!fn.cExportName.empty())
+            if (auto *entry = native->getFunction("_mlir_ciface_" + symbol))
+              entry->addFnAttr("kalandra.public.c-candidate");
+        }
     }
     const bool functionValues = std::ranges::any_of(input.expressions, [](const auto &value) {
       return std::holds_alternative<FunctionReference>(value.operation) ||

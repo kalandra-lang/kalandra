@@ -1393,6 +1393,16 @@ private:
                          proofOwnerForFunction(id));
       output_.functions[id].name = functionName(function);
       output_.functions[id].declaration = function.name;
+      if (function.cExport) {
+        const auto symbol = name(function.name);
+        output_.functions[id].cExportName = symbol;
+        if (!cExportNames_.insert(symbol).second)
+          error("S092", "duplicate C export symbol '" + symbol + "'", function.name);
+        if (!function.generics.empty())
+          error("S092", "C exports require a concrete function signature", function.name);
+        if (!function.result)
+          error("S092", "C exports require an explicit result type", function.name);
+      }
       if (!function.generics.empty()) {
         auto signature = sourceCallableSignature(function);
         if (implementationMethodOwners_.contains(id))
@@ -1510,6 +1520,23 @@ private:
                 instantiateGenericTerm(*function.result, *output_.functions[id].declaredResult,
                                        genericTermEnvironment(id));
         }
+      }
+      if (function.cExport) {
+        const auto &fn = output_.functions[id];
+        auto compatible = [](const ValueType &type, bool result) {
+          const auto facts = typeFacts(type);
+          return facts.plainHostScalar() &&
+                 (facts.numeric() || type.builtin == BuiltinValue::Bool ||
+                  (result && type.builtin == BuiltinValue::Unit));
+        };
+        for (auto parameter : fn.parameters) {
+          const auto &value = output_.symbols[parameter];
+          if (!compatible(value.type, false))
+            error("S092", "C export parameters require an ABI-compatible scalar", function.name);
+        }
+        if (fn.declaredResult && !compatible(*fn.declaredResult, true))
+          error("S092", "C export results require an ABI-compatible scalar or unit and no error channel",
+                function.name);
       }
       if (function.moduleIndex)
         output_.functions[id].name =
@@ -7287,6 +7314,7 @@ private:
   bool registeringRecords_ = true, recursiveValues_ = false;
   std::size_t recordDepth_ = 0;
   std::unordered_map<std::size_t, std::optional<std::size_t>> resolvedAliases_;
+  std::unordered_set<std::string> cExportNames_;
   std::unordered_map<std::string, std::optional<ExportBinding>> exports_;
   std::unordered_set<std::string> resolvingExports_;
   std::unordered_map<std::string, std::pair<std::size_t, std::string>> reexports_;

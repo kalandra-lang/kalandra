@@ -28,4 +28,6 @@ lowerNative(const TypedModule &module, std::optional<std::string> testEntry = {}
             ArithmeticMode arithmetic = ArithmeticMode::Hardware,
             bool deferCallFinalization = false, CpuTarget target = {},
             Optimization level = Optimization::O0);
+[[nodiscard]] std::expected<BackendOutput, std::string>
+lowerCLibrary(const TypedModule &module, CpuTarget target, Optimization level);
 } // namespace kalandra

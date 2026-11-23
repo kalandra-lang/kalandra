@@ -3,6 +3,7 @@
 #include "../lib/OrdinaryMain.h"
 #include "BuildTool.h"
 #include "CrossToolchain.h"
+#include "CExport.h"
 
 // LLVM COFF declarations must precede Windows SDK macros from platform I/O.
 #include "../lib/PlatformFileSystem.h"
@@ -22,9 +23,11 @@
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Process.h"
+#include "llvm/TargetParser/Host.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
 #if defined(KALANDRA_HAS_CUDA_SOURCE) && defined(KALANDRA_HAS_VULKAN_SOURCE)
@@ -71,6 +74,7 @@ constexpr std::string_view usage =
     "  --platform <os-architecture> | --toolchain <profile.json>\n"
     "  --sysroot <path>, --gcc-directory <path>, --library-directory <path>\n"
     "\nOutput options\n"
+    "  --emit object|static|shared|c-header  Build a native library or header\n"
     "  --silent                            Hide routine messages and progress\n"
     "  --debug                             Write build timings and context to stderr\n"
     "  --version                           Print the toolchain version\n";
@@ -90,7 +94,7 @@ bool write(const std::filesystem::path &path, const std::string &contents) {
 } // namespace
 int main(int argc, char **argv) {
   const auto feedback = kalandra::cli::Output::take(argc, argv,
-      {"-o", "--project", "--package", "--emit-mlir", "--emit-llvm", "--test-entry",
+      {"-o", "--emit", "--header", "--project", "--package", "--emit-mlir", "--emit-llvm", "--test-entry",
        "--arithmetic", "--matmul-policy", "--platform", "--target", "--toolchain", "--sysroot",
        "--gcc-directory", "--library-directory"});
   if (kalandra::printVersion(argc, argv, "kalandra"))
@@ -342,11 +346,12 @@ int main(int argc, char **argv) {
     std::cerr << usage;
     return 2;
   }
-  std::filesystem::path output, mlirPath, llvmPath;
+  std::filesystem::path output, mlirPath, llvmPath, headerPath;
   std::optional<std::string> testEntry;
   std::string sourcePath, projectPath;
   std::optional<kalandra::NativeProject> project;
   std::vector<kalandra::ModulePackage> packages;
+  std::string emit;
   bool sanitize = false, threadSanitize = false;
   kalandra::ArithmeticMode arithmetic = kalandra::ArithmeticMode::Hardware;
   bool selectedArithmetic = false;
@@ -355,12 +360,21 @@ int main(int argc, char **argv) {
   for (std::size_t i = 1; i < arguments.size(); ++i) {
     const std::string option = arguments[i];
     if ((option == "-o" || option == "--emit-mlir" || option == "--emit-llvm" ||
-         option == "--test-entry" || option == "--package" || option == "--project") &&
+         option == "--test-entry" || option == "--package" || option == "--project" || option == "--emit" || option == "--header") &&
         i + 1 < arguments.size()) {
       const std::string value = arguments[++i];
       if (option == "-o")
         output = value;
-      else if (option == "--emit-mlir")
+      else if (option == "--emit") {
+        if (!emit.empty() || (value != "c-header" && value != "object" && value != "static" && value != "shared")) {
+          std::cerr << "expected --emit object, static, shared or c-header once\n";
+          return 2;
+        }
+        emit = value;
+      } else if (option == "--header") {
+        if (!headerPath.empty() || value.empty()) return 2;
+        headerPath = value;
+      } else if (option == "--emit-mlir")
         mlirPath = value;
       else if (option == "--emit-llvm")
         llvmPath = value;
@@ -429,6 +443,11 @@ int main(int argc, char **argv) {
     progress.diagnostic() << "missing source file or --project\n";
     return 2;
   }
+  const bool library = emit == "object" || emit == "static" || emit == "shared";
+  if ((!headerPath.empty() && !library) || (library && testEntry)) {
+    std::cerr << "--header requires a library output; --test-entry requires an executable\n";
+    return 2;
+  }
   if (selectedCpuToolchain && (sanitize || threadSanitize)) {
     progress.diagnostic() << "cross-toolchain sanitizer modes are not yet qualified; use normal or optimized "
                  "builds\n";
@@ -464,67 +483,6 @@ int main(int argc, char **argv) {
     managed = std::move(*loaded);
     managed->nodes[0].localPackages = packages;
   }
-  std::vector<std::filesystem::path> paths{sourcePath};
-  if (project) {
-    paths.emplace_back(project->manifest);
-    if (project->libraryEntry)
-      paths.emplace_back(*project->libraryEntry);
-  }
-  for (const auto &path : {output, mlirPath, llvmPath}) {
-    if (path.empty())
-      continue;
-    if (project) {
-      auto allowed = kalandra::protectNativePackageOutput(*project, path.string());
-      if (!allowed) {
-        progress.diagnostic() << allowed.error() << '\n';
-        return 2;
-      }
-    }
-    for (const auto &previous : paths) {
-      std::error_code error;
-      const bool equivalent = std::filesystem::equivalent(path, previous, error);
-      std::error_code firstError, secondError;
-      const auto a = std::filesystem::weakly_canonical(path, firstError);
-      const auto b = std::filesystem::weakly_canonical(previous, secondError);
-      if ((!error && equivalent) || (!firstError && !secondError && a == b)) {
-        progress.diagnostic() << "source and output paths must be distinct\n";
-        return 2;
-      }
-    }
-    paths.push_back(path);
-  }
-  auto syntax = managed ? kalandra::loadPackageModules(managed->nodes)
-                        : kalandra::loadModules(sourcePath, {}, {}, packages);
-  if (!syntax) {
-    progress.diagnostic() << sourcePath << ": " << syntax.error() << '\n';
-    return 1;
-  }
-  // Every dependency is source input: output publication must not overwrite it,
-  // including aliases through symlinks or hard links.
-  for (const auto &part : syntax->module.source->parts())
-    for (const auto &path : {output, mlirPath, llvmPath}) {
-      if (path.empty())
-        continue;
-      std::error_code error, firstError, secondError;
-      const bool equivalent = std::filesystem::equivalent(path, part.source->path(), error);
-      const auto a = std::filesystem::weakly_canonical(path, firstError);
-      const auto b = std::filesystem::weakly_canonical(part.source->path(), secondError);
-      if ((!error && equivalent) || (!firstError && !secondError && a == b)) {
-        progress.diagnostic() << "module source and output paths must be distinct\n";
-        return 2;
-      }
-    }
-  auto typed = kalandra::check(std::move(*syntax));
-  if (!typed.ok()) {
-    for (const auto &d : typed.diagnostics)
-      progress.diagnostic() << kalandra::renderDiagnostic(*typed.source, d);
-    return 1;
-  }
-  if (!testEntry)
-    if (auto error = kalandra::prepareApplication(*typed.module)) {
-      progress.diagnostic() << kalandra::renderDiagnostic(*typed.source, *error);
-      return 1;
-    }
   static int executableAnchor;
   std::error_code resourceError;
   const auto executable = std::filesystem::canonical(
@@ -578,8 +536,100 @@ int main(int argc, char **argv) {
     }
     cross = std::move(*loaded);
   }
+  const llvm::Triple libraryTarget(cross ? cross->target.triple : llvm::sys::getDefaultTargetTriple());
+  std::filesystem::path importLibrary;
+  if (emit == "shared" && libraryTarget.isOSWindows()) {
+    importLibrary = output;
+    importLibrary.replace_extension(".lib");
+  }
+  std::vector<std::filesystem::path> paths{sourcePath};
+  if (project) {
+    paths.emplace_back(project->manifest);
+    if (project->libraryEntry)
+      paths.emplace_back(*project->libraryEntry);
+  }
+  for (const auto &path : {output, mlirPath, llvmPath, headerPath, importLibrary}) {
+    if (path.empty())
+      continue;
+    if (project) {
+      auto allowed = kalandra::protectNativePackageOutput(*project, path.string());
+      if (!allowed) {
+        progress.diagnostic() << allowed.error() << '\n';
+        return 2;
+      }
+    }
+    for (const auto &previous : paths) {
+      std::error_code error;
+      const bool equivalent = std::filesystem::equivalent(path, previous, error);
+      std::error_code firstError, secondError;
+      const auto a = std::filesystem::weakly_canonical(path, firstError);
+      const auto b = std::filesystem::weakly_canonical(previous, secondError);
+      if ((!error && equivalent) || (!firstError && !secondError && a == b)) {
+        progress.diagnostic() << "source and output paths must be distinct\n";
+        return 2;
+      }
+    }
+    paths.push_back(path);
+  }
+  auto syntax = managed ? kalandra::loadPackageModules(managed->nodes)
+                        : kalandra::loadModules(sourcePath, {}, {}, packages);
+  if (!syntax) {
+    progress.diagnostic() << sourcePath << ": " << syntax.error() << '\n';
+    return 1;
+  }
+  // Every dependency is source input: output publication must not overwrite it,
+  // including aliases through symlinks or hard links.
+  for (const auto &part : syntax->module.source->parts())
+    for (const auto &path : {output, mlirPath, llvmPath, headerPath, importLibrary}) {
+      if (path.empty())
+        continue;
+      std::error_code error, firstError, secondError;
+      const bool equivalent = std::filesystem::equivalent(path, part.source->path(), error);
+      const auto a = std::filesystem::weakly_canonical(path, firstError);
+      const auto b = std::filesystem::weakly_canonical(part.source->path(), secondError);
+      if ((!error && equivalent) || (!firstError && !secondError && a == b)) {
+        progress.diagnostic() << "module source and output paths must be distinct\n";
+        return 2;
+      }
+    }
+  auto typed = kalandra::check(std::move(*syntax));
+  if (!typed.ok()) {
+    for (const auto &d : typed.diagnostics)
+      progress.diagnostic() << kalandra::renderDiagnostic(*typed.source, d);
+    return 1;
+  }
+  if (emit == "c-header") {
+    if (testEntry || !mlirPath.empty() || !llvmPath.empty()) {
+      std::cerr << "C header output cannot be combined with intermediate outputs or a test entry\n";
+      return 2;
+    }
+    auto header = kalandra::cli::cHeader(*typed.module);
+    if (!header) {
+      progress.diagnostic() << header.error() << '\n';
+      return 1;
+    }
+    llvm::SmallString<256> stage;
+    if (auto error = llvm::sys::fs::createUniqueDirectory(
+            std::filesystem::absolute(output.parent_path() / ".kalandra-header").string(), stage)) {
+      progress.diagnostic() << "cannot stage C header: " << error.message() << '\n';
+      return 1;
+    }
+    LinkDirectory temporary{stage.str().str()};
+    const auto file = temporary.path / "bindings.h";
+    if (!write(file, *header) || kalandra::detail::replaceFile(file, output)) {
+      progress.diagnostic() << "cannot publish C header\n";
+      return 1;
+    }
+    return 0;
+  }
+  if (!testEntry && !library)
+    if (auto error = kalandra::prepareApplication(*typed.module)) {
+      progress.diagnostic() << kalandra::renderDiagnostic(*typed.source, *error);
+      return 1;
+    }
   progress.phase("Compiling", sourcePath);
-  auto lowered = kalandra::lowerNative(*typed.module, testEntry, {}, arithmetic, false,
+  auto lowered = library ? kalandra::lowerCLibrary(*typed.module, cross ? cross->target : kalandra::CpuTarget{}, optimization)
+                         : kalandra::lowerNative(*typed.module, testEntry, {}, arithmetic, false,
                                        cross ? cross->target : kalandra::CpuTarget{}, optimization);
   if (!lowered) {
     progress.diagnostic() << "native lowering: " << lowered.error() << '\n';
@@ -678,6 +728,8 @@ int main(int argc, char **argv) {
     }
     archives.push_back(builtins->string());
   }
+  if (library)
+    archives.clear();
   for (const auto &archive : archives) {
     std::error_code error;
     if (!std::filesystem::is_regular_file(archive, error)) {
@@ -702,7 +754,7 @@ int main(int argc, char **argv) {
   // Standalone execution is ordinary. Keep the checked emitted library entry
   // unchanged; only the executable link copy may acquire this context-free main.
   std::string linkerIR = lowered->llvm;
-  {
+  if (!library) {
     llvm::LLVMContext context;
     llvm::SMDiagnostic diagnostic;
     auto module = llvm::parseAssemblyString(linkerIR, diagnostic, context);
@@ -777,8 +829,27 @@ int main(int argc, char **argv) {
 #endif
 #endif
   }
+  if (library) {
+    if (emit == "shared") {
+      command.emplace_back("-shared");
+      if (libraryTarget.isOSDarwin()) {
+        command.insert(command.end(), {"-Xlinker", "-install_name", "-Xlinker",
+                                       "@rpath/" + output.filename().string()});
+      } else if (libraryTarget.isOSWindows()) {
+        command.insert(command.end(), {"-Xlinker", "/implib:" + (staged.path / "import.lib").string()});
+      } else if (libraryTarget.isOSLinux()) {
+        command.insert(command.end(), {"-Xlinker", "-soname", "-Xlinker", output.filename().string()});
+      }
+    } else
+      command.emplace_back("-c");
+#ifndef _WIN32
+    if (!cross || !cross->windows())
+      command.emplace_back("-fPIC");
+#endif
+  }
   command.insert(command.end(), archives.begin(), archives.end());
-  command.insert(command.end(), {"-o", std::string(linkedOutput)});
+  const auto objectPath = (staged.path / "c-exports.o").generic_string();
+  command.insert(command.end(), {"-o", emit == "static" ? objectPath : linkedOutput});
   if (sanitize) {
     command.push_back("-fsanitize=address,undefined");
     command.push_back("-fno-sanitize-recover=all");
@@ -797,7 +868,37 @@ int main(int argc, char **argv) {
     progress.diagnostic() << "native link failed: " << error << '\n';
     return 1;
   }
-  if (cross)
+  if (emit == "static") {
+    auto member = llvm::NewArchiveMember::getFile(objectPath, true);
+    if (!member) {
+      progress.diagnostic() << llvm::toString(member.takeError()) << '\n';
+      return 1;
+    }
+    member->MemberName = "c-exports.o";
+    if (auto error = llvm::writeArchive(linkedOutput, llvm::ArrayRef<llvm::NewArchiveMember>(*member), llvm::SymtabWritingMode::NormalSymtab,
+                                        member->detectKindFromObject(), true, false)) {
+      progress.diagnostic() << llvm::toString(std::move(error)) << '\n';
+      return 1;
+    }
+  }
+  if (!importLibrary.empty()) {
+    if (auto error = kalandra::detail::replaceFile(staged.path / "import.lib", importLibrary)) {
+      progress.diagnostic() << "cannot publish Windows import library: " << error.message() << '\n';
+      return 1;
+    }
+  }
+  if (!headerPath.empty()) {
+    auto header = kalandra::cli::cHeader(*typed.module);
+    if (!header || !write(staged.path / "public-header.tmp", *header)) {
+      progress.diagnostic() << "cannot stage C header\n";
+      return 1;
+    }
+    if (auto error = kalandra::detail::replaceFile(staged.path / "public-header.tmp", headerPath)) {
+      progress.diagnostic() << "cannot publish C header: " << error.message() << '\n';
+      return 1;
+    }
+  }
+  if (cross && !library)
     if (auto failure = cross->verifyOutput(std::string(linkedOutput))) {
       progress.diagnostic() << "CPU toolchain: " << *failure << '\n';
       return 1;

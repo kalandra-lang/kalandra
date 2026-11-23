@@ -174,7 +174,7 @@ inline bool addOrdinaryScalarEntries(llvm::Module &module,
         name != "_mlir_ciface_kalandra_bool_entry" && name != "_mlir_ciface_kalandra_int32_entry" &&
         name != "_mlir_ciface_kalandra_int64_entry" &&
         name != "_mlir_ciface_kalandra_uint32_entry" &&
-        name != "_mlir_ciface_kalandra_uint64_entry")
+        name != "_mlir_ciface_kalandra_uint64_entry" && !fn.hasFnAttribute("kalandra.public.c-candidate"))
       continue;
     auto *ret = fn.getReturnType();
     if (fn.isDeclaration() || fn.isVarArg() || fn.hasFnAttribute("kalandra.task.frame") ||

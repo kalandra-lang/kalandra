@@ -183,7 +183,7 @@ target_include_directories(kalandra-gpu-numeric SYSTEM PUBLIC ${MLIR_INCLUDE_DIR
 target_compile_options(kalandra-gpu-numeric PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(kalandra-gpu-numeric PUBLIC MLIR LLVM)
 
-add_library(kalandra-backend STATIC lib/Backend.cpp lib/CheckedABI.cpp lib/TaskBackend.cpp lib/TaskEnvironment.cpp lib/NumericConversion.cpp)
+add_library(kalandra-backend STATIC lib/Backend.cpp lib/CExport.cpp lib/CheckedABI.cpp lib/TaskBackend.cpp lib/TaskEnvironment.cpp lib/NumericConversion.cpp)
 target_include_directories(kalandra-backend SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
 target_link_libraries(kalandra-backend PUBLIC kalandra-semantics PRIVATE kalandra-strict-float MLIR LLVM)
 target_compile_options(kalandra-backend PRIVATE -Wall -Wextra -Werror)
@@ -286,6 +286,10 @@ target_include_directories(kalandra-cli-progress PUBLIC include)
 target_link_libraries(kalandra-cli-progress PRIVATE Threads::Threads)
 target_compile_options(kalandra-cli-progress PRIVATE -Wall -Wextra -Werror)
 if(BUILD_TESTING)
+  add_test(NAME native-c-exports COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/CExportTests.py" --compiler "$<TARGET_FILE:kalandra>"
+    --checker "$<TARGET_FILE:kalandra-check>" --cc "${CMAKE_C_COMPILER}" --cxx "${CMAKE_CXX_COMPILER}")
+  set_tests_properties(native-c-exports PROPERTIES TIMEOUT 180)
   add_test(NAME native-cli-feedback COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/packaging/CliFeedbackTests.py" "$<TARGET_FILE:kalandra>")
   set_tests_properties(native-cli-feedback PROPERTIES TIMEOUT 150)

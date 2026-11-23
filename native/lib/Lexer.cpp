@@ -262,6 +262,7 @@ private:
       };
       const bool declaration =
           namedFunction(rest) || (rest.starts_with("export ") && namedFunction(rest.substr(7))) ||
+          (rest.starts_with("export \"C\" ") && namedFunction(rest.substr(11))) ||
           rest.starts_with("type ") || rest.starts_with("enum ") || rest.starts_with("error ") ||
           rest.starts_with("trait ") || rest.starts_with("impl ") ||
           rest.starts_with("export trait ") || rest.starts_with("from ") ||
