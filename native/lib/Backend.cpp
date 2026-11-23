@@ -2910,6 +2910,68 @@ private:
             return LLVM::LoadOp::create(builder_, loc, type(node.type), output);
           } else if constexpr (std::is_same_v<T, StringLiteral>) {
             return stringLiteral(loc, operation.value);
+          } else if constexpr (std::is_same_v<T, ForeignCall>) {
+            SmallVector<Type> parameters, results;
+            SmallVector<Value> arguments;
+            const auto ptr = LLVM::LLVMPointerType::get(builder_.getContext());
+            for (size_t i = 0; i < operation.arguments.size(); ++i) {
+              auto id = operation.arguments[i];
+              auto value = expression(frame, id);
+              if (input_.expressions[id].type.builtin == BuiltinValue::String) {
+                // Only the UTF-8 view crosses the C boundary. The invocation
+                // retains its backing until the synchronous call has returned.
+                arguments.push_back(
+                    LLVM::ExtractValueOp::create(builder_, loc, value, ArrayRef<int64_t>{1}));
+                parameters.push_back(ptr);
+                if (operation.abi[i] == ForeignArg::Bytes) {
+                  arguments.push_back(
+                      LLVM::ExtractValueOp::create(builder_, loc, value, ArrayRef<int64_t>{2}));
+                  parameters.push_back(builder_.getI64Type());
+                }
+              } else if (operation.abi[i] == ForeignArg::FloatAggregate) {
+                const auto count =
+                    input_.records.at(*input_.expressions[id].type.record).fields.size();
+                auto aggregate = LLVM::LLVMArrayType::get(builder_.getF64Type(), count);
+                Value array = LLVM::UndefOp::create(builder_, loc, aggregate);
+                for (size_t j = 0; j < count; ++j) {
+                  const int64_t index = static_cast<int64_t>(j);
+                  auto field =
+                      LLVM::ExtractValueOp::create(builder_, loc, value, ArrayRef<int64_t>{index});
+                  array = LLVM::InsertValueOp::create(builder_, loc, array, field,
+                                                      ArrayRef<int64_t>{index});
+                }
+                arguments.push_back(array);
+                parameters.push_back(aggregate);
+              } else if (operation.abi[i] == ForeignArg::Pointer) {
+                arguments.push_back(LLVM::IntToPtrOp::create(builder_, loc, ptr, value));
+                parameters.push_back(ptr);
+              } else {
+                arguments.push_back(value);
+                parameters.push_back(value.getType());
+              }
+            }
+            if (operation.objc) {
+              // Apple's selector stub supplies _cmd on entry to objc_msgSend.
+              arguments.insert(arguments.begin() + 1, LLVM::ZeroOp::create(builder_, loc, ptr));
+              parameters.insert(parameters.begin() + 1, ptr);
+            }
+            const bool unit = node.type.builtin == BuiltinValue::Unit;
+            if (!unit)
+              results.push_back(operation.pointerResult ? Type(ptr) : type(node.type));
+            if (!module_->lookupSymbol<func::FuncOp>(operation.symbol)) {
+              OpBuilder::InsertionGuard guard(builder_);
+              builder_.setInsertionPointToStart(module_->getBody());
+              auto decl = func::FuncOp::create(builder_, loc, operation.symbol,
+                                               builder_.getFunctionType(parameters, results));
+              decl.setPrivate();
+            }
+            auto call = func::CallOp::create(builder_, loc, operation.symbol, results, arguments);
+            if (unit)
+              return arith::ConstantIntOp::create(builder_, loc, 0, 1);
+            if (operation.pointerResult)
+              return LLVM::PtrToIntOp::create(builder_, loc, builder_.getI64Type(),
+                                              call.getResult(0));
+            return call.getResult(0);
           } else if constexpr (std::is_same_v<T, TimeOperation>) {
             if (node.type.fallible)
               throw LoweringFailure{"fallible time operation requires continuation lowering"};
@@ -4260,6 +4322,13 @@ lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
                 const std::vector<std::string> &exports, ArithmeticMode arithmetic,
                 bool deferCallFinalization, bool arrayTailLoops, const CpuTarget &target,
                 Optimization level) {
+  if (std::ranges::any_of(input.expressions,
+                          [](const auto &e) {
+                            auto *foreign = std::get_if<ForeignCall>(&e.operation);
+                            return foreign && foreign->objc;
+                          }) &&
+      !llvm::Triple(target.triple).isOSDarwin())
+    return std::unexpected("Objective-C message imports require a macOS target");
   if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
     return std::unexpected(*error);
   const auto storage = planRecordStorage(input);
@@ -4426,6 +4495,10 @@ lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
     auto native = translateModuleToLLVMIR(*module, llvmContext);
     if (!native)
       return std::unexpected("LLVM translation failed");
+    for (const auto &value : input.expressions)
+      if (const auto *foreign = std::get_if<ForeignCall>(&value.operation))
+        if (auto *decl = native->getFunction(foreign->symbol); decl && decl->isDeclaration())
+          decl->addFnAttr("kalandra.foreign.c");
     // A retained relocation makes a new-layout module fail to link against an
     // older runtime, without adding an entry call or a mutable global context.
     auto *layout = new llvm::GlobalVariable(*native, llvm::Type::getInt8Ty(llvmContext), true,
@@ -4486,6 +4559,16 @@ lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
         return std::unexpected(*error);
     std::string errors;
     llvm::raw_string_ostream errorStream(errors);
+    // dyld registers the linker's selector references only for Objective-C images.
+    if (std::ranges::any_of(*native, [](const llvm::Function &fn) {
+          return fn.getName().starts_with("objc_msgSend$");
+        })) {
+      native->addModuleFlag(llvm::Module::Error, "Objective-C Version", 2);
+      native->addModuleFlag(llvm::Module::Error, "Objective-C Image Info Version", uint32_t(0));
+      native->addModuleFlag(
+          llvm::Module::Error, "Objective-C Image Info Section",
+          llvm::MDString::get(llvmContext, "__DATA,__objc_imageinfo,regular,no_dead_strip"));
+    }
     if (llvm::verifyModule(*native, &errorStream))
       return std::unexpected("generated LLVM IR failed verification: " + errors);
     {

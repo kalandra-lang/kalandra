@@ -952,7 +952,7 @@ private:
             input(op.input);
             return {};
           } else if constexpr (std::is_same_v<T, FormatOperation> ||
-                               std::is_same_v<T, TimeOperation>) {
+                               std::is_same_v<T, ForeignCall> || std::is_same_v<T, TimeOperation>) {
             if constexpr (std::is_same_v<T, FormatOperation>)
               for (auto value : op.originalArguments)
                 input(value);

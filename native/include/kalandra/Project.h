@@ -6,6 +6,11 @@ struct NativeDependency {
   std::string repository;
   std::string revision; // Requested commit or ref; source identity uses the locked commit.
 };
+struct HeaderImport {
+  std::string header;
+  std::string moduleEntry;
+  std::string system;
+};
 struct NativeProject {
   std::string manifest;
   std::string entry;
@@ -14,6 +19,8 @@ struct NativeProject {
   std::optional<std::string> libraryEntry = {};
   std::vector<NativeDependency> dependencies = {};
   std::string manifestContents = {};
+  std::vector<std::string> linkLibraries = {};
+  std::vector<HeaderImport> headers = {};
 };
 struct NativePackage {
   std::string manifest;

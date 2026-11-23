@@ -240,6 +240,14 @@ struct GeneratorCreate {
   std::vector<ValueId> captures;
 };
 
+enum class ForeignArg { Scalar, Pointer, Bytes, CString, FloatAggregate };
+struct ForeignCall {
+  std::string symbol;
+  std::vector<ValueId> arguments;
+  std::vector<ForeignArg> abi;
+  bool pointerResult = false;
+  bool objc = false;
+};
 struct TimeOperation {
   TimeAction action;
   std::vector<ValueId> arguments;
@@ -535,20 +543,19 @@ struct TypedRecord {
 struct TypedExpr {
   SourceSpan span;
   ValueType type; // Concrete scalar/tensor numeric identity; builtins retain explicit tags.
-  std::variant<Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal,
-               UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
-               FormatOperation, ConsoleOperation, FileOperation, BufferOperation, IteratorOperation,
-               ParseOperation, PathOperation, EnvironmentLookup, TimeOperation,
-               ApplicationArguments, BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary,
-               TensorUnary, ScalarBinary, TensorBinary, TensorLiteral, NumericConvert, FunctionCall,
-               Matmul, ReduceSum, TensorTransform, ArrayMap, ArrayToTensor, TensorReshape,
-               TensorToArray, ArrayConcat, ArraySlice, ArrayIndex, TensorIndex, CollectionQuery,
-               ShapeCheck, DeviceSelection, Transfer, TaskOperation, ParallelOperation,
-               ConditionalOperation, WhileOperation, LoopTransferOperation, IntegerRangeOperation,
-               YieldOperation, CatchOperation, MatchOperation, ErrorFieldRead, FailOperation,
-               GuardOperation, RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference,
-               FunctionInvoke, ArrayBoundsCheck, ArrayStore, ArraySort, GeneratorCreate,
-               WorkgroupOperation>
+  std::variant<
+      Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal, UInt64Literal,
+      StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral, FormatOperation,
+      ConsoleOperation, FileOperation, BufferOperation, IteratorOperation, ParseOperation,
+      PathOperation, EnvironmentLookup, TimeOperation, ForeignCall, ApplicationArguments,
+      BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary, TensorUnary, ScalarBinary, TensorBinary,
+      TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum, TensorTransform, ArrayMap,
+      ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat, ArraySlice, ArrayIndex, TensorIndex,
+      CollectionQuery, ShapeCheck, DeviceSelection, Transfer, TaskOperation, ParallelOperation,
+      ConditionalOperation, WhileOperation, LoopTransferOperation, IntegerRangeOperation,
+      YieldOperation, CatchOperation, MatchOperation, ErrorFieldRead, FailOperation, GuardOperation,
+      RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke,
+      ArrayBoundsCheck, ArrayStore, ArraySort, GeneratorCreate, WorkgroupOperation>
       operation;
 };
 struct ShapeEquality {

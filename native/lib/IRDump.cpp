@@ -1288,6 +1288,12 @@ std::string dumpTypedIR(const TypedModule &module) {
                                                                    : "eprintln")
                   << " ";
               value(operation.input);
+            } else if constexpr (std::is_same_v<T, ForeignCall>) {
+              out << "foreign.call " << operation.symbol;
+              for (auto arg : operation.arguments) {
+                out << " ";
+                value(arg);
+              }
             } else if constexpr (std::is_same_v<T, TimeOperation>) {
               out << "time." << unsigned(operation.action);
               for (auto argument : operation.arguments)

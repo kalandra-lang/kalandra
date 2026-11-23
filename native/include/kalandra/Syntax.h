@@ -155,6 +155,7 @@ struct ComparisonExpr {
 struct CallExpr {
   ExprId callee;
   std::vector<ExprId> arguments;
+  bool unsafeForeign = false;
 };
 struct IndexExpr {
   ExprId input;
@@ -309,6 +310,8 @@ struct Function {
   std::vector<GenericParameter> generics = {};
   bool cExport = false;
   bool checkedCExport = false;
+  bool cImport = false;
+  std::string objcSelector = {};
   std::string specializedName = {}; // Internal only; source names/spans remain unchanged.
 };
 struct ImportedName {

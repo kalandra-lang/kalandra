@@ -1,9 +1,10 @@
-#include "kalandra/Application.h"
 #include "../lib/NativeSanitizerFrames.h"
 #include "../lib/OrdinaryMain.h"
 #include "BuildTool.h"
-#include "CrossToolchain.h"
 #include "CExport.h"
+#include "CrossToolchain.h"
+#include "kalandra/Application.h"
+#include "kalandra/HeaderImport.h"
 
 // LLVM COFF declarations must precede Windows SDK macros from platform I/O.
 #include "../lib/PlatformFileSystem.h"
@@ -352,6 +353,7 @@ int main(int argc, char **argv) {
   std::optional<kalandra::NativeProject> project;
   std::vector<kalandra::ModulePackage> packages;
   std::string emit;
+  std::vector<std::string> linkLibraries, systemLinkArgs;
   bool sanitize = false, threadSanitize = false;
   kalandra::ArithmeticMode arithmetic = kalandra::ArithmeticMode::Hardware;
   bool selectedArithmetic = false;
@@ -437,6 +439,7 @@ int main(int argc, char **argv) {
     }
     project = std::move(*loaded);
     sourcePath = project->entry;
+    linkLibraries = project->linkLibraries;
     packages.insert(packages.end(), project->packages.begin(), project->packages.end());
   }
   if (sourcePath.empty()) {
@@ -444,6 +447,10 @@ int main(int argc, char **argv) {
     return 2;
   }
   const bool library = emit == "object" || emit == "static" || emit == "shared";
+  if (project && !project->headers.empty() && (selectedCpuToolchain || !emit.empty())) {
+    progress.diagnostic() << "native dependencies currently require a host executable build\n";
+    return 2;
+  }
   if ((!headerPath.empty() && !library) || (library && testEntry)) {
     std::cerr << "--header requires a library output; --test-entry requires an executable\n";
     return 2;
@@ -543,7 +550,11 @@ int main(int argc, char **argv) {
     importLibrary.replace_extension(".lib");
   }
   std::vector<std::filesystem::path> paths{sourcePath};
+  paths.insert(paths.end(), linkLibraries.begin(), linkLibraries.end());
   if (project) {
+    for (const auto &import : project->headers)
+      if (!import.header.empty())
+        paths.emplace_back(import.header);
     paths.emplace_back(project->manifest);
     if (project->libraryEntry)
       paths.emplace_back(*project->libraryEntry);
@@ -571,8 +582,14 @@ int main(int argc, char **argv) {
     }
     paths.push_back(path);
   }
-  auto syntax = managed ? kalandra::loadPackageModules(managed->nodes)
-                        : kalandra::loadModules(sourcePath, {}, {}, packages);
+  auto syntax = kalandra::loadApplicationModules(
+      sourcePath, packages,
+      managed ? std::span<const kalandra::PackageNode>(managed->nodes)
+              : std::span<const kalandra::PackageNode>{},
+      {},
+      project ? std::span<const kalandra::HeaderImport>(project->headers)
+              : std::span<const kalandra::HeaderImport>{},
+      clang, clangResources, &systemLinkArgs);
   if (!syntax) {
     progress.diagnostic() << sourcePath << ": " << syntax.error() << '\n';
     return 1;
@@ -858,6 +875,13 @@ int main(int argc, char **argv) {
 #endif
   }
   command.insert(command.end(), archives.begin(), archives.end());
+  command.insert(command.end(), linkLibraries.begin(), linkLibraries.end());
+  command.insert(command.end(), systemLinkArgs.begin(), systemLinkArgs.end());
+  if (std::ranges::any_of(typed.module->expressions, [](const auto &expression) {
+        auto *foreign = std::get_if<kalandra::ForeignCall>(&expression.operation);
+        return foreign && foreign->objc;
+      }))
+    command.emplace_back("-lobjc");
   const auto objectPath = (staged.path / "c-exports.o").generic_string();
   command.insert(command.end(), {"-o", emit == "static" ? objectPath : linkedOutput});
   if (sanitize) {

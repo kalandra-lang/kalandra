@@ -461,7 +461,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
             target->getName().str() + "_v1",
             FunctionType::get(target->getReturnType(), parameters, false));
         arguments.insert(arguments.begin(), invocation);
-      } else if (target->isIntrinsic())
+      } else if (target->isIntrinsic() || target->hasFnAttribute("kalandra.foreign.c"))
         continue;
       else
         return "external call has no checked invocation convention: " + target->getName().str();

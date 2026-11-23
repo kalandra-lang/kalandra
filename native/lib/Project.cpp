@@ -78,6 +78,8 @@ struct Manifest {
   std::vector<ModulePackage> packages;
   std::vector<NativeDependency> dependencies;
   std::string contents;
+  std::vector<std::string> linkLibraries;
+  std::vector<HeaderImport> headers;
 };
 std::expected<Manifest, std::string> loadManifest(std::string path, ProjectLimits limits) {
   namespace fs = std::filesystem;
@@ -129,7 +131,7 @@ std::expected<Manifest, std::string> loadManifest(std::string path, ProjectLimit
         return {};
       return canonical.string();
     };
-    Manifest result{manifest.string(), {}, {}, {}, {}, text};
+    Manifest result{manifest.string(), {}, {}, {}, {}, text, {}, {}};
     if (const auto *node = table.get("project")) {
       const auto *project = node->as_table();
       if (!project)
@@ -204,6 +206,35 @@ std::expected<Manifest, std::string> loadManifest(std::string path, ProjectLimit
         const auto *request = value.as_table();
         if (!request)
           return fail(value, "dependency requests require git and rev strings");
+        if (request->contains("system") || request->contains("library") ||
+            request->contains("header")) {
+          if (!result.project || result.library)
+            return fail(value, "host library imports currently require an application manifest");
+          auto entry = resolve(name, ".kalandra/native/" + name + ".k", false);
+          if (!entry)
+            return fail(value, "invalid native import alias");
+          if (request->contains("system")) {
+            auto system = (*request)["system"].value<std::string>();
+            if (request->size() != 1 || !system || !packageName(*system))
+              return fail(value, "expected a system library name");
+            result.headers.push_back({{}, *entry, *system});
+          } else {
+            const auto file = [&](const char *field) -> std::optional<fs::path> {
+              auto path = (*request)[field].value<std::string>();
+              if (!path || path->empty() || path->find('\0') != std::string::npos ||
+                  path->find('\\') != std::string::npos || fs::path(*path).has_root_path())
+                return {};
+              return (manifest.parent_path() / *path).lexically_normal();
+            };
+            const auto library = file("library"), header = file("header");
+            if (request->size() != 2 || !library || !header || header->extension() != ".h")
+              return fail(value, "expected a relative library path and a C header path");
+            result.linkLibraries.push_back(library->string());
+            result.headers.push_back({header->string(), *entry, {}});
+          }
+          result.packages.push_back({name, *entry});
+          continue;
+        }
         for (const auto &[field, entry] : *request)
           if (field != "git" && field != "rev")
             return fail(entry, "unknown dependency field '" + std::string(field.str()) + "'");
@@ -247,7 +278,9 @@ std::expected<NativeProject, std::string> loadNativeProject(std::string path,
                        std::move(manifest->packages),
                        manifest->library ? std::optional(manifest->library->entry) : std::nullopt,
                        std::move(manifest->dependencies),
-                       std::move(manifest->contents)};
+                       std::move(manifest->contents),
+                       std::move(manifest->linkLibraries),
+                       std::move(manifest->headers)};
 }
 std::expected<NativePackage, std::string> loadNativePackage(std::string path,
                                                             ProjectLimits limits) {

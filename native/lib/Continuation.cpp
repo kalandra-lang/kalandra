@@ -33,7 +33,8 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
         } else if constexpr (std::is_same_v<T, FunctionCall> ||
                              std::is_same_v<T, BufferOperation> ||
                              std::is_same_v<T, IteratorOperation> ||
-                             std::is_same_v<T, FileOperation> || std::is_same_v<T, TimeOperation>)
+                             std::is_same_v<T, FileOperation> || std::is_same_v<T, ForeignCall> ||
+                             std::is_same_v<T, TimeOperation>)
           return op.arguments;
         else if constexpr (std::is_same_v<T, RecordValue>) {
           std::vector<ValueId> values;
@@ -649,7 +650,7 @@ private:
           } else if constexpr (std::is_same_v<T, FormatOperation> ||
                                std::is_same_v<T, BufferOperation> ||
                                std::is_same_v<T, IteratorOperation> ||
-                               std::is_same_v<T, FileOperation> ||
+                               std::is_same_v<T, FileOperation> || std::is_same_v<T, ForeignCall> ||
                                std::is_same_v<T, TimeOperation>) {
             if constexpr (std::is_same_v<T, FormatOperation>)
               for (auto &argument : op.originalArguments)
@@ -862,6 +863,8 @@ private:
       buffer->arguments = reads;
     } else if (auto *iterator = std::get_if<IteratorOperation>(&op)) {
       iterator->arguments = reads;
+    } else if (auto *foreign = std::get_if<ForeignCall>(&op)) {
+      foreign->arguments = reads;
     } else if (auto *time = std::get_if<TimeOperation>(&op)) {
       time->arguments = reads;
     } else if (auto *lookup = std::get_if<EnvironmentLookup>(&op)) {
@@ -1821,7 +1824,7 @@ private:
           args.push_back(expression(plan, arg, env, stack));
       plan.code.push_back(
           {Code::Kernel, output, args,
-           !options.preserveCalls ||
+           !options.preserveCalls || std::holds_alternative<ForeignCall>(node.operation) ||
                    std::holds_alternative<IntegerRangeOperation>(node.operation) ||
                    (options.valueScopes && std::holds_alternative<TensorIndex>(node.operation)) ||
                    (options.valueScopes && node.type.tensor && !node.type.array && literal &&

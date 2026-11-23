@@ -77,6 +77,17 @@ int main(int argc, char **argv) {
           "format=1\n[project]\nentry='src\\main.k'\n",
           "format=1\n[project]\nentry='main.k'\n[packages]\n[packages.lib]\nentry='lib.k'\n"})
       require(!load(bad), "invalid manifest schema/TOML admitted");
+    const std::string app = "format=1\n[project]\nentry='main.k'\n";
+    const std::string framework = "[dependencies.ui]\nsystem='AppKit'\n";
+    auto native = load(app + framework);
+    require(native && native->headers.size() == 1 && native->headers[0].system == "AppKit" &&
+                native->packages.size() == 1 && native->packages[0].name == "ui",
+            "system library alias did not resolve from dependencies");
+    require(!load(app + framework, {256 * 1024, 0}), "system import ignored package limit");
+    require(!load(valid + "[dependencies.geometry]\nsystem='AppKit'\n"),
+            "conflicting system library alias admitted");
+    require(!load(app + "[dependencies.ui]\nsystem='AppKit'\nbindings='ui.k'\n"),
+            "system library accepted manual bindings");
     auto located = load("format=1\n[project]\nentry=42\n");
     require(!located && located.error().find("kalandra.toml:3:") != std::string::npos,
             "manifest diagnostic lost path/location");

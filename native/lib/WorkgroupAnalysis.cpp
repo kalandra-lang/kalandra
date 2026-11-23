@@ -671,6 +671,7 @@ public:
                       std::holds_alternative<BufferOperation>(operation) ||
                       std::holds_alternative<IteratorOperation>(operation) ||
                       std::holds_alternative<TimeOperation>(operation) ||
+                      std::holds_alternative<ForeignCall>(operation) ||
                       std::holds_alternative<EnvironmentLookup>(operation) ||
                       std::holds_alternative<TaskOperation>(operation) ||
                       std::holds_alternative<FailOperation>(operation) ||

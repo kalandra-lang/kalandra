@@ -1,0 +1,7 @@
+format = 1
+
+[project]
+entry = "src/main.k"
+
+[dependencies]
+appkit = { system = "AppKit" }

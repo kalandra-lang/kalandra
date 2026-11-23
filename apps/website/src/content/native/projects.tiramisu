@@ -78,6 +78,19 @@ entry = "src/public.k"
 
 Save that library manifest in a separate library root, with the exported area function above in src/public.k. A source library declares the module callers import and resolves its own dependencies. Its entry and local mappings must stay within its canonical root. Version metadata does not introduce version-range solving.
 
+h2 { "Import a system library" }
+
+In an application manifest, add a system library to the existing dependencies table.
+
+code { """appkit = { system = "AppKit" }""" }
+The key on the left is the name you use in a Kalandra import. To call NSWindow's center method, import NSWindow_center from "appkit" and call unsafe NSWindow_center(window) with a live window handle on the UI thread.
+
+The host compiler looks up the installed library's public header and links the executable. On Apple Silicon, it reads Objective-C method and record declarations from the macOS SDK selected by Xcode. For a C library such as sqlite3, it searches Clang's system include paths for sqlite3.h. For a local C library, supply the library and header paths relative to the manifest.
+
+code { """geometry = { library = "lib/libgeometry.a", header = "include/geometry.h" }""" }
+
+C header imports support functions taking and returning 32-bit and 64-bit scalar numbers, and functions returning void. An unsupported signature produces a diagnostic when you import it. Native imports currently target host CPU executables.
+
 h2 { "Build modes" }
 
 codeblock { language = bash, """kalandra --project my-app/kalandra.toml -O2 -o program

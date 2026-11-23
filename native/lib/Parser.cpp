@@ -586,6 +586,17 @@ private:
     const bool exported = word("export");
     if (exported)
       advance();
+    const bool cImport = word("extern");
+    bool objc = false;
+    if (cImport) {
+      advance();
+      objc = at(TokenKind::String) && source_->slice(current().span) == "\"objc\"";
+      if (!objc && (!at(TokenKind::String) || source_->slice(current().span) != "\"C\"")) {
+        error("P005", "expected extern \"C\" fn", current().span);
+        return {};
+      }
+      advance();
+    }
     bool cExport = false;
     bool checkedCExport = false;
     if (exported && at(TokenKind::String)) {
@@ -613,6 +624,7 @@ private:
     Function function;
     function.exported = exported;
     function.cExport = cExport;
+    function.cImport = cImport;
     function.checkedCExport = checkedCExport;
     function.name = name->span;
     auto generics = genericParameters();
@@ -663,8 +675,31 @@ private:
       function.errorTypes = std::move(*channels);
       function.taskError = true;
     }
-    if (requirement) {
-      auto end = expect(TokenKind::Newline, "trait functions declare signatures without bodies");
+    if (objc) {
+      if (!expect(TokenKind::Equal, "expected = before Objective-C selector"))
+        return {};
+      auto literal = expect(TokenKind::String, "expected a quoted Objective-C selector");
+      if (!literal)
+        return {};
+      auto text = source_->slice(literal->span);
+      auto selector = text.substr(1, text.size() - 2);
+      if (selector.empty() ||
+          selector.find_first_not_of(
+              "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_:") !=
+              std::string_view::npos ||
+          function.parameters.empty() ||
+          source_->slice(function.parameters.front().type.name) != "cptr" ||
+          static_cast<size_t>(std::count(selector.begin(), selector.end(), ':')) + 1 !=
+              function.parameters.size() ||
+          (function.parameters.size() > 1 && selector.back() != ':')) {
+        error("P005", "Objective-C selector must match the receiver and argument count",
+              literal->span);
+        return {};
+      }
+      function.objcSelector = std::string(selector);
+    }
+    if (requirement || cImport) {
+      auto end = expect(TokenKind::Newline, "this declaration requires a signature without a body");
       if (!end)
         return {};
       function.span = {start, end->span.end};
@@ -1202,6 +1237,19 @@ private:
       return add({token.span, StringExpr{token.span}});
     if (at(TokenKind::Identifier)) {
       const auto text = source_->slice(token.span);
+      if (text == "unsafe" && peek().kind == TokenKind::Identifier) {
+        advance();
+        const auto name = advance().span;
+        auto callee = add({name, NameExpr{name}});
+        if (!callee ||
+            !expect(TokenKind::LeftParen, "expected a native function call after unsafe"))
+          return {};
+        auto arguments = sequence(TokenKind::RightParen);
+        if (!arguments)
+          return {};
+        return add({{token.span.begin, tokens_[position_ - 1].span.end},
+                    CallExpr{*callee, std::move(*arguments), true}});
+      }
       if (text == "fn") {
         advance();
         if (!expect(TokenKind::LeftParen, "expected '(' after anonymous fn"))
