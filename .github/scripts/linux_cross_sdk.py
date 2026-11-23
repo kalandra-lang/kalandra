@@ -169,19 +169,22 @@ def download_package(url, limit):
     if parsed.scheme != 'https' or parsed.netloc not in (
             'archive.ubuntu.com', 'security.ubuntu.com', 'ports.ubuntu.com'):
         raise ValueError('Unexpected SDK URL: ' + url)
-    try:
-        response = urlopen(url, timeout=120)
-    except HTTPError as error:
-        if error.code != 403 or parsed.hostname != 'archive.ubuntu.com':
-            raise
-        # The public archive can reject CI clients. Canonical's Azure mirror
-        # serves the same pool path under the existing APT size and SHA256 lock.
-        error.close()
-        mirror = parsed._replace(netloc='azure.archive.ubuntu.com').geturl()
-        print('Ubuntu archive denied the download, trying ' + mirror, flush=True)
-        response = urlopen(mirror, timeout=120)
-    with response:
-        return response.read(limit)
+    mirrors = [url]
+    if parsed.hostname == 'archive.ubuntu.com':
+        mirrors.append(parsed._replace(netloc='azure.archive.ubuntu.com').geturl())
+    # Launchpad retains Ubuntu binary publications when a regional pool denies
+    # a hosted runner or has already rotated the locked package version.
+    filename = parsed.path.rsplit('/', 1)[-1]
+    mirrors.append('https://launchpad.net/ubuntu/+archive/primary/+files/' + filename)
+    for index, candidate in enumerate(mirrors):
+        try:
+            with urlopen(candidate, timeout=120) as response:
+                return response.read(limit)
+        except HTTPError as error:
+            if error.code not in (403, 404) or index + 1 == len(mirrors):
+                raise
+            error.close()
+            print(f'Ubuntu returned {error.code}, trying {mirrors[index + 1]}', flush=True)
 
 
 def fetch(a):

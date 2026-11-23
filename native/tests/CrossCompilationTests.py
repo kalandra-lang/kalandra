@@ -13,7 +13,7 @@ import subprocess
 import tarfile
 import tempfile
 
-from CrossTargetTests import SOURCES
+from CrossTargetTests import C_LIBRARY, EXECUTABLE_CASES
 
 ROOT = Path(__file__).resolve().parents[2]
 TRIPLES = {
@@ -57,10 +57,39 @@ def extract(archive, destination):
     return prefix
 
 
+def cross_c_caller(compiler, clang, selector, triple, target_flags, target_root, libraries,
+                   environment, mode, directory, products, repeats, suffix):
+    # Library exports have their own entry and need an independent C caller.
+    source, header = directory / 'geometry.k', directory / 'geometry.h'
+    source.write_text(C_LIBRARY, encoding='utf-8')
+    caller = directory / 'caller.c'
+    caller.write_text('''#include "geometry.h"
+int main(void) {
+    int32_t out = 17;
+    if (geo_twice(INT32_MAX, &out) != KALANDRA_C_FAULT || out != 17) return 1;
+    if (geo_twice(21, &out) != KALANDRA_C_OK || out != 42) return 2;
+    return geo_narrow(-123) == -123 ? 0 : 3;
+}
+''', encoding='utf-8')
+    library, caller_object = directory / 'geometry.o', directory / 'caller.o'
+    includes = target_root / 'lib/kalandra/toolchain/clang/include'
+    binary = products / ('c-export' + mode + suffix)
+    repeat = repeats / binary.name
+    for output in (binary, repeat):
+        run([compiler, source, *selector, mode, '--emit', 'object', '--header', header, '-o', library],
+            env=environment)
+        run([clang, '--no-default-config', '--target=' + triple, '-ffreestanding', '-nostdinc',
+             '-isystem', includes, '-x', 'c', '-std=c17', mode, '-c', caller, '-o', caller_object],
+            env=environment)
+        run([clang, *target_flags, caller_object, library, *libraries, '-o', output], env=environment)
+    assert digest(binary) == digest(repeat), (mode, 'non-reproducible C caller')
+    repeat.unlink()
+    return dict(file=binary.name, sha256=digest(binary), case=dict(output=''))
+
+
 def program_cases():
-    cases = {name: dict(source=text, output=expected) for name, text, expected in
-             [(name, text, {'calls': '1144\n', 'captures': '3000\n', 'tasks': '[2, 4, 6]\n',
-                            'records': '7\n', 'floating': None}[name]) for name, text in SOURCES.items()]}
+    cases = {name: dict(source=text, output=expected)
+             for name, (text, expected) in EXECUTABLE_CASES.items()}
     cases['console-application'] = dict(source=(
         'from "std/io" import println, IoError\nfrom "std/fmt" import format\n'
         'fn main(args:[String])->unit ! IoError:\n'
@@ -383,6 +412,8 @@ def build(a):
         assert digest(binary) == digest(repeat), (mode, 'non-reproducible conformance harness')
         repeat.unlink()
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(contains='passed')))
+        records.append(cross_c_caller(compiler, clang, selected_command, triple, flags, target_root,
+                                      libraries, harness_environment, mode, ffi, products, repeats, suffix))
     if windows and host_system == 'windows' and bundled:
         # Run the authored PowerShell recipe, substituting only installation
         # paths and the selected target. PowerShell supplies actual SDK paths.

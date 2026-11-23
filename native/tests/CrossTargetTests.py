@@ -5,13 +5,14 @@ from pathlib import Path
 import re
 import subprocess
 
-SOURCES = {
-    'c-library': '''export "C" direct fn geo_narrow(x: i16) -> i16:
+C_LIBRARY = '''export "C" direct fn geo_narrow(x: i16) -> i16:
   return x
 export "C" fn geo_twice(x: i32) -> i32:
   return x * 2
-''',
-    'calls': '''fn count(n:i64,a:i64)->i64:
+'''
+
+EXECUTABLE_CASES = {
+    'calls': ('''fn count(n:i64,a:i64)->i64:
   return if n==0:a
   else:count(n-1,a+1)
 fn fib(n:i64)->i64:
@@ -19,33 +20,33 @@ fn fib(n:i64)->i64:
   else:fib(n-1)+fib(n-2)
 fn main()->i64:
   return count(1000,0)+fib(12)
-''',
-    'captures': '''fn make(offset:i64)->fn(i64)->i64:
+''', '1144\n'),
+    'captures': ('''fn make(offset:i64)->fn(i64)->i64:
   return fn(value:i64):return value+offset
 fn walk(n:i64,a:i64,f:fn(i64)->i64)->i64:
   return if n==0:a
   else:walk(n-1,f(a),f)
 fn main()->i64:
   return walk(1000,0,make(3))
-''',
-    'tasks': '''fn double(value:i64)->i64:
+''', '3000\n'),
+    'tasks': ('''fn double(value:i64)->i64:
   return value*2
 fn main()->[i64] ! TaskError:
   return try parallelMap([1,2,3],double)
-''',
-    'records': '''type Cell:
+''', '[2, 4, 6]\n'),
+    'records': ('''type Cell:
   value:i64
   flag:bool
 fn main()->i64:
   cells=[Cell {value:3,flag:true},Cell {value:4,flag:false}]
   return cells[0].value+cells[1].value
-''',
-    'floating': '''fn series(n:i64)->f64:
+''', '7\n'),
+    'floating': ('''fn series(n:i64)->f64:
   return if n==0:1.0
   else:series(n-1)*1.000000001+0.25
 fn main()->f64:
   return series(100)
-''',
+''', None),
 }
 TARGETS = ['x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu',
            'x86_64-pc-windows-msvc', 'aarch64-pc-windows-msvc', 'arm64-apple-macosx26.0.0']
@@ -65,6 +66,8 @@ def main():
     query = a.output / 'query.c'
     query.write_text('int query;\n')
     records = []
+    sources = {name: text for name, (text, _) in EXECUTABLE_CASES.items()}
+    sources['c-library'] = C_LIBRARY
     for target in TARGETS:
         root = a.output / target
         root.mkdir(exist_ok=True)
@@ -73,7 +76,7 @@ def main():
         layout = re.search(r'target datalayout = "([^"]+)"', query_ir.read_text())[1]
         layout_file = root / 'layout.txt'
         layout_file.write_text(layout)
-        for name, text in SOURCES.items():
+        for name, text in sources.items():
             source, ir = root / (name + '.k'), root / (name + '.ll')
             source.write_text(text)
             run([a.driver, source, target, layout_file, ir, *(["--library"] if name == "c-library" else [])])
