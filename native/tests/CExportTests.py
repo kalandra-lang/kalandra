@@ -73,9 +73,84 @@ fn main() -> ExitStatus:
     source.write_text(program.replace("  return value", "  return value * 2"))
     run(args.compiler, "--project", "kalandra.toml", "-o", exe, cwd=path, expect="fault-free")
     source.write_text(program)
-    for changed in (contract.replace("_Nonnull", "_Nullable"), contract.replace("__attribute__((noescape))", "")):
-        header.write_text(changed)
-        run(args.checker, "--project", "kalandra.toml", cwd=path, expect="dispatch")
+    header.write_text(contract.replace("_Nonnull", "_Nullable"))
+    run(args.checker, "--project", "kalandra.toml", cwd=path, expect="dispatch")
+
+
+
+def check_retained_callback(args, path):
+    (path / "listener.h").write_text('''typedef int (*Listener)(int);
+void subscribe(Listener _Nonnull listener);
+int deliver(int n);
+void unsubscribe(void);
+''')
+    # Registration stores the function address after the Kalandra frame returns.
+    # Each dispatch joins its foreign thread before reusing the stack argument.
+    (path / "listener.c").write_text('''#include "listener.h"
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <pthread.h>
+#endif
+static Listener current;
+struct Message { Listener callback; int value; };
+#ifdef _WIN32
+static DWORD WINAPI invoke(void *data) {
+#else
+static void *invoke(void *data) {
+#endif
+  struct Message *m = data;
+  m->value = m->callback(m->value);
+  return 0;
+}
+void subscribe(Listener _Nonnull cb) { current = cb; }
+void unsubscribe(void) { current = 0; }
+int deliver(int n) {
+  if (!current) return -1;
+  struct Message m = {current, n};
+#ifdef _WIN32
+  HANDLE t = CreateThread(0, 0, invoke, &m, 0, 0);
+  if (!t) return -2;
+  WaitForSingleObject(t, INFINITE);
+  CloseHandle(t);
+#else
+  pthread_t t;
+  if (pthread_create(&t, 0, invoke, &m) || pthread_join(t, 0)) return -2;
+#endif
+  return m.value;
+}
+''')
+    run(args.cc, "-c", "listener.c", "-o", "listener.o", cwd=path)
+    (path / "kalandra.toml").write_text(
+        'format=1\n[project]\nentry="app.k"\n[dependencies.events]\n'
+        'header="listener.h"\nlibrary="listener.o"\n')
+    program = '''from "events" import subscribe, deliver, unsubscribe
+from "std/process" import ExitStatus
+export "C" direct fn identity(n: i32) -> i32:
+  return n
+fn register() -> unit:
+  subscribe(identity)
+  return ()
+fn main() -> ExitStatus:
+  register()
+  first = deliver(37)
+  unsubscribe()
+  second = deliver(17)
+  if first == 37 and second == -1:
+    return ExitStatus {code: 0}
+  return ExitStatus {code: 1}
+'''
+    source = path / "app.k"
+    source.write_text(program)
+    exe = path / ("listener.exe" if sys.platform == "win32" else "listener")
+    modes = ["-O0", "-O2"]
+    if sys.platform != "win32" or platform.machine().lower() not in {"arm64", "aarch64"}:
+        modes.append("--sanitize")
+    for mode in modes:
+        run(args.compiler, "--project", "kalandra.toml", mode, "-o", exe, cwd=path)
+        run(exe, cwd=path)
+    source.write_text(program.replace("export \"C\" direct fn identity", "fn identity"))
+    run(args.checker, "--project", "kalandra.toml", cwd=path, expect="direct C callback")
 
 
 def check_native_thread_requirement(args, path):
@@ -148,6 +223,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="kalandra C export ") as root:
         path = Path(root)
         check_application_callback(args, path)
+        check_retained_callback(args, path)
         check_native_thread_requirement(args, path)
         source = path / "geometry.k"
         source.write_text('''export "C" direct fn geometry_positive(x: f64) -> bool:

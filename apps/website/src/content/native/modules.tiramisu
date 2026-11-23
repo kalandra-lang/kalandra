@@ -81,7 +81,7 @@ When building an application with --platform or --toolchain, supply the dependen
 
 h2 { "Pass a callback to C" }
 
-A C function can borrow a named Kalandra callback for the duration of the call. Its header declares a non-null function pointer with Clang’s noescape parameter attribute. For example, a native event library can accept a callback that maps an event number to an i32.
+Declare a callback as a non-null C function pointer. Add Clang’s noescape attribute when the library borrows the pointer only for the duration of the call. For example, a native event library can accept a callback that maps an event number to an i32.
 
 codeblock { language = c, """#include <stdint.h>
 typedef int32_t (*Event)(int32_t);
@@ -100,7 +100,7 @@ fn main() -> ExitStatus:
   return ExitStatus {code: 1}
 """ }
 
-Here C calls the function with an i32 and receives its result directly. The compiler checks the signature and proves that the function can complete without a fault. The native implementation must finish using the function pointer before dispatch returns. This form accepts scalar callbacks without captured state.
+Here C calls the function with an i32 and receives its result directly. The compiler checks the signature and proves that the function can complete without a fault. The native implementation must finish using the function pointer before dispatch returns. For an event subscription, a C header can instead declare a non-null callback without noescape. Pass a named direct export in the same way. Its code lives for the entire execution of the application, so the library can invoke it later or on another thread. Call the library’s unregistration function to stop delivery. The library defines when in-flight calls have finished. Both forms accept scalar callbacks without captured state.
 
 h2 { "Call a main-thread API" }
 

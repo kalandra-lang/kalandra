@@ -89,13 +89,13 @@ bool recordBound(const clang::DiagnoseIfAttr &attr, const clang::FunctionDecl &f
   return true;
 }
 
-// A borrowed callback carries executable code only. Its ABI uses the same
+// A direct application callback has process-lifetime code and no captured state. Its ABI uses the same
 // scalar subset as direct imports. Reject adjusted or ABI-annotated parameters.
 std::optional<std::string> callbackType(clang::ASTContext &ctx, const clang::ParmVarDecl &arg) {
   auto t = arg.getType();
   const auto *p = t->getAs<clang::PointerType>();
   if (!p || t->getNullability() != clang::NullabilityKind::NonNull ||
-      !arg.hasAttr<clang::NoEscapeAttr>() || p->getPointeeType().hasAddressSpace())
+      p->getPointeeType().hasAddressSpace())
     return {};
   for (const auto *attr : arg.attrs())
     if (!llvm::isa<clang::NoEscapeAttr>(attr))
