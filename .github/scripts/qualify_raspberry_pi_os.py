@@ -64,6 +64,8 @@ def main():
         (tests / "native").mkdir(parents=True)
         shutil.copytree(repository / "native/packaging", tests / "native/packaging", ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copytree(repository / "native/lsp", tests / "native/lsp", ignore=shutil.ignore_patterns("__pycache__"))
+        (tests / "native/tests").mkdir()
+        shutil.copy2(repository / "native/tests/CountedImportTests.py", tests / "native/tests")
         shutil.copy2(repository / "VERSION", tests)
         # Privileged only to permit nested bubblewrap namespaces. Network is off,
         # inputs are read-only, no credentials or project checkout are mounted.
