@@ -32,6 +32,18 @@ export "C" fn geometry_scale(x: f64) -> f64:
 export "C" fn geometry_id(x: i16) -> i16:
   return x
 
+export "C" checked fn geometry_twice(x: i32) -> i32:
+  return x * 2
+
+export "C" checked fn geometry_checked_float(x: f64) -> f64:
+  return x
+
+export "C" checked fn geometry_checked_bool(x: bool) -> bool:
+  return x
+
+export "C" checked fn geometry_finish() -> unit:
+  return ()
+
 export fn packageOnly(x: i32) -> i32:
   return x
 ''', encoding="utf-8")
@@ -40,7 +52,19 @@ export fn packageOnly(x: i32) -> i32:
         header = (path / "geometry.h").read_bytes()
         assert b"packageOnly" not in header and b"geometry_scale" in header
         (path / "caller.c").write_text('''#include "geometry.h"
+#include <limits.h>
+#include <math.h>
 int main(void) {
+  int32_t out = 17;
+  if (geometry_twice(INT32_MAX, &out) != KALANDRA_C_FAULT || out != 17) return 1;
+  if (geometry_twice(21, &out) != KALANDRA_C_OK || out != 42) return 2;
+  if (geometry_twice(INT32_MIN / 2, &out) != KALANDRA_C_OK || out != INT32_MIN) return 3;
+  if (geometry_twice(0, 0) != KALANDRA_C_INVALID_ARGUMENT) return 4;
+  double number = 0.0;
+  if (geometry_checked_float(NAN, &number) != KALANDRA_C_OK || !isnan(number)) return 5;
+  bool flag = false;
+  if (geometry_checked_bool(true, &flag) != KALANDRA_C_OK || !flag) return 6;
+  if (geometry_finish() != KALANDRA_C_OK) return 7;
   return !(geometry_scale(21.0) == 42.0 && geometry_id(-32768) == -32768 &&
            geometry_positive(0.125) && !geometry_positive(-0.5));
 }
@@ -64,10 +88,14 @@ int main(void) {
         run(args.compiler, source, "--emit", "static", "-o", "c-exports.o", cwd=path)
         assert (path / "c-exports.o").read_bytes().startswith(b"!<arch>")
 
-        for symbol in ("class", "int32_t", "kalandra_reserved"):
+        for symbol in ("class", "int32_t", "kalandra_reserved", "KALANDRA_C_OK"):
             source.write_text(f'export "C" fn {symbol}() -> i32:\n  return 42\n', encoding="utf-8")
             run(args.checker, source, cwd=path, expect="reserved")
         source.write_text('export "C" fn signed_scale(x: i32) -> i32:\n  return x * 2\n', encoding="utf-8")
+        old_header = (path / "geometry.h").read_bytes()
+        run(args.compiler, source, "--emit", "c-header", "-o", "geometry.h",
+            cwd=path, expect="fault-free")
+        assert (path / "geometry.h").read_bytes() == old_header
         for level in ("-O0", "-O1", "-O2", "-O3"):
             run(args.compiler, source, level, "--emit", "object", "-o", "fault.o",
                 cwd=path, expect="fault-free")

@@ -598,6 +598,20 @@ int main(int argc, char **argv) {
       progress.diagnostic() << kalandra::renderDiagnostic(*typed.source, d);
     return 1;
   }
+  const bool publicInterface = library || emit == "c-header";
+  if (!testEntry && !publicInterface)
+    if (auto error = kalandra::prepareApplication(*typed.module)) {
+      progress.diagnostic() << kalandra::renderDiagnostic(*typed.source, *error);
+      return 1;
+    }
+  progress.phase("Compiling", sourcePath);
+  auto lowered = publicInterface ? kalandra::lowerCLibrary(*typed.module, cross ? cross->target : kalandra::CpuTarget{}, optimization)
+                         : kalandra::lowerNative(*typed.module, testEntry, {}, arithmetic, false,
+                                       cross ? cross->target : kalandra::CpuTarget{}, optimization);
+  if (!lowered) {
+    progress.diagnostic() << "native lowering: " << lowered.error() << '\n';
+    return 1;
+  }
   if (emit == "c-header") {
     if (testEntry || !mlirPath.empty() || !llvmPath.empty()) {
       std::cerr << "C header output cannot be combined with intermediate outputs or a test entry\n";
@@ -621,19 +635,6 @@ int main(int argc, char **argv) {
       return 1;
     }
     return 0;
-  }
-  if (!testEntry && !library)
-    if (auto error = kalandra::prepareApplication(*typed.module)) {
-      progress.diagnostic() << kalandra::renderDiagnostic(*typed.source, *error);
-      return 1;
-    }
-  progress.phase("Compiling", sourcePath);
-  auto lowered = library ? kalandra::lowerCLibrary(*typed.module, cross ? cross->target : kalandra::CpuTarget{}, optimization)
-                         : kalandra::lowerNative(*typed.module, testEntry, {}, arithmetic, false,
-                                       cross ? cross->target : kalandra::CpuTarget{}, optimization);
-  if (!lowered) {
-    progress.diagnostic() << "native lowering: " << lowered.error() << '\n';
-    return 1;
   }
   if (sanitize || threadSanitize) {
     llvm::LLVMContext context;

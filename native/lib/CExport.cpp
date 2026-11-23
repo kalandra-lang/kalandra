@@ -10,8 +10,8 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 namespace kalandra {
-std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input,
-                                                         CpuTarget target, Optimization level) {
+std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input, CpuTarget target,
+                                                        Optimization level) {
   std::vector<std::string> roots;
   std::vector<const TypedFunction *> functions;
   for (const auto &fn : input.functions) {
@@ -36,8 +36,7 @@ std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input
     const auto &fn = *functions[i];
     const auto prefix = "_mlir_ciface_kalandra_cpu_" + std::to_string(i);
     auto *body = module->getFunction(prefix + "_ordinary_direct_v1");
-    // A direct C signature cannot carry Kalandra faults. Only publish a proven
-    // context-free body with no remaining fault exit or foreign effects.
+    // A plain C signature has no channel for reporting execution faults.
     const auto pure = [](const llvm::Function &body) {
       for (const auto &block : body)
         for (const auto &inst : block) {
@@ -52,16 +51,27 @@ std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input
         }
       return true;
     };
-    if (!body || !pure(*body))
+    auto *recoverable = module->getFunction(prefix + "_ordinary_pair_v1");
+    if (fn.checkedCExport &&
+        (!body || !recoverable || !recoverable->hasFnAttribute("kalandra.ordinary.pair")))
+      return std::unexpected("checked C export '" + fn.cExportName +
+                             "' has no recoverable scalar native entry");
+    if (!fn.checkedCExport && (!body || !pure(*body)))
       return std::unexpected("C export '" + fn.cExportName +
                              "' has no proven fault-free native entry");
     if (module->getNamedValue(fn.cExportName))
       return std::unexpected("C export conflicts with a compiler symbol: " + fn.cExportName);
     const bool unit = fn.resultType.builtin == BuiltinValue::Unit;
-    auto *type = llvm::FunctionType::get(unit ? llvm::Type::getVoidTy(context) : body->getReturnType(),
-                                         body->getFunctionType()->params(), false);
-    auto *entry = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage,
-                                          fn.cExportName, *module);
+    auto nativeParams = body->getFunctionType()->params();
+    llvm::SmallVector<llvm::Type *> parameters(nativeParams.begin(), nativeParams.end());
+    if (fn.checkedCExport && !unit)
+      parameters.push_back(llvm::PointerType::getUnqual(context));
+    auto resultType = fn.checkedCExport ? llvm::Type::getInt32Ty(context)
+                      : unit            ? llvm::Type::getVoidTy(context)
+                                        : body->getReturnType();
+    auto *type = llvm::FunctionType::get(resultType, parameters, false);
+    auto *entry =
+        llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, fn.cExportName, *module);
     if (module->getTargetTriple().isOSWindows())
       entry->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
     // C promotes narrow scalar arguments and results in registers on Darwin
@@ -84,8 +94,44 @@ std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input
     }
     llvm::IRBuilder<> builder(llvm::BasicBlock::Create(context, "entry", entry));
     llvm::SmallVector<llvm::Value *> args;
-    for (auto &arg : entry->args())
-      args.push_back(&arg);
+    for (unsigned arg = 0; arg < fn.parameters.size(); ++arg)
+      args.push_back(entry->getArg(arg));
+    if (fn.checkedCExport) {
+      if (!unit) {
+        auto *invalid = llvm::BasicBlock::Create(context, "invalid.output", entry);
+        auto *invoke = llvm::BasicBlock::Create(context, "invoke", entry);
+        builder.CreateCondBr(builder.CreateIsNull(entry->getArg(args.size())), invalid, invoke);
+        builder.SetInsertPoint(invalid);
+        builder.CreateRet(builder.getInt32(2));
+        builder.SetInsertPoint(invoke);
+      }
+      // The ordinary pair carries status independently of every result bit,
+      // including a successful NaN or signed minimum. Fault location storage
+      // is local to this call. No host abort or thread-local state is needed.
+      auto *fault = builder.CreateAlloca(llvm::ArrayType::get(builder.getInt64Ty(), 3));
+      args.push_back(fault);
+      auto *pair = builder.CreateCall(recoverable, args);
+      pair->setCallingConv(recoverable->getCallingConv());
+      auto *code = builder.CreateExtractValue(pair, 1);
+      auto *failed = llvm::BasicBlock::Create(context, "fault", entry);
+      auto *succeeded = llvm::BasicBlock::Create(context, "success", entry);
+      builder.CreateCondBr(builder.CreateICmpNE(code, builder.getInt64(0)), failed, succeeded);
+      builder.SetInsertPoint(failed);
+      builder.CreateRet(builder.getInt32(1));
+      builder.SetInsertPoint(succeeded);
+      if (!unit) {
+        auto *scalar = body->getReturnType();
+        auto *bits = builder.CreateTruncOrBitCast(builder.CreateExtractValue(pair, 0),
+                                                  builder.getIntNTy(scalar->getScalarSizeInBits()));
+        auto *value = builder.CreateBitCast(bits, scalar);
+        if (scalar->isIntegerTy(1))
+          value = builder.CreateZExt(value, builder.getInt8Ty());
+        builder.CreateStore(value, entry->getArg(fn.parameters.size()));
+      }
+      builder.CreateRet(builder.getInt32(0));
+      published.insert(entry);
+      continue;
+    }
     auto *result = builder.CreateCall(body, args);
     result->setCallingConv(body->getCallingConv());
     result->setAttributes(body->getAttributes().removeFnAttributes(context));
@@ -104,9 +150,8 @@ std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input
   llvm::removeFromUsedLists(*module, [](llvm::Constant *value) {
     return value->getName() == "kalandra.required.invocation.layout";
   });
-  llvm::internalizeModule(*module, [&](const llvm::GlobalValue &value) {
-    return published.contains(&value);
-  });
+  llvm::internalizeModule(
+      *module, [&](const llvm::GlobalValue &value) { return published.contains(&value); });
   llvm::ModuleAnalysisManager analyses;
   llvm::PassBuilder passes;
   passes.registerModuleAnalyses(analyses);

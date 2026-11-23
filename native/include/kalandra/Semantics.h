@@ -594,6 +594,7 @@ struct TypedFunction {
   // Private expected-error export adapter; never inferred from source spelling.
   std::optional<FunctionId> deviceErrorEntry = {};
   std::string cExportName = {}; // Public symbol before module qualification.
+  bool checkedCExport = false;
 };
 // Original import tokens and compiler-resolved targets, retained for source tools.
 // An explicit alias is recorded separately so future rename can preserve it.

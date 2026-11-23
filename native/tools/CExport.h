@@ -1,5 +1,6 @@
 #pragma once
 #include "kalandra/Semantics.h"
+#include <algorithm>
 #include <sstream>
 
 namespace kalandra::cli {
@@ -21,13 +22,20 @@ inline std::expected<std::string, std::string> cHeader(const TypedModule &module
   std::ostringstream out;
   out << "#pragma once\n#include <stdbool.h>\n#include <stdint.h>\n\n"
          "#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n";
+  if (std::ranges::any_of(module.functions, [](const auto &fn) { return fn.checkedCExport; }))
+    out << "#ifndef KALANDRA_C_STATUS_DEFINED\n#define KALANDRA_C_STATUS_DEFINED 1\n"
+           "enum { KALANDRA_C_OK = 0, KALANDRA_C_FAULT = 1, KALANDRA_C_INVALID_ARGUMENT = 2 };\n"
+           "#endif\n\n";
   bool any = false;
   for (const auto &function : module.functions) {
     if (function.cExportName.empty())
       continue;
     any = true;
-    out << cScalar(function.resultType) << ' ' << function.cExportName << '(';
-    if (function.parameters.empty())
+    const bool output =
+        function.checkedCExport && function.resultType.builtin != BuiltinValue::Unit;
+    out << (function.checkedCExport ? "int32_t" : cScalar(function.resultType)) << ' '
+        << function.cExportName << '(';
+    if (function.parameters.empty() && !output)
       out << "void";
     for (std::size_t n = 0; n < function.parameters.size(); ++n) {
       const auto &param = module.symbols[function.parameters[n]];
@@ -35,6 +43,9 @@ inline std::expected<std::string, std::string> cHeader(const TypedModule &module
         out << ", ";
       out << cScalar(param.type) << " arg_" << param.name;
     }
+    if (output)
+      out << (function.parameters.empty() ? "" : ", ") << cScalar(function.resultType)
+          << " *out_value";
     out << ");\n";
   }
   if (!any)

@@ -6,6 +6,14 @@ C/C++ integration is a separate roadmap from the main native language release. I
 
 Support embedding compiled Kalandra in native applications and calling explicitly declared native libraries. Keep object/library output, public ABI design, foreign imports and host runtime lifecycle in this roadmap.
 
+## Public C calls and faults
+
+A plain `export "C" fn` exposes the declared scalar result directly. The compiler must prove that its native body cannot fault. An inconclusive proof is a build error. Calling a plain export does not initialize a runtime.
+
+An `export "C" checked fn` returns an explicit 32-bit status. For a value result the caller supplies a final writable output pointer. Only success publishes a value, so the result can use every bit pattern. A failed call leaves output storage unchanged and a subsequent call starts independently. Passing a null result pointer returns an invalid-argument status before evaluation. A unit result requires no pointer. C callers own their result storage.
+
+Both declarations have the same Kalandra call syntax and result type inside Kalandra. The scalar implementation uses the compiler’s existing native value-and-fault representation. Bodies for which no recoverable entry can be generated are rejected. Opaque handles, buffer ownership, callbacks and runtime-backed exports need their own lifetime and qualification work.
+
 ## Milestones
 
 1. **Object and library output.** Define explicit export selection and supported object, static-library and shared-library builds. Specify symbol naming, visibility, target/platform compatibility and linking requirements.

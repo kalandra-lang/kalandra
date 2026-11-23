@@ -41,7 +41,7 @@ bool portableCExportName(std::string_view symbol) {
       "unsigned", "using", "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq",
       "int8_t", "uint8_t", "int16_t", "uint16_t", "int32_t", "uint32_t", "int64_t", "uint64_t",
       "intptr_t", "uintptr_t", "intmax_t", "uintmax_t"};
-  return !symbol.starts_with('_') && !symbol.starts_with("kalandra_") &&
+  return !symbol.starts_with('_') && !symbol.starts_with("kalandra_") && !symbol.starts_with("KALANDRA_C_") &&
          symbol.find("__") == std::string_view::npos && !reserved.contains(symbol);
 }
 class Checker {
@@ -1416,6 +1416,7 @@ private:
       if (function.cExport) {
         const auto symbol = name(function.name);
         output_.functions[id].cExportName = symbol;
+        output_.functions[id].checkedCExport = function.checkedCExport;
         if (!portableCExportName(symbol))
           error("S092", "C export name '" + symbol + "' is reserved in a public C/C++ header", function.name);
         if (!cExportNames_.insert(symbol).second)

@@ -39,6 +39,9 @@ In geometry.k:
 
 codeblock { language = kalandra, """export "C" fn geometry_scale(value: f64) -> f64:
   return value * 2.0
+
+export "C" checked fn geometry_twice(value: i32) -> i32:
+  return value * 2
 """ }
 
 Build a static library and its matching header:
@@ -52,7 +55,12 @@ codeblock { language = c, """#include "geometry.h"
 #include <stdio.h>
 
 int main(void) {
-  printf("%.0f", geometry_scale(21.0));
+  int32_t result = 17;
+  if (geometry_twice(INT32_MAX, &result) != KALANDRA_C_FAULT || result != 17)
+    return 1;
+  if (geometry_twice(21, &result) != KALANDRA_C_OK)
+    return 1;
+  printf("%.0f", geometry_scale(result / 2.0));
   return 0;
 }
 """ }
@@ -63,7 +71,9 @@ codeblock { language = bash, """cc caller.c libgeometry.a -o caller
 
 The caller prints 42. The generated header also works in C++. Use object or shared in place of static to produce a relocatable object or a shared library for the target platform.
 
-Parameters can use fixed-width integers, f32, f64 or bool. A unit result becomes void in C. The compiler must be able to prove that an exported body can run without a Kalandra execution context or a fault. For example, multiplying an arbitrary signed integer by two can overflow, so that operation alone cannot implement a plain C export.
+Parameters can use fixed-width integers, f32, f64 or bool. A plain C export returns its result directly. A unit result becomes void. The compiler must prove that the body can execute without a Kalandra runtime context or a fault.
+
+Use a checked export for arithmetic that can overflow. Its C function returns an int32_t status and takes a final pointer for the result. On success it writes the result and returns KALANDRA_C_OK. On a Kalandra execution fault it returns KALANDRA_C_FAULT and preserves the caller’s previous output. A null output pointer returns KALANDRA_C_INVALID_ARGUMENT. A checked function returning unit takes no output pointer. The caller owns the output storage and must supply a live, writable pointer of the declared type.
 
 h2 { "Export types deliberately" }
 

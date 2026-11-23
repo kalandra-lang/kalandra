@@ -6,6 +6,11 @@ import re
 import subprocess
 
 SOURCES = {
+    'c-library': '''export "C" fn geo_narrow(x: i16) -> i16:
+  return x
+export "C" checked fn geo_twice(x: i32) -> i32:
+  return x * 2
+''',
     'calls': '''fn count(n:i64,a:i64)->i64:
   return if n==0:a
   else:count(n-1,a+1)
@@ -71,10 +76,14 @@ def main():
         for name, text in SOURCES.items():
             source, ir = root / (name + '.k'), root / (name + '.ll')
             source.write_text(text)
-            run([a.driver, source, target, layout_file, ir])
+            run([a.driver, source, target, layout_file, ir, *(["--library"] if name == "c-library" else [])])
             contents = ir.read_text()
             assert f'target datalayout = "{layout}"' in contents
             assert f'target triple = "{target}"' in contents
+            if name == "c-library":
+                assert '@geo_twice(' in contents and '@geo_narrow(' in contents
+                assert 'kalandra_ordinary_fail_v1' not in contents
+                assert 'kalandra_source_abort_v2' not in contents
             registers = re.findall(r'!\{!"(sp|rsp)"\}', contents)
             assert all(r == ('rsp' if target.startswith('x86_64') else 'sp') for r in registers)
             for mode in ('-O0', '-O2'):

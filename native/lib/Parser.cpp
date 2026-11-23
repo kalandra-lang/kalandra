@@ -587,6 +587,7 @@ private:
     if (exported)
       advance();
     bool cExport = false;
+    bool checkedCExport = false;
     if (exported && at(TokenKind::String)) {
       if (source_->slice(current().span) != "\"C\"") {
         error("P005", "expected the C ABI in export \"C\" fn", current().span);
@@ -594,6 +595,10 @@ private:
       }
       advance();
       cExport = true;
+      if (word("checked")) {
+        advance();
+        checkedCExport = true;
+      }
     }
     if (!word("fn")) {
       error(
@@ -609,6 +614,7 @@ private:
     Function function;
     function.exported = exported;
     function.cExport = cExport;
+    function.checkedCExport = checkedCExport;
     function.name = name->span;
     auto generics = genericParameters();
     if (!generics)
