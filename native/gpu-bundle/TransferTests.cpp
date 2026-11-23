@@ -33,6 +33,20 @@ int main(int argc, char **argv) {
   try {
     auto runtime = take(b::Runtime::create());
     check(runtime->stats().initializedDevices == 0, "early GPU discovery");
+    Invocation context;
+    std::array<std::int32_t, 4> data{-2, 0, 37, 2147483647};
+    auto cpu = copyCpuTensor<NumericType::Int32, 1>(context, NumericType::Int32,
+                                                    std::as_bytes(std::span(data)),
+                                                    std::array<std::int64_t, 1>{4});
+    check(bool(cpu), "allocate tensor");
+    auto host = take(runtime->fromCpu(context, cpu->view()));
+    auto before = take(runtime->toCpuTyped<NumericType::Int32, 1>(context, host));
+    check(std::equal(data.begin(), data.end(), before.aligned), "host tensor before admission");
+    check(runtime->stats().bytes > 0 && runtime->stats().initializedDevices == 0,
+          "host-only ledger");
+    auto other = take(b::Runtime::create());
+    auto foreign = other->toCpuTyped<NumericType::Int32, 1>(context, host);
+    check(!foreign && foreign.error() == b::Error::Residency, "cross-runtime host ownership");
     const bool unavailable = argc == 2 && std::string_view(argv[1]) == "--unavailable";
     std::atomic<bool> passed = true;
     std::barrier firstUse(12);
@@ -53,13 +67,6 @@ int main(int argc, char **argv) {
     auto device = take(runtime->device());
     auto core = TaskCore::create({.workers = 4});
     check(bool(core), "task core");
-    Invocation context;
-    std::array<std::int32_t, 4> data{-2, 0, 37, 2147483647};
-    auto cpu = copyCpuTensor<NumericType::Int32, 1>(context, NumericType::Int32,
-                                                    std::as_bytes(std::span(data)),
-                                                    std::array<std::int64_t, 1>{4});
-    check(bool(cpu), "allocate tensor");
-    auto host = take(runtime->fromCpu(context, cpu->view()));
     auto g = core->openRoot();
     auto gpu = observe(*core, g, runtime->upload(*core, g, host, device));
     check(gpu.onDevice(), "resident tensor");

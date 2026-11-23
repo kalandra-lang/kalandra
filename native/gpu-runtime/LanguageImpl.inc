@@ -84,7 +84,8 @@ Runtime::create(Options options, std::vector<DeviceInfo> devices) noexcept {
     auto state = std::make_shared<Registry>();
     state->options = options;
     state->devices = std::move(devices);
-    auto bytes = raw::Runtime::createByteBudget(options.maxBytes);
+    auto bytes = options.byteBudget ? std::expected<std::shared_ptr<ByteBudget>,Error>(options.byteBudget)
+                                    : raw::Runtime::createByteBudget(options.maxBytes);
     auto metadata = raw::Runtime::createByteBudget(options.maxArgumentBytes);
     auto pending = raw::Runtime::createByteBudget(options.maxInFlight);
     if (!bytes || !metadata || !pending)

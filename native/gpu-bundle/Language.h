@@ -18,19 +18,46 @@ using NumericInstructionKind = NumericProgramKind;
 using ElementwiseSignature = cl::ElementwiseSignature;
 using ElementwiseBinding = cl::ElementwiseBinding;
 
+// Both descriptors pin the same immutable CPU allocation. Each possible
+// backend accounts it in its own byte ledger before a driver has been selected.
+struct HostTensor {
+  cl::Buffer cuda;
+  vk::Buffer vulkan;
+  std::shared_ptr<cuda::ByteBudget> owner;
+};
 struct Buffer {
-  std::variant<cl::Buffer, vk::Buffer> value;
+  std::variant<cl::Buffer, vk::Buffer, std::shared_ptr<const HostTensor>> value;
+  template <class F> auto inspect(F fn) const {
+    return std::visit(
+        [&](const auto &v) {
+          if constexpr (std::is_same_v<std::decay_t<decltype(v)>,
+                                       std::shared_ptr<const HostTensor>>)
+            return fn(v->cuda);
+          else
+            return fn(v);
+        },
+        value);
+  }
+  template <class B> const B &native() const {
+    if (auto host = std::get_if<std::shared_ptr<const HostTensor>>(&value)) {
+      if constexpr (std::is_same_v<B, cl::Buffer>)
+        return (*host)->cuda;
+      else
+        return (*host)->vulkan;
+    }
+    return std::get<B>(value);
+  }
   explicit operator bool() const {
-    return std::visit([](auto &v) { return bool(v); }, value);
+    return inspect([](auto &v) { return bool(v); });
   }
   bool onDevice() const {
-    return std::visit([](auto &v) { return v.onDevice(); }, value);
+    return inspect([](auto &v) { return v.onDevice(); });
   }
   auto shape() const {
-    return std::visit([](auto &v) { return v.shape(); }, value);
+    return inspect([](auto &v) { return v.shape(); });
   }
   Format format() const {
-    return std::visit([](auto &v) { return v.format(); }, value);
+    return inspect([](auto &v) { return v.format(); });
   }
 };
 struct Device {
@@ -132,6 +159,10 @@ class Runtime {
     Options options;
     options.allowSoftwareFallback = options_.allowSoftwareFallback;
     options.publication = &publication;
+    if constexpr (std::is_same_v<R, cl::Runtime>)
+      options.byteBudget = cudaBytes_;
+    else
+      options.byteBudget = vulkanBytes_;
     using Driver = For<R, cuda::Runtime, vulkan::Runtime>;
     try {
       auto devices = Driver::enumerate(false, true);
@@ -228,6 +259,18 @@ public:
     auto result = std::unique_ptr<Runtime>(new (std::nothrow) Runtime(options));
     if (!result)
       return std::unexpected(Error::Allocation);
+    try {
+      auto cuda = cuda::Runtime::createByteBudget(cl::Options{}.maxBytes);
+      if (!cuda)
+        return std::unexpected(cuda.error());
+      auto vulkan = vulkan::Runtime::createByteBudget(vk::Options{}.maxBytes);
+      if (!vulkan)
+        return std::unexpected(static_cast<Error>(vulkan.error()));
+      result->cudaBytes_ = std::move(*cuda);
+      result->vulkanBytes_ = std::move(*vulkan);
+    } catch (const std::bad_alloc &) {
+      return std::unexpected(Error::Allocation);
+    }
     return result;
   }
   static std::expected<std::unique_ptr<Runtime>, Error>
@@ -251,11 +294,29 @@ public:
   auto device(std::uint32_t index = 0) {
     return withRuntime<Device>([&](auto &r) { return r.device(index); });
   }
-  auto fromCpu(const Invocation &context, CpuTensorView view) {
-    return withRuntime<Buffer>([&](auto &r) { return r.fromCpu(context, view); });
+  std::expected<Buffer, Error> fromCpu(const Invocation &context, CpuTensorView view) {
+    if (active_.load(std::memory_order_acquire))
+      return withRuntime<Buffer>([&](auto &r) { return r.fromCpu(context, view); });
+    try {
+      auto cpu = cuda::fromCpu(cudaBytes_, context, view);
+      if (!cpu)
+        return std::unexpected(cpu.error());
+      auto vk = vulkan::fromCpu(vulkanBytes_, context, view);
+      if (!vk)
+        return std::unexpected(static_cast<Error>(vk.error()));
+      return Buffer{std::make_shared<const HostTensor>(
+          HostTensor{std::move(*cpu), std::move(*vk), cudaBytes_})};
+    } catch (const std::bad_alloc &) {
+      return std::unexpected(Error::Allocation);
+    }
   }
   template <NumericType Element, std::size_t Rank>
   auto toCpuTyped(Invocation &context, const Buffer &buffer) {
+    if (auto host = std::get_if<std::shared_ptr<const HostTensor>>(&buffer.value)) {
+      if ((*host)->owner != cudaBytes_)
+        return std::expected<CpuTensor<Element, Rank>, Error>(std::unexpected(Error::Residency));
+      return cuda::toCpuTyped<Element, Rank>(context, (*host)->cuda);
+    }
     return withRuntime<CpuTensor<Element, Rank>>([&](auto &r) {
       using B = For<decltype(r), cl::Buffer, vk::Buffer>;
       using E = For<decltype(r), cl::Error, vk::Error>;
@@ -275,22 +336,20 @@ public:
     return layout;
   }
   static auto arrayResult(const Buffer &b) {
-    return std::visit([](auto &v) { return v.arrayResult; }, b.value);
+    return b.inspect([](auto &v) { return v.arrayResult; });
   }
   static auto workgroupOutcome(const Buffer &b) {
-    return std::visit([](auto &v) { return v.workgroupOutcome; }, b.value);
+    return b.inspect([](auto &v) { return v.workgroupOutcome; });
   }
   static std::expected<std::span<const std::byte>, Error> arrayPageBytes(const Buffer &b) {
-    return std::visit(
-        [](auto &v) -> std::expected<std::span<const std::byte>, Error> {
-          using R = std::conditional_t<std::is_same_v<std::decay_t<decltype(v)>, cl::Buffer>,
-                                       cl::Runtime, vk::Runtime>;
-          auto bytes = R::arrayPageBytes(v);
-          if (!bytes)
-            return std::unexpected(static_cast<Error>(bytes.error()));
-          return *bytes;
-        },
-        b.value);
+    return b.inspect([](auto &v) -> std::expected<std::span<const std::byte>, Error> {
+      using R = std::conditional_t<std::is_same_v<std::decay_t<decltype(v)>, cl::Buffer>,
+                                   cl::Runtime, vk::Runtime>;
+      auto bytes = R::arrayPageBytes(v);
+      if (!bytes)
+        return std::unexpected(static_cast<Error>(bytes.error()));
+      return *bytes;
+    });
   }
   auto loadNumericGraphKernel(const std::string &path, const Device &d, NumericType t,
                               ElementwiseSignature s, std::span<const NumericType> tensors,
@@ -361,20 +420,20 @@ public:
   TaskHandle upload(Caller &c, GroupHandle g, const Buffer &b, const Device &d) {
     return withTask(c, g, [&](auto &r) {
       using R = decltype(r);
-      return r.upload(c, g, std::get<For<R, cl::Buffer, vk::Buffer>>(b.value),
+      return r.upload(c, g, b.native<For<R, cl::Buffer, vk::Buffer>>(),
                       std::get<For<R, cl::Device, vk::Device>>(d.value));
     });
   }
   template <class Caller> TaskHandle download(Caller &c, GroupHandle g, const Buffer &b) {
     return withTask(c, g, [&](auto &r) {
-      return r.download(c, g, std::get<For<decltype(r), cl::Buffer, vk::Buffer>>(b.value));
+      return r.download(c, g, b.native<For<decltype(r), cl::Buffer, vk::Buffer>>());
     });
   }
   TaskHandle downloadArrayPage(Task &c, GroupHandle g, const Buffer &b, std::uint64_t offset,
                                std::uint64_t words) {
     return withTask(c, g, [&](auto &r) {
-      return r.downloadArrayPage(c, g, std::get<For<decltype(r), cl::Buffer, vk::Buffer>>(b.value),
-                                 offset, words);
+      return r.downloadArrayPage(c, g, b.native<For<decltype(r), cl::Buffer, vk::Buffer>>(), offset,
+                                 words);
     });
   }
   template <class Caller>
@@ -396,13 +455,13 @@ public:
       std::span<B> native =
           large.empty() ? std::span(small).first(inputs.size()) : std::span(large);
       for (std::size_t i = 0; i < inputs.size(); ++i)
-        native[i] = std::get<B>(inputs[i].value);
+        native[i] = inputs[i].native<B>();
       return r.executeNumericProgram(c, g, plan, native, args);
     });
   }
   cl::Stats stats() {
     if (!active_.load(std::memory_order_acquire))
-      return {};
+      return {.bytes = cuda::Runtime::reservedBytes(cudaBytes_)};
     return std::visit(
         [](auto &r) {
           auto s = r->stats();
@@ -437,6 +496,8 @@ private:
     return {};
   }
   Options options_;
+  std::shared_ptr<cuda::ByteBudget> cudaBytes_;
+  std::shared_ptr<vulkan::ByteBudget> vulkanBytes_;
   Selection<Context, Error> selection_;
   std::atomic<bool> active_{};
   std::array<std::optional<Error>, 2> errors_{};

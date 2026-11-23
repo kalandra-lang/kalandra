@@ -70,6 +70,7 @@ struct Options {
   bool allowSoftwareFallback = false, enableFloat64 = true;
   bool enableTiledMatmul = true;
   const TensorPublication *publication = nullptr;
+  std::shared_ptr<ByteBudget> byteBudget{};
 };
 struct Stats {
   std::uint64_t bytes = 0, inFlight = 0, argumentBytes = 0;

@@ -6,7 +6,8 @@ fn twice(values: Tensor[i32, ?], divisor: i32) -> Tensor[i32, ?]:
 
 fn main(args: [String]) -> unit ! (TaskError | IoError):
   if length(args) == 0:
-    try println("cpu")
+    local: Tensor[i32, 3] = tensor([10, 11, 21])
+    try println(format("cpu {}", reduceSum(local)))
     return ()
   try println("dispatch")
   divisor: i32 = if args[0] == "fault":

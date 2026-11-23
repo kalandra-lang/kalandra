@@ -20,7 +20,7 @@ def main():
     program = args.output / ("program.exe" if os.name == "nt" else "program")
     env = dict(os.environ, KALANDRA_GPU_BACKEND="invalid", KALANDRA_GPU_TRACE="1")
     cpu = subprocess.run([program], env=env, capture_output=True, timeout=30)
-    assert cpu.returncode == 0 and cpu.stdout.strip() == b"cpu" and not cpu.stderr, cpu
+    assert cpu.returncode == 0 and cpu.stdout.strip() == b"cpu 42" and not cpu.stderr, cpu
     missing = subprocess.run([program, "gpu"], env=env, capture_output=True, timeout=30)
     assert missing.returncode != 0 and missing.stdout.splitlines() == [b"dispatch"], missing
     if args.physical:
