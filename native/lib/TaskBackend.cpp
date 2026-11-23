@@ -2862,6 +2862,37 @@ private:
         break;
       }
       case Code::Kernel: {
+        if (const auto *op =
+                std::get_if<ForeignCall>(&planner.input.expressions[instruction.source].operation);
+            op && !op->subscriptionRelease.empty()) {
+          if (!op->block) {
+            auto *ok = call("kalandra_subscription_close_v1", boolean,
+                            {ctx, payload(instruction.args.at(0))});
+            builder.CreateCondBr(ok, next, abort);
+            break;
+          }
+          auto release = module.getOrInsertFunction(op->subscriptionRelease, builder.getVoidTy(),
+                                                    builder.getInt64Ty());
+          auto *state = call("kalandra_subscription_prepare_v1", builder.getPtrTy(),
+                             {ctx, release.getCallee()});
+          auto *admitted = Block::Create(context, "subscription.admitted", resume);
+          builder.CreateCondBr(builder.CreateIsNotNull(state), admitted, abort);
+          builder.SetInsertPoint(admitted);
+          llvm::SmallVector<llvm::Type *> parameters;
+          llvm::SmallVector<Value *> captured;
+          for (unsigned i = 0; i < instruction.args.size(); ++i) {
+            auto *t = taskTypes->scalar(planner.input.expressions.at(op->arguments.at(i)).type);
+            parameters.push_back(t);
+            captured.push_back(builder.CreateLoad(t, payload(instruction.args[i])));
+          }
+          auto registrar = module.getOrInsertFunction(
+              op->symbol, llvm::FunctionType::get(builder.getInt64Ty(), parameters, false));
+          auto *token = builder.CreateCall(registrar, captured);
+          auto *published = call("kalandra_subscription_publish_v1", boolean,
+                                 {ctx, state, token, payload(instruction.output)});
+          builder.CreateCondBr(published, next, abort);
+          break;
+        }
         if (const auto *iterator = std::get_if<IteratorOperation>(
                 &planner.input.expressions[instruction.source].operation)) {
           const bool maySuspend = !synchronous && (iterator->action == IteratorAction::Next ||

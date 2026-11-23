@@ -153,6 +153,47 @@ fn main() -> ExitStatus:
     run(args.checker, "--project", "kalandra.toml", cwd=path, expect="direct C callback")
 
 
+def check_captured_subscription(args, path):
+    fixture = Path(__file__).resolve().parent / "native-subscription"
+    source = path / "app.k"
+    header = path / "sensor.h"
+    original = (fixture / "app.k").read_text()
+    contract = (fixture / "sensor.h").read_text()
+    (path / "kalandra.toml").write_text(
+        'format=1\n[project]\nentry="app.k"\n[dependencies.sensor]\n'
+        'header="sensor.h"\nlibrary="sensor.o"\n')
+    for blocks in ([False, True] if sys.platform == "darwin" else [False]):
+        header.write_text(("#define SENSOR_BLOCKS 1\n" if blocks else "") + contract)
+        (path / "sensor.cpp").write_text((fixture / "sensor.cpp").read_text())
+        source.write_text(original)
+        exe = path / ("subscription.exe" if os.name == "nt" else "subscription")
+        modes = ["-O0", "-O2"]
+        if sys.platform != "win32" or platform.machine().lower() not in {"arm64", "aarch64"}:
+            modes.append("--sanitize")
+        for mode in modes:
+            instrument = ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] if (
+                mode == "--sanitize" and os.name != "nt") else []
+            runtime = ["-fms-runtime-lib=static"] if os.name == "nt" else []
+            run(args.cxx, "-std=c++17", *runtime, *(["-fblocks"] if blocks else []), *instrument,
+                "-c", "sensor.cpp", "-o", "sensor.o", cwd=path)
+            run(args.compiler, "--project", "kalandra.toml", mode, "-o", exe, cwd=path)
+            run(exe, cwd=path)
+        source.write_text(original.replace("  unsubscribe(a)", "  unsubscribe(a)\n  unsubscribe(a)"))
+        run(args.checker, "--project", "kalandra.toml", cwd=path, expect="moved")
+        source.write_text(original.replace("return cap(value, limit)", "return value * limit"))
+        run(args.compiler, "--project", "kalandra.toml", "-o", exe, cwd=path, expect="fault-free")
+        source.write_text(original)
+        annotated = ("#define SENSOR_BLOCKS 1\n" if blocks else "") + contract
+        header.write_text(annotated.replace('"Subscription"', '"sensor_listener"'))
+        source.write_text(original.replace("Subscription", "SensorListener"))
+        run(args.checker, "--project", "kalandra.toml", cwd=path)
+        source.write_text(original)
+        header.write_text(annotated.replace('swift_attr("nonisolated")', 'swift_attr("@MainActor")'))
+        run(args.checker, "--project", "kalandra.toml", cwd=path, expect="subscription release")
+        header.write_text(annotated.replace('release_handle("Subscription")', 'release_handle("Other")'))
+        run(args.checker, "--project", "kalandra.toml", cwd=path, expect="subscription release")
+
+
 def check_native_thread_requirement(args, path):
     # An instrument binding is independent of window systems and SDKs.
     header = path / "instrument.h"
@@ -224,6 +265,7 @@ def main():
         path = Path(root)
         check_application_callback(args, path)
         check_retained_callback(args, path)
+        check_captured_subscription(args, path)
         check_native_thread_requirement(args, path)
         source = path / "geometry.k"
         source.write_text('''export "C" direct fn geometry_positive(x: f64) -> bool:

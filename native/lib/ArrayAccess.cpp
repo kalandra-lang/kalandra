@@ -182,6 +182,8 @@ private:
                : module.expressions.at(reader.identity()).span;
   }
   std::string resourceName(const ValueType &type) const {
+    if (ownedResourceKind(module, type) == OwnedResourceKind::Subscription)
+      return module.records[*type.record].name;
     return isIterator(module, type)     ? "Iterator"
            : isByteBuffer(module, type) ? "ByteBuffer"
                                         : "file handle";
@@ -957,11 +959,24 @@ private:
             return {};
           } else if constexpr (std::is_same_v<T, FormatOperation> ||
                                std::is_same_v<T, ForeignCall> || std::is_same_v<T, TimeOperation>) {
+            if constexpr (std::is_same_v<T, ForeignCall>) {
+              if (!op.subscriptionRelease.empty()) {
+                for (auto value : op.arguments) {
+                  auto roots = input(value);
+                  if (!op.block)
+                    consume(value, roots, env);
+                }
+                return op.block ? fresh(id) : Roots{};
+              }
+            }
             if constexpr (std::is_same_v<T, FormatOperation>)
               for (auto value : op.originalArguments)
                 input(value);
             for (auto value : op.arguments)
               input(value);
+            if constexpr (std::is_same_v<T, ForeignCall>)
+              if (isOwnedResource(module, node.type))
+                return fresh(id);
             return {};
           } else if constexpr (std::is_same_v<T, ArraySort>) {
             auto destination = input(op.input);

@@ -244,10 +244,18 @@ struct GeneratorCreate {
   std::vector<ValueId> captures;
 };
 
+struct NativeBlockCall {
+  std::string callee;
+  FunctionId function;
+  unsigned position;
+  bool byValue = false;
+};
 struct ForeignCall {
   std::string symbol;
   std::vector<ValueId> arguments;
   std::vector<std::string> callbacks = {};
+  std::optional<NativeBlockCall> block = {};
+  std::string subscriptionRelease = {};
   bool mainThreadOnly = false;
 };
 struct TimeOperation {
@@ -537,6 +545,7 @@ struct TypedRecord {
   std::vector<std::pair<std::size_t, std::size_t>> errorOrigins =
       {};                                      // Original family/variant per case.
   std::optional<StandardRecord> standard = {}; // Loader-proven nominal standard type.
+  bool nativeSubscription = false;
   bool uninhabited = false; // The compiler-owned empty type has no constructors/variants.
   // Phantom arguments still determine identity and intrinsic signatures even
   // when they do not contribute fields to an opaque runtime representation.
@@ -640,10 +649,20 @@ struct TypedModule {
 };
 // Canonical resource identity is independent of storage validity. Callers
 // retain their scalar/wrapper/layout checks; names never establish identity.
-enum class OwnedResourceKind { None, File, BufferedReader, BufferedWriter, ByteBuffer, Iterator };
+enum class OwnedResourceKind {
+  None,
+  File,
+  BufferedReader,
+  BufferedWriter,
+  ByteBuffer,
+  Iterator,
+  Subscription
+};
 inline OwnedResourceKind ownedResourceKind(const TypedModule &module, const ValueType &type) {
   if (!type.record || *type.record >= module.records.size())
     return OwnedResourceKind::None;
+  if (module.records[*type.record].nativeSubscription)
+    return OwnedResourceKind::Subscription;
   const auto standard = module.records[*type.record].standard;
   if (!standard)
     return OwnedResourceKind::None;

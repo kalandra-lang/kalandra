@@ -192,7 +192,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
         shell(page, 0, BASE / page / str(n[1]), PLAN[page][n[1]]['expected'])
     # Compile and run the authored C caller against the authored static library.
     embed = BASE / 'modules' / 'embedding'
-    k_index, geometry = blocks('modules', 'kalandra')[-2]
+    k_index, geometry = blocks('modules', 'kalandra')[2]
     c_index, caller = blocks('modules', 'c')[0]
     write(embed / 'geometry.k', geometry)
     write(embed / 'caller.c', caller)
@@ -202,7 +202,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
         COVERED.add(('modules', index))
         RESULTS.append({'page': 'modules', 'block': index, 'kind': 'embedding', 'status': 'passed'})
     callback = BASE / 'modules' / 'callback'
-    k_index, program = blocks('modules', 'kalandra')[-1]
+    k_index, program = blocks('modules', 'kalandra')[3]
     c_index, header = blocks('modules', 'c')[1]
     write(callback / 'events.h', header)
     write(callback / 'main.k', program)
@@ -216,6 +216,23 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     for index in (k_index, c_index):
         COVERED.add(('modules', index))
         RESULTS.append({'page': 'modules', 'block': index, 'kind': 'native-callback', 'status': 'passed'})
+    subscription = BASE / 'modules' / 'subscription'
+    k_index, program = blocks('modules', 'kalandra')[4]
+    c_index, header = blocks('modules', 'c')[-1]
+    write(subscription / 'main.k', program)
+    write(subscription / 'sensor.h', header)
+    write(subscription / 'sensor.c', '#include "sensor.h"\n#include <stdlib.h>\n'
+          'unsigned long long subscribe(Reading _Nonnull handler, int limit) { '
+          'if (handler(100,limit) != 80) abort(); return 7; }\n'
+          'void unsubscribe(unsigned long long token) { if (token != 7) abort(); }\n')
+    write(subscription / 'kalandra.toml', 'format=1\n[project]\nentry="main.k"\n'
+          '[dependencies.sensor]\nheader="sensor.h"\nlibrary="sensor.o"\n')
+    command(['clang', '-std=c17', '-Werror', '-c', 'sensor.c', '-o', 'sensor.o'], subscription)
+    command([TOOLS / 'kalandra', '--project', 'kalandra.toml', '-o', 'demo.exe'], subscription)
+    command([subscription / 'demo.exe'], subscription)
+    for index in (k_index, c_index):
+        COVERED.add(('modules', index))
+        RESULTS.append({'page': 'modules', 'block': index, 'kind': 'native-subscription', 'status': 'passed'})
     parallel = next(x for x in reversed(items) if x[0] == 'parallelism')
     shell('parallelism', 0, BASE / 'parallelism' / str(parallel[1]), parallel[4]['expected'])
     for page in ['gpu', 'gpu-numerics']:

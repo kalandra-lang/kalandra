@@ -4329,6 +4329,9 @@ lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
   if (hasPlacement(input))
     return std::unexpected("placement-aware IR requires a placement-capable execution backend");
   const auto needsTaskFrame = [recursive](const auto &e) {
+    if (const auto *call = std::get_if<ForeignCall>(&e.operation);
+        call && !call->subscriptionRelease.empty())
+      return true;
     return std::holds_alternative<TaskOperation>(e.operation) ||
            std::holds_alternative<IteratorOperation>(e.operation) ||
            std::holds_alternative<ParallelOperation>(e.operation) ||

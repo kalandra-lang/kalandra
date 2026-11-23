@@ -21,8 +21,12 @@ struct SourceSpan {
 };
 // Indexed by the C parameter ordinal. A negative value denotes a scalar.
 struct HeaderFunctionContract {
+  std::string subscriptionFamily = {};
   std::vector<int> bufferCounts;
   bool hasCallbacks = false;
+  std::optional<unsigned> blockParameter = {};
+  std::vector<std::string> forwardedCaptures = {};
+  std::string subscriptionRelease = {};
   bool mainThreadOnly = false;
 };
 using HeaderContracts = std::unordered_map<std::string, HeaderFunctionContract>;
@@ -321,6 +325,9 @@ struct Function {
   bool checkedCExport = false;
   bool cImport = false;
   bool nativeCallbacks = false;
+  std::optional<unsigned> blockParameter = {};
+  std::vector<std::string> forwardedCaptures = {};
+  std::string subscriptionRelease = {};
   bool nativeMainThread = false;
   std::vector<int> bufferCounts = {};
   std::string specializedName = {}; // Internal only; source names/spans remain unchanged.

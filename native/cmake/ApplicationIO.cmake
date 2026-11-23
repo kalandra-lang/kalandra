@@ -1,5 +1,5 @@
 foreach(target IN ITEMS kalandra-native-runtime kalandra-native-runtime-sanitized kalandra-native-runtime-thread-sanitized kalandra-task-core-optimized)
-  target_sources(${target} PRIVATE runtime/Format.cpp runtime/FormatControls.cpp runtime/Console.cpp runtime/Application.cpp runtime/FileSystem.cpp runtime/ChildProcess.cpp runtime/OwnedResources.cpp runtime/ByteBuffer.cpp runtime/Parse.cpp runtime/Path.cpp runtime/Environment.cpp runtime/Time.cpp)
+  target_sources(${target} PRIVATE runtime/Format.cpp runtime/FormatControls.cpp runtime/Console.cpp runtime/Application.cpp runtime/FileSystem.cpp runtime/ChildProcess.cpp runtime/OwnedResources.cpp runtime/NativeSubscription.cpp runtime/ByteBuffer.cpp runtime/Parse.cpp runtime/Path.cpp runtime/Environment.cpp runtime/Time.cpp)
 endforeach()
 if(BUILD_TESTING)
   foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
@@ -593,4 +593,12 @@ if(BUILD_TESTING AND KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/MixedProcessTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --target metal)
   set_tests_properties(native-process-mixed-metal PROPERTIES TIMEOUT 300 LABELS "feature-io;feature-gpu" RESOURCE_LOCK apple-metal-gpu)
+endif()
+
+if(BUILD_TESTING)
+  add_executable(kalandra-native-subscription-tests tests/NativeSubscriptionTests.cpp)
+  target_link_libraries(kalandra-native-subscription-tests PRIVATE kalandra-native-runtime)
+  add_test(NAME native-subscription-lifecycle COMMAND kalandra-native-subscription-tests)
+  set_tests_properties(native-subscription-lifecycle PROPERTIES TIMEOUT 30 LABELS "feature-runtime")
+  add_dependencies(native-io-qualification kalandra-native-subscription-tests)
 endif()

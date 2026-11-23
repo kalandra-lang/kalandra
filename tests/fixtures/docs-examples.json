@@ -247,6 +247,10 @@
     {
       "kind": "workflow",
       "expected": ""
+    },
+    {
+      "kind": "workflow",
+      "expected": ""
     }
   ],
   "numbers": [

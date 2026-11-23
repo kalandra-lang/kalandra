@@ -102,6 +102,39 @@ fn main() -> ExitStatus:
 
 Here C calls the function with an i32 and receives its result directly. The compiler checks the signature and proves that the function can complete without a fault. The native implementation must finish using the function pointer before dispatch returns. For an event subscription, a C header can instead declare a non-null callback without noescape. Pass a named direct export in the same way. Its code lives for the entire execution of the application, so the library can invoke it later or on another thread. Call the library’s unregistration function to stop delivery. The library defines when in-flight calls have finished. Both forms accept scalar callbacks without captured state.
 
+h2 { "Subscribe with a captured value" }
+
+A native adapter can let each subscription carry its own copy of a value. Here each sensor keeps the limit supplied to start, even after start returns. Pass the returned Subscription to unsubscribe to stop delivery. If it leaves its owning scope first, Kalandra calls the same release function automatically.
+
+codeblock { language = kalandra, """from "sensor" import subscribe, unsubscribe, Subscription
+from "std/process" import ExitStatus
+
+fn cap(value: i32, limit: i32) -> i32:
+  return if value > limit: limit
+  else: value
+
+fn start(limit: i32) -> Subscription:
+  return subscribe(fn(value: i32) -> i32: return cap(value, limit))
+
+fn main() -> ExitStatus:
+  sensor = start(80)
+  unsubscribe(sensor)
+  return ExitStatus {code: 0}
+""" }
+
+For a portable C adapter, declare how the library forwards the captured value. The first argument to the handler below comes from the sensor. The second comes from the limit supplied at registration. The acquire and release annotations must name the same handle family. This header names it Subscription. A different family, such as sensor_listener, imports as a distinct SensorListener type.
+
+codeblock { language = c, """typedef int (*Reading)(int value, int limit);
+unsigned long long subscribe(Reading _Nonnull handler, int limit)
+    __attribute__((callback(handler, -1, limit), acquire_handle("Subscription")));
+void unsubscribe(unsigned long long token
+    __attribute__((release_handle("Subscription")))) __attribute__((swift_attr("nonisolated")));
+""" }
+
+The adapter must synchronize registration, delivery and release. Before delivering a reading, it takes an independent copy of the callback and its captured values, or retains the registration until that delivery returns. The nonisolated attribute declares that release can run on any cleanup thread. Release must stop new deliveries. A callback already in progress can finish with its copy. Release must also be safe on the delivering thread. A native library that requires teardown on a particular thread needs an adapter that arranges that teardown.
+
+The C form accepts a function pointer followed by its captured scalar arguments. Their order and types must match the values captured by the function literal. An adapter using a non-null Clang block may instead copy the block when registering or admitting a delivery and release each copy when finished. The callback body must be provably fault-free. Captures can be 32-bit or 64-bit integers or floating-point values.
+
 h2 { "Call a main-thread API" }
 
 Some native libraries require a particular function to run on the application's main thread. If the C header marks the function with Clang’s swift_attr("@MainActor") attribute, call it from Kalandra’s main function. The main task can await other work and resume on the same thread. Spawned tasks may run on worker threads. If a worker tries to call the marked function, Kalandra reports a fault before entering C.

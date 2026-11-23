@@ -634,6 +634,9 @@ private:
       if (auto it = nativeHeader->find(symbol); it != nativeHeader->end()) {
         function.bufferCounts = it->second.bufferCounts;
         function.nativeCallbacks = it->second.hasCallbacks;
+        function.blockParameter = it->second.blockParameter;
+        function.forwardedCaptures = it->second.forwardedCaptures;
+        function.subscriptionRelease = it->second.subscriptionRelease;
         function.nativeMainThread = it->second.mainThreadOnly;
       }
     }

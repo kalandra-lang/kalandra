@@ -1735,6 +1735,12 @@ private:
       auto subject = expression(plan, field->subject, env, stack);
       plan.code.push_back(
           {Code::Field, output, {subject}, static_cast<std::size_t>(field->field), 0, 0, id});
+    } else if (const auto *native = std::get_if<ForeignCall>(&node.operation);
+               native && !native->subscriptionRelease.empty()) {
+      std::vector<Slot> arguments;
+      for (auto argument : native->arguments)
+        arguments.push_back(expression(plan, argument, env, stack));
+      plan.code.push_back({Code::Kernel, output, std::move(arguments), 0, 0, 0, id});
     } else if (const auto *iterator = std::get_if<IteratorOperation>(&node.operation)) {
       std::vector<Slot> arguments;
       for (auto argument : iterator->arguments)

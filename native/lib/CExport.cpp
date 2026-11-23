@@ -171,19 +171,142 @@ std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input
   return lowerCEntries(input, std::move(target), level, nullptr);
 }
 
+// Materialize a Clang block with by-value scalar fields. The native adapter
+// copies the block when retaining it; the block never points into a Kalandra frame.
+static std::optional<std::string> emitNativeBlock(llvm::Module &module, const ForeignCall &call,
+                                                  const TypedFunction &source) {
+  using namespace llvm;
+  auto *registration = module.getFunction(call.symbol);
+  if (!registration)
+    return {}; // Dead registration.
+  if (!registration->isDeclaration())
+    return "duplicate native block registration entry";
+  auto &ctx = module.getContext();
+  IRBuilder<> b(ctx);
+  auto *body = module.getFunction("kalandra_c_callback_" + source.cExportName);
+  if (!body || source.captureCount > body->arg_size())
+    return "missing native block invocation entry";
+  const auto captureCount = source.captureCount, firstCapture = body->arg_size() - captureCount;
+  const auto position = call.block->position;
+  if (position + captureCount > registration->arg_size())
+    return "invalid native block registration signature";
+  auto *ptr = b.getPtrTy();
+  if (call.block->byValue) {
+    b.SetInsertPoint(BasicBlock::Create(ctx, "entry", registration));
+    SmallVector<Value *> args{body};
+    SmallVector<Type *> types{ptr};
+    for (auto &value : registration->args()) {
+      args.push_back(&value);
+      types.push_back(value.getType());
+    }
+    auto callee = module.getOrInsertFunction(
+        call.block->callee, FunctionType::get(registration->getReturnType(), types, false));
+    b.CreateRet(b.CreateCall(callee, args));
+    registration->setLinkage(GlobalValue::InternalLinkage);
+    return {};
+  }
+  SmallVector<Type *> fields{ptr, b.getInt32Ty(), b.getInt32Ty(), ptr, ptr};
+  SmallVector<Type *> invokeParams{ptr};
+  for (auto &arg : body->args()) {
+    if (arg.getArgNo() < firstCapture)
+      invokeParams.push_back(arg.getType());
+    else
+      fields.push_back(arg.getType());
+  }
+  auto *layout = StructType::get(ctx, fields);
+  auto *invoke =
+      llvm::Function::Create(FunctionType::get(body->getReturnType(), invokeParams, false),
+                             GlobalValue::InternalLinkage, "kalandra.block.invoke", module);
+  b.SetInsertPoint(BasicBlock::Create(ctx, "entry", invoke));
+  SmallVector<Value *> operands;
+  for (auto &arg : invoke->args())
+    if (arg.getArgNo())
+      operands.push_back(&arg);
+  for (unsigned i = 0; i < captureCount; ++i)
+    operands.push_back(
+        b.CreateLoad(fields[5 + i], b.CreateStructGEP(layout, invoke->getArg(0), 5 + i)));
+  auto *result = b.CreateCall(body, operands);
+  if (result->getType()->isVoidTy())
+    b.CreateRetVoid();
+  else
+    b.CreateRet(result);
+
+  b.SetInsertPoint(BasicBlock::Create(ctx, "entry", registration));
+  auto *literal = b.CreateAlloca(layout);
+  auto store = [&](unsigned index, Value *v) {
+    b.CreateStore(v, b.CreateStructGEP(layout, literal, index));
+  };
+  auto *isa = module.getOrInsertGlobal("_NSConcreteStackBlock", ptr);
+  if (module.getTargetTriple().isOSWindows())
+    llvm::cast<GlobalVariable>(isa)->setDLLStorageClass(GlobalValue::DLLImportStorageClass);
+  store(0, isa);
+  store(1, b.getInt32(0));
+  store(2, b.getInt32(0));
+  store(3, invoke);
+  // Clang uses C unsigned long here (LLP64 on Windows).
+  auto *sizeType = module.getTargetTriple().isOSWindows() ? b.getInt32Ty() : b.getInt64Ty();
+  auto bytes = module.getDataLayout().getTypeAllocSize(layout).getFixedValue();
+  auto *description =
+      ConstantStruct::getAnon({ConstantInt::get(sizeType, 0), ConstantInt::get(sizeType, bytes)});
+  auto *descriptor =
+      new GlobalVariable(module, description->getType(), true, GlobalValue::PrivateLinkage,
+                         description, "kalandra.block.descriptor");
+  store(4, descriptor);
+  SmallVector<Value *> nativeArgs;
+  for (unsigned i = 0; i < position; ++i)
+    nativeArgs.push_back(registration->getArg(i));
+  nativeArgs.push_back(literal);
+  for (unsigned i = 0; i < captureCount; ++i) {
+    auto *arg = registration->getArg(position + i);
+    if (arg->getType() != fields[5 + i])
+      return "native block captured argument type mismatch";
+    store(5 + i, arg);
+  }
+  for (unsigned i = position + captureCount; i < registration->arg_size(); ++i)
+    nativeArgs.push_back(registration->getArg(i));
+  SmallVector<Type *> signature;
+  for (auto *arg : nativeArgs)
+    signature.push_back(arg->getType());
+  auto callee = module.getOrInsertFunction(
+      call.block->callee, FunctionType::get(registration->getReturnType(), signature, false));
+  auto *registered = b.CreateCall(callee, nativeArgs);
+  if (registered->getType()->isVoidTy())
+    b.CreateRetVoid();
+  else
+    b.CreateRet(registered);
+  registration->setLinkage(GlobalValue::InternalLinkage);
+  return {};
+}
+
 // Pass addresses of private C entries to native code. Reuse the library ABI
 // and its fault proof without exporting names into the process namespace.
 std::optional<std::string> linkNativeCallbacks(BackendOutput &app, const TypedModule &input,
                                                CpuTarget target, Optimization level) {
   llvm::StringSet<> selected;
+  std::vector<const ForeignCall *> blocks;
+  std::optional<TypedModule> blockInput;
   for (const auto &expr : input.expressions)
-    if (auto *call = std::get_if<ForeignCall>(&expr.operation))
+    if (auto *call = std::get_if<ForeignCall>(&expr.operation)) {
+      if (call->block) {
+        if (!blockInput)
+          blockInput.emplace(input);
+        const auto id = call->block->function;
+        auto &fn = blockInput->functions[id];
+        if (fn.checkedCExport)
+          return "a native block requires a proven fault-free function";
+        if (fn.cExportName.empty())
+          fn.cExportName = "kalandra.block.body." + std::to_string(id);
+        selected.insert(fn.cExportName);
+        blocks.push_back(call);
+      }
       for (const auto &callback : call->callbacks)
         if (!callback.empty())
           selected.insert(callback);
+    }
   if (selected.empty())
     return {};
-  auto exports = lowerCEntries(input, std::move(target), level, &selected);
+  auto exports =
+      lowerCEntries(blockInput ? *blockInput : input, std::move(target), level, &selected);
   if (!exports)
     return exports.error();
   llvm::LLVMContext context;
@@ -204,6 +327,10 @@ std::optional<std::string> linkNativeCallbacks(BackendOutput &app, const TypedMo
   }
   if (llvm::Linker::linkModules(*application, std::move(callbacks)))
     return "cannot link callbacks into the application";
+  for (const auto *block : blocks)
+    if (auto error =
+            emitNativeBlock(*application, *block, blockInput->functions[block->block->function]))
+      return error;
   for (const auto &item : selected)
     if (auto *entry = application->getFunction(("kalandra_c_callback_" + item.getKey()).str()))
       entry->setLinkage(llvm::GlobalValue::InternalLinkage);

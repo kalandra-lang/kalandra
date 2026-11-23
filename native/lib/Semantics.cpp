@@ -1171,6 +1171,11 @@ private:
         exports_.emplace(key, ExportBinding{true, output_.records.size()});
       TypedRecord header{label, record.name, {}};
       header.error = record.error;
+      if (auto contracts = syntax_.source->origin(record.name.begin).first->header()) {
+        auto found = contracts->find(label);
+        header.nativeSubscription =
+            found != contracts->end() && !found->second.subscriptionFamily.empty();
+      }
       const auto origin = syntax_.source->partIndex(record.name.begin);
       if (origin < syntax_.standardModules.size()) {
         if (syntax_.standardModules[origin] == StandardModule::Gpu && label == "WorkItem")
@@ -1563,6 +1568,9 @@ private:
         };
         for (const auto parameter : fn.parameters) {
           const auto &type = output_.symbols[parameter].type;
+          if (!function.subscriptionRelease.empty() &&
+              ownedResourceKind(output_, type) == OwnedResourceKind::Subscription)
+            continue;
           if (function.nativeCallbacks && type.callable)
             continue;
           if (!function.bufferCounts.empty() && isByteBuffer(output_, type))
@@ -1574,7 +1582,9 @@ private:
                 function.name);
         }
         if (!fn.declaredResult ||
-            (function.bufferCounts.empty() && !allowed(*fn.declaredResult, true)))
+            (function.bufferCounts.empty() && !allowed(*fn.declaredResult, true) &&
+             (function.subscriptionRelease.empty() ||
+              ownedResourceKind(output_, *fn.declaredResult) != OwnedResourceKind::Subscription)))
           error("S093", "native imports return a 32/64-bit number or unit", function.name);
       }
       if (function.cExport) {
@@ -1880,6 +1890,8 @@ private:
     }
     ForeignCall call{name(fn.declaration), {}};
     call.mainThreadOnly = syntax.nativeMainThread;
+    if (!syntax.nativeCallbacks)
+      call.subscriptionRelease = syntax.subscriptionRelease;
     for (auto param : fn.parameters) {
       auto value = add(frame, output_.symbols[param].type, fn.declaration, SymbolRead{param});
       if (!value)
@@ -7394,6 +7406,38 @@ private:
       }
       ForeignCall call{name(syntax_.functions[id].name), operands};
       call.mainThreadOnly = syntax_.functions[id].nativeMainThread;
+      if (auto pos = syntax_.functions[id].blockParameter) {
+        const auto *ref = std::get_if<FunctionReference>(&node(operands[*pos]).operation);
+        if (!ref || std::ranges::any_of(ref->captures, [&](ValueId capture) {
+              const auto &t = node(capture).type;
+              return !typeFacts(t).plainHostScalar() || t.builtin != BuiltinValue::Numeric ||
+                     describeNumeric(t.element)->bits < 32;
+            })) {
+          error("S093",
+                "a native block requires a function literal or named function with scalar captures",
+                span);
+          return {};
+        }
+        call.subscriptionRelease = syntax_.functions[id].subscriptionRelease;
+        const auto &forwarded = syntax_.functions[id].forwardedCaptures;
+        if (!forwarded.empty()) {
+          if (ref->captures.size() != forwarded.size() ||
+              !std::equal(forwarded.begin(), forwarded.end(), ref->captures.begin(),
+                          [&](const auto &expected, ValueId value) {
+                            return describeNumeric(node(value).type.element)->sourceName ==
+                                   expected;
+                          })) {
+            error("S093", "captured values must match the adapter's forwarded scalar types", span);
+            return {};
+          }
+        }
+        call.block = NativeBlockCall{call.symbol, ref->function, *pos, !forwarded.empty()};
+        call.symbol = "kalandra.block.register." + std::to_string(output_.expressions.size());
+        call.arguments.erase(call.arguments.begin() + *pos);
+        call.arguments.insert(call.arguments.begin() + *pos, ref->captures.begin(),
+                              ref->captures.end());
+        return add(frame, std::move(resultType), span, std::move(call));
+      }
       call.callbacks.resize(operands.size());
       for (std::size_t i = 0; i < operands.size(); ++i) {
         if (!node(operands[i]).type.callable)
