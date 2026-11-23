@@ -69,6 +69,7 @@ struct Options {
   std::uint32_t maxInFlight = 64, defaultDevice = 0;
   bool allowSoftwareFallback = false, enableFloat64 = true;
   bool enableTiledMatmul = true;
+  const TensorPublication *publication = nullptr;
 };
 struct Stats {
   std::uint64_t bytes = 0, inFlight = 0, argumentBytes = 0;

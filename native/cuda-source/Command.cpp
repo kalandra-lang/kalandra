@@ -28,8 +28,8 @@ constexpr auto backendExeSuffix = KALANDRA_CUDA_EXE_SUFFIX;
 constexpr auto backendTransformSuffix = ".cuda-transform", backendKernelExtension = ".ptx";
 void buildGpuProgram(cli::BuildProgress &progress, const std::filesystem::path &directory,
                      const std::map<std::string, std::string> &outputs, const std::string &variant,
-                     Optimization level, ArithmeticMode arithmetic, MatmulPolicy matmul) {
-  buildCudaProgram(progress, directory, outputs, variant, level, arithmetic, matmul);
+                     Optimization level, ArithmeticMode arithmetic, MatmulPolicy matmul, bool bundle) {
+  buildCudaProgram(progress, directory, outputs, variant, level, arithmetic, matmul, bundle);
 }
 std::vector<std::string> kernelBuildPaths(const std::string &base, ArithmeticMode arithmetic) {
   std::vector<std::string> paths{base + ".ptx", base + ".ptx.json", base + ".ptx.fixed-tree.ptx",
@@ -41,6 +41,6 @@ std::vector<std::string> kernelBuildPaths(const std::string &base, ArithmeticMod
   return paths;
 }
 } // namespace
-int kalandra::compileCudaCommand(int argc, char **argv, bool application, cli::Output feedback) {
+int kalandra::compileCudaCommand(int argc, char **argv, bool application, cli::Output feedback, bool bundle) {
 #include "../gpu-source/SourceCommand.inc"
 }

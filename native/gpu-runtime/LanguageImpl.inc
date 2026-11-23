@@ -31,7 +31,8 @@ struct Registry {
           AsyncRuntime::create(context.driver, {.maxPending = options.maxInFlight,
                                                 .maxCaptureBytes = options.maxArgumentBytes,
                                                 .metadataBudget = metadata,
-                                                .pendingBudget = pending});
+                                                .pendingBudget = pending,
+                                                .publication = options.publication});
       if (!context.async)
         return std::unexpected(Error::Allocation);
       context.async->holdCompletions(held);

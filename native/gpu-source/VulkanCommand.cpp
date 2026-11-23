@@ -28,8 +28,8 @@ constexpr auto backendExeSuffix = KALANDRA_VULKAN_EXE_SUFFIX;
 constexpr auto backendTransformSuffix = ".vulkan-transform", backendKernelExtension = ".spv";
 void buildGpuProgram(cli::BuildProgress &progress, const std::filesystem::path &directory,
                      const std::map<std::string, std::string> &outputs, const std::string &variant,
-                     Optimization level, ArithmeticMode arithmetic, MatmulPolicy matmul) {
-  buildVulkanProgram(progress, directory, outputs, variant, level, arithmetic, matmul);
+                     Optimization level, ArithmeticMode arithmetic, MatmulPolicy matmul, bool bundle) {
+  buildVulkanProgram(progress, directory, outputs, variant, level, arithmetic, matmul, bundle);
 }
 std::vector<std::string> kernelBuildPaths(const std::string &base, ArithmeticMode arithmetic) {
   std::vector<std::string> paths{base + ".spv.fixed-tree.spv"};
@@ -41,6 +41,6 @@ std::vector<std::string> kernelBuildPaths(const std::string &base, ArithmeticMod
   return paths;
 }
 } // namespace
-int kalandra::compileVulkanCommand(int argc, char **argv, bool application, cli::Output feedback) {
+int kalandra::compileVulkanCommand(int argc, char **argv, bool application, cli::Output feedback, bool bundle) {
 #include "SourceCommand.inc"
 }

@@ -98,6 +98,7 @@ struct AsyncRuntime::Bridge {
     bool started = false;
     TensorValue tensorOutput{};
     bool tensorResult = false;
+    const TensorPublication *publication = nullptr;
     std::optional<NumericType> scalarType{};
     bool booleanResult = false;
     bool booleanOutput = false;
@@ -108,6 +109,7 @@ struct AsyncRuntime::Bridge {
     auto *frame = new (memory) Frame{data.operation, data.operation->state};
     frame->tensorResult =
         data.operation->program.has_value() || data.operation->transferInput.has_value();
+    frame->publication = data.operation->state->limits.publication;
     frame->scalarType = data.operation->scalarType;
     frame->booleanResult = data.operation->booleanResult;
     return true;
@@ -159,6 +161,8 @@ struct AsyncRuntime::Bridge {
         task.complete(&frame.booleanOutput);
       else if (frame.scalarType)
         task.complete(frame.scalarOutput.data());
+      else if (frame.tensorResult && frame.publication)
+        frame.publication->complete(task, frame.tensorOutput);
       else if (frame.tensorResult)
         task.complete(&frame.tensorOutput);
       else
@@ -329,6 +333,9 @@ struct AsyncRuntime::Bridge {
   static void faultResume(Task &task) {
     task.fault(static_cast<std::int64_t>(static_cast<FaultFrame *>(task.frame())->error));
   }
+  static const TaskEntry &tensorEntry(const State &state) noexcept {
+    return state.limits.publication ? state.limits.publication->entry(programEntry) : programEntry;
+  }
   static const TaskEntry faultEntry, tensorFaultEntry;
   template <class Caller>
   static TaskHandle submit(Caller &caller, GroupHandle group, const TaskEntry &descriptor,
@@ -398,8 +405,8 @@ struct AsyncRuntime::Bridge {
       operation->upload = upload;
       operation->arrayPage = page;
       PacketData packet{std::move(operation)};
-      return submit(caller, group, programEntry,
-                    {programEntry.packetLayout, &packet, sizeof(packet)});
+      const auto &descriptor = tensorEntry(*packet.operation->state);
+      return submit(caller, group, descriptor, {descriptor.packetLayout, &packet, sizeof(packet)});
     } catch (const std::bad_alloc &) {
       return rejected(caller, group, Error::Allocation, true);
     }
@@ -432,7 +439,7 @@ struct AsyncRuntime::Bridge {
       PacketData packet{std::move(operation)};
       const auto &descriptor = boolean      ? booleanEntry()
                                : scalarType ? scalarEntry(*scalarType)
-                                            : programEntry;
+                                            : tensorEntry(*packet.operation->state);
       return submit(caller, group, descriptor, {descriptor.packetLayout, &packet, sizeof(packet)});
     } catch (const std::bad_alloc &) {
       return rejected(caller, group, Error::Allocation, true, scalarType, boolean);

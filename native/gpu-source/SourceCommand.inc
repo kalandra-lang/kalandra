@@ -213,7 +213,7 @@
         throw std::runtime_error(error.message());
     }
     if (build) {
-      buildGpuProgram(progress, directory, outputs, variant, level, arithmetic, matmul);
+      buildGpuProgram(progress, directory, outputs, variant, level, arithmetic, matmul, bundle);
       progress.built(directory.string(), backendFlag);
     }
     return 0;

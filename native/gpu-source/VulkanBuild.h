@@ -8,4 +8,4 @@
 void buildVulkanProgram(kalandra::cli::BuildProgress &progress, const std::filesystem::path &,
                         const std::map<std::string, std::string> &, const std::string &,
                         kalandra::Optimization level, kalandra::ArithmeticMode,
-                        kalandra::MatmulPolicy);
+                        kalandra::MatmulPolicy, bool bundle = false);

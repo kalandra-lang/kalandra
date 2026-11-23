@@ -108,6 +108,10 @@ if(KALANDRA_BUILD_VULKAN_RUNTIME AND NOT KALANDRA_VULKAN_SANITIZERS AND NOT KALA
     kalandra-packages kalandra-backend kalandra-vulkan-resources LLVM MLIR)
   target_link_libraries(kalandra PRIVATE kalandra-vulkan-source-backend)
   target_compile_definitions(kalandra PRIVATE KALANDRA_HAS_VULKAN_SOURCE=1)
+  if(KALANDRA_BUILD_CUDA_SOURCE AND KALANDRA_BUILD_CUDA_RUNTIME)
+    target_compile_definitions(kalandra-vulkan-source-backend PRIVATE KALANDRA_BUNDLE_COMPILER)
+    target_include_directories(kalandra-vulkan-source-backend PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/../cuda-source/$<CONFIG>")
+  endif()
   add_dependencies(kalandra kalandra-vulkan-lower kalandra-vulkan-extract kalandra-vulkan-language)
 endif()
 

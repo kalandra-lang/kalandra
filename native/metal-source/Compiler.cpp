@@ -6187,7 +6187,7 @@ public:
     }
     lowerCpuModules(outputs, fn.span);
     std::ostringstream host;
-    host << (backend_ != GpuBackend::Metal ? "#include \"Language.h\"\n" : "#include \"Metal.h\"\n")
+    host << (backend_ != GpuBackend::Metal ? "#ifdef KALANDRA_GPU_BUNDLE\n#include \"../gpu-bundle/Language.h\"\n#else\n#include \"Language.h\"\n#endif\n" : "#include \"Metal.h\"\n")
          << R"(#include "../runtime/HostArrays.h"
 #include "../runtime/Console.h"
 #include "../runtime/FileSystem.h"
@@ -6215,7 +6215,7 @@ extern "C" const ValueLayout kalandra_gpu_string_array_layout;
          << (backend_ != GpuBackend::Metal
                  ? (backend_ == GpuBackend::Cuda
                         ? "namespace m = kalandra::runtime::cuda::language;\n"
-                        : "namespace m = kalandra::runtime::vulkan::language;\n")
+                        : "#ifdef KALANDRA_GPU_BUNDLE\nnamespace m = kalandra::runtime::bundle;\n#else\nnamespace m = kalandra::runtime::vulkan::language;\n#endif\n")
                  : "namespace m = kalandra::runtime::metal;\n")
          << " " << aggregateDeclarations << declarations << helperDeclarations << cpuEntries;
     if (mainArray)

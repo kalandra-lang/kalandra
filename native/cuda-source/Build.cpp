@@ -58,7 +58,7 @@ void buildCudaProgram(kalandra::cli::BuildProgress &progress,
                       const std::filesystem::path &directory,
                       const std::map<std::string, std::string> &outputs, const std::string &variant,
                       kalandra::Optimization level, kalandra::ArithmeticMode arithmetic,
-                      kalandra::MatmulPolicy matmul) {
+                      kalandra::MatmulPolicy matmul, bool bundle) {
   if ((matmul != kalandra::MatmulPolicy::FixedTree &&
        matmul != kalandra::MatmulPolicy::Optimized) ||
       (variant != "debug" && variant != "optimized"))
@@ -125,6 +125,7 @@ void buildCudaProgram(kalandra::cli::BuildProgress &progress,
     }
   }
   const auto optimization = kalandra::optimizationFlag(level);
+  if (bundle) return; // The Vulkan pass links the shared host supervisor.
   progress.phase("Compiling host", (directory / "host.cpp").string());
   std::vector<std::string> link{clang};
   link.insert(link.end(), clangFlags.begin(), clangFlags.end());
