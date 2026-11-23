@@ -15,7 +15,8 @@ enum class BufferAction : std::uint32_t {
   IntoArray,
   CheckIndex,
   ReadByte,
-  WriteByte
+  WriteByte,
+  NativeCall
 };
 inline std::optional<BufferAction> bufferAction(std::string_view name) {
   constexpr std::string_view names[] = {"byteBuffer", "length", "capacity", "reserve",  "append",
@@ -32,6 +33,7 @@ inline bool mutatesBuffer(BufferAction action) {
 }
 inline bool fallibleBuffer(BufferAction action) {
   return action == BufferAction::Create || action == BufferAction::Reserve ||
-         action == BufferAction::Append || action == BufferAction::Truncate;
+         action == BufferAction::Append || action == BufferAction::Truncate ||
+         action == BufferAction::NativeCall;
 }
 } // namespace kalandra

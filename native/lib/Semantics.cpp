@@ -1403,21 +1403,6 @@ private:
       output_.records[id].fields.push_back({label, *fieldType, field.name});
     }
   }
-  std::optional<ValueType> signatureType(const TypeSyntax &s, bool imported) {
-    if (imported && !s.array && !s.tensor && !s.function && s.arguments.empty() &&
-        s.members.empty()) {
-      ValueType t;
-      if (name(s.name) == "cptr") {
-        t.element = NumericType::UInt64;
-        return t;
-      }
-      if (name(s.name) == "cstr") {
-        t.builtin = BuiltinValue::String;
-        return t;
-      }
-    }
-    return type(s);
-  }
   void registerSignatures(FunctionId start = 0, bool imports = true) {
     const auto end = syntax_.functions.size();
     for (FunctionId id = start; id < end; ++id) {
@@ -1431,11 +1416,8 @@ private:
       if (function.cImport) {
         const auto symbol = name(function.name);
         if (!portableCExportName(symbol) || !function.result || !function.generics.empty() ||
-            function.taskError ||
-            !cImportNames_
-                 .insert(function.objcSelector.empty() ? symbol
-                                                       : "objc_msgSend$" + function.objcSelector)
-                 .second)
+            (function.taskError != !function.bufferCounts.empty()) ||
+            !cImportNames_.insert(symbol).second)
           error("S093",
                 "native imports require a unique C symbol and an explicit concrete signature",
                 function.name);
@@ -1508,7 +1490,7 @@ private:
           error("S005", "duplicate parameter '" + parameterName + "'", parameter.name);
           signatures_[id] = false;
         }
-        auto parameterType = signatureType(parameter.type, function.cImport);
+        auto parameterType = type(parameter.type);
         if (!parameterType) {
           signatures_[id] = false;
           continue;
@@ -1556,7 +1538,7 @@ private:
         }
       }
       if (function.result) {
-        output_.functions[id].declaredResult = signatureType(*function.result, function.cImport);
+        output_.functions[id].declaredResult = type(*function.result);
         if (!output_.functions[id].declaredResult)
           signatures_[id] = false;
         else {
@@ -1577,26 +1559,20 @@ private:
           const auto facts = typeFacts(t);
           return facts.plainHostScalar() &&
                  ((facts.numeric() && describeNumeric(t.element)->bits >= 32) ||
-                  t.builtin == BuiltinValue::Bool ||
-                  (result ? t.builtin == BuiltinValue::Unit : t.builtin == BuiltinValue::String));
+                  (result && t.builtin == BuiltinValue::Unit));
         };
         for (const auto parameter : fn.parameters) {
           const auto &type = output_.symbols[parameter].type;
-          if (!function.objcSelector.empty() && type.record && !type.array && !type.tensor) {
-            const auto &record = output_.records.at(*type.record);
-            if (!record.fields.empty() && record.fields.size() <= 4 &&
-                std::ranges::all_of(record.fields, [](const auto &field) {
-                  return typeFacts(field.type).plainHostScalar() &&
-                         typeFacts(field.type).numeric() &&
-                         field.type.element == NumericType::Float64;
-                }))
-              continue;
-          }
+          if (!function.bufferCounts.empty() && isByteBuffer(output_, type))
+            continue;
           if (!allowed(type, false))
-            error("S093", "native imports accept 32/64-bit numbers or borrowed String parameters",
-                  function.name);
+            error(
+                "S093",
+                "native imports accept 32/64-bit numbers or header-verified ByteBuffer parameters",
+                function.name);
         }
-        if (!fn.declaredResult || !allowed(*fn.declaredResult, true))
+        if (!fn.declaredResult ||
+            (function.bufferCounts.empty() && !allowed(*fn.declaredResult, true)))
           error("S093", "native imports return a 32/64-bit number or unit", function.name);
       }
       if (function.cExport) {
@@ -1885,36 +1861,26 @@ private:
     const auto &syntax = syntax_.functions[id];
     if (!fn.declaredResult)
       return {};
-    const bool objc = !syntax.objcSelector.empty();
-    ForeignCall call{objc ? "objc_msgSend$" + syntax.objcSelector : name(fn.declaration),
-                     {},
-                     {},
-                     name(syntax.result->name) == "cptr",
-                     objc};
-    for (size_t i = 0; i < fn.parameters.size(); ++i) {
-      const auto param = fn.parameters[i];
-      const auto t = output_.symbols[param].type;
-      auto value = add(frame, t, fn.declaration, SymbolRead{param});
-      if (!value)
-        return {};
-      const auto spelling = name(syntax.parameters[i].type.name);
-      auto abi = ForeignArg::Scalar;
-      if (objc && t.record)
-        abi = ForeignArg::FloatAggregate;
-      else if (spelling == "cptr")
-        abi = ForeignArg::Pointer;
-      else if (spelling == "cstr") {
-        abi = ForeignArg::CString;
-        auto nul = add(frame, t, fn.declaration, StringLiteral{std::string(1, '\0')});
-        if (!nul)
-          return {};
-        value = add(frame, t, fn.declaration, StringConcat{*value, *nul});
+    if (!syntax.bufferCounts.empty()) {
+      BufferOperation op{BufferAction::NativeCall, {}, fn.declaration};
+      op.nativeSymbol = name(fn.declaration);
+      op.counts = syntax.bufferCounts;
+      for (const auto param : fn.parameters) {
+        const auto &sym = output_.symbols[param];
+        auto value = add(frame, sym.type, fn.declaration, SymbolRead{param});
         if (!value)
           return {};
-      } else if (t.builtin == BuiltinValue::String)
-        abi = ForeignArg::Bytes;
+        op.arguments.push_back(*value);
+        op.writable.push_back(sym.mutableAccess);
+      }
+      return add(frame, *fn.declaredResult, fn.declaration, std::move(op));
+    }
+    ForeignCall call{name(fn.declaration), {}};
+    for (auto param : fn.parameters) {
+      auto value = add(frame, output_.symbols[param].type, fn.declaration, SymbolRead{param});
+      if (!value)
+        return {};
       call.arguments.push_back(*value);
-      call.abi.push_back(abi);
     }
     return add(frame, *fn.declaredResult, fn.declaration, std::move(call));
   }
@@ -3352,7 +3318,7 @@ private:
         return {};
       }
       if (syntax_.functions[id].cImport) {
-        error("S093", "native imports require an explicit unsafe call", read.name);
+        error("S093", "use a named wrapper to take a native function as a value", read.name);
         return {};
       }
       if (standardFormat(id)) {
@@ -3701,16 +3667,8 @@ private:
       }
       return invokeValue(frame, span, call.callee, call.arguments);
     }
-    if (call.unsafeForeign) {
-      const auto found = functions_.find(functionKey(frame, name(callee->name)));
-      if (found == functions_.end() || !syntax_.functions[found->second].cImport ||
-          lookupSymbol(frame, callee->name) || spawned || selection) {
-        error("S093", "unsafe calls require a synchronous native import", span);
-        return {};
-      }
-    }
     return invoke(frame, span, callee->name, call.arguments, expected, selection, checkedSelection,
-                  spawned, {}, {}, call.unsafeForeign);
+                  spawned);
   }
   std::optional<ValueId> invokeValue(Frame &frame, SourceSpan span, ExprId callee,
                                      const std::vector<ExprId> &arguments) {
@@ -7083,12 +7041,13 @@ private:
     }
     return {};
   }
-  std::optional<ValueId>
-  invoke(Frame &frame, SourceSpan span, SourceSpan calleeSpan, const std::vector<ExprId> &arguments,
-         const std::optional<ValueType> &expected, std::optional<ExprId> selection = {},
-         std::optional<ValueId> *checkedSelection = nullptr, bool spawned = false,
-         std::optional<FunctionId> concreteTarget = {},
-         std::optional<std::vector<ValueId>> concreteArguments = {}, bool unsafeForeign = false) {
+  std::optional<ValueId> invoke(Frame &frame, SourceSpan span, SourceSpan calleeSpan,
+                                const std::vector<ExprId> &arguments,
+                                const std::optional<ValueType> &expected,
+                                std::optional<ExprId> selection = {},
+                                std::optional<ValueId> *checkedSelection = nullptr,
+                                bool spawned = false, std::optional<FunctionId> concreteTarget = {},
+                                std::optional<std::vector<ValueId>> concreteArguments = {}) {
     completeDeviceSelector(frame, calleeSpan);
     completeScope(frame, calleeSpan, true, !spawned && !selection);
     const auto callee = name(calleeSpan);
@@ -7234,10 +7193,6 @@ private:
       return {};
     }
     const auto id = concreteTarget.value_or(found == functions_.end() ? 0 : found->second);
-    if (syntax_.functions[id].cImport && !unsafeForeign) {
-      error("S093", "native imports require an explicit unsafe call", span);
-      return {};
-    }
     if (standardWorkgroupDispatch(id)) {
       if (spawned || selection) {
         error("S087", "place a function containing dispatch on the GPU, not dispatch itself", span);

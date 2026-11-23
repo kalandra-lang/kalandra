@@ -241,6 +241,23 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     shell('projects', 0, project, '42')
     shell('projects', 1, project, '42')
 
+    header_index, header = blocks('projects', 'c')[0]
+    if sys.platform == 'darwin':
+        # Compile the header exactly as rendered against the example's C body.
+        consumer = BASE / 'counted-bytes'
+        for filename in ('bytes.c', 'main.k', 'kalandra.toml'):
+            write(consumer / filename, (ROOT / 'native/examples/counted-bytes' / filename).read_text())
+        write(consumer / 'bytes.h', header)
+        command(['xcrun', 'clang', '-std=c17', '-fbounds-safety', '-Werror', '-c', 'bytes.c'], consumer)
+        command(['ar', 'rcs', 'libbytes.a', 'bytes.o'], consumer)
+        command([TOOLS / 'kalandra', '--project', 'kalandra.toml', '-o', 'demo'], consumer)
+        command([consumer / 'demo'], consumer, '11 22 0')
+        RESULTS.append({'page': 'projects', 'block': header_index, 'kind': 'c-binding', 'status': 'passed'})
+    else:
+        RESULTS.append({'page': 'projects', 'block': header_index, 'kind': 'c-binding',
+                        'status': 'not-run', 'reason': 'Requires bounds-safety-capable Apple Clang'})
+    COVERED.add(('projects', header_index))
+
     # Real local Git installation, frozen/offline graph reuse, then a named update.
     packages = BASE / 'packages-workflow'
     packages.mkdir()

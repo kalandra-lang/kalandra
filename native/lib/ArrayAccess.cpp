@@ -921,7 +921,11 @@ private:
               rememberResource(argument, args.back(), env, uses);
             }
             validateResources(uses, env);
-            if (op.action != BufferAction::Create && mutatesBuffer(op.action)) {
+            if (op.action == BufferAction::NativeCall) {
+              for (size_t i = 0; i < op.writable.size(); ++i)
+                if (op.writable[i])
+                  write(op.arguments[i], args[i], env, spawned);
+            } else if (op.action != BufferAction::Create && mutatesBuffer(op.action)) {
               write(op.arguments[0], args[0], env, spawned);
               if (op.action == BufferAction::IntoArray)
                 consume(op.arguments[0], args[0], env);

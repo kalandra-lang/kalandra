@@ -224,6 +224,9 @@ struct BufferOperation {
   BufferAction action;
   std::vector<ValueId> arguments;
   SourceSpan source = {};
+  std::string nativeSymbol = {};
+  std::vector<int> counts = {};
+  std::vector<bool> writable = {};
 };
 struct WorkgroupOperation {
   WorkgroupOperationMetadata metadata;
@@ -240,13 +243,9 @@ struct GeneratorCreate {
   std::vector<ValueId> captures;
 };
 
-enum class ForeignArg { Scalar, Pointer, Bytes, CString, FloatAggregate };
 struct ForeignCall {
   std::string symbol;
   std::vector<ValueId> arguments;
-  std::vector<ForeignArg> abi;
-  bool pointerResult = false;
-  bool objc = false;
 };
 struct TimeOperation {
   TimeAction action;

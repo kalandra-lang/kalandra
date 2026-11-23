@@ -34,19 +34,27 @@ def main():
                             f'header="geometry.h"\nlibrary="{archive.name}"\n')
         source = project / "main.k"
         source.write_text('from "geometry" import twice, half\nfrom "std/process" import ExitStatus\n'
+                          'fn unsafe(n: i32) -> i32:\n  return n\n'
                           'fn main() -> ExitStatus:\n'
-                          '  if unsafe twice(21) == 42 and unsafe half(7.0) == 3.5:\n'
+                          '  if twice(unsafe(21)) == 42 and half(7.0) == 3.5:\n'
                           '    return ExitStatus {code: 0}\n  return ExitStatus {code: 1}\n')
         executable = root / ("consumer.exe" if os.name == "nt" else "consumer")
         subprocess.run([tools.checker, "--project", manifest], cwd=root, check=True)
         subprocess.run([tools.compiler, "--project", manifest, "-o", executable], cwd=root, check=True)
         subprocess.run([executable], cwd=root, check=True)
-        source.write_text(source.read_text().replace("unsafe twice", "twice"))
+        config = manifest.read_text()
+        manifest.write_text(config + 'parameters = { value = "borrow" }\n')
         denied = subprocess.run([tools.checker, "--project", manifest], cwd=root, capture_output=True)
-        assert denied.returncode and b"unsafe" in denied.stderr, denied
-        header.write_text("typedef struct Missing Bad; Bad unsupported(void);\n")
+        assert denied.returncode and b"header" in denied.stderr, denied
+        manifest.write_text(config)
+        original = source.read_text()
+        source.write_text('extern "C" fn invented(x: i32) -> i32\n' + original)
         denied = subprocess.run([tools.checker, "--project", manifest], cwd=root, capture_output=True)
-        assert denied.returncode and b"no supported external C scalar prototype" in denied.stderr, denied
+        assert denied.returncode and b"imported C header" in denied.stderr, denied
+        source.write_text(original.replace("twice, half", "unsupported"))
+        denied = subprocess.run([tools.checker, "--project", manifest], cwd=root, capture_output=True)
+        assert denied.returncode and b"unsupported" in denied.stderr, denied
+
 
 
 if __name__ == "__main__":

@@ -92,5 +92,29 @@ int main() {
       module.records[1] = error;
     }
   }
-  std::puts("ByteBuffer: all twelve capability contracts and malformed layouts passed");
+  ValueType count;
+  count.element = NumericType::UInt64;
+  ValueType result;
+  result.builtin = BuiltinValue::Unit;
+  result.fallible = true;
+  result.errorRecord = 1;
+  module.expressions = {{{}, count, Int64Literal{0}}, {{}, nominal, Int64Literal{0}}};
+  TypedExpr call{
+      {},
+      result,
+      BufferOperation{BufferAction::NativeCall, {0, 1}, {}, "fill", {-1, 0}, {false, true}}};
+  CHECK(!bufferCapabilityError(module, call, NumericTarget::Cpu));
+  CHECK(bufferCapabilityError(module, call, NumericTarget::AppleGpu));
+  auto &contract = std::get<BufferOperation>(call.operation);
+  for (auto invalid : {1, 2, -1, -2}) {
+    contract.counts[1] = invalid;
+    CHECK(bufferCapabilityError(module, call, NumericTarget::Cpu));
+  }
+  contract.counts[1] = 0;
+  contract.writable[0] = true;
+  CHECK(bufferCapabilityError(module, call, NumericTarget::Cpu));
+  contract.writable[0] = false;
+  module.expressions[0].type.element = NumericType::Int64;
+  CHECK(bufferCapabilityError(module, call, NumericTarget::Cpu));
+  std::puts("ByteBuffer capability contracts and malformed layouts passed");
 }

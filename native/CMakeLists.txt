@@ -289,8 +289,11 @@ if(BUILD_TESTING)
   if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
     add_test(NAME native-apple-sdk-imports COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/AppleImportTests.py" --compiler "$<TARGET_FILE:kalandra>"
-      --checker "$<TARGET_FILE:kalandra-check>" --example "${CMAKE_CURRENT_SOURCE_DIR}/examples/appkit")
-    set_tests_properties(native-apple-sdk-imports PROPERTIES TIMEOUT 120)
+      --checker "$<TARGET_FILE:kalandra-check>")
+    add_test(NAME native-c-counted-imports COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/CountedImportTests.py" --compiler "$<TARGET_FILE:kalandra>"
+      --checker "$<TARGET_FILE:kalandra-check>")
+    set_tests_properties(native-apple-sdk-imports native-c-counted-imports PROPERTIES TIMEOUT 180)
   endif()
   add_test(NAME native-c-header-imports COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/CImportTests.py" --compiler "$<TARGET_FILE:kalandra>"

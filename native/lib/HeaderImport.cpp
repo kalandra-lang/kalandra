@@ -12,6 +12,7 @@
 
 namespace kalandra {
 namespace {
+#ifndef __APPLE__
 using Types = std::map<std::string, std::string, std::less<>>;
 std::string scalar(llvm::StringRef type, const Types &aliases) {
   type = type.trim();
@@ -86,8 +87,15 @@ readHeader(const std::string &header, const std::string &clang,
   if (auto ec = llvm::sys::fs::createTemporaryFile("kalandra-header", "json", output))
     return std::unexpected(ec.message());
   llvm::FileRemover remove(output);
-  std::vector<llvm::StringRef> args{
-      clang, "-x", "c", "-std=c17", "-fsyntax-only", "-Xclang", "-ast-dump=json"};
+  std::vector<llvm::StringRef> args{clang,
+                                    "-x",
+                                    "c",
+                                    "-std=c17",
+                                    "-Werror=unknown-attributes",
+                                    "-Werror=ignored-attributes",
+                                    "-fsyntax-only",
+                                    "-Xclang",
+                                    "-ast-dump=json"};
   const auto resourcePath = resources ? resources->string() : std::string{};
   if (resources)
     args.insert(args.end(), {"-resource-dir", resourcePath});
@@ -128,7 +136,9 @@ readHeader(const std::string &header, const std::string &clang,
             aliases);
     } else if (kind == "FunctionDecl" && wanted.contains(name->str())) {
       auto line = declaration(*decl, aliases);
-      if (!line.empty() && emitted.insert(name->str()).second)
+      if (line.empty())
+        return std::unexpected(header + ": unsupported C prototype for " + name->str());
+      if (emitted.insert(name->str()).second)
         source += line;
     }
   }
@@ -137,6 +147,7 @@ readHeader(const std::string &header, const std::string &clang,
       return std::unexpected(header + ": no supported external C scalar prototype for " + name);
   return source;
 }
+#endif
 // Ask the selected driver for its effective C include search order, including
 // the platform SDK and toolchain resource directory.
 std::expected<std::string, std::string>
@@ -233,11 +244,17 @@ loadApplicationModules(const std::string &entry, std::span<const ModulePackage> 
     auto found = requests.find(import.moduleEntry);
     if (found == requests.end())
       continue;
+    auto bounds = std::make_shared<HeaderBounds>();
     auto source = [&]() -> std::expected<std::string, std::string> {
-      if (import.system.empty())
-        return readHeader(import.header, clang, resources, found->second);
+      if (import.system.empty()) {
 #ifdef __APPLE__
-      auto framework = importAppleFramework(import.system, found->second);
+        return importAppleCHeader(import.header, found->second, *bounds);
+#else
+        return readHeader(import.header, clang, resources, found->second);
+#endif
+      }
+#ifdef __APPLE__
+      auto framework = importAppleFramework(import.system, found->second, *bounds);
       if (!framework)
         return std::unexpected(framework.error());
       if (*framework) {
@@ -252,10 +269,15 @@ loadApplicationModules(const std::string &entry, std::span<const ModulePackage> 
         return std::unexpected(header.error());
       if (systemLinkArgs)
         systemLinkArgs->push_back("-l" + import.system);
+#ifdef __APPLE__
+      return importAppleCHeader(*header, found->second, *bounds);
+#else
       return readHeader(*header, clang, resources, found->second);
+#endif
     }();
     if (!source)
       return std::unexpected(source.error());
+    overlays[first + i].header = std::move(bounds);
     overlays[first + i].text = std::move(*source);
   }
   return load();

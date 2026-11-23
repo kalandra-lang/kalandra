@@ -877,11 +877,6 @@ int main(int argc, char **argv) {
   command.insert(command.end(), archives.begin(), archives.end());
   command.insert(command.end(), linkLibraries.begin(), linkLibraries.end());
   command.insert(command.end(), systemLinkArgs.begin(), systemLinkArgs.end());
-  if (std::ranges::any_of(typed.module->expressions, [](const auto &expression) {
-        auto *foreign = std::get_if<kalandra::ForeignCall>(&expression.operation);
-        return foreign && foreign->objc;
-      }))
-    command.emplace_back("-lobjc");
   const auto objectPath = (staged.path / "c-exports.o").generic_string();
   command.insert(command.end(), {"-o", emit == "static" ? objectPath : linkedOutput});
   if (sanitize) {

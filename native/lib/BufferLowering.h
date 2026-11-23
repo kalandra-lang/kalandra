@@ -21,35 +21,81 @@ inline void emitBufferOperation(llvm::IRBuilder<> &b, llvm::Module &module,
   auto *fn = b.GetInsertBlock()->getParent();
   auto block = [&](const char *name) { return llvm::BasicBlock::Create(context, name, fn); };
   auto *args = bufferArgumentsType(types, context), *transport = bufferResultType(types, context);
-  b.CreateStore(llvm::Constant::getNullValue(args), arguments);
-  auto put = [&](unsigned field, llvm::Value *input) {
-    b.CreateStore(b.CreateLoad(args->getElementType(field), input),
-                  b.CreateStructGEP(args, arguments, field));
-  };
-  if (op.action == BufferAction::Create)
-    put(2, inputs.at(0));
-  else {
-    put(0, inputs.at(0));
-    if (inputs.size() > 1) {
-      if (op.action == BufferAction::CheckIndex || op.action == BufferAction::ReadByte ||
-          op.action == BufferAction::WriteByte) {
-        const auto &index = input.expressions.at(op.arguments.at(1)).type;
-        llvm::Value *word = b.CreateLoad(types.scalar(index), inputs.at(1));
-        word = b.CreateIntCast(word, b.getInt64Ty(), !isUnsigned(index.element));
-        b.CreateStore(word, b.CreateStructGEP(args, arguments, 2));
-      } else
-        put(op.action == BufferAction::Append ? 1 : 2, inputs.at(1));
-    }
-    if (op.action == BufferAction::WriteByte)
-      put(3, inputs.at(2));
-  }
-  const auto [line, column] = input.source->location(op.source.begin);
-  b.CreateStore(b.getInt64(line), b.CreateStructGEP(args, arguments, 4));
-  b.CreateStore(b.getInt64(column), b.CreateStructGEP(args, arguments, 5));
   b.CreateStore(llvm::Constant::getNullValue(packetType), packet);
-  auto runtime = module.getOrInsertFunction("kalandra_buffer_v1", b.getVoidTy(), b.getPtrTy(),
-                                            b.getPtrTy(), b.getInt32Ty(), b.getPtrTy());
-  b.CreateCall(runtime, {ctx, scratch, b.getInt32(unsigned(op.action)), arguments});
+  if (op.action == BufferAction::NativeCall) {
+    auto *ptr = b.getPtrTy();
+    auto *slotType = llvm::StructType::get(context, {ptr, b.getInt64Ty(), b.getInt32Ty()});
+    llvm::IRBuilder<> entry(&fn->getEntryBlock(), fn->getEntryBlock().begin());
+    auto *slots = entry.CreateAlloca(slotType, b.getInt32(inputs.size()), "native.args");
+    auto *adapterType = llvm::FunctionType::get(b.getVoidTy(), {ptr}, false);
+    auto *adapter = llvm::Function::Create(adapterType, llvm::GlobalValue::InternalLinkage,
+                                           "kalandra.native." + op.nativeSymbol, module);
+    llvm::IRBuilder<> call(llvm::BasicBlock::Create(context, "entry", adapter));
+    std::vector<llvm::Type *> signature;
+    std::vector<llvm::Value *> values;
+    for (unsigned i = 0; i < inputs.size(); ++i) {
+      auto *slot = b.CreateInBoundsGEP(slotType, slots, b.getInt32(i));
+      b.CreateStore(inputs[i], b.CreateStructGEP(slotType, slot, 0));
+      auto *value =
+          call.CreateLoad(ptr, call.CreateInBoundsGEP(ptr, adapter->getArg(0), call.getInt32(i)));
+      llvm::Value *extent = b.getInt64(0);
+      if (op.counts[i] >= 0) {
+        const auto n = unsigned(op.counts[i]);
+        extent = b.CreateZExtOrTrunc(
+            b.CreateLoad(types.scalar(input.expressions[op.arguments[n]].type), inputs[n]),
+            b.getInt64Ty());
+        signature.push_back(ptr);
+        values.push_back(value);
+      } else {
+        auto *scalar = types.scalar(input.expressions[op.arguments[i]].type);
+        signature.push_back(scalar);
+        values.push_back(call.CreateLoad(scalar, value));
+      }
+      b.CreateStore(extent, b.CreateStructGEP(slotType, slot, 1));
+      b.CreateStore(b.getInt32(op.counts[i] < 0 ? 0
+                               : op.writable[i] ? 2
+                                                : 1),
+                    b.CreateStructGEP(slotType, slot, 2));
+    }
+    auto callee = module.getOrInsertFunction(
+        op.nativeSymbol, llvm::FunctionType::get(b.getVoidTy(), signature, false));
+    call.CreateCall(callee, values);
+    call.CreateRetVoid();
+    auto runtime = module.getOrInsertFunction("kalandra_native_buffers_v1", b.getInt32Ty(), ptr,
+                                              ptr, b.getInt32Ty(), ptr);
+    auto *kind = b.CreateCall(runtime, {ctx, slots, b.getInt32(inputs.size()), adapter});
+    b.CreateStore(kind, b.CreateStructGEP(transport, scratch, 0));
+  } else {
+    b.CreateStore(llvm::Constant::getNullValue(args), arguments);
+    auto put = [&](unsigned field, llvm::Value *input) {
+      b.CreateStore(b.CreateLoad(args->getElementType(field), input),
+                    b.CreateStructGEP(args, arguments, field));
+    };
+    if (op.action == BufferAction::Create)
+      put(2, inputs.at(0));
+    else {
+      put(0, inputs.at(0));
+      if (inputs.size() > 1) {
+        if (op.action == BufferAction::CheckIndex || op.action == BufferAction::ReadByte ||
+            op.action == BufferAction::WriteByte) {
+          const auto &index = input.expressions.at(op.arguments.at(1)).type;
+          llvm::Value *word = b.CreateLoad(types.scalar(index), inputs.at(1));
+          word = b.CreateIntCast(word, b.getInt64Ty(), !isUnsigned(index.element));
+          b.CreateStore(word, b.CreateStructGEP(args, arguments, 2));
+        } else
+          put(op.action == BufferAction::Append ? 1 : 2, inputs.at(1));
+      }
+      if (op.action == BufferAction::WriteByte)
+        put(3, inputs.at(2));
+    }
+    const auto [line, column] = input.source->location(op.source.begin);
+    b.CreateStore(b.getInt64(line), b.CreateStructGEP(args, arguments, 4));
+    b.CreateStore(b.getInt64(column), b.CreateStructGEP(args, arguments, 5));
+    b.CreateStore(llvm::Constant::getNullValue(packetType), packet);
+    auto runtime = module.getOrInsertFunction("kalandra_buffer_v1", b.getVoidTy(), b.getPtrTy(),
+                                              b.getPtrTy(), b.getInt32Ty(), b.getPtrTy());
+    b.CreateCall(runtime, {ctx, scratch, b.getInt32(unsigned(op.action)), arguments});
+  }
   auto ready =
       module.getOrInsertFunction("kalandra_invocation_ready_v1", b.getInt1Ty(), b.getPtrTy());
   auto *dispatch = block("buffer.ready"), *ok = block("buffer.success"),
