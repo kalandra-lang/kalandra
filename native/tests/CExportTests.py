@@ -3,6 +3,7 @@ import argparse
 import os
 import platform
 import re
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -53,7 +54,10 @@ fn main() -> ExitStatus:
         modes.append("--sanitize")
     for mode in modes:
         run(args.compiler, "--project", "kalandra.toml", mode, "--emit-llvm", "app.ll", "-o", exe, cwd=path)
-        run(exe, cwd=path)
+        try:
+            run(exe, cwd=path)
+        except AssertionError as error:
+            raise AssertionError(f"callback application failed at {mode}") from error
         ir = (path / "app.ll").read_text()
         for symbol in ("identity", "answer"):
             assert re.search(rf"^define internal .*@kalandra_c_callback_{symbol}\(", ir, re.M)
@@ -263,6 +267,18 @@ def main():
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="kalandra C export ") as root:
         path = Path(root)
+        if os.name == "nt" and platform.machine().lower() not in {"arm64", "aarch64"}:
+            # ASan applications import a versionless DLL. Pick the one from the
+            # compiler that produced their instrumentation even in an MSVC shell.
+            resource = Path(subprocess.check_output(
+                [args.cc, "-print-resource-dir"], text=True).strip())
+            dll_name = "clang_rt.asan_dynamic-x86_64.dll"
+            dll = next((p for p in (resource / "lib/windows" / dll_name,
+                                    Path(args.cc).resolve().parent / dll_name)
+                        if p.is_file()), None)
+            if dll is None:
+                raise RuntimeError(f"Missing {dll_name} in the selected LLVM toolchain")
+            shutil.copy2(dll, path / dll_name)
         check_application_callback(args, path)
         check_retained_callback(args, path)
         check_captured_subscription(args, path)

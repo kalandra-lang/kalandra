@@ -1,5 +1,6 @@
 """Round-trip exact UTF-8 bytes, native layout, handle identity and package imports."""
 import argparse
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -30,6 +31,8 @@ int inspect(struct device * _Nonnull a __attribute__((noescape,use_handle("Devic
             unsigned size, const char * _Nonnull bytes __attribute__((noescape)),
             struct device * _Nonnull b __attribute__((noescape,use_handle("DeviceHandle"))))
     __attribute__((diagnose_if(size > __builtin_object_size(bytes,0),"invalid byte range","error")));
+struct Sample shifted(struct Sample value, double offset);
+struct Sample defaults(void);
 int liveCount(void);
 '''
     (package/'measure.h').write_text(header)
@@ -50,6 +53,11 @@ int inspect(struct device *a, const struct Sample v[static 1], unsigned size,
     return a->id == 2 && b->id == 3 && v->scale == -2 && v->reading == 3.25 && v->tag == 5 &&
         (size == 0 || (size == sizeof(expected) && memcmp(text,expected,size)==0));
 }
+struct Sample shifted(struct Sample value, double offset) {
+    value.reading += offset;
+    return value;
+}
+struct Sample defaults(void) { return (struct Sample){-2, 1.0, 5}; }
 int liveCount(void) { return live; }
 ''')
     manifest = '''format=1
@@ -65,12 +73,12 @@ windows={source="measure.c"}
 macos={source="measure.c"}
 '''
     (package/'kalandra.toml').write_text(manifest)
-    (package/'measure.k').write_text('''from "driver" import attach, detach, inspect, Sample, liveCount
+    (package/'measure.k').write_text('''from "driver" import attach, detach, inspect, shifted, defaults, Sample, liveCount
 
 fn measure(text: String) -> bool:
   left = attach(2)
   right = attach(3)
-  value = Sample {scale: -2, reading: 3.25, tag: 5}
+  value = shifted(defaults(), 2.25)
   ok = inspect(left, value, text, right) == 1
   detach(left)
   return ok and liveCount() == 1
@@ -86,7 +94,7 @@ export fn verified(text: String) -> bool:
 [project]
 entry="main.k"
 [dependencies.measure]
-git="{package.as_posix()}"
+git={json.dumps(str(package))}
 rev="{revision}"
 ''')
     (app/'main.k').write_text('''from "measure" import verified
@@ -95,7 +103,7 @@ fn main() -> ExitStatus:
   if verified("A\\u{0}☃") and verified(""):
     return ExitStatus {code: 0}
   return ExitStatus {code: 1}
-''')
+''', encoding="utf-8")
     run([compiler,'install','--project','kalandra.toml'], app)
     exe = app/'roundtrip.exe'
     for mode in ('-O0','-O2'):

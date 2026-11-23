@@ -166,8 +166,8 @@ bool opaquePointer(clang::QualType t) {
     return false;
   auto target = ptr->getPointeeType();
   const auto *record = target->getAsRecordDecl();
-  return record && record->isStruct() && record->getIdentifier() &&
-         !record->getDefinition() && !target.hasQualifiers() && !target.hasAddressSpace();
+  return record && record->isStruct() && record->getIdentifier() && !record->getDefinition() &&
+         !target.hasQualifiers() && !target.hasAddressSpace();
 }
 bool handleType(clang::ASTContext &ctx, clang::QualType t) {
   return scalar(ctx, t) == "u64" || opaquePointer(t);
@@ -204,7 +204,7 @@ const clang::ReleaseHandleAttr *subscriptionRelease(const clang::FunctionDecl &f
 // Verify both the nominal family and the target C type before borrowing or
 // transferring a handle. A shared family spelling cannot coerce pointer types.
 std::expected<std::string, std::string> disposer(clang::ASTContext &ctx, llvm::StringRef family,
-                                                clang::QualType type) {
+                                                 clang::QualType type) {
   std::string name;
   for (auto *decl : ctx.getTranslationUnitDecl()->decls()) {
     const auto *fn = llvm::dyn_cast<clang::FunctionDecl>(decl);
@@ -245,8 +245,8 @@ recordArgument(const clang::RecordDecl &decl, NativeRecords &records, NativePara
   return name;
 }
 
-std::expected<std::string, std::string> declaration(const clang::FunctionDecl &fn,
-                                                    HeaderContracts &bounds, NativeRecords &records) {
+std::expected<std::string, std::string>
+declaration(const clang::FunctionDecl &fn, HeaderContracts &bounds, NativeRecords &records) {
   const auto name = fn.getNameAsString();
   auto reject = [&](const char *reason) { return std::unexpected(name + ": " + reason); };
   // acquire_handle on a return can decorate the function *type*, so fn.attrs()
@@ -341,7 +341,8 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
         !arg->hasAttr<clang::NoEscapeAttr>() ||
         std::distance(arg->attr_begin(), arg->attr_end()) != 1 ||
         fn.getParamDecl(count)->hasAttrs() || std::ranges::count(counts, counts[i]) != 1)
-      return reject("text requires a dedicated unsigned byte count and a nonescaping non-null pointer");
+      return reject(
+          "text requires a dedicated unsigned byte count and a nonescaping non-null pointer");
     native[i].abi = NativeParameterABI::Text;
     native[count].abi = NativeParameterABI::TextLength;
     native[count].argument = i;
@@ -352,7 +353,19 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
     return reject("mixed text and ByteBuffer contracts are unsupported");
   borrowed = byteBuffers;
   auto result = scalar(ctx, fn.getReturnType());
-  if ((result.empty() && !(acquire && opaquePointer(fn.getReturnType()))) || (borrowed && result != "unit"))
+  bool bridge = false;
+  std::vector<bool> indirect(fn.getNumParams());
+  if (const auto *record = fn.getReturnType()->getAsRecordDecl()) {
+    NativeParameterLayout layout;
+    auto type = recordArgument(*record, records, layout);
+    if (!type)
+      return reject(type.error().c_str());
+    result = *type;
+    bounds[name].nativeABI.recordResult = std::move(layout);
+    bridge = true;
+  }
+  if ((result.empty() && !(acquire && opaquePointer(fn.getReturnType()))) ||
+      (borrowed && result != "unit"))
     return reject("unsupported native result");
   bool callbacks = false;
   std::string source = "export extern \"C\" fn " + name + "(";
@@ -382,6 +395,15 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
         return reject(name.error().c_str());
       type = *name;
       adapted = true;
+    } else if (const auto *record = t->getAsRecordDecl()) {
+      if (arg->hasAttrs())
+        return reject("unsupported native record parameter contract");
+      auto imported = recordArgument(*record, records, native[i]);
+      if (!imported)
+        return reject(imported.error().c_str());
+      type = *imported;
+      indirect[i] = true;
+      adapted = bridge = true;
     } else if (auto *use = arg->getAttr<clang::UseHandleAttr>()) {
       const bool pointer = opaquePointer(t);
       if (!handleType(ctx, t) || resourceName(use->getHandleType()).empty() ||
@@ -438,18 +460,53 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
     for (auto &param : native)
       if (param.abi == NativeParameterABI::TextLength)
         param.argument = native[param.argument].argument;
-    bounds[name].nativeHandles.parameters = std::move(native);
+    bounds[name].nativeABI.parameters = std::move(native);
+  }
+  if (bridge) {
+    if (callbacks || borrowed)
+      return reject("unsupported native record call contract");
+    const auto symbol = "__kalandra_record_" + name;
+    auto &contract = bounds[name];
+    contract.nativeABI.bridge = symbol;
+    // Only Clang classifies a struct passed or returned by value. The compiler
+    // and bridge share a private pointer ABI, independent of the target's
+    // register classification, hidden result pointers and stack arguments.
+    const bool out = contract.nativeABI.recordResult.has_value();
+    const auto cResult = fn.getReturnType().getUnqualifiedType().getAsString();
+    std::string params = out ? ("struct " + result + " *output") : "";
+    std::string args;
+    for (unsigned i = 0; i < fn.getNumParams(); ++i) {
+      if (!params.empty())
+        params += ", ";
+      if (i)
+        args += ", ";
+      auto pname = "p" + std::to_string(i);
+      auto t = fn.getParamDecl(i)->getType().getCanonicalType().getUnqualifiedType();
+      // Array parameters decay at the C function boundary.
+      if (t->isArrayType())
+        t = ctx.getArrayDecayedType(t);
+      params +=
+          (indirect[i] ? "const " : "") + t.getAsString() + (indirect[i] ? " *" : " ") + pname;
+      args += (indirect[i] ? "*" : "") + pname;
+    }
+    if (params.empty())
+      params = "void";
+    contract.bridgeDefinition = (out ? "void" : cResult) + " " + symbol + "(" + params + ") { " +
+                                (out                ? "*output = "
+                                 : result == "unit" ? ""
+                                                    : "return ") +
+                                name + "(" + args + "); }\n";
   }
   if (acquire) {
     bool pointer = opaquePointer(fn.getReturnType());
     if (!handleType(ctx, fn.getReturnType()) || borrowed ||
-        (callbacks && (pointer || !bounds[name].blockParameter ||
-                       !bounds[name].nativeHandles.parameters.empty())))
+        (callbacks &&
+         (pointer || !bounds[name].blockParameter || !bounds[name].nativeABI.parameters.empty())))
       return reject("unsupported native handle acquisition");
     auto close = disposer(ctx, acquire->getHandleType(), fn.getReturnType());
     if (!close)
       return std::unexpected(name + ": " + close.error());
-    bounds[name].nativeHandles.pointerResult = pointer;
+    bounds[name].nativeABI.pointerResult = pointer;
     bounds[name].subscriptionRelease = *close;
     bounds[name].subscriptionFamily = acquire->getHandleType().str();
     result = resourceName(acquire->getHandleType());
@@ -458,7 +515,7 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
     bounds[name].mainThreadOnly = true;
   if (borrowed)
     bounds[name].bufferCounts = std::move(counts);
-  if (callbacks && bounds.contains(name) && !bounds[name].nativeHandles.parameters.empty())
+  if (callbacks && bounds.contains(name) && !bounds[name].nativeABI.parameters.empty())
     return reject("callback registration with a borrowed native handle is unsupported");
   if (callbacks)
     bounds[name].hasCallbacks = true;

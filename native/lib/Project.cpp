@@ -223,9 +223,11 @@ std::expected<Manifest, std::string> loadManifest(std::string path, ProjectLimit
                 return {};
               std::error_code ec;
               auto full = fs::weakly_canonical(manifest.parent_path() / *path, ec);
-              if (ec) return {};
+              if (ec)
+                return {};
               auto relative = full.lexically_relative(manifest.parent_path());
-              if (result.library && (relative.empty() || relative.has_root_path() || *relative.begin() == ".."))
+              if (result.library &&
+                  (relative.empty() || relative.has_root_path() || *relative.begin() == ".."))
                 return {};
               return full;
             };
@@ -234,10 +236,12 @@ std::expected<Manifest, std::string> loadManifest(std::string path, ProjectLimit
               return fail(value, "expected a relative library path and a C header path");
             HeaderImport imported{header->string(), *entry, {}};
             if (const auto *targets = (*request)["targets"].as_table()) {
-              if (targets->empty()) return fail(value, "expected native adapter targets");
+              if (targets->empty())
+                return fail(value, "expected native adapter targets");
               for (const auto &[platform, node] : *targets) {
                 const auto *target = node.as_table();
-                if (!target || (platform != "macos" && platform != "windows" && platform != "linux") ||
+                if (!target ||
+                    (platform != "macos" && platform != "windows" && platform != "linux") ||
                     target->size() != (target->contains("libraries") ? 2u : 1u))
                   return fail(node, "invalid native adapter target");
                 const auto source = file((*target)["source"].value<std::string>());
@@ -247,10 +251,12 @@ std::expected<Manifest, std::string> loadManifest(std::string path, ProjectLimit
                 HeaderImplementation impl{std::string(platform.str()), source->string(), {}};
                 if (target->contains("libraries")) {
                   const auto *libraries = (*target)["libraries"].as_array();
-                  if (!libraries) return fail(node, "expected system library names");
+                  if (!libraries)
+                    return fail(node, "expected system library names");
                   for (const auto &item : *libraries) {
                     auto lib = item.value<std::string>();
-                    if (!lib || !packageName(*lib)) return fail(item, "invalid system library name");
+                    if (!lib || !packageName(*lib))
+                      return fail(item, "invalid system library name");
                     impl.libraries.push_back(*lib);
                   }
                 }
@@ -258,7 +264,8 @@ std::expected<Manifest, std::string> loadManifest(std::string path, ProjectLimit
               }
             } else {
               auto library = file((*request)["library"].value<std::string>());
-              if (!library) return fail(value, "expected a relative library path and a C header path");
+              if (!library)
+                return fail(value, "expected a relative library path and a C header path");
               result.linkLibraries.push_back(library->string());
             }
             result.headers.push_back(std::move(imported));
@@ -321,9 +328,9 @@ std::expected<NativePackage, std::string> loadNativePackage(std::string path,
   if (!manifest->library)
     return std::unexpected(manifest->path + ": native library requires a [package] entry");
   auto &library = *manifest->library;
-  return NativePackage{std::move(manifest->path),        std::move(library.name),
-                       std::move(library.version),       std::move(library.entry),
-                       std::move(manifest->project),     std::move(manifest->packages),
+  return NativePackage{std::move(manifest->path),         std::move(library.name),
+                       std::move(library.version),        std::move(library.entry),
+                       std::move(manifest->project),      std::move(manifest->packages),
                        std::move(manifest->dependencies), std::move(manifest->linkLibraries),
                        std::move(manifest->headers)};
 }

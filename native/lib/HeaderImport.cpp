@@ -59,7 +59,8 @@ loadApplicationModules(const std::string &entry, std::span<const ModulePackage> 
                        std::span<const PackageNode> graph, std::vector<SourceOverlay> overlays,
                        std::span<const HeaderImport> headers, std::string clang,
                        std::optional<std::filesystem::path> resources,
-                       std::vector<std::string> *systemLinkArgs, const HeaderTarget *target) {
+                       std::vector<std::string> *systemLinkArgs, const HeaderTarget *target,
+                       std::vector<NativeHeaderShim> *shims) {
   auto load = [&] {
     return graph.empty() ? loadModules(entry, {}, {}, packages, overlays)
                          : loadPackageModules(graph, {}, {}, overlays);
@@ -111,12 +112,25 @@ loadApplicationModules(const std::string &entry, std::span<const ModulePackage> 
     auto bounds = std::make_shared<HeaderContracts>();
     auto source = [&]() -> std::expected<std::string, std::string> {
       auto read = [&](const std::string &path) -> std::expected<std::string, std::string> {
+        auto portableImport = [&] {
+          auto result =
+              importPortableCHeader(path, clang, resources, found->second, *bounds, target);
+          if (result && shims) {
+            std::string body;
+            for (const auto &symbol : found->second)
+              if (auto it = bounds->find(symbol); it != bounds->end())
+                body += it->second.bridgeDefinition;
+            if (!body.empty())
+              shims->push_back({path, std::move(body)});
+          }
+          return result;
+        };
         if (target)
-          return importPortableCHeader(path, clang, resources, found->second, *bounds, target);
+          return portableImport();
 #ifdef __APPLE__
         // Check upstream ownership/type attributes first. The CIndex fallback
         // only admits a positively verified Xcode counted_by contract.
-        auto portable = importPortableCHeader(path, clang, resources, found->second, *bounds);
+        auto portable = portableImport();
         if (portable)
           return portable;
         HeaderContracts appleBounds;
@@ -127,7 +141,7 @@ loadApplicationModules(const std::string &entry, std::span<const ModulePackage> 
         }
         return std::unexpected((apple ? "" : apple.error() + "\n") + portable.error());
 #else
-        return importPortableCHeader(path, clang, resources, found->second, *bounds);
+        return portableImport();
 #endif
       };
       if (import.system.empty())

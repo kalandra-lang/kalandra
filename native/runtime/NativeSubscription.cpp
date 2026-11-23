@@ -60,7 +60,7 @@ extern "C" bool kalandra_subscription_publish_v1(Invocation *ctx, void *memory, 
 // The instruction owns its input descriptor through end_borrow. Closing the
 // logical owner during a call prevents new borrows and defers disposal.
 extern "C" void *kalandra_handle_borrow_v1(Invocation *ctx, const OwnedDescriptor *value,
-                                            std::uint64_t *token) noexcept {
+                                           std::uint64_t *token) noexcept {
   if (ctx->poll() || !ctx->usable())
     return nullptr;
   auto *owned = inspectOwned(*ctx, *value);

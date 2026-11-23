@@ -488,7 +488,8 @@ int main(int argc, char **argv) {
       return 1;
     }
     managed = std::move(*loaded);
-    project->headers.insert(project->headers.end(), managed->headers.begin(), managed->headers.end());
+    project->headers.insert(project->headers.end(), managed->headers.begin(),
+                            managed->headers.end());
     linkLibraries.insert(linkLibraries.end(), managed->libraries.begin(), managed->libraries.end());
     managed->nodes[0].localPackages = packages;
   }
@@ -555,8 +556,10 @@ int main(int argc, char **argv) {
   paths.insert(paths.end(), linkLibraries.begin(), linkLibraries.end());
   if (project) {
     for (const auto &import : project->headers) {
-      if (!import.header.empty()) paths.emplace_back(import.header);
-      for (const auto &impl : import.targets) paths.emplace_back(impl.source);
+      if (!import.header.empty())
+        paths.emplace_back(import.header);
+      for (const auto &impl : import.targets)
+        paths.emplace_back(impl.source);
     }
     paths.emplace_back(project->manifest);
     if (project->libraryEntry)
@@ -611,6 +614,7 @@ int main(int argc, char **argv) {
       includes.push_back(sdk / "usr/include");
     }
   }
+  std::vector<kalandra::NativeHeaderShim> headerShims;
   auto syntax = kalandra::loadApplicationModules(
       sourcePath, packages,
       managed ? std::span<const kalandra::PackageNode>(managed->nodes)
@@ -619,7 +623,7 @@ int main(int argc, char **argv) {
       project ? std::span<const kalandra::HeaderImport>(project->headers)
               : std::span<const kalandra::HeaderImport>{},
       clang, cross ? std::optional(cross->resources) : clangResources, &systemLinkArgs,
-      headerTarget ? &*headerTarget : nullptr);
+      headerTarget ? &*headerTarget : nullptr, &headerShims);
   if (!syntax) {
     progress.diagnostic() << sourcePath << ": " << syntax.error() << '\n';
     return 1;
@@ -912,48 +916,76 @@ int main(int argc, char **argv) {
 #endif
   }
   std::vector<std::string> adapterObjects, adapterLibraries;
+  auto compileAdapter = [&](const std::string &source, const std::string &header) {
+    const auto obj =
+        (staged.path / ("adapter-" + std::to_string(adapterObjects.size()) + ".o")).string();
+    bool objc = std::filesystem::path(source).extension() == ".m";
+    std::vector<std::string> args{clang,      kalandra::optimizationFlag(optimization),
+                                  "-x",       objc ? "objective-c" : "c",
+                                  "-std=c17", "-include",
+                                  header,     "-c",
+                                  source,     "-o",
+                                  obj};
+    if (objc)
+      args.insert(args.end(), {"-fobjc-arc", "-fblocks", "-fmodules"});
+    if (cross) {
+      auto flags = cross->clangArguments();
+      args.insert(args.end(), flags.begin(), flags.end());
+      args.push_back("-nostdinc");
+      for (const auto &dir : headerTarget->includes)
+        args.insert(args.end(), {"-isystem", dir.string()});
+    } else {
+      if (clangResources)
+        args.push_back("-resource-dir=" + clangResources->string());
+      if (libraryTarget.isOSWindows())
+        args.push_back("-fms-runtime-lib=static");
+#ifdef __APPLE__
+      args.push_back("-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM);
+#endif
+    }
+    if (sanitize)
+      args.push_back("-fsanitize=address,undefined");
+    if (threadSanitize)
+      args.push_back("-fsanitize=thread");
+    std::vector<llvm::StringRef> argv(args.begin(), args.end());
+    auto environment = cross ? kalandra::crossToolEnvironment() : std::vector<std::string>{};
+    std::vector<llvm::StringRef> env(environment.begin(), environment.end());
+    std::string error;
+    if (kalandra::cli::runBuildTool(progress, clang, argv,
+                                    cross ? std::optional<llvm::ArrayRef<llvm::StringRef>>(env)
+                                          : std::nullopt,
+                                    {}, 0, error)) {
+      progress.diagnostic() << "cannot build native adapter " << source << " " << error << '\n';
+      return false;
+    }
+    adapterObjects.push_back(obj);
+    return true;
+  };
+  for (const auto &shim : headerShims) {
+    const auto file = staged.path / ("record-" + std::to_string(adapterObjects.size()) + ".c");
+    std::ofstream source(file, std::ios::binary);
+    source << shim.body;
+    source.close();
+    if (!source || !compileAdapter(file.string(), shim.header))
+      return 1;
+  }
   if (project) {
-    const std::string platformName = libraryTarget.isOSWindows() ? "windows" :
-                                     libraryTarget.isOSDarwin() ? "macos" : "linux";
+    const std::string platformName = libraryTarget.isOSWindows()  ? "windows"
+                                     : libraryTarget.isOSDarwin() ? "macos"
+                                                                  : "linux";
     for (const auto &header : project->headers) {
-      if (header.targets.empty()) continue;
-      auto found = std::ranges::find_if(header.targets, [&](const auto &impl) {
-        return impl.platform == platformName;
-      });
+      if (header.targets.empty())
+        continue;
+      auto found = std::ranges::find_if(
+          header.targets, [&](const auto &impl) { return impl.platform == platformName; });
       if (found == header.targets.end()) {
         progress.diagnostic() << "no " << platformName << " adapter for " << header.header << '\n';
         return 1;
       }
-      const auto obj = (staged.path / ("adapter-" + std::to_string(adapterObjects.size()) + ".o")).string();
-      bool objc = std::filesystem::path(found->source).extension() == ".m";
-      std::vector<std::string> args{clang, kalandra::optimizationFlag(optimization),
-          "-x", objc ? "objective-c" : "c", "-std=c17", "-include", header.header, "-c", found->source, "-o", obj};
-      if (objc) args.insert(args.end(), {"-fobjc-arc", "-fblocks", "-fmodules"});
-      if (cross) {
-        auto flags = cross->clangArguments();
-        args.insert(args.end(), flags.begin(), flags.end());
-        args.push_back("-nostdinc");
-        for (const auto &dir : headerTarget->includes) args.insert(args.end(), {"-isystem", dir.string()});
-      } else {
-        if (clangResources) args.push_back("-resource-dir=" + clangResources->string());
-        if (libraryTarget.isOSWindows()) args.push_back("-fms-runtime-lib=static");
-#ifdef __APPLE__
-        args.push_back("-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM);
-#endif
-      }
-      if (sanitize) args.push_back("-fsanitize=address,undefined");
-      if (threadSanitize) args.push_back("-fsanitize=thread");
-      std::vector<llvm::StringRef> argv(args.begin(), args.end());
-      auto environment = cross ? kalandra::crossToolEnvironment() : std::vector<std::string>{};
-      std::vector<llvm::StringRef> env(environment.begin(), environment.end());
-      std::string error;
-      if (kalandra::cli::runBuildTool(progress, clang, argv,
-          cross ? std::optional<llvm::ArrayRef<llvm::StringRef>>(env) : std::nullopt, {}, 0, error)) {
-        progress.diagnostic() << "cannot build native adapter " << found->source << " " << error << '\n';
+      if (!compileAdapter(found->source, header.header))
         return 1;
-      }
-      adapterObjects.push_back(obj);
-      for (const auto &lib : found->libraries) adapterLibraries.push_back("-l" + lib);
+      for (const auto &lib : found->libraries)
+        adapterLibraries.push_back("-l" + lib);
     }
   }
   command.insert(command.end(), adapterObjects.begin(), adapterObjects.end());

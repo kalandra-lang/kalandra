@@ -1736,7 +1736,7 @@ private:
       plan.code.push_back(
           {Code::Field, output, {subject}, static_cast<std::size_t>(field->field), 0, 0, id});
     } else if (const auto *native = std::get_if<ForeignCall>(&node.operation);
-               native && (!native->subscriptionRelease.empty() || !native->nativeHandles.parameters.empty())) {
+               native && native->requiresNativeFrame()) {
       std::vector<Slot> arguments;
       for (auto argument : native->arguments)
         arguments.push_back(expression(plan, argument, env, stack));
@@ -1964,8 +1964,9 @@ std::vector<bool> resumableFunctions(const TypedModule &input) {
         callers.at(reference->function).push_back(id);
       if (const auto *map = std::get_if<ArrayMap>(&op))
         callers.at(map->function).push_back(id);
-      if (nonCompleting[value] || input.expressions[value].type.fallible ||
-          std::holds_alternative<TaskOperation>(op) ||
+      const auto *foreign = std::get_if<ForeignCall>(&op);
+      if ((foreign && foreign->requiresNativeFrame()) || nonCompleting[value] ||
+          input.expressions[value].type.fallible || std::holds_alternative<TaskOperation>(op) ||
           std::holds_alternative<ParallelOperation>(op) ||
           std::holds_alternative<CatchOperation>(op) ||
           std::holds_alternative<LoopTransferOperation>(op) ||

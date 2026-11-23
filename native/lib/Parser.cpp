@@ -637,7 +637,7 @@ private:
         function.blockParameter = it->second.blockParameter;
         function.forwardedCaptures = it->second.forwardedCaptures;
         function.subscriptionRelease = it->second.subscriptionRelease;
-        function.nativeHandles = it->second.nativeHandles;
+        function.nativeABI = it->second.nativeABI;
         function.nativeMainThread = it->second.mainThreadOnly;
       }
     }

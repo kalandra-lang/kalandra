@@ -172,14 +172,16 @@ Resolved resolve(const NativeProject &project, const NativePackageLock &active, 
     require(fs::is_regular_file(fs::symlink_status(snapshot.library.entry)),
             "library public entry is missing");
     for (const auto &local : snapshot.library.packages) {
-      if (std::ranges::any_of(snapshot.library.headers, [&](const auto &h) { return h.moduleEntry == local.entry; }))
+      if (std::ranges::any_of(snapshot.library.headers,
+                              [&](const auto &h) { return h.moduleEntry == local.entry; }))
         continue;
       require(fs::is_regular_file(fs::symlink_status(local.entry)),
               "library local mapping entry is missing");
     }
     result.graph.headers.insert(result.graph.headers.end(), snapshot.library.headers.begin(),
                                 snapshot.library.headers.end());
-    result.graph.libraries.insert(result.graph.libraries.end(), snapshot.library.linkLibraries.begin(),
+    result.graph.libraries.insert(result.graph.libraries.end(),
+                                  snapshot.library.linkLibraries.begin(),
                                   snapshot.library.linkLibraries.end());
     const auto id = result.graph.nodes.size();
     known.emplace(key, id);

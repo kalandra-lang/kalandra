@@ -1568,11 +1568,10 @@ private:
         };
         for (const auto parameter : fn.parameters) {
           const auto &type = output_.symbols[parameter].type;
-          if ((!function.subscriptionRelease.empty() || !function.nativeHandles.parameters.empty()) &&
+          if ((!function.subscriptionRelease.empty() || function.nativeABI.adapted()) &&
               ownedResourceKind(output_, type) == OwnedResourceKind::Subscription)
             continue;
-          if (!function.nativeHandles.parameters.empty() &&
-              (type.record || type.builtin == BuiltinValue::String))
+          if (function.nativeABI.adapted() && (type.record || type.builtin == BuiltinValue::String))
             continue;
           if (function.nativeCallbacks && type.callable)
             continue;
@@ -1585,7 +1584,8 @@ private:
                 function.name);
         }
         if (!fn.declaredResult ||
-            (function.bufferCounts.empty() && !allowed(*fn.declaredResult, true) &&
+            (function.bufferCounts.empty() && !function.nativeABI.recordResult &&
+             !allowed(*fn.declaredResult, true) &&
              (function.subscriptionRelease.empty() ||
               ownedResourceKind(output_, *fn.declaredResult) != OwnedResourceKind::Subscription)))
           error("S093", "native imports return a 32/64-bit number or unit", function.name);
@@ -1893,7 +1893,7 @@ private:
     }
     ForeignCall call{name(fn.declaration), {}};
     call.mainThreadOnly = syntax.nativeMainThread;
-    call.nativeHandles = syntax.nativeHandles;
+    call.nativeABI = syntax.nativeABI;
     if (!syntax.nativeCallbacks)
       call.subscriptionRelease = syntax.subscriptionRelease;
     for (auto param : fn.parameters) {

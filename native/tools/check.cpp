@@ -117,7 +117,8 @@ int main(int argc, char **argv) {
     if (!loaded)
       return failure("PRJ001", loaded.error(), 1, projectPath);
     managed = std::move(*loaded);
-    project->headers.insert(project->headers.end(), managed->headers.begin(), managed->headers.end());
+    project->headers.insert(project->headers.end(), managed->headers.begin(),
+                            managed->headers.end());
     managed->nodes[0].localPackages = packages;
   }
   auto syntax = kalandra::loadApplicationModules(

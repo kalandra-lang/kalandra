@@ -28,19 +28,23 @@ struct NativeParameterLayout {
   std::vector<std::uint64_t> offsets = {};
   std::uint64_t bytes = 0, alignment = 0;
 };
-struct NativeHandles {
+struct NativeCallABI {
   std::vector<NativeParameterLayout> parameters;
   bool pointerResult = false;
+  std::optional<NativeParameterLayout> recordResult;
+  std::string bridge;
+  bool adapted() const { return !parameters.empty() || recordResult.has_value(); }
 };
 // Indexed by the C parameter ordinal. A negative value denotes a scalar.
 struct HeaderFunctionContract {
+  std::string bridgeDefinition = {};
   std::string subscriptionFamily = {};
   std::vector<int> bufferCounts;
   bool hasCallbacks = false;
   std::optional<unsigned> blockParameter = {};
   std::vector<std::string> forwardedCaptures = {};
   std::string subscriptionRelease = {};
-  NativeHandles nativeHandles = {};
+  NativeCallABI nativeABI = {};
   bool mainThreadOnly = false;
 };
 using HeaderContracts = std::unordered_map<std::string, HeaderFunctionContract>;
@@ -342,7 +346,7 @@ struct Function {
   std::optional<unsigned> blockParameter = {};
   std::vector<std::string> forwardedCaptures = {};
   std::string subscriptionRelease = {};
-  NativeHandles nativeHandles = {};
+  NativeCallABI nativeABI = {};
   bool nativeMainThread = false;
   std::vector<int> bufferCounts = {};
   std::string specializedName = {}; // Internal only; source names/spans remain unchanged.

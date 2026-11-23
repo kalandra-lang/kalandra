@@ -256,8 +256,9 @@ struct ForeignCall {
   std::vector<std::string> callbacks = {};
   std::optional<NativeBlockCall> block = {};
   std::string subscriptionRelease = {};
-  NativeHandles nativeHandles = {};
+  NativeCallABI nativeABI = {};
   bool mainThreadOnly = false;
+  bool requiresNativeFrame() const { return !subscriptionRelease.empty() || nativeABI.adapted(); }
 };
 struct TimeOperation {
   TimeAction action;
