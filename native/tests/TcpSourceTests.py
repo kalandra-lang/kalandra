@@ -113,7 +113,10 @@ with tempfile.TemporaryDirectory(prefix="kalandra-tcp-") as directory:
             listener.settimeout(10)
             listener.bind(("127.0.0.1", 0))
             listener.listen()
-            with application([app, "fill", str(listener.getsockname()[1])], root, 1) as proc:
+            # Allow the OS to deliver a reset independently of the short
+            # deadline used to exercise a live peer that stops reading.
+            mode = "reset" if reset else "fill"
+            with application([app, mode, str(listener.getsockname()[1])], root, 1) as proc:
                 peer, _ = listener.accept()
                 with peer:
                     peer.settimeout(10)

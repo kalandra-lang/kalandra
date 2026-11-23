@@ -142,9 +142,9 @@ fn takeAgain(halves: TcpHalves) -> i64 ! (NetError | StreamError):
   try close(writer)
   return 0
 
-fn sendUntilBlocked(port: u16) -> i64 ! (NetError | StreamError | BufferError | TimeError):
+fn sendUntilBlocked(port: u16, timeoutMs: u64) -> i64 ! (NetError | StreamError | BufferError | TimeError):
   peer = try connectTcp("127.0.0.1", port)
-  try setTimeout(peer, try milliseconds(30))
+  try setTimeout(peer, try milliseconds(timeoutMs))
   chunk = try byteBuffer(65536)
   zeros: [u8] = generate(65536, fn(i: i64): return u8(0))
   try append(chunk, zeros)
@@ -153,9 +153,11 @@ fn sendUntilBlocked(port: u16) -> i64 ! (NetError | StreamError | BufferError | 
   return 0
 
 fn main(args: [String]) -> unit ! (NetError | StreamError | FsError | BufferError | TimeError | TaskError | IoError | ParseError):
-  if args[0] == "fill":
+  if args[0] == "fill" or args[0] == "reset":
     port = u16(try parseU64(args[1]))
-    result = sendUntilBlocked(port) catch fn(e): return match e:
+    timeoutMs: u64 = 30
+    if args[0] == "reset": timeoutMs = 5000
+    result = sendUntilBlocked(port, timeoutMs) catch fn(e): return match e:
       StreamError.TimedOut: 42
       StreamError.BrokenPipe {code}: 43
       StreamError.System {code, message}: 44
