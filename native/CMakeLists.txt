@@ -66,6 +66,10 @@ target_compile_definitions(kalandra-git-snapshots PRIVATE TOML_HEADER_ONLY=1 TOM
 target_compile_options(kalandra-git-snapshots PRIVATE -Wall -Wextra -Werror)
 find_package(Clang REQUIRED CONFIG PATHS "${KALANDRA_LLVM_ROOT}/lib/cmake/clang" NO_DEFAULT_PATH)
 add_library(kalandra-packages STATIC lib/PortableHeaderImport.cpp lib/PackageInstall.cpp lib/DependencyManifest.cpp lib/PackageLock.cpp lib/HeaderImport.cpp lib/AppleHeaderImport.cpp)
+if(NOT LLVM_ENABLE_RTTI)
+  # The diagnostic consumer derives from a Clang class in the pinned SDK.
+  set_property(SOURCE lib/PortableHeaderImport.cpp APPEND PROPERTY COMPILE_OPTIONS -fno-rtti)
+endif()
 if(CLANG_LINK_CLANG_DYLIB AND TARGET clang-cpp)
   target_link_libraries(kalandra-packages PRIVATE clang-cpp)
 else()
