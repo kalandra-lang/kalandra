@@ -103,6 +103,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native CPU toolchain build failed' }
           & build/windows/native/kalandra-type-capability-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Type-capability contracts failed' }
+      - name: Verify checked native byte buffers
+        run: ctest --test-dir build/windows --output-on-failure -R "^native-c-portable-buffer-imports$"
       - name: Link and run C and C++ callers
         run: >-
           python native/tests/CExportTests.py --compiler "$pwd/build/windows/native/kalandra.exe"

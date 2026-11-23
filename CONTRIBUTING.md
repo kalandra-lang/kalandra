@@ -16,7 +16,7 @@ Prototype branches and experimental PRs can help evaluate an idea before a decis
 
 ## Develop and test
 
-Use the pinned LLVM/MLIR/Clang toolchain with CMake and Ninja:
+Use the pinned LLVM/MLIR/Clang development toolchain with CMake and Ninja. The C header importer uses the matching Clang AST and Tooling development libraries (ClangConfig.cmake).
 
 ```sh
 cmake --preset native

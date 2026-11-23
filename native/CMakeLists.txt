@@ -64,7 +64,13 @@ target_link_libraries(kalandra-git-snapshots PUBLIC kalandra-project PRIVATE LLV
 target_include_directories(kalandra-git-snapshots SYSTEM PRIVATE ${KALANDRA_TOML_INCLUDES} ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(kalandra-git-snapshots PRIVATE TOML_HEADER_ONLY=1 TOML_ENABLE_UNRELEASED_FEATURES=0)
 target_compile_options(kalandra-git-snapshots PRIVATE -Wall -Wextra -Werror)
-add_library(kalandra-packages STATIC lib/PackageInstall.cpp lib/DependencyManifest.cpp lib/PackageLock.cpp lib/HeaderImport.cpp lib/AppleHeaderImport.cpp)
+find_package(Clang REQUIRED CONFIG PATHS "${KALANDRA_LLVM_ROOT}/lib/cmake/clang" NO_DEFAULT_PATH)
+add_library(kalandra-packages STATIC lib/PortableHeaderImport.cpp lib/PackageInstall.cpp lib/DependencyManifest.cpp lib/PackageLock.cpp lib/HeaderImport.cpp lib/AppleHeaderImport.cpp)
+if(CLANG_LINK_CLANG_DYLIB AND TARGET clang-cpp)
+  target_link_libraries(kalandra-packages PRIVATE clang-cpp)
+else()
+  target_link_libraries(kalandra-packages PRIVATE clangTooling)
+endif()
 target_link_libraries(kalandra-packages PUBLIC kalandra-git-snapshots PRIVATE LLVM)
 target_include_directories(kalandra-packages SYSTEM PRIVATE ${KALANDRA_TOML_INCLUDES} ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(kalandra-packages PRIVATE KALANDRA_IMPORT_CLANG="${CMAKE_C_COMPILER}" TOML_HEADER_ONLY=1 TOML_ENABLE_UNRELEASED_FEATURES=0)
@@ -295,6 +301,15 @@ if(BUILD_TESTING)
       --checker "$<TARGET_FILE:kalandra-check>")
     set_tests_properties(native-apple-sdk-imports native-c-counted-imports PROPERTIES TIMEOUT 180)
   endif()
+  set(_buffer_test_flags)
+  if(WIN32 AND KALANDRA_NATIVE_PLATFORM STREQUAL "windows-arm64")
+    list(APPEND _buffer_test_flags --skip-sanitizer)
+  endif()
+  add_test(NAME native-c-portable-buffer-imports COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/CountedImportTests.py" --portable
+    --compiler "$<TARGET_FILE:kalandra>" --checker "$<TARGET_FILE:kalandra-check>"
+    --cc "${CMAKE_C_COMPILER}" --ar "${CMAKE_AR}" ${_buffer_test_flags})
+  set_tests_properties(native-c-portable-buffer-imports PROPERTIES TIMEOUT 180)
   add_test(NAME native-c-header-imports COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/CImportTests.py" --compiler "$<TARGET_FILE:kalandra>"
     --checker "$<TARGET_FILE:kalandra-check>" --cc "${CMAKE_C_COMPILER}" --ar "${CMAKE_AR}")

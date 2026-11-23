@@ -1,5 +1,6 @@
 """Exercise header-derived borrows against a separately compiled C implementation."""
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -7,6 +8,12 @@ import tempfile
 parser = argparse.ArgumentParser()
 parser.add_argument("--compiler", required=True)
 parser.add_argument("--checker", required=True)
+parser.add_argument("--portable", action="store_true")
+parser.add_argument("--cc")
+parser.add_argument("--resource-dir")
+parser.add_argument("--ar")
+parser.add_argument("--object-only", action="store_true")
+parser.add_argument("--skip-sanitizer", action="store_true")
 tools = parser.parse_args()
 
 header = """#include <stdint.h>
@@ -29,6 +36,21 @@ void prefix(uint32_t d, const uint8_t * _Nonnull COUNT(s) source BORROW,
   for (uint32_t i = 0; i < d && i < s; ++i) output[i] = source[i];
 }
 """
+if tools.portable:
+    header = """#include <stdint.h>
+#define BORROW __attribute__((noescape))
+#define EXTENT(pointer, count) __attribute__((diagnose_if( \
+    (count) > __builtin_object_size((pointer), 0), "buffer too short", "error")))
+void prefix(uint32_t dstCount, const uint8_t * _Nonnull src BORROW,
+            uint8_t * _Nonnull dst BORROW, uint64_t srcCount)
+    EXTENT(src, srcCount) EXTENT(dst, dstCount);
+void scratch(uint32_t n, const uint8_t * _Nonnull src BORROW) EXTENT(src, n);
+int calls(void);
+"""
+    # The independent implementation includes the annotated declaration. Its
+    # parameter names can differ and its ordinary machine ABI stays the same.
+    implementation = implementation.replace("COUNT(n) ", "").replace("COUNT(s) ", "").replace("COUNT(d) ", "")
+
 program = '''from "bytes" import prefix, scratch, calls
 from "std/buffer" import ByteBuffer, BufferError, byteBuffer, append
 from "std/fmt" import format
@@ -67,14 +89,24 @@ with tempfile.TemporaryDirectory(prefix="Kalandra counted native ") as temp:
     h = root / "bytes.h"
     h.write_text(header)
     (root / "bytes.c").write_text(implementation)
-    subprocess.run(["xcrun", "clang", "-std=c17", "-fbounds-safety", "-Werror", "-c", "bytes.c"], cwd=root, check=True)
-    subprocess.run(["ar", "rcs", "libbytes.a", "bytes.o"], cwd=root, check=True)
+    cc = [tools.cc] if tools.portable else ["xcrun", "clang", "-fbounds-safety"]
+    if tools.resource_dir:
+        cc.extend(["-resource-dir", tools.resource_dir])
+    archive = "bytes.lib" if os.name == "nt" else "libbytes.a"
+    subprocess.run([*cc, "-x", "c", "-std=c17", "-Werror", "-c", "bytes.c", "-o", "bytes.o"], cwd=root, check=True)
+    ar = tools.ar or "ar"
+    arguments = ["/OUT:" + archive] if Path(ar).stem.lower() in {"lib", "llvm-lib"} else ["rcs", archive]
+    if tools.object_only:
+        archive = "bytes.o"
+    else:
+        subprocess.run([ar, *arguments, "bytes.o"], cwd=root, check=True)
     manifest = root / "kalandra.toml"
-    manifest.write_text('format=1\n[project]\nentry="main.k"\n[dependencies.bytes]\nheader="bytes.h"\nlibrary="libbytes.a"\n')
+    manifest.write_text('format=1\n[project]\nentry="main.k"\n[dependencies.bytes]\nheader="bytes.h"\n'
+                        f'library="{archive}"\n')
     src = root / "main.k"
     src.write_text(program)
-    exe = root / "app"
-    for mode in ["-O0", "-O2", "--sanitize"]:
+    exe = root / ("app.exe" if os.name == "nt" else "app")
+    for mode in (["-O0", "-O2"] if tools.skip_sanitizer else ["-O0", "-O2", "--sanitize"]):
         subprocess.run([tools.compiler, "--project", manifest, mode, "-o", exe], check=True)
         assert subprocess.check_output([exe], text=True) == "7:8:1:1:1:3\n"
 
@@ -91,15 +123,26 @@ with tempfile.TemporaryDirectory(prefix="Kalandra counted native ") as temp:
     src.write_text(racing.replace("IoError | BufferError", "IoError | BufferError | TaskError"))
     rejects("S077")
     src.write_text(program)
-    for original, replacement in [
-        ("COUNT(srcCount) src", "src"),
-        ("COUNT(srcCount) src", "COUNT(srcCount + 1) src"),
+    negative = [
         ("src BORROW", "src"),
         ("src BORROW", "src __attribute__((unused))"),
         ("src BORROW", "src BORROW __attribute__((cf_consumed))"),
-        ("_Nonnull COUNT(srcCount)", "_Nullable COUNT(srcCount)"),
+        ("const uint8_t * _Nonnull", "const uint8_t * _Nullable"),
         ("void prefix(", "uint8_t * _Nonnull prefix("),
         ("int calls(void)", "static inline int calls(void)"),
-    ]:
+    ]
+    if tools.portable:
+        negative += [
+            ("EXTENT(src, srcCount)", ""),
+            ("EXTENT(src, srcCount)", "EXTENT(src, srcCount + 1)"),
+            ("EXTENT(dst, dstCount)", "EXTENT(src, dstCount)"),
+            ("(count) >", "(count) <"),
+            ("(pointer), 0", "(pointer), 1"),
+            ('"error"', '"warning"'),
+            ("(count) >", "(uint8_t)(count) >"),
+        ]
+    else:
+        negative += [("COUNT(srcCount) src", "src"), ("COUNT(srcCount) src", "COUNT(srcCount + 1) src")]
+    for original, replacement in negative:
         h.write_text(header.replace(original, replacement, 1))
         rejects("calls" if original.startswith("int calls") else "prefix")

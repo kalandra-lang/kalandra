@@ -3,4 +3,4 @@ format=1
 entry="main.k"
 [dependencies.bytes]
 header="bytes.h"
-library="libbytes.a"
+library="bytes.o"

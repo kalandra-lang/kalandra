@@ -84,19 +84,24 @@ In an application manifest, add a system library to the existing dependencies ta
 
 code { """sqlite = { system = "sqlite3" }""" }
 
-Use the name on the left in an import. For example, import sqlite3_libversion_number from "sqlite" and call sqlite3_libversion_number() to get SQLite's version as an integer. The host compiler locates the installed public header and links the library. For a library you build with your project, give its header and archive paths relative to the manifest.
+Use the name on the left in an import. For example, import sqlite3_libversion_number from "sqlite" and call sqlite3_libversion_number() to get SQLite's version as an integer. The host compiler locates the installed public header and links the library. For a library you build with your project, give its header and object or library paths relative to the manifest.
 
-code { """bytes = { header = "bytes.h", library = "libbytes.a" }""" }
+code { """bytes = { header = "bytes.h", library = "bytes.o" }""" }
 
-A C binding can expose 32-bit and 64-bit scalar numbers and functions returning void. On macOS with a bounds-safety-capable Xcode, it can also lend ByteBuffer contents to a C function for the duration of a call. Put the contract in the C header.
+A C binding can expose 32-bit and 64-bit scalar numbers and functions returning void. On Linux, Windows and macOS, a C function can borrow ByteBuffer contents for the duration of a call. The following header uses a Clang diagnostic to bind both pointers to the byte count n. Clang can diagnose undersized objects in C calls when their size is known. Kalandra also checks dynamically sized buffers at runtime.
 
 codeblock { language = c, """#include <stddef.h>
 #include <stdint.h>
 
+#define BYTE_EXTENT(p, n) __attribute__((diagnose_if((n) > __builtin_object_size((p), 0), "byte count exceeds buffer", "error")))
+
 void copyPrefix(size_t n,
-    uint8_t * _Nonnull __attribute__((counted_by(n))) dst __attribute__((noescape)),
-    const uint8_t * _Nonnull __attribute__((counted_by(n))) src __attribute__((noescape)));
+                uint8_t * _Nonnull dst __attribute__((noescape)),
+                const uint8_t * _Nonnull src __attribute__((noescape)))
+    BYTE_EXTENT(dst, n) BYTE_EXTENT(src, n);
 """ }
+
+Apple SDK bindings may also use counted_by on pointer parameters with a bounds-safety-capable Xcode.
 
 In Kalandra, import copyPrefix from "bytes" and call it with two initialized buffers.
 
