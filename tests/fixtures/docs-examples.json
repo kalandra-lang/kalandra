@@ -239,6 +239,10 @@
     {
       "kind": "module",
       "expected": "42"
+    },
+    {
+      "kind": "workflow",
+      "expected": "42"
     }
   ],
   "numbers": [

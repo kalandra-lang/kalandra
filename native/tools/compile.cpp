@@ -802,7 +802,16 @@ int main(int argc, char **argv) {
   }
   LinkDirectory staged{std::string(linkedDirectory)};
   // LLD's Mach-O signing code recognizes '/' on every build host.
-  const auto linkedOutput = (staged.path / output.filename()).generic_string();
+  // The caller controls the basename. Isolate the published binary from the
+  // archive member, import library and generated header under staging.
+  std::error_code directoryError;
+  const auto binaryDir = staged.path / "output";
+  std::filesystem::create_directory(binaryDir, directoryError);
+  if (directoryError) {
+    progress.diagnostic() << "cannot stage native output: " << directoryError.message() << '\n';
+    return 1;
+  }
+  const auto linkedOutput = (binaryDir / output.filename()).generic_string();
   std::vector<std::string> command{clang, kalandra::optimizationFlag(optimization),
                                    "-ffp-contract=off", "-Wno-override-module",
                                    std::string(temporary)};

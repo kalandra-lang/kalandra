@@ -31,6 +31,40 @@ kalandra main.k -o program
 
 The executable displays 42. The import path is relative to main.k, not to the terminal's working directory. Keep both files in the same directory for this example.
 
+h2 { "Call a Kalandra function from C or C++" }
+
+Use export "C" to give a function a public C symbol. The same function can be imported by another Kalandra module. Give it a library-specific name so other libraries can link alongside it.
+
+In geometry.k:
+
+codeblock { language = kalandra, """export "C" fn geometry_scale(value: f64) -> f64:
+  return value * 2.0
+""" }
+
+Build a static library and its matching header:
+
+codeblock { language = bash, """kalandra geometry.k --emit static --header geometry.h -o libgeometry.a
+""" }
+
+In caller.c:
+
+codeblock { language = c, """#include "geometry.h"
+#include <stdio.h>
+
+int main(void) {
+  printf("%.0f", geometry_scale(21.0));
+  return 0;
+}
+""" }
+
+codeblock { language = bash, """cc caller.c libgeometry.a -o caller
+./caller
+""" }
+
+The caller prints 42. The generated header also works in C++. Use object or shared in place of static to produce a relocatable object or a shared library for the target platform.
+
+Parameters can use fixed-width integers, f32, f64 or bool. A unit result becomes void in C. The compiler must be able to prove that an exported body can run without a Kalandra execution context or a fault. For example, multiplying an arbitrary signed integer by two can overflow, so that operation alone cannot implement a plain C export.
+
 h2 { "Export types deliberately" }
 
 Record, enum and error declarations can be exported and imported. Aliasing preserves their nominal identity rather than creating a new type. A helper continues resolving its own private names in its declaring module; importing it does not expose all of that module.

@@ -24,6 +24,26 @@
 
 namespace kalandra {
 namespace {
+// These names cannot be public functions in a header consumed by both C17
+// and C++20. Include typedefs/macros supplied by our own fixed-width header.
+bool portableCExportName(std::string_view symbol) {
+  static const std::unordered_set<std::string_view> reserved = {
+      "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor", "bool", "break",
+      "case", "catch", "char", "char8_t", "char16_t", "char32_t", "class", "compl", "concept",
+      "const", "consteval", "constexpr", "constinit", "const_cast", "continue", "co_await",
+      "co_return", "co_yield", "decltype", "default", "delete", "do", "double", "dynamic_cast",
+      "else", "enum", "explicit", "export", "extern", "false", "float", "for", "friend", "goto",
+      "if", "inline", "int", "long", "main", "mutable", "namespace", "new", "noexcept", "not",
+      "not_eq", "nullptr", "operator", "or", "or_eq", "private", "protected", "public",
+      "register", "reinterpret_cast", "requires", "restrict", "return", "short", "signed",
+      "sizeof", "static", "static_assert", "static_cast", "struct", "switch", "template", "this",
+      "thread_local", "throw", "true", "try", "typedef", "typeid", "typename", "union",
+      "unsigned", "using", "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq",
+      "int8_t", "uint8_t", "int16_t", "uint16_t", "int32_t", "uint32_t", "int64_t", "uint64_t",
+      "intptr_t", "uintptr_t", "intmax_t", "uintmax_t"};
+  return !symbol.starts_with('_') && !symbol.starts_with("kalandra_") &&
+         symbol.find("__") == std::string_view::npos && !reserved.contains(symbol);
+}
 class Checker {
   enum class State { Unseen, Checking, Complete, Failed };
   struct TaskChecks {
@@ -1396,6 +1416,8 @@ private:
       if (function.cExport) {
         const auto symbol = name(function.name);
         output_.functions[id].cExportName = symbol;
+        if (!portableCExportName(symbol))
+          error("S092", "C export name '" + symbol + "' is reserved in a public C/C++ header", function.name);
         if (!cExportNames_.insert(symbol).second)
           error("S092", "duplicate C export symbol '" + symbol + "'", function.name);
         if (!function.generics.empty())

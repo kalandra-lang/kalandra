@@ -9,7 +9,8 @@ import tempfile
 def run(*args, cwd, expect=None):
     result = subprocess.run(args, cwd=cwd, text=True, capture_output=True, timeout=120)
     if expect is None:
-        result.check_returncode()
+        if result.returncode:
+            raise AssertionError((result.args, result.returncode, result.stdout, result.stderr))
     elif result.returncode == 0 or expect not in result.stderr:
         raise AssertionError((result.args, result.returncode, result.stderr))
 
@@ -58,6 +59,18 @@ int main(void) {
                 run(compiler, "-x", language, "-std=" + standard, "-Wall", "-Werror", "caller.c",
                     "-x", "none", link, *flags, "-o", executable, cwd=path)
                 run(executable, cwd=path)
+
+        # Public output names may coincide with internal staging filenames.
+        run(args.compiler, source, "--emit", "static", "-o", "c-exports.o", cwd=path)
+        assert (path / "c-exports.o").read_bytes().startswith(b"!<arch>")
+
+        for symbol in ("class", "int32_t", "kalandra_reserved"):
+            source.write_text(f'export "C" fn {symbol}() -> i32:\n  return 42\n', encoding="utf-8")
+            run(args.checker, source, cwd=path, expect="reserved")
+        source.write_text('export "C" fn signed_scale(x: i32) -> i32:\n  return x * 2\n', encoding="utf-8")
+        for level in ("-O0", "-O1", "-O2", "-O3"):
+            run(args.compiler, source, level, "--emit", "object", "-o", "fault.o",
+                cwd=path, expect="fault-free")
 
         for signature in ("(x: String) -> String", "(x: [u8]) -> [u8]",
                           "(x: unit) -> unit", "[T](x: T) -> T"):

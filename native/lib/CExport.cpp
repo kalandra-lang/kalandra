@@ -64,6 +64,24 @@ std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input
                                           fn.cExportName, *module);
     if (module->getTargetTriple().isOSWindows())
       entry->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+    // C promotes narrow scalar arguments and results in registers on Darwin
+    // and SysV x86-64. Windows x64 only extends bool, and AAPCS64 leaves the
+    // upper bits unspecified. Match Clang's ABI for the destination.
+    const auto &triple = module->getTargetTriple();
+    const auto extension = [&](llvm::Type *irType, const ValueType &type) {
+      if (!irType->isIntegerTy() || irType->getIntegerBitWidth() >= 32)
+        return llvm::Attribute::None;
+      const bool boolean = type.builtin == BuiltinValue::Bool;
+      if (!triple.isOSDarwin() &&
+          !(triple.getArch() == llvm::Triple::x86_64 && (!triple.isOSWindows() || boolean)))
+        return llvm::Attribute::None;
+      return boolean || isUnsigned(type.element) ? llvm::Attribute::ZExt : llvm::Attribute::SExt;
+    };
+    for (unsigned arg = 0; arg < fn.parameters.size(); ++arg) {
+      const auto attr = extension(type->getParamType(arg), input.symbols[fn.parameters[arg]].type);
+      if (attr != llvm::Attribute::None)
+        entry->addParamAttr(arg, attr);
+    }
     llvm::IRBuilder<> builder(llvm::BasicBlock::Create(context, "entry", entry));
     llvm::SmallVector<llvm::Value *> args;
     for (auto &arg : entry->args())
@@ -74,10 +92,9 @@ std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input
     if (unit)
       builder.CreateRetVoid();
     else {
-      // Narrow results carry the platform-visible sign/zero extension.
-      if (type->getReturnType()->isIntegerTy() && type->getReturnType()->getIntegerBitWidth() < 32)
-        entry->addRetAttr(fn.resultType.builtin == BuiltinValue::Bool || isUnsigned(fn.resultType.element)
-                              ? llvm::Attribute::ZExt : llvm::Attribute::SExt);
+      const auto attr = extension(type->getReturnType(), fn.resultType);
+      if (attr != llvm::Attribute::None)
+        entry->addRetAttr(attr);
       builder.CreateRet(result);
     }
     published.insert(entry);

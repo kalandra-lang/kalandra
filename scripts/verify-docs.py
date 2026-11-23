@@ -145,7 +145,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
         directory = BASE / page / str(ordinal)
         write(directory / 'main.k', source)
         if page in ['getting-started', 'modules']:
-            libraries = [s for _, s in blocks(page, 'kalandra') if s.startswith('export ')]
+            libraries = [s for _, s in blocks(page, 'kalandra') if s.startswith('export fn ')]
             assert len(libraries) == 1
             write(directory / 'math.k', libraries[0])
         if plan['kind'] == 'reject':
@@ -190,6 +190,17 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     for page in ['index', 'getting-started', 'tutorial', 'modules']:
         n = next(x for x in items if x[0] == page and 'fn main(' in x[3])
         shell(page, 0, BASE / page / str(n[1]), PLAN[page][n[1]]['expected'])
+    # Compile and run the authored C caller against the authored static library.
+    embed = BASE / 'modules' / 'embedding'
+    k_index, geometry = blocks('modules', 'kalandra')[-1]
+    c_index, caller = blocks('modules', 'c')[0]
+    write(embed / 'geometry.k', geometry)
+    write(embed / 'caller.c', caller)
+    shell('modules', 1, embed)
+    shell('modules', 2, embed, '42')
+    for index in (k_index, c_index):
+        COVERED.add(('modules', index))
+        RESULTS.append({'page': 'modules', 'block': index, 'kind': 'embedding', 'status': 'passed'})
     parallel = next(x for x in reversed(items) if x[0] == 'parallelism')
     shell('parallelism', 0, BASE / 'parallelism' / str(parallel[1]), parallel[4]['expected'])
     for page in ['gpu', 'gpu-numerics']:

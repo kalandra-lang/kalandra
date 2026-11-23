@@ -103,6 +103,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native CPU toolchain build failed' }
           & build/windows/native/kalandra-type-capability-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Type-capability contracts failed' }
+      - name: Link and run C and C++ callers
+        run: >-
+          python native/tests/CExportTests.py --compiler "$pwd/build/windows/native/kalandra.exe"
+          --checker "$pwd/build/windows/native/kalandra-check.exe"
+          --cc "$env:KALANDRA_LLVM_ROOT/bin/clang.exe" --cxx "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
       - name: Run the public watchDir iterator
         run: python native/tests/FileSystemSourceTests.py --compiler build/windows/native/kalandra.exe --variant optimized --case watch-directory --output build/windows/watch-source
       - name: Qualify cooperative workgroup source and safety proofs

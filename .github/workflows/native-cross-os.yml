@@ -84,7 +84,7 @@ jobs:
           cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-test-observer kalandra-cross-target-tests kalandra-type-capability-tests -j2
           build/macos/native/kalandra-type-capability-tests
           ctest --test-dir build/macos --output-on-failure \
-            -R '^native-(cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
+            -R '^native-(c-exports|cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
       - name: Qualify explicit returns and primitive types
         run: >-
           ctest --test-dir build/macos --output-on-failure
