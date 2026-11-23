@@ -1,0 +1,59 @@
+meta { title = "TCP networking", description = "Connect TCP peers, pass bytes with ByteBuffer, and split a connection between tasks.", order = 10, group = "Library reference" }
+
+Use std/net to listen on a local address or connect to a TCP peer by hostname, IPv4 address, or IPv6 address. A TcpStream implements the ByteReader and ByteWriter traits from std/stream. The same readInto and writeAll calls work with sockets, files and subprocess pipes.
+
+h2 { "Send bytes over loopback" }
+
+This program runs both ends locally. Port zero asks the operating system to assign an available port. The client sends three bytes, then finishes writing. The server can read the bytes, observe EOF, and send its reply on the same connection.
+
+codeblock { language = kalandra, """from "std/net" import listenTcp, localPort, connectTcp, accept, shutdownWrite, NetError
+from "std/stream" import readInto, writeAll, StreamError
+from "std/buffer" import byteBuffer, append, BufferError
+from "std/fmt" import format
+from "std/io" import println, IoError
+
+fn main() -> unit ! (NetError | StreamError | BufferError | IoError):
+  listener = try listenTcp("127.0.0.1", 0)
+  client = try connectTcp("127.0.0.1", try localPort(listener))
+  server = try accept(listener)
+  chunk = try byteBuffer(64)
+  try append(chunk, [65, 0, 66])
+  try writeAll(client, chunk)
+  try shutdownWrite(client)
+  while try readInto(server, chunk, 64) > 0:
+    try writeAll(server, chunk)
+  try shutdownWrite(server)
+  total: u64 = 0
+  while true:
+    n = try readInto(client, chunk, 64)
+    if n == 0: break
+    total = total + n
+  try println(format("{}", total))
+  return ()
+""" }
+
+The program prints 3, including the zero byte. A positive read can deliver any number of bytes up to the requested maximum. A zero result for a positive request means the peer finished sending. Use a length or a delimiter when your protocol needs message boundaries.
+
+h2 { "Connections and listeners" }
+
+list {
+  "connectTcp(host: String, port: u16) returns a TcpStream. Hostname resolution uses the system resolver. Candidates are tried in resolver order until a connection succeeds or the list is exhausted.",
+  "connectTcpWithin(host: String, port: u16, timeout: Duration) places one time budget over resolution and all connection attempts. A zero duration expires immediately. Construct a Duration with std/time.",
+  "listenTcp(host: String, port: u16) returns a TcpListener bound to one address. Specify 127.0.0.1 or ::1 to serve only local peers. Use port zero for an ephemeral port and localPort(listener) to read it.",
+  "accept(listener) waits for a connection and returns a new TcpStream. The listener stays available to accept another peer.",
+  "shutdownWrite(stream) finishes the outgoing half of a connection. Bytes accepted before shutdown can still reach the peer. The caller can continue reading."
+}
+
+h2 { "Ownership and timeouts" }
+
+A listener, stream or half closes on scope exit. To observe explicit closure, use try close(endpoint). To read and write independently, call halves = try split(stream), then reader = try takeReader(halves) and writer = try takeWriter(halves). Each half can move into its own task. Taking the same half twice produces NetError.HalfUnavailable. Closing the writer half signals EOF to the peer after pending bytes. Closing the halves owner drops any half it still owns.
+
+setTimeout(endpoint, duration) sets a per-operation budget for later accepts, reads or writes. A socket starts with unlimited waits. Accepted streams start with their own settings. A split carries the stream's setting into each half. A read or write that waits beyond the budget reports StreamError.TimedOut. A connection attempt or accept reports NetError.TimedOut. A failed writeAll may already have sent a prefix. Retrying it requires a decision by the application.
+
+Connection setup reports NetError.Resolution with the resolver code, NetError.System with the OS code and message, or NetError.InvalidArgument for an invalid host. Stream operations have the same StreamError channel as files and pipes. Task cancellation follows the surrounding parallel scope. At most four operating-system lookups run concurrently. A lookup may outlive the task that requested it. The runtime retains at most 64 candidate addresses per operation and discards the result after cancellation. Network functions run on the host, including in applications that also run GPU work.
+
+list {
+  link { url = "/docs/streams", "Transfer bytes with generic readers and writers" },
+  link { url = "/docs/buffers", "Reuse a ByteBuffer" },
+  link { url = "/docs/time", "Construct a timeout duration" }
+}

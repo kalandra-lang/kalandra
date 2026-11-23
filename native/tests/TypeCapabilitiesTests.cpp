@@ -134,7 +134,10 @@ void checkTypeCapabilities() {
     const bool file =
         standard == StandardRecord::File || standard == StandardRecord::BufferedReader ||
         standard == StandardRecord::BufferedWriter || standard == StandardRecord::Child ||
-        standard == StandardRecord::PipeReader || standard == StandardRecord::PipeWriter;
+        standard == StandardRecord::PipeReader || standard == StandardRecord::PipeWriter ||
+        standard == StandardRecord::TcpStream || standard == StandardRecord::TcpReader ||
+        standard == StandardRecord::TcpWriter || standard == StandardRecord::TcpListener ||
+        standard == StandardRecord::TcpHalves;
     const bool buffer = standard == StandardRecord::ByteBuffer;
     const bool iterator = standard == StandardRecord::Iterator;
     expect(isFileResource(module, type) == file && isByteBuffer(module, type) == buffer &&

@@ -22,22 +22,24 @@ int main(int argc, char **argv) {
       require(bool(stream), "cannot write module fixture");
     };
     write("main.k", "from \"std/io\" import println, IoError, Line\nfrom \"std/fmt\" import format "
-                    "as fmt\nfrom \"std/process\" import ExitStatus\nfrom \"std/fs\" import File, "
+                    "as fmt\nfrom \"std/net\" import TcpListener\nfrom \"std/process\" import "
+                    "ExitStatus\nfrom \"std/fs\" import File, "
                     "open\nfrom \"std/path\" import join\nfrom \"std/parse\" import parseI64, "
                     "ParseError\nfrom \"std/env\" import get\nfrom \"std/time\" import now\nfrom "
                     "\"./helper.k\" import "
-                    "helper\nfrom \"std/option\" import Option\nfrom \"std/iter\" import Range, range\nfn main()->unit:\n  return\n");
+                    "helper\nfrom \"std/option\" import Option\nfrom \"std/iter\" import Range, "
+                    "range\nfn main()->unit:\n  return\n");
     write("helper.k", "from \"std/io\" import println\nexport fn helper()->unit:\n  return\n");
     auto loaded = loadModules((root / "main.k").string());
     require(loaded && loaded->ok(), "standard imports did not parse");
     const auto &module = loaded->module;
-    require(module.standardModules.size() == 15, "standard modules were duplicated or omitted");
+    require(module.standardModules.size() == 16, "standard modules were duplicated or omitted");
     require(!module.standardModules[0], "ordinary root acquired standard identity");
-    for (const auto kind :
-         {StandardModule::Io, StandardModule::Format, StandardModule::Process,
-          StandardModule::Stream, StandardModule::Filesystem, StandardModule::Buffer,
-          StandardModule::Parse, StandardModule::Path, StandardModule::Env, StandardModule::Time,
-          StandardModule::Option, StandardModule::Iteration, StandardModule::Comparison}) {
+    for (const auto kind : {StandardModule::Io, StandardModule::Format, StandardModule::Process,
+                            StandardModule::Stream, StandardModule::Net, StandardModule::Filesystem,
+                            StandardModule::Buffer, StandardModule::Parse, StandardModule::Path,
+                            StandardModule::Env, StandardModule::Time, StandardModule::Option,
+                            StandardModule::Iteration, StandardModule::Comparison}) {
       require(std::ranges::count(module.standardModules, std::optional(kind)) == 1,
               "standard module identity not canonical");
     }

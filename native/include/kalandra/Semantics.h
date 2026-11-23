@@ -525,6 +525,12 @@ enum class StandardRecord {
   WorkItem,
   Shared,
   Child,
+  NetError,
+  TcpStream,
+  TcpListener,
+  TcpHalves,
+  TcpReader,
+  TcpWriter,
   PipeReader,
   PipeWriter,
   ProcessError,
@@ -669,6 +675,11 @@ inline OwnedResourceKind ownedResourceKind(const TypedModule &module, const Valu
   if (!standard)
     return OwnedResourceKind::None;
   switch (*standard) {
+  case StandardRecord::TcpStream:
+  case StandardRecord::TcpListener:
+  case StandardRecord::TcpHalves:
+  case StandardRecord::TcpReader:
+  case StandardRecord::TcpWriter:
   case StandardRecord::PipeReader:
   case StandardRecord::PipeWriter:
   case StandardRecord::Child:
@@ -682,6 +693,9 @@ inline OwnedResourceKind ownedResourceKind(const TypedModule &module, const Valu
 }
 inline bool isByteBuffer(const TypedModule &module, const ValueType &type) {
   return ownedResourceKind(module, type) == OwnedResourceKind::ByteBuffer;
+}
+inline bool tcpResource(std::optional<StandardRecord> type) {
+  return type && *type >= StandardRecord::TcpStream && *type <= StandardRecord::TcpWriter;
 }
 inline bool isFileResource(const TypedModule &module, const ValueType &type) {
   const auto kind = ownedResourceKind(module, type);

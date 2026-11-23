@@ -8,6 +8,7 @@ enum class StandardModule {
   Process,
   Filesystem,
   Stream,
+  Net,
   Buffer,
   Parse,
   Path,
@@ -40,6 +41,8 @@ inline std::optional<StandardModule> standardModule(std::string_view name) {
     return StandardModule::Path;
   if (name == "std/parse")
     return StandardModule::Parse;
+  if (name == "std/net")
+    return StandardModule::Net;
   if (name == "std/stream")
     return StandardModule::Stream;
   if (name == "std/fs")
@@ -74,6 +77,8 @@ inline std::string_view standardModulePath(StandardModule module) {
     return "kalandra-stdlib:std/path.k";
   case StandardModule::Parse:
     return "kalandra-stdlib:std/parse.k";
+  case StandardModule::Net:
+    return "kalandra-stdlib:std/net.k";
   case StandardModule::Stream:
     return "kalandra-stdlib:std/stream.k";
   case StandardModule::Filesystem:
@@ -108,6 +113,8 @@ inline std::optional<StandardModule> standardModuleFromPath(std::string_view pat
     return StandardModule::Path;
   if (path == standardModulePath(StandardModule::Parse))
     return StandardModule::Parse;
+  if (path == standardModulePath(StandardModule::Net))
+    return StandardModule::Net;
   if (path == standardModulePath(StandardModule::Stream))
     return StandardModule::Stream;
   if (path == standardModulePath(StandardModule::Filesystem))
@@ -570,6 +577,136 @@ export fn parseF64(text: String) -> f64 ! ParseError:
 export fn parseBool(text: String) -> bool ! ParseError:
   return __kalandra_parse_bool(text)
 )k";
+  case StandardModule::Net:
+    return R"k(from "std/buffer" import ByteBuffer
+from "std/time" import Duration, asNanoseconds
+from "std/stream" import ByteReader, ByteWriter, PipeCloser, StreamError
+export from "std/stream" import close
+export error NetError:
+  System:
+    code: i32
+    message: String
+  InvalidArgument
+  Resolution:
+    code: i32
+  TimedOut
+  HalfUnavailable
+export type TcpStream:
+  __storage: [u8]
+export type TcpListener:
+  __storage: [u8]
+export type TcpHalves:
+  __storage: [u8]
+export type TcpReader:
+  __storage: [u8]
+export type TcpWriter:
+  __storage: [u8]
+fn __connectTcp(host: String, port: u16, timeout: u64) -> TcpStream ! NetError:
+  return __kalandra_net(host, port, timeout)
+export fn connectTcp(host: String, port: u16) -> TcpStream ! NetError:
+  return try __connectTcp(host, port, 18446744073709551615)
+export fn connectTcpWithin(host: String, port: u16, timeout: Duration) -> TcpStream ! NetError:
+  return try __connectTcp(host, port, asNanoseconds(timeout))
+export fn listenTcp(host: String, port: u16) -> TcpListener ! NetError:
+  return __kalandra_net(host, port)
+export fn accept(listener: TcpListener) -> TcpStream ! NetError:
+  return __kalandra_net(listener)
+export fn localPort(listener: TcpListener) -> u16 ! NetError:
+  return __kalandra_net(listener)
+export fn shutdownWrite(stream: TcpStream) -> unit ! NetError:
+  return __kalandra_net(stream)
+export fn split(own stream: TcpStream) -> TcpHalves ! NetError:
+  return __kalandra_net(stream)
+export fn takeReader(halves: TcpHalves) -> TcpReader ! NetError:
+  return __kalandra_net(halves)
+export fn takeWriter(halves: TcpHalves) -> TcpWriter ! NetError:
+  return __kalandra_net(halves)
+export trait TcpTimeout:
+  fn setTimeout(endpoint: Self, timeout: Duration) -> unit ! NetError
+export fn setTimeout[S: TcpTimeout](endpoint: S, timeout: Duration) -> unit ! NetError:
+  return try TcpTimeout.setTimeout(endpoint, timeout)
+fn __readIntoTcpStream(stream: TcpStream, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer, maxBytes)
+fn __readAppendTcpStream(stream: TcpStream, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer, maxBytes)
+impl ByteReader for TcpStream:
+  fn readInto(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+    return try __readIntoTcpStream(stream, buffer, maxBytes)
+  fn readAppend(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+    return try __readAppendTcpStream(stream, buffer, maxBytes)
+fn __writeTcpStream(stream: TcpStream, buffer: ByteBuffer) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer)
+fn __writeAllTcpStream(stream: TcpStream, buffer: ByteBuffer) -> unit ! StreamError:
+  return __kalandra_stream(stream, buffer)
+impl ByteWriter for TcpStream:
+  fn write(stream: Self, buffer: ByteBuffer) -> u64 ! StreamError:
+    return try __writeTcpStream(stream, buffer)
+  fn writeAll(stream: Self, buffer: ByteBuffer) -> unit ! StreamError:
+    return try __writeAllTcpStream(stream, buffer)
+fn __closeTcpStream(own endpoint: TcpStream) -> unit ! StreamError:
+  return __kalandra_net(endpoint)
+impl PipeCloser for TcpStream:
+  fn close(own stream: Self) -> unit ! StreamError:
+    return try __closeTcpStream(stream)
+fn __timeoutTcpStream(endpoint: TcpStream, nanoseconds: u64) -> unit ! NetError:
+  return __kalandra_net(endpoint, nanoseconds)
+impl TcpTimeout for TcpStream:
+  fn setTimeout(endpoint: Self, timeout: Duration) -> unit ! NetError:
+    return try __timeoutTcpStream(endpoint, asNanoseconds(timeout))
+fn __closeTcpListener(own endpoint: TcpListener) -> unit ! StreamError:
+  return __kalandra_net(endpoint)
+impl PipeCloser for TcpListener:
+  fn close(own stream: Self) -> unit ! StreamError:
+    return try __closeTcpListener(stream)
+fn __timeoutTcpListener(endpoint: TcpListener, nanoseconds: u64) -> unit ! NetError:
+  return __kalandra_net(endpoint, nanoseconds)
+impl TcpTimeout for TcpListener:
+  fn setTimeout(endpoint: Self, timeout: Duration) -> unit ! NetError:
+    return try __timeoutTcpListener(endpoint, asNanoseconds(timeout))
+fn __closeTcpHalves(own endpoint: TcpHalves) -> unit ! StreamError:
+  return __kalandra_net(endpoint)
+impl PipeCloser for TcpHalves:
+  fn close(own stream: Self) -> unit ! StreamError:
+    return try __closeTcpHalves(stream)
+fn __readIntoTcpReader(stream: TcpReader, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer, maxBytes)
+fn __readAppendTcpReader(stream: TcpReader, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer, maxBytes)
+impl ByteReader for TcpReader:
+  fn readInto(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+    return try __readIntoTcpReader(stream, buffer, maxBytes)
+  fn readAppend(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError:
+    return try __readAppendTcpReader(stream, buffer, maxBytes)
+fn __closeTcpReader(own endpoint: TcpReader) -> unit ! StreamError:
+  return __kalandra_net(endpoint)
+impl PipeCloser for TcpReader:
+  fn close(own stream: Self) -> unit ! StreamError:
+    return try __closeTcpReader(stream)
+fn __timeoutTcpReader(endpoint: TcpReader, nanoseconds: u64) -> unit ! NetError:
+  return __kalandra_net(endpoint, nanoseconds)
+impl TcpTimeout for TcpReader:
+  fn setTimeout(endpoint: Self, timeout: Duration) -> unit ! NetError:
+    return try __timeoutTcpReader(endpoint, asNanoseconds(timeout))
+fn __writeTcpWriter(stream: TcpWriter, buffer: ByteBuffer) -> u64 ! StreamError:
+  return __kalandra_stream(stream, buffer)
+fn __writeAllTcpWriter(stream: TcpWriter, buffer: ByteBuffer) -> unit ! StreamError:
+  return __kalandra_stream(stream, buffer)
+impl ByteWriter for TcpWriter:
+  fn write(stream: Self, buffer: ByteBuffer) -> u64 ! StreamError:
+    return try __writeTcpWriter(stream, buffer)
+  fn writeAll(stream: Self, buffer: ByteBuffer) -> unit ! StreamError:
+    return try __writeAllTcpWriter(stream, buffer)
+fn __closeTcpWriter(own endpoint: TcpWriter) -> unit ! StreamError:
+  return __kalandra_net(endpoint)
+impl PipeCloser for TcpWriter:
+  fn close(own stream: Self) -> unit ! StreamError:
+    return try __closeTcpWriter(stream)
+fn __timeoutTcpWriter(endpoint: TcpWriter, nanoseconds: u64) -> unit ! NetError:
+  return __kalandra_net(endpoint, nanoseconds)
+impl TcpTimeout for TcpWriter:
+  fn setTimeout(endpoint: Self, timeout: Duration) -> unit ! NetError:
+    return try __timeoutTcpWriter(endpoint, asNanoseconds(timeout))
+)k";
   case StandardModule::Stream:
     return R"k(from "std/fs" import File, BufferedReader, BufferedWriter
 from "std/buffer" import ByteBuffer
@@ -584,6 +721,7 @@ export error StreamError:
   BrokenPipe:
     code: i32
   InvalidArgument
+  TimedOut
 export trait ByteReader:
   fn readInto(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError
   fn readAppend(stream: Self, mut buffer: ByteBuffer, maxBytes: u64) -> u64 ! StreamError

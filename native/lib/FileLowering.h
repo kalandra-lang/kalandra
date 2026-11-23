@@ -48,6 +48,13 @@ inline void emitFileArguments(llvm::IRBuilder<> &b, const TaskValueTypes &types,
   }
   if (filePathAction(op.action)) {
     copy(1, inputs.at(0));
+    if (netAddressAction(op.action)) {
+      auto *port = b.CreateZExt(b.CreateLoad(b.getInt16Ty(), inputs.at(1)), b.getInt64Ty());
+      b.CreateStore(port, b.CreateStructGEP(layout, arguments, 3));
+      if (op.action == FileAction::TcpConnect)
+        copy(4, inputs.at(2));
+      return;
+    }
     if (op.action != FileAction::Open && op.action != FileAction::OpenWatch)
       return;
     auto *mode = b.CreateSub(b.CreateLoad(b.getInt64Ty(), inputs.at(1)), b.getInt64(1));
@@ -77,10 +84,11 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
                            llvm::Value *context, llvm::BasicBlock *next, llvm::BasicBlock *abort) {
   const bool process = isProcessAction(op.action);
   const bool stream = op.action >= FileAction::StreamRead && op.action <= FileAction::PipeClose;
-  if (!result.errorRecord ||
-      input.records.at(*result.errorRecord).standard != (process  ? StandardRecord::ProcessError
-                                                         : stream ? StandardRecord::StreamError
-                                                                  : StandardRecord::FsError))
+  if (!result.errorRecord || input.records.at(*result.errorRecord).standard !=
+                                 (netAction(op.action) ? StandardRecord::NetError
+                                  : process            ? StandardRecord::ProcessError
+                                  : stream             ? StandardRecord::StreamError
+                                                       : StandardRecord::FsError))
     throw std::invalid_argument("filesystem operation lost its nominal error identity");
   auto *transport = fileResultType(types, module.getContext());
   auto *args = fileArgumentsType(types, module.getContext());
@@ -117,9 +125,29 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
     return b.CreateLoad(transport->getElementType(field),
                         b.CreateStructGEP(transport, scratch, field));
   };
-  for (unsigned kind = 2; kind <= 10; ++kind) {
+  for (unsigned kind = 2; kind <= 13; ++kind) {
     unsigned tag = kind - 1;
-    if (process) {
+    if (netAction(op.action)) {
+      switch (kind) {
+      case 2:
+        tag = 1;
+        break;
+      case 6:
+        tag = 2;
+        break;
+      case 11:
+        tag = 3;
+        break;
+      case 12:
+        tag = 4;
+        break;
+      case 13:
+        tag = 5;
+        break;
+      default:
+        continue;
+      }
+    } else if (process) {
       if (kind == 2)
         tag = 1;
       else if (kind == 6)
@@ -137,6 +165,8 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
         tag = 2;
       else if (kind == 6)
         tag = 3;
+      else if (kind == 12)
+        tag = 4;
       else
         continue;
     } else if (kind > 6)
@@ -149,7 +179,7 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
     if (kind == 2) {
       storeField(*result.errorRecord, packet, "code", loadTransport(1), tag);
       storeField(*result.errorRecord, packet, "message", loadTransport(2));
-    } else if (kind == 8) {
+    } else if (kind == 8 || kind == 11) {
       storeField(*result.errorRecord, packet, "code", loadTransport(1), tag);
     } else if (kind == 4 || kind == 10) {
       storeField(*result.errorRecord, packet, "limit",
@@ -201,6 +231,15 @@ inline void emitFilePacket(llvm::IRBuilder<> &b, llvm::Module &module, const Typ
   case FileAction::Wait:
     storeStatus(result, value);
     break;
+  case FileAction::TcpLocalPort:
+    b.CreateStore(b.CreateTrunc(loadTransport(5), b.getInt16Ty()), value);
+    break;
+  case FileAction::TcpListen:
+  case FileAction::TcpConnect:
+  case FileAction::TcpAccept:
+  case FileAction::TcpSplit:
+  case FileAction::TcpTakeReader:
+  case FileAction::TcpTakeWriter:
   case FileAction::Start:
   case FileAction::TakeStdin:
   case FileAction::TakeStdout:

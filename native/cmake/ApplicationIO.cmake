@@ -579,8 +579,19 @@ if(BUILD_TESTING)
   endforeach()
 endif()
 
+if(BUILD_TESTING OR KALANDRA_BUILD_TEST_OBSERVER)
+  add_executable(kalandra-tcp-lifecycle-tests tests/TcpLifecycleTests.cpp)
+  target_link_libraries(kalandra-tcp-lifecycle-tests PRIVATE kalandra-native-runtime)
+endif()
 if(BUILD_TESTING)
+  add_dependencies(native-io-qualification kalandra-tcp-lifecycle-tests)
+  add_test(NAME native-tcp-lifecycle COMMAND kalandra-tcp-lifecycle-tests)
+  set_tests_properties(native-tcp-lifecycle PROPERTIES TIMEOUT 60 LABELS "feature-io")
   foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+    add_test(NAME native-tcp-source-${variant}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TcpSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}")
+    set_tests_properties(native-tcp-source-${variant} PROPERTIES TIMEOUT 240 LABELS "feature-io")
     add_test(NAME native-process-streams-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ProcessSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}")

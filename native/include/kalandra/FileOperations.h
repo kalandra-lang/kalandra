@@ -44,7 +44,16 @@ enum class FileAction : std::uint32_t {
   DirectoryCreateAll,
   RemoveTree,
   OpenWatch,
-  ReadWatch
+  ReadWatch,
+  TcpConnect,
+  TcpListen,
+  TcpAccept,
+  TcpLocalPort,
+  TcpShutdown,
+  TcpSplit,
+  TcpTakeReader,
+  TcpTakeWriter,
+  TcpTimeout
 };
 inline std::optional<FileAction> fileAction(std::string_view name) {
   if (name == "__openWatch")
@@ -111,6 +120,43 @@ inline std::optional<FileAction> streamAction(std::string_view name) {
     return FileAction::PipeClose;
   return {};
 }
+inline bool netAddressAction(FileAction action) {
+  return action == FileAction::TcpConnect || action == FileAction::TcpListen;
+}
+inline bool netAction(FileAction action) {
+  return action >= FileAction::TcpConnect && action <= FileAction::TcpTimeout;
+}
+inline std::optional<FileAction> netAction(std::string_view name) {
+  if (name == "__connectTcp")
+    return FileAction::TcpConnect;
+  if (name == "listenTcp")
+    return FileAction::TcpListen;
+  if (name == "accept")
+    return FileAction::TcpAccept;
+  if (name == "localPort")
+    return FileAction::TcpLocalPort;
+  if (name == "shutdownWrite")
+    return FileAction::TcpShutdown;
+  if (name == "split")
+    return FileAction::TcpSplit;
+  if (name == "takeReader")
+    return FileAction::TcpTakeReader;
+  if (name == "takeWriter")
+    return FileAction::TcpTakeWriter;
+  if (name.starts_with("__readIntoTcp"))
+    return FileAction::StreamRead;
+  if (name.starts_with("__readAppendTcp"))
+    return FileAction::StreamAppend;
+  if (name.starts_with("__writeAllTcp"))
+    return FileAction::StreamWriteAll;
+  if (name.starts_with("__writeTcp"))
+    return FileAction::StreamWrite;
+  if (name.starts_with("__closeTcp"))
+    return FileAction::PipeClose;
+  if (name.starts_with("__timeoutTcp"))
+    return FileAction::TcpTimeout;
+  return {};
+}
 inline std::optional<FileAction> processAction(std::string_view name) {
   if (name == "start")
     return FileAction::Start;
@@ -149,15 +195,16 @@ inline FileAction streamFileAction(FileAction action) {
   }
 }
 inline bool filePathAction(FileAction action) {
-  return action == FileAction::OpenWatch || action == FileAction::OpenWalk || action == FileAction::DirectoryCreateAll ||
+  return netAddressAction(action) || action == FileAction::OpenWatch ||
+         action == FileAction::OpenWalk || action == FileAction::DirectoryCreateAll ||
          action == FileAction::RemoveTree || action == FileAction::Open ||
          action == FileAction::OpenDirectory || action == FileAction::Metadata ||
          action == FileAction::DirectoryCreate || action == FileAction::RemoveFile ||
          action == FileAction::DirectoryRemove;
 }
 inline bool consumesFile(FileAction action) {
-  return action == FileAction::PipeClose || action == FileAction::BufferedReader ||
-         action == FileAction::BufferedWriter || action == FileAction::Finish ||
-         action == FileAction::Close;
+  return action == FileAction::TcpSplit || action == FileAction::PipeClose ||
+         action == FileAction::BufferedReader || action == FileAction::BufferedWriter ||
+         action == FileAction::Finish || action == FileAction::Close;
 }
 } // namespace kalandra

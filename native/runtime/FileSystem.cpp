@@ -1,8 +1,11 @@
+// Winsock2 must precede every header that may import windows.h.
+#include "TcpSocket.h"
+
 #include "FileSystem.h"
-#include "DirectoryWatch.h"
 #include "../include/kalandra/Utf8.h"
 #include "ChildProcess.h"
 #include "Console.h"
+#include "DirectoryWatch.h"
 #include "StringArray.h"
 #include "TreeLocation.h"
 #include <algorithm>
@@ -19,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <string_view>
 #include <thread>
 #include <utility>
 #ifdef _WIN32
@@ -89,12 +93,17 @@ void releaseFileSlot(std::size_t) noexcept;
 #include "RecursiveDirectory.h"
 using TreeOwner = std::unique_ptr<DirectoryCursor>;
 using ChildOwner = std::unique_ptr<process::Child>;
-void deferClose(NativeFile &, std::size_t &, NativeDirectory &, ChildOwner &, TreeOwner &) noexcept;
+void deferClose(NativeFile &, std::size_t &, NativeDirectory &, ChildOwner &, TreeOwner &,
+                tcp::Owner &) noexcept;
 struct FileState : OwnedState {
   NativeFile file = invalidFile;
   NativeDirectory directory = invalidDirectory;
   ChildOwner child;
   TreeOwner tree;
+  tcp::Owner socket;
+  std::atomic<std::uint64_t> networkTimeout{UINT64_MAX};
+  // Set before publishing the owned handle. Stable even after close or split.
+  bool network = false;
   bool isDirectory = false, isWatch = false, pipe = false;
   std::size_t closeSlot = noFileSlot;
   enum class Buffer { None, Read, Write } buffer = Buffer::None;
@@ -103,11 +112,11 @@ struct FileState : OwnedState {
       : OwnedState(OwnedKind::File, sizeof(FileState) + capacity, cleanup, retireFile),
         capacity(capacity) {}
   unsigned char *data() noexcept { return reinterpret_cast<unsigned char *>(this + 1); }
-  ~FileState() { deferClose(file, closeSlot, directory, child, tree); }
+  ~FileState() { deferClose(file, closeSlot, directory, child, tree, socket); }
   static void cleanup(void *p) noexcept { static_cast<FileState *>(p)->~FileState(); }
   static void retireFile(void *p) noexcept {
     auto &file = *static_cast<FileState *>(p);
-    deferClose(file.file, file.closeSlot, file.directory, file.child, file.tree);
+    deferClose(file.file, file.closeSlot, file.directory, file.child, file.tree, file.socket);
   }
 };
 FileDescriptor descriptor(FileState *file) noexcept { return ownedDescriptor(file); }
@@ -146,6 +155,16 @@ struct Job {
   std::unique_ptr<process::Command> command;
   std::unique_ptr<CaptureData> capture;
   std::string walkPath;
+  std::unique_ptr<tcp::Addresses> addresses;
+  using Clock = std::chrono::steady_clock;
+  Clock::time_point started{};
+  std::uint64_t timeout = UINT64_MAX;
+  bool expired() const noexcept {
+    return timeout != UINT64_MAX &&
+           static_cast<std::uint64_t>(
+               std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - started)
+                   .count()) >= timeout;
+  }
   explicit Job(FileAction action) noexcept : action(action) {}
   unsigned char *data() noexcept {
     return direct ? buffer.data : reinterpret_cast<unsigned char *>(this + 1);
@@ -161,6 +180,26 @@ std::uint64_t nativeRead(Job &job, FileState &file, unsigned char *bytes,
   if (job.abandoned.load(std::memory_order_acquire))
     return 0;
   const auto request = static_cast<std::uint32_t>(std::min<std::uint64_t>(count, 65536));
+  if (file.socket) {
+    if (!(file.socket->directions & tcp::Read)) {
+      job.kind = FileKind::InvalidArgument;
+      return 0;
+    }
+    if (job.expired()) {
+      job.kind = FileKind::TimedOut;
+      return 0;
+    }
+    const auto n = ::recv(file.socket->socket->fd, reinterpret_cast<char *>(bytes),
+                          static_cast<int>(request), 0);
+    if (n >= 0)
+      return static_cast<std::uint64_t>(n);
+    const int error = tcp::error();
+    if (tcp::pending(error))
+      job.retry = true;
+    else
+      job.system(error);
+    return 0;
+  }
 #ifdef _WIN32
   DWORD actual = 0;
   if (!ReadFile(file.file, bytes, request, &actual, nullptr)) {
@@ -195,6 +234,26 @@ std::uint64_t nativeWrite(Job &job, FileState &file, const unsigned char *bytes,
   if (job.abandoned.load(std::memory_order_acquire))
     return 0;
   const auto request = static_cast<std::uint32_t>(std::min<std::uint64_t>(count, 65536));
+  if (file.socket) {
+    if (!(file.socket->directions & tcp::Write)) {
+      job.kind = FileKind::InvalidArgument;
+      return 0;
+    }
+    if (job.expired()) {
+      job.kind = FileKind::TimedOut;
+      return 0;
+    }
+    const auto n = ::send(file.socket->socket->fd, reinterpret_cast<const char *>(bytes),
+                          static_cast<int>(request), tcp::sendFlags);
+    if (n >= 0)
+      return static_cast<std::uint64_t>(n);
+    const int error = tcp::error();
+    if (tcp::pending(error))
+      job.retry = true;
+    else
+      job.system(error);
+    return 0;
+  }
 #ifdef _WIN32
   DWORD actual = 0;
   if (!WriteFile(file.file, bytes, request, &actual, nullptr)) {
@@ -273,6 +332,7 @@ std::uint64_t write(Job &job, FileState &file, const unsigned char *bytes,
   return n;
 }
 std::int32_t closeFile(FileState &file) noexcept {
+  file.socket.reset();
   file.tree.reset();
   const auto directoryError = closeDirectory(std::exchange(file.directory, invalidDirectory));
   const auto nativeError = closeNative(std::exchange(file.file, invalidFile));
@@ -408,9 +468,18 @@ void treeOperation(Job &job) noexcept {
     job.kind = FileKind::ResourceLimit;
   }
 }
+#include "TcpOperations.inc"
 void execute(Job &job) noexcept {
   if (job.abandoned)
     return;
+  if (netAction(job.action)) {
+    try {
+      tcpControl(job);
+    } catch (const std::bad_alloc &) {
+      job.kind = FileKind::ResourceLimit;
+    }
+    return;
+  }
   if (job.action >= FileAction::OpenWalk && job.action <= FileAction::OpenWatch) {
     treeOperation(job);
     return;
@@ -455,7 +524,7 @@ void execute(Job &job) noexcept {
       job.kind = FileKind::InvalidArgument;
     return;
   }
-  if (job.action == FileAction::ReadDirectory || file.file == invalidFile) {
+  if (job.action == FileAction::ReadDirectory || (file.file == invalidFile && !file.socket)) {
     job.kind = FileKind::InvalidArgument;
     return;
   }
@@ -627,6 +696,7 @@ struct Executor {
     NativeDirectory directory = invalidDirectory;
     ChildOwner child;
     TreeOwner tree;
+    tcp::Owner socket;
     bool reserved = false;
   };
   std::array<CloseSlot, fileSlots> closes;
@@ -648,6 +718,7 @@ struct Executor {
       Pending current;
       ChildOwner child;
       TreeOwner tree;
+      tcp::Owner socket;
       NativeFile closing = invalidFile;
       NativeDirectory closingDirectory = invalidDirectory;
       std::size_t closeIndex = noFileSlot;
@@ -662,6 +733,7 @@ struct Executor {
           closingDirectory = closes[closeIndex].directory;
           child = std::move(closes[closeIndex].child);
           tree = std::move(closes[closeIndex].tree);
+          socket = std::move(closes[closeIndex].socket);
         } else {
           current = std::move(queue[begin]);
           begin = (begin + 1) % queue.size();
@@ -673,6 +745,7 @@ struct Executor {
         const bool hadChild = bool(child);
         child.reset();
         tree.reset();
+        socket.reset();
         (void)closeDirectory(closingDirectory);
         (void)closeNative(closing);
         {
@@ -696,13 +769,14 @@ struct Executor {
       if (current.job->file && current.job->file->retired.load(std::memory_order_acquire)) {
         std::lock_guard native(current.job->file->mutex);
         deferClose(current.job->file->file, current.job->file->closeSlot,
-                   current.job->file->directory, current.job->file->child, current.job->file->tree);
+                   current.job->file->directory, current.job->file->child, current.job->file->tree,
+                   current.job->file->socket);
       }
       if (current.job->output && current.job->output->retired.load(std::memory_order_acquire)) {
         std::lock_guard native(current.job->output->mutex);
         deferClose(current.job->output->file, current.job->output->closeSlot,
                    current.job->output->directory, current.job->output->child,
-                   current.job->output->tree);
+                   current.job->output->tree, current.job->output->socket);
       }
       // Native access has ended. Releasing the exact byte pin before done
       // publication avoids unnecessary COW on an ordinary successful return.
@@ -777,8 +851,8 @@ void releaseFileSlot(std::size_t slot) noexcept {
   --service.reserved;
 }
 void deferClose(NativeFile &file, std::size_t &slot, NativeDirectory &directory, ChildOwner &child,
-                TreeOwner &tree) noexcept {
-  if (file == invalidFile && directory == invalidDirectory && !child && !tree) {
+                TreeOwner &tree, tcp::Owner &socket) noexcept {
+  if (file == invalidFile && directory == invalidDirectory && !child && !tree && !socket) {
     releaseFileSlot(std::exchange(slot, noFileSlot));
     return;
   }
@@ -791,6 +865,7 @@ void deferClose(NativeFile &file, std::size_t &slot, NativeDirectory &directory,
     ++service.retiringChildren;
   service.closes[index].child = std::move(child);
   service.closes[index].tree = std::move(tree);
+  service.closes[index].socket = std::move(socket);
   service.closes[index].file = std::exchange(file, invalidFile);
   service.closes[index].directory = std::exchange(directory, invalidDirectory);
   service.closeQueue[(service.closeBegin + service.closeCount) % fileSlots] = std::uint32_t(index);
@@ -809,9 +884,11 @@ struct Operation {
   }
   static void cleanup(void *p) noexcept { static_cast<Operation *>(p)->~Operation(); }
 };
-void systemError(Invocation &ctx, FileResult &out, std::int32_t code) noexcept {
-  char message[80] = "filesystem I/O failed (system code ";
-  auto *start = message + std::strlen(message);
+void systemError(Invocation &ctx, FileResult &out, std::int32_t code, bool network) noexcept {
+  char message[80];
+  const std::string_view prefix = network ? "TCP operation failed (system code "
+                                          : "filesystem I/O failed (system code ";
+  auto *start = std::copy(prefix.begin(), prefix.end(), message);
   const auto result = std::to_chars(start, message + sizeof(message) - 1, code);
   if (result.ec != std::errc{}) {
     ctx.fault(2);
@@ -864,7 +941,9 @@ Operation *prepare(Invocation &ctx, ProcessResult &out, FileAction action,
   else if (filePathAction(action)) {
     if (!validateString(ctx, args.path))
       return nullptr;
-    if ((action == FileAction::OpenWatch && args.mode > 1) ||
+    if ((netAddressAction(action) &&
+         (!args.path.byteLength || args.path.byteLength > 1024 || args.value > 65535)) ||
+        (action == FileAction::OpenWatch && args.mode > 1) ||
         (action == FileAction::Open && args.mode > std::uint64_t(FileMode::ReadWrite)) ||
         (args.path.byteLength && std::memchr(args.path.data, 0, args.path.byteLength))) {
       out.kind = FileKind::InvalidArgument;
@@ -891,11 +970,12 @@ Operation *prepare(Invocation &ctx, ProcessResult &out, FileAction action,
   {
     Invocation::OwnershipSelection select(op->storage);
     auto *storage = ctx.allocateResource(sizeof(Job) + (bufferRead || bufferWrite ? 0 : size),
-                                         Job::cleanup, commandAction(action));
+                                         Job::cleanup, commandAction(action) || netAddressAction(action));
     if (!storage)
       return nullptr;
     auto *job = new (storage) Job(action);
     op->job = job;
+    if (netAddressAction(action) && !ctx.resizeResource(job, sizeof(tcp::Addresses))) return nullptr;
     job->stream = stream;
     if (commandAction(action)) {
       if (!args.command || !copyCommand(ctx, *job, *args.command)) {
@@ -922,16 +1002,25 @@ Operation *prepare(Invocation &ctx, ProcessResult &out, FileAction action,
     job->file = file;
     job->value = args.value;
     job->mode = args.mode;
+    if (action == FileAction::TcpConnect)
+      job->timeout = args.mode;
+    if (file && (stream || action == FileAction::TcpAccept)) {
+      job->timeout = file->networkTimeout.load(std::memory_order_relaxed);
+    }
+    if (job->timeout != UINT64_MAX)
+      job->started = Job::Clock::now();
     job->size = size;
     job->direct = bufferRead || bufferWrite;
     job->buffer = std::move(buffer);
     if (file)
       job->fileOwner = std::move(*ctx.lease(file));
-    if (commandAction(action) ||
+    if (commandAction(action) || netAddressAction(action) || action == FileAction::TcpAccept ||
+        action == FileAction::TcpSplit || action == FileAction::TcpTakeReader ||
+        action == FileAction::TcpTakeWriter ||
         (action >= FileAction::TakeStdin && action <= FileAction::TakeStderr) ||
-        action == FileAction::Open || action == FileAction::OpenWalk || action == FileAction::OpenWatch ||
-        action == FileAction::OpenDirectory || action == FileAction::BufferedReader ||
-        action == FileAction::BufferedWriter) {
+        action == FileAction::Open || action == FileAction::OpenWalk ||
+        action == FileAction::OpenWatch || action == FileAction::OpenDirectory ||
+        action == FileAction::BufferedReader || action == FileAction::BufferedWriter) {
       job->output = createFile(ctx, action == FileAction::OpenDirectory ? sizeof(DirectoryData)
                                     : action != FileAction::BufferedWriter &&
                                             action != FileAction::BufferedReader
@@ -939,6 +1028,7 @@ Operation *prepare(Invocation &ctx, ProcessResult &out, FileAction action,
                                         : args.value);
       if (!job->output)
         return nullptr;
+      job->output->network = netAction(action);
       job->outputOwner = std::move(*ctx.lease(job->output));
     }
     if (filePathAction(action)) {
@@ -971,6 +1061,37 @@ Operation *prepare(Invocation &ctx, ProcessResult &out, FileAction action,
   }
   return op;
 }
+bool socketBytes(Job &job) noexcept {
+  // Socket handles always use nonblocking I/O. Try immediately and park only
+  // on backpressure, contention or after a bounded turn. No idle service worker
+  // or delayed file-completion poll is needed for the common ready case.
+  auto &file = *job.file;
+  std::unique_lock lock(file.mutex, std::try_to_lock);
+  if (!lock)
+    return false;
+  if (!file.socket || file.retired)
+    job.kind = FileKind::InvalidArgument;
+  const bool reading =
+      job.action == FileAction::ReadIntoBuffer || job.action == FileAction::ReadAppend;
+  for (unsigned turn = 0; turn < 16 && job.count < job.size && job.kind == FileKind::Success;
+       ++turn) {
+    auto *data = job.data() + job.count;
+    auto n = reading ? nativeRead(job, file, data, job.size - job.count)
+                     : nativeWrite(job, file, data, job.size - job.count);
+    job.count += n;
+    if (job.retry) {
+      job.retry = false;
+      return false;
+    }
+    if (reading || job.action == FileAction::WriteBuffer || !n)
+      break;
+  }
+  if (job.kind == FileKind::Success && job.action == FileAction::WriteAllBuffer &&
+      job.count < job.size)
+    return false;
+  job.buffer.payload = {};
+  return true;
+}
 bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessArguments &args,
           void **state) {
   auto *op = *state ? static_cast<Operation *>(*state) : prepare(ctx, out, action, args, state);
@@ -978,44 +1099,54 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
     return true;
   auto &job = *op->job;
   action = job.action;
-  if (!op->submitted) {
-    auto retained = ctx.lease(&job);
-    if (!retained) {
-      ctx.fault(3);
-      return true;
-    }
-    Pending pending{&job, std::move(*retained)};
-    if (!executor().submit(pending))
+  if (action == FileAction::TcpConnect && !job.done.load(std::memory_order_acquire) &&
+      job.expired()) {
+    out.kind = FileKind::TimedOut;
+    return true;
+  }
+  if (job.direct && job.file->network) {
+    if (!socketBytes(job))
       return false;
-    op->submitted = true;
-  }
-  if (!job.done.load(std::memory_order_acquire))
-    return false;
-  if (job.capture && job.kind == FileKind::Success) {
-    Invocation::OwnershipSelection selection(op->storage);
-    auto &capture = *job.capture;
-    for (unsigned i = 0; i < 2; ++i) {
-      auto &out = capture.outputs[i];
-      const auto count = std::exchange(capture.received[i], 0);
-      if (!count)
-        continue;
-      const auto needed = out.size() + count;
-      if (needed > out.capacity()) {
-        const auto capacity =
-            std::min<std::uint64_t>(job.value, std::max(needed, out.capacity() * 2));
-        if (!ctx.resizeResource(&job,
-                                sizeof(CaptureData) + capture.outputs[1 - i].capacity() + capacity))
-          return true;
-        out.reserve(capacity);
+  } else {
+    if (!op->submitted) {
+      auto retained = ctx.lease(&job);
+      if (!retained) {
+        ctx.fault(3);
+        return true;
       }
-      out.insert(out.end(), capture.staging[i].begin(), capture.staging[i].begin() + count);
+      Pending pending{&job, std::move(*retained)};
+      if (!executor().submit(pending))
+        return false;
+      op->submitted = true;
     }
-  }
-  if (job.retry) {
-    job.retry = false;
-    job.done.store(false, std::memory_order_relaxed);
-    op->submitted = false;
-    return false;
+    if (!job.done.load(std::memory_order_acquire))
+      return false;
+    if (job.capture && job.kind == FileKind::Success) {
+      Invocation::OwnershipSelection selection(op->storage);
+      auto &capture = *job.capture;
+      for (unsigned i = 0; i < 2; ++i) {
+        auto &out = capture.outputs[i];
+        const auto count = std::exchange(capture.received[i], 0);
+        if (!count)
+          continue;
+        const auto needed = out.size() + count;
+        if (needed > out.capacity()) {
+          const auto capacity =
+              std::min<std::uint64_t>(job.value, std::max(needed, out.capacity() * 2));
+          if (!ctx.resizeResource(&job, sizeof(CaptureData) + capture.outputs[1 - i].capacity() +
+                                            capacity))
+            return true;
+          out.reserve(capacity);
+        }
+        out.insert(out.end(), capture.staging[i].begin(), capture.staging[i].begin() + count);
+      }
+    }
+    if (job.retry) {
+      job.retry = false;
+      job.done.store(false, std::memory_order_relaxed);
+      op->submitted = false;
+      return false;
+    }
   }
   if (job.kind == FileKind::ResourceLimit) {
     ctx.fault(2);
@@ -1030,15 +1161,16 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
   out.count = job.count;
   if (job.kind == FileKind::System) {
 #ifdef _WIN32
-    const bool broken = job.error == ERROR_BROKEN_PIPE || job.error == ERROR_NO_DATA;
+    const bool broken = job.error == ERROR_BROKEN_PIPE || job.error == ERROR_NO_DATA ||
+                        job.error == WSAECONNRESET || job.error == WSAESHUTDOWN;
 #else
-    const bool broken = job.error == EPIPE;
+    const bool broken = job.error == EPIPE || job.error == ECONNRESET;
 #endif
     if (job.stream && broken) {
       out.kind = FileKind::BrokenPipe;
       return true;
     }
-    systemError(ctx, out, job.error);
+    systemError(ctx, out, job.error, netAction(action) || (job.file && job.file->network));
     return true;
   }
   if (job.kind != FileKind::Success)
@@ -1119,7 +1251,7 @@ extern "C" bool kalandra_file_step_v2(Invocation *ctx, ProcessResult *out, std::
   bool done = true;
   try {
     if (healthy(*ctx)) {
-      if (action > std::uint32_t(FileAction::ReadWatch))
+      if (action > std::uint32_t(FileAction::TcpTimeout))
         ctx->fault(3);
       else
         done = step(*ctx, *out, static_cast<FileAction>(action), *args, state);
