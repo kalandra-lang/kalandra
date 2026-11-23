@@ -104,7 +104,20 @@ jobs:
           & build/windows/native/kalandra-type-capability-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Type-capability contracts failed' }
       - name: Verify native handle and byte-buffer lifetimes
-        run: ctest --test-dir build/windows --output-on-failure -R "^native-(subscription-lifecycle|c-portable-buffer-imports)$"
+        run: |
+          & build/windows/native/kalandra-native-subscription-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Native handle lifetime checks failed' }
+          $llvm = "$env:KALANDRA_LLVM_ROOT/bin"
+          $sanitizerFlags = @()
+          if ('${{ matrix.arch }}' -eq 'arm64') {
+            $sanitizerFlags += '--skip-sanitizer'
+          } else {
+            $resources = & "$llvm/clang.exe" -print-resource-dir
+            $env:PATH = "$resources/lib/windows;$llvm;$env:PATH"
+          }
+          python native/tests/CountedImportTests.py --portable --compiler "$pwd/build/windows/native/kalandra.exe" --checker "$pwd/build/windows/native/kalandra-check.exe" --cc "$llvm/clang.exe" --ar "$llvm/llvm-ar.exe" @sanitizerFlags
+          if ($LASTEXITCODE -ne 0) { throw 'Native byte-buffer contract checks failed' }
+          python native/tests/CImportTests.py --compiler "$pwd/build/windows/native/kalandra.exe" --checker "$pwd/build/windows/native/kalandra-check.exe" --cc "$llvm/clang.exe" --ar "$llvm/llvm-ar.exe"
       - name: Link and run C and C++ callers
         run: >-
           python native/tests/CExportTests.py --compiler "$pwd/build/windows/native/kalandra.exe"

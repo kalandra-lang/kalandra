@@ -595,9 +595,11 @@ if(BUILD_TESTING AND KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME
   set_tests_properties(native-process-mixed-metal PROPERTIES TIMEOUT 300 LABELS "feature-io;feature-gpu" RESOURCE_LOCK apple-metal-gpu)
 endif()
 
-if(BUILD_TESTING)
-  add_executable(kalandra-native-subscription-tests tests/NativeSubscriptionTests.cpp)
+if(BUILD_TESTING OR KALANDRA_BUILD_TEST_OBSERVER)
+  add_executable(kalandra-native-subscription-tests EXCLUDE_FROM_ALL tests/NativeSubscriptionTests.cpp)
   target_link_libraries(kalandra-native-subscription-tests PRIVATE kalandra-native-runtime)
+endif()
+if(BUILD_TESTING)
   add_test(NAME native-subscription-lifecycle COMMAND kalandra-native-subscription-tests)
   set_tests_properties(native-subscription-lifecycle PROPERTIES TIMEOUT 30 LABELS "feature-runtime")
   add_dependencies(native-io-qualification kalandra-native-subscription-tests)
