@@ -108,18 +108,18 @@ loadApplicationModules(const std::string &entry, std::span<const ModulePackage> 
     auto found = requests.find(import.moduleEntry);
     if (found == requests.end())
       continue;
-    auto bounds = std::make_shared<HeaderBounds>();
+    auto bounds = std::make_shared<HeaderContracts>();
     auto source = [&]() -> std::expected<std::string, std::string> {
       auto read = [&](const std::string &path) -> std::expected<std::string, std::string> {
 #ifdef __APPLE__
-        HeaderBounds appleBounds;
+        HeaderContracts appleBounds;
         auto apple = importAppleCHeader(path, found->second, appleBounds);
         if (apple) {
           *bounds = std::move(appleBounds);
           return apple;
         }
         // Preserve Apple's diagnostics for counted_by. Only take the portable
-        // route here when its AST independently proves a complete buffer contract.
+        // route here when its AST independently verifies the buffer or callback contract.
         auto portable = importPortableCHeader(path, clang, resources, found->second, *bounds);
         if (portable && !bounds->empty())
           return portable;

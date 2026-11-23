@@ -246,6 +246,7 @@ struct GeneratorCreate {
 struct ForeignCall {
   std::string symbol;
   std::vector<ValueId> arguments;
+  std::vector<std::string> callbacks = {};
 };
 struct TimeOperation {
   TimeAction action;

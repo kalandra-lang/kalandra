@@ -1,5 +1,7 @@
 """Exercise public C symbols through independent C and C++ translation units."""
 import argparse
+import platform
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -15,6 +17,66 @@ def run(*args, cwd, expect=None):
         raise AssertionError((result.args, result.returncode, result.stderr))
 
 
+def check_application_callback(args, path):
+    header = path / "events.h"
+    contract = """#include <stdint.h>
+typedef int32_t (*Event)(int32_t);
+int32_t dispatch(Event _Nonnull handler __attribute__((noescape)), int32_t argument);
+"""
+    header.write_text(contract)
+    (path / "events.c").write_text('''#include "events.h"
+int32_t dispatch(Event _Nonnull handler __attribute__((noescape)), int32_t argument) {
+  return handler(argument);
+}
+''')
+    run(args.cc, "-c", "events.c", "-o", "events.o", cwd=path)
+    (path / "kalandra.toml").write_text(
+        'format=1\n[project]\nentry="app.k"\n[dependencies.events]\n'
+        'header="events.h"\nlibrary="events.o"\n')
+    source = path / "app.k"
+    program = '''from "events" import dispatch
+from "std/process" import ExitStatus
+export "C" direct fn identity(value: i32) -> i32:
+  return value
+export "C" direct fn answer(value: i32) -> i32:
+  return 42
+fn main() -> ExitStatus:
+  if dispatch(identity, 17) == 17 and dispatch(answer, 17) == 42:
+    return ExitStatus {code: 0}
+  return ExitStatus {code: 1}
+'''
+    source.write_text(program)
+    exe = path / ("app.exe" if sys.platform == "win32" else "app")
+    modes = ["-O0", "-O2"]
+    if sys.platform != "win32" or platform.machine().lower() not in {"arm64", "aarch64"}:
+        modes.append("--sanitize")
+    for mode in modes:
+        run(args.compiler, "--project", "kalandra.toml", mode, "--emit-llvm", "app.ll", "-o", exe, cwd=path)
+        run(exe, cwd=path)
+        ir = (path / "app.ll").read_text()
+        for symbol in ("identity", "answer"):
+            assert re.search(rf"^define internal .*@kalandra_c_callback_{symbol}\(", ir, re.M)
+            assert not re.search(rf"^define .*@{symbol}\(", ir, re.M)
+    # Enter from a coordinating application as well as an ordinary CPU main.
+    source.write_text(program.replace('from "std/process" import ExitStatus',
+                                      'from "std/io" import println, IoError')
+                      .replace('fn main() -> ExitStatus:', 'fn main() -> unit ! IoError:')
+                      .replace('return ExitStatus {code: 0}', 'try println("delivered")\n    return ()')
+                      .replace('return ExitStatus {code: 1}', 'return ()'))
+    run(args.compiler, "--project", "kalandra.toml", "-O2", "-o", exe, cwd=path)
+    assert subprocess.check_output([exe], cwd=path, text=True).strip() == "delivered"
+    for changed in (program.replace('export "C" direct fn identity', 'fn identity'),
+                    program.replace('direct fn identity', 'checked fn identity')):
+        source.write_text(changed)
+        run(args.checker, "--project", "kalandra.toml", cwd=path, expect="direct C callback")
+    source.write_text(program.replace("  return value", "  return value * 2"))
+    run(args.compiler, "--project", "kalandra.toml", "-o", exe, cwd=path, expect="fault-free")
+    source.write_text(program)
+    for changed in (contract.replace("_Nonnull", "_Nullable"), contract.replace("__attribute__((noescape))", "")):
+        header.write_text(changed)
+        run(args.checker, "--project", "kalandra.toml", cwd=path, expect="dispatch")
+
+
 def main():
     parser = argparse.ArgumentParser()
     for name in ("compiler", "checker", "cc", "cxx"):
@@ -22,6 +84,7 @@ def main():
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="kalandra C export ") as root:
         path = Path(root)
+        check_application_callback(args, path)
         source = path / "geometry.k"
         source.write_text('''export "C" direct fn geometry_positive(x: f64) -> bool:
   return x > 0.0

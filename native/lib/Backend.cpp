@@ -309,6 +309,50 @@ using namespace mlir;
 struct LoweringFailure {
   std::string message;
 };
+std::vector<bool> reachableFunctions(const TypedModule &input,
+                                     const std::vector<std::string> &exports) {
+  // Explicit bridge exports define the CPU reachability roots. Empty slots
+  // preserve interface ordinals for a mixed backend without lowering its
+  // GPU-only numerical functions onto the CPU.
+  std::vector<bool> reachable(input.functions.size(), exports.empty());
+  std::vector<FunctionId> pending;
+  if (!exports.empty())
+    for (const auto &name : exports) {
+      if (name.empty())
+        continue;
+      for (FunctionId id = 0; id < input.functions.size(); ++id)
+        if (input.functions[id].name == name)
+          pending.push_back(id);
+    }
+  while (!pending.empty()) {
+    const auto id = pending.back();
+    pending.pop_back();
+    if (reachable.at(id))
+      continue;
+    reachable[id] = true;
+    for (auto value : input.functions[id].expressions) {
+      const auto &op = input.expressions.at(value).operation;
+      if (auto call = std::get_if<FunctionCall>(&op))
+        pending.push_back(call->function);
+      else if (auto map = std::get_if<ArrayMap>(&op))
+        pending.push_back(map->function);
+      else if (auto reference = std::get_if<FunctionReference>(&op))
+        pending.push_back(reference->function);
+      else if (std::holds_alternative<FunctionInvoke>(op)) {
+        // Open callable flow remains conservative; do not drop a potential
+        // CPU callback merely because it is not a direct call edge.
+        std::fill(reachable.begin(), reachable.end(), true);
+        pending.clear();
+        break;
+      }
+    }
+  }
+  for (FunctionId id = 0; id < input.functions.size(); ++id)
+    if (input.functions[id].compileTimeOnly)
+      reachable[id] = false;
+  return reachable;
+}
+
 class Lowerer {
   ArithmeticMode arithmetic_;
   std::string dataLayout_;
@@ -445,45 +489,7 @@ public:
         fn.setPrivate();
       }
     }
-    // Explicit bridge exports define the CPU reachability roots. Empty slots
-    // preserve interface ordinals for a mixed backend without lowering its
-    // GPU-only numerical functions onto the CPU.
-    std::vector<bool> reachable(input_.functions.size(), exports.empty());
-    std::vector<FunctionId> pending;
-    if (!exports.empty())
-      for (const auto &name : exports) {
-        if (name.empty())
-          continue;
-        for (FunctionId id = 0; id < input_.functions.size(); ++id)
-          if (input_.functions[id].name == name)
-            pending.push_back(id);
-      }
-    while (!pending.empty()) {
-      const auto id = pending.back();
-      pending.pop_back();
-      if (reachable.at(id))
-        continue;
-      reachable[id] = true;
-      for (auto value : input_.functions[id].expressions) {
-        const auto &op = input_.expressions.at(value).operation;
-        if (auto call = std::get_if<FunctionCall>(&op))
-          pending.push_back(call->function);
-        else if (auto map = std::get_if<ArrayMap>(&op))
-          pending.push_back(map->function);
-        else if (auto reference = std::get_if<FunctionReference>(&op))
-          pending.push_back(reference->function);
-        else if (std::holds_alternative<FunctionInvoke>(op)) {
-          // Open callable flow remains conservative; do not drop a potential
-          // CPU callback merely because it is not a direct call edge.
-          std::fill(reachable.begin(), reachable.end(), true);
-          pending.clear();
-          break;
-        }
-      }
-    }
-    for (FunctionId id = 0; id < input_.functions.size(); ++id)
-      if (input_.functions[id].compileTimeOnly)
-        reachable[id] = false;
+    auto reachable = reachableFunctions(input_, exports);
     functions_.resize(input_.functions.size());
     for (FunctionId id = 0; id < input_.functions.size(); ++id) {
       if (!reachable[id])
@@ -2913,8 +2919,29 @@ private:
           } else if constexpr (std::is_same_v<T, ForeignCall>) {
             SmallVector<Type> parameters, results;
             SmallVector<Value> arguments;
-            for (auto id : operation.arguments) {
-              auto value = expression(frame, id);
+            for (std::size_t index = 0; index < operation.arguments.size(); ++index) {
+              const auto id = operation.arguments[index];
+              Value value;
+              if (!operation.callbacks.empty() && !operation.callbacks[index].empty()) {
+                const auto name = "kalandra_c_callback_" + operation.callbacks[index];
+                auto decl = module_->lookupSymbol<func::FuncOp>(name);
+                if (!decl) {
+                  const auto &signature = *input_.expressions[id].type.callable;
+                  SmallVector<Type> params, returns;
+                  for (const auto &param : signature.parameters)
+                    params.push_back(type(param));
+                  if (signature.result.builtin != BuiltinValue::Unit)
+                    returns.push_back(type(signature.result));
+                  OpBuilder::InsertionGuard guard(builder_);
+                  builder_.setInsertionPointToStart(module_->getBody());
+                  decl = func::FuncOp::create(builder_, loc, name,
+                                              builder_.getFunctionType(params, returns));
+                  decl.setPrivate();
+                }
+                value = callableCode(loc, decl);
+              } else {
+                value = expression(frame, id);
+              }
               arguments.push_back(value);
               parameters.push_back(value.getType());
             }
@@ -4288,19 +4315,42 @@ lowerNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
   const bool recursive = storage && hasRecursiveStorage(*storage);
   if (hasPlacement(input))
     return std::unexpected("placement-aware IR requires a placement-capable execution backend");
-  if (std::ranges::any_of(input.functions, [](const auto &f) { return f.resultType.fallible; }) ||
-      std::ranges::any_of(input.expressions, [recursive](const auto &e) {
-        return std::holds_alternative<TaskOperation>(e.operation) ||
-               std::holds_alternative<IteratorOperation>(e.operation) ||
-               std::holds_alternative<ParallelOperation>(e.operation) ||
-               std::holds_alternative<CatchOperation>(e.operation) ||
-               std::holds_alternative<LoopTransferOperation>(e.operation) ||
-               (std::holds_alternative<WhileOperation>(e.operation) &&
-                (!std::get<WhileOperation>(e.operation).whenDone.empty() ||
-                 std::get<WhileOperation>(e.operation).transfers ||
-                 std::get<WhileOperation>(e.operation).collecting)) ||
-               (!recursive && std::holds_alternative<MatchOperation>(e.operation));
-      })) {
+  const auto needsTaskFrame = [recursive](const auto &e) {
+    return std::holds_alternative<TaskOperation>(e.operation) ||
+           std::holds_alternative<IteratorOperation>(e.operation) ||
+           std::holds_alternative<ParallelOperation>(e.operation) ||
+           std::holds_alternative<CatchOperation>(e.operation) ||
+           std::holds_alternative<LoopTransferOperation>(e.operation) ||
+           (std::holds_alternative<WhileOperation>(e.operation) &&
+            (!std::get<WhileOperation>(e.operation).whenDone.empty() ||
+             std::get<WhileOperation>(e.operation).transfers ||
+             std::get<WhileOperation>(e.operation).collecting)) ||
+           (!recursive && std::holds_alternative<MatchOperation>(e.operation));
+  };
+  // Imports can bring in the whole standard library. Only calls reachable
+  // from a public C entry can affect that entry's runtime requirements.
+  const auto needsTasks = [&] {
+    const bool publicC = !exports.empty() && std::ranges::all_of(exports, [&](const auto &name) {
+      return std::ranges::any_of(input.functions, [&](const auto &fn) {
+        return fn.name == name && !fn.cExportName.empty();
+      });
+    });
+    if (!publicC)
+      return std::ranges::any_of(input.functions,
+                                 [](const auto &f) { return f.resultType.fallible; }) ||
+             std::ranges::any_of(input.expressions, needsTaskFrame);
+    const auto reachable = reachableFunctions(input, exports);
+    for (FunctionId id = 0; id < reachable.size(); ++id) {
+      const auto &fn = input.functions[id];
+      if (reachable[id] &&
+          (fn.resultType.fallible || std::ranges::any_of(fn.expressions, [&](ValueId value) {
+             return needsTaskFrame(input.expressions.at(value));
+           })))
+        return true;
+    }
+    return false;
+  };
+  if (needsTasks()) {
     if (!exports.empty())
       return lowerTaskNativeExports(input, exports, arithmetic, target, level);
     return lowerTaskNative(input, testEntry, arithmetic, target, level);

@@ -629,6 +629,13 @@ int main(int argc, char **argv) {
     progress.diagnostic() << "native lowering: " << lowered.error() << '\n';
     return 1;
   }
+  if (!publicInterface) {
+    if (auto error = kalandra::linkNativeCallbacks(
+            *lowered, *typed.module, cross ? cross->target : kalandra::CpuTarget{}, optimization)) {
+      progress.diagnostic() << *error << '\n';
+      return 1;
+    }
+  }
   if (emit == "c-header") {
     if (testEntry || !mlirPath.empty() || !llvmPath.empty()) {
       std::cerr << "C header output cannot be combined with intermediate outputs or a test entry\n";

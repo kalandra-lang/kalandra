@@ -215,7 +215,8 @@ countRelations(IndexAPI &api, CXIndex index, const std::vector<const char *> &ar
 } // namespace
 std::expected<std::string, std::string> importAppleCHeader(const std::string &path,
                                                            const std::set<std::string> &wanted,
-                                                           HeaderBounds &bounds, bool framework) {
+                                                           HeaderContracts &bounds,
+                                                           bool framework) {
   namespace fs = std::filesystem;
   try {
     const auto sdk = xcrun("--show-sdk-path");
@@ -303,7 +304,7 @@ std::expected<std::string, std::string> importAppleCHeader(const std::string &pa
           return std::unexpected(name + ": unsupported or missing parameter ownership attribute");
         params.push_back(std::move(p));
       }
-      if (api.getCursorType(c).kind == CXType_FunctionNoProto)
+      if (api.getCursorType(c).kind != CXType_FunctionProto)
         return std::unexpected(name + ": prototype required");
       if (buffers) {
         if (framework)
@@ -327,7 +328,7 @@ std::expected<std::string, std::string> importAppleCHeader(const std::string &pa
         auto counts = countRelations(api, index, args, name, params);
         if (!counts)
           return std::unexpected(counts.error());
-        bounds[name] = std::move(*counts);
+        bounds[name].bufferCounts = std::move(*counts);
       }
       generated += "export extern \"C\" fn " + name + "(";
       for (size_t i = 0; i < params.size(); ++i) {
@@ -348,7 +349,7 @@ std::expected<std::string, std::string> importAppleCHeader(const std::string &pa
 }
 std::expected<std::optional<std::string>, std::string>
 importAppleFramework(const std::string &name, const std::set<std::string> &symbols,
-                     HeaderBounds &bounds) {
+                     HeaderContracts &bounds) {
   try {
     const auto header = std::filesystem::path(xcrun("--show-sdk-path")) /
                         "System/Library/Frameworks" / (name + ".framework") / "Headers" /

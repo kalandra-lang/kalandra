@@ -1563,6 +1563,8 @@ private:
         };
         for (const auto parameter : fn.parameters) {
           const auto &type = output_.symbols[parameter].type;
+          if (function.nativeCallbacks && type.callable)
+            continue;
           if (!function.bufferCounts.empty() && isByteBuffer(output_, type))
             continue;
           if (!allowed(type, false))
@@ -2404,7 +2406,8 @@ private:
     std::unordered_set<std::string> parameters;
     for (auto parameter : output_.functions[id].parameters)
       parameters.insert(output_.symbols[parameter].name);
-    output_.functions[id].compileTimeOnly = standardFormat(id);
+    output_.functions[id].compileTimeOnly =
+        standardFormat(id) || syntax_.functions[id].nativeCallbacks;
     output_.functions[id].standardIteratorTake =
         syntax_.functions[id].moduleIndex < syntax_.standardModules.size() &&
         syntax_.standardModules[syntax_.functions[id].moduleIndex] == StandardModule::Iteration &&
@@ -7382,6 +7385,27 @@ private:
     resultType.identity = 0;
     if (!validSize(resultType, span))
       return {};
+    if (syntax_.functions[id].nativeCallbacks) {
+      if (spawned || selection) {
+        error("S093", "native callback registration requires a synchronous host call", span);
+        return {};
+      }
+      ForeignCall call{name(syntax_.functions[id].name), operands};
+      call.callbacks.resize(operands.size());
+      for (std::size_t i = 0; i < operands.size(); ++i) {
+        if (!node(operands[i]).type.callable)
+          continue;
+        auto *ref = std::get_if<FunctionReference>(&node(operands[i]).operation);
+        if (!ref || !ref->captures.empty() ||
+            output_.functions[ref->function].cExportName.empty() ||
+            output_.functions[ref->function].checkedCExport) {
+          error("S093", "a direct C callback requires a named, fault-free direct C export", span);
+          return {};
+        }
+        call.callbacks[i] = output_.functions[ref->function].cExportName;
+      }
+      return add(frame, std::move(resultType), span, std::move(call));
+    }
     return add(frame, std::move(resultType), span, FunctionCall{id, std::move(operands)});
   }
 #include "GenericChecking.h"

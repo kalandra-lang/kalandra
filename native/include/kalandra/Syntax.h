@@ -20,15 +20,20 @@ struct SourceSpan {
   std::size_t end = 0;
 };
 // Indexed by the C parameter ordinal. A negative value denotes a scalar.
-using HeaderBounds = std::unordered_map<std::string, std::vector<int>>;
+struct HeaderFunctionContract {
+  std::vector<int> bufferCounts;
+  bool hasCallbacks = false;
+};
+using HeaderContracts = std::unordered_map<std::string, HeaderFunctionContract>;
 class SourceFile {
 public:
   struct Part {
     std::size_t begin;
     std::shared_ptr<const SourceFile> source;
   };
-  SourceFile(std::string path, std::string text, std::shared_ptr<const HeaderBounds> header = {});
-  std::shared_ptr<const HeaderBounds> header() const { return header_; }
+  SourceFile(std::string path, std::string text,
+             std::shared_ptr<const HeaderContracts> header = {});
+  std::shared_ptr<const HeaderContracts> header() const { return header_; }
   SourceFile(std::string path, std::string text, std::vector<Part> parts);
   [[nodiscard]] const std::string &path() const { return path_; }
   [[nodiscard]] const std::string &text() const { return text_; }
@@ -41,7 +46,7 @@ public:
   [[nodiscard]] const std::vector<Part> &parts() const { return parts_; }
 
 private:
-  std::shared_ptr<const HeaderBounds> header_;
+  std::shared_ptr<const HeaderContracts> header_;
   std::string path_;
   std::string text_;
   std::vector<std::size_t> lines_;
@@ -314,6 +319,7 @@ struct Function {
   bool cExport = false;
   bool checkedCExport = false;
   bool cImport = false;
+  bool nativeCallbacks = false;
   std::vector<int> bufferCounts = {};
   std::string specializedName = {}; // Internal only; source names/spans remain unchanged.
 };
@@ -409,7 +415,7 @@ struct PackageNode {
 struct SourceOverlay {
   std::string path;
   std::string text;
-  std::shared_ptr<const HeaderBounds> header = {};
+  std::shared_ptr<const HeaderContracts> header = {};
 };
 // Explicit offline package entry mappings; no filesystem or network work while parsing.
 [[nodiscard]] std::expected<ModulePackage, std::string> parseModulePackage(std::string_view value);

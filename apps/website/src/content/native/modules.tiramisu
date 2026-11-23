@@ -75,6 +75,29 @@ By default, an exported C function returns an int32_t status. For a value result
 
 Use export "C" direct fn when a C API requires a function that returns its value directly. The compiler must prove that the body can run without a Kalandra execution context or a fault. A direct export returning unit has the C return type void.
 
+h2 { "Pass a callback to C" }
+
+A C function can borrow a named Kalandra callback for the duration of the call. Its header declares a non-null function pointer with Clang’s noescape parameter attribute. For example, a native event library can accept a callback that maps an event number to an i32.
+
+codeblock { language = c, """#include <stdint.h>
+typedef int32_t (*Event)(int32_t);
+int32_t dispatch(Event _Nonnull handler __attribute__((noescape)), int32_t event);
+""" }
+
+codeblock { language = kalandra, """from "events" import dispatch
+from "std/process" import ExitStatus
+
+export "C" direct fn eventNumber(value: i32) -> i32:
+  return value
+
+fn main() -> ExitStatus:
+  if dispatch(eventNumber, 17) == 17:
+    return ExitStatus {code: 0}
+  return ExitStatus {code: 1}
+""" }
+
+Here C calls the function with an i32 and receives its result directly. The compiler checks the signature and proves that the function can complete without a fault. The native implementation must finish using the function pointer before dispatch returns. This form accepts scalar callbacks without captured state.
+
 h2 { "Export types deliberately" }
 
 Record, enum and error declarations can be exported and imported. Aliasing preserves their nominal identity rather than creating a new type. A helper continues resolving its own private names in its declaring module; importing it does not expose all of that module.

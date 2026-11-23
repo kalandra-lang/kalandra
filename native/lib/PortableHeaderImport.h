@@ -8,5 +8,5 @@ namespace kalandra {
 std::expected<std::string, std::string>
 importPortableCHeader(const std::string &path, const std::string &driver,
                       const std::optional<std::filesystem::path> &resources,
-                      const std::set<std::string> &symbols, HeaderBounds &bounds);
+                      const std::set<std::string> &symbols, HeaderContracts &bounds);
 }

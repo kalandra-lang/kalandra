@@ -631,8 +631,10 @@ private:
     function.cImport = cImport;
     if (cImport) {
       const auto symbol = std::string(source_->slice(name->span));
-      if (auto it = nativeHeader->find(symbol); it != nativeHeader->end())
-        function.bufferCounts = it->second;
+      if (auto it = nativeHeader->find(symbol); it != nativeHeader->end()) {
+        function.bufferCounts = it->second.bufferCounts;
+        function.nativeCallbacks = it->second.hasCallbacks;
+      }
     }
     function.checkedCExport = checkedCExport;
     function.name = name->span;

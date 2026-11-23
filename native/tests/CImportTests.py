@@ -55,6 +55,14 @@ def main():
         denied = subprocess.run([tools.checker, "--project", manifest], cwd=root, capture_output=True)
         assert denied.returncode and b"unsupported" in denied.stderr, denied
 
+        # Clang stores acquire_handle on a function type, separate from its
+        # declaration attributes. An owning integer must not become a plain i32.
+        source.write_text(original)
+        header.write_text(header.read_text().replace(
+            "Score twice(Score);", 'Score twice(Score) __attribute__((acquire_handle("window")));'))
+        denied = subprocess.run([tools.checker, "--project", manifest], cwd=root, capture_output=True)
+        assert denied.returncode and b"twice" in denied.stderr, denied
+
 
 
 if __name__ == "__main__":

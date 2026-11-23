@@ -89,10 +89,52 @@ bool recordBound(const clang::DiagnoseIfAttr &attr, const clang::FunctionDecl &f
   return true;
 }
 
+// A borrowed callback carries executable code only. Its ABI uses the same
+// scalar subset as direct imports. Reject adjusted or ABI-annotated parameters.
+std::optional<std::string> callbackType(clang::ASTContext &ctx, const clang::ParmVarDecl &arg) {
+  auto t = arg.getType();
+  const auto *p = t->getAs<clang::PointerType>();
+  if (!p || t->getNullability() != clang::NullabilityKind::NonNull ||
+      !arg.hasAttr<clang::NoEscapeAttr>() || p->getPointeeType().hasAddressSpace())
+    return {};
+  for (const auto *attr : arg.attrs())
+    if (!llvm::isa<clang::NoEscapeAttr>(attr))
+      return {};
+  auto *fn = p->getPointeeType()->getAs<clang::FunctionProtoType>();
+  if (!fn || fn->isVariadic() || fn->getCallConv() != clang::CC_C || fn->hasExtParameterInfos() ||
+      fn->getExtInfo() != clang::FunctionType::ExtInfo())
+    return {};
+  auto result = scalar(ctx, fn->getReturnType());
+  if (result.empty())
+    return {};
+  std::string spelling = "fn(";
+  unsigned index = 0;
+  for (auto param : fn->param_types()) {
+    auto s = scalar(ctx, param);
+    if (s.empty() || s == "unit")
+      return {};
+    if (index++ != 0)
+      spelling += ", ";
+    spelling += s;
+  }
+  return spelling + ")->" + result;
+}
+
 std::expected<std::string, std::string> declaration(const clang::FunctionDecl &fn,
-                                                    HeaderBounds &bounds) {
+                                                    HeaderContracts &bounds) {
   const auto name = fn.getNameAsString();
   auto reject = [&](const char *reason) { return std::unexpected(name + ": " + reason); };
+  // acquire_handle on a return can decorate the function *type*, so fn.attrs()
+  // alone would publish an owned integer handle as an ordinary integer.
+  auto declaredType = fn.getType();
+  while (!declaredType.isCanonical()) {
+    if (llvm::isa<clang::AttributedType>(declaredType.getTypePtr()))
+      return reject("unsupported attributed native function type");
+    auto next = declaredType.getSingleStepDesugaredType(fn.getASTContext());
+    if (next == declaredType)
+      break;
+    declaredType = next;
+  }
   const auto *proto = fn.getType()->getAs<clang::FunctionProtoType>();
   if (!proto || !fn.isExternallyVisible() || fn.isInlined() || fn.isVariadic() ||
       proto->getCallConv() != clang::CC_C)
@@ -111,6 +153,7 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
   auto result = scalar(ctx, fn.getReturnType());
   if (result.empty() || (borrowed && result != "unit"))
     return reject("unsupported native result");
+  bool callbacks = false;
   std::string source = "export extern \"C\" fn " + name + "(";
   for (unsigned i = 0; i < fn.getNumParams(); ++i) {
     const auto *arg = fn.getParamDecl(i);
@@ -118,7 +161,13 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
     std::string type;
     if (i)
       source += ", ";
-    if (const auto *ptr = t->getAs<clang::PointerType>()) {
+    if (t->isFunctionPointerType()) {
+      auto cb = callbackType(ctx, *arg);
+      if (!cb || borrowed)
+        return reject("unsupported native callback signature or lifetime");
+      type = *cb;
+      callbacks = true;
+    } else if (const auto *ptr = t->getAs<clang::PointerType>()) {
       auto elem = ptr->getPointeeType().getCanonicalType();
       auto byte = elem.isConstQualified() ? ctx.UnsignedCharTy.withConst() : ctx.UnsignedCharTy;
       if (!ctx.hasSameUnqualifiedType(t, ctx.getPointerType(byte)) || counts[i] < 0 ||
@@ -141,7 +190,9 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
     source += "arg" + std::to_string(i) + ": " + type;
   }
   if (borrowed)
-    bounds.emplace(name, std::move(counts));
+    bounds[name].bufferCounts = std::move(counts);
+  if (callbacks)
+    bounds[name].hasCallbacks = true;
   return source + ") -> " + result + (borrowed ? " ! BufferError\n" : "\n");
 }
 } // namespace
@@ -149,7 +200,7 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
 std::expected<std::string, std::string>
 importPortableCHeader(const std::string &path, const std::string &driver,
                       const std::optional<std::filesystem::path> &resources,
-                      const std::set<std::string> &symbols, HeaderBounds &bounds) {
+                      const std::set<std::string> &symbols, HeaderContracts &bounds) {
   std::vector<std::string> args{
       "-x",       "c", "-std=c17", "-Werror=unknown-attributes", "-Werror=ignored-attributes",
       "-include", path};
@@ -164,7 +215,7 @@ importPortableCHeader(const std::string &path, const std::string &driver,
         path + ": " +
         (diagnostics.error.empty() ? "cannot read native header" : diagnostics.error));
   auto &ctx = ast->getASTContext();
-  HeaderBounds verified;
+  HeaderContracts verified;
   std::string source;
   for (const auto &name : symbols) {
     const clang::FunctionDecl *fn = nullptr;
@@ -181,7 +232,8 @@ importPortableCHeader(const std::string &path, const std::string &driver,
       return std::unexpected(line.error());
     source += *line;
   }
-  if (!verified.empty())
+  if (std::ranges::any_of(verified,
+                          [](const auto &item) { return !item.second.bufferCounts.empty(); }))
     source = "from \"std/buffer\" import ByteBuffer, BufferError\n" + source;
   bounds = std::move(verified);
   return source;

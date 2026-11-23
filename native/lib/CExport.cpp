@@ -1,8 +1,10 @@
 #include "kalandra/Backend.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
@@ -10,12 +12,13 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 namespace kalandra {
-std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input, CpuTarget target,
-                                                        Optimization level) {
+static std::expected<BackendOutput, std::string> lowerCEntries(const TypedModule &input,
+                                                               CpuTarget target, Optimization level,
+                                                               const llvm::StringSet<> *selected) {
   std::vector<std::string> roots;
   std::vector<const TypedFunction *> functions;
   for (const auto &fn : input.functions) {
-    if (fn.cExportName.empty())
+    if (fn.cExportName.empty() || (selected && !selected->contains(fn.cExportName)))
       continue;
     roots.push_back(fn.name);
     functions.push_back(&fn);
@@ -162,5 +165,53 @@ std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input
   llvm::raw_string_ostream stream(output->llvm);
   module->print(stream, nullptr);
   return output;
+}
+std::expected<BackendOutput, std::string> lowerCLibrary(const TypedModule &input, CpuTarget target,
+                                                        Optimization level) {
+  return lowerCEntries(input, std::move(target), level, nullptr);
+}
+
+// Pass addresses of private C entries to native code. Reuse the library ABI
+// and its fault proof without exporting names into the process namespace.
+std::optional<std::string> linkNativeCallbacks(BackendOutput &app, const TypedModule &input,
+                                               CpuTarget target, Optimization level) {
+  llvm::StringSet<> selected;
+  for (const auto &expr : input.expressions)
+    if (auto *call = std::get_if<ForeignCall>(&expr.operation))
+      for (const auto &callback : call->callbacks)
+        if (!callback.empty())
+          selected.insert(callback);
+  if (selected.empty())
+    return {};
+  auto exports = lowerCEntries(input, std::move(target), level, &selected);
+  if (!exports)
+    return exports.error();
+  llvm::LLVMContext context;
+  llvm::SMDiagnostic diagnostic;
+  auto application = llvm::parseAssemblyString(app.llvm, diagnostic, context);
+  auto callbacks = llvm::parseAssemblyString(exports->llvm, diagnostic, context);
+  if (!application || !callbacks)
+    return "invalid native IR linking application C exports";
+  for (const auto &item : selected) {
+    auto *entry = callbacks->getFunction(item.getKey());
+    if (!entry)
+      return "missing proven native callback entry";
+    entry->setName("kalandra_c_callback_" + item.getKey());
+    entry->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
+    auto *decl = application->getFunction(entry->getName());
+    if (decl && (!decl->isDeclaration() || decl->getFunctionType() != entry->getFunctionType()))
+      return "native callback prototype disagrees with the proven C entry";
+  }
+  if (llvm::Linker::linkModules(*application, std::move(callbacks)))
+    return "cannot link callbacks into the application";
+  for (const auto &item : selected)
+    if (auto *entry = application->getFunction(("kalandra_c_callback_" + item.getKey()).str()))
+      entry->setLinkage(llvm::GlobalValue::InternalLinkage);
+  if (llvm::verifyModule(*application, &llvm::errs()))
+    return "invalid application callback IR";
+  app.llvm.clear();
+  llvm::raw_string_ostream stream(app.llvm);
+  application->print(stream, nullptr);
+  return {};
 }
 } // namespace kalandra

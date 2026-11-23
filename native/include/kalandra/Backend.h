@@ -30,4 +30,7 @@ lowerNative(const TypedModule &module, std::optional<std::string> testEntry = {}
             Optimization level = Optimization::O0);
 [[nodiscard]] std::expected<BackendOutput, std::string>
 lowerCLibrary(const TypedModule &module, CpuTarget target, Optimization level);
+[[nodiscard]] std::optional<std::string> linkNativeCallbacks(BackendOutput &app,
+                                                             const TypedModule &module,
+                                                             CpuTarget target, Optimization level);
 } // namespace kalandra
