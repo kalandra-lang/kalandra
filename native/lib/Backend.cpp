@@ -1,4 +1,4 @@
-#include "kalandra/Backend.h"
+#include "TaskBackend.h"
 #include "../runtime/Runtime.h"
 #include "ArrayReferences.h"
 #include "BoundedEntry.h"
@@ -61,14 +61,6 @@
 #include <unordered_set>
 
 namespace kalandra {
-std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &,
-                                                          std::optional<std::string>,
-                                                          ArithmeticMode, const CpuTarget &,
-                                                          Optimization);
-std::expected<BackendOutput, std::string> lowerTaskNativeExports(const TypedModule &,
-                                                                 const std::vector<std::string> &,
-                                                                 ArithmeticMode, const CpuTarget &,
-                                                                 Optimization);
 std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool functionValues);
 // Even -O0 has always finalized the checked call ABI with the O2 pipeline.
 // Preserve its frame admission and specialization behavior before -O0 codegen.

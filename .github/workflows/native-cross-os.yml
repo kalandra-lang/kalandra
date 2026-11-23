@@ -81,10 +81,10 @@ jobs:
           cmake -S . -B build/macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
             -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
-          cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-test-observer kalandra-cross-target-tests kalandra-type-capability-tests -j2
+          cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-test-observer kalandra-cross-target-tests kalandra-type-capability-tests kalandra-native-subscription-tests -j2
           build/macos/native/kalandra-type-capability-tests
           ctest --test-dir build/macos --output-on-failure \
-            -R '^native-(c-exports|c-portable-buffer-imports|c-header-imports|c-counted-imports|apple-sdk-imports|cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
+            -R '^native-(subscription-lifecycle|c-exports|c-portable-buffer-imports|c-header-imports|c-counted-imports|apple-sdk-imports|cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
       - name: Verify native values through an installed package
         run: python3 native/tests/NativeValueImportTests.py --compiler build/macos/native/kalandra
       - name: Exercise AppKit windows and native event delivery

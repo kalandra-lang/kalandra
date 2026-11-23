@@ -1,6 +1,8 @@
 #include "../runtime/NativeSubscription.h"
 #include <atomic>
+#include <barrier>
 #include <cstdlib>
+#include <thread>
 
 using namespace kalandra::runtime;
 namespace {
@@ -16,6 +18,35 @@ void dispose(std::uint64_t token) {
   ++calls;
   if (reenter)
     require(kalandra_subscription_close_v1(reenter, active));
+}
+// The releasing thread and either reader can reach the lifetime lock first.
+std::atomic<unsigned> racedDisposals{0};
+void disposeAfterReaders(std::uint64_t token) {
+  require(token == 42);
+  ++racedDisposals;
+}
+void raceRetirementWithReaders() {
+  for (unsigned i = 0; i < 32; ++i) {
+    Invocation ctx;
+    OwnedDescriptor object{};
+    auto *state = kalandra_subscription_prepare_v1(&ctx, disposeAfterReaders);
+    require(state && kalandra_subscription_publish_v1(&ctx, state, 42, &object));
+    std::uint64_t token;
+    auto *first = kalandra_handle_borrow_v1(&ctx, &object, &token, 0);
+    auto *second = kalandra_handle_borrow_v1(&ctx, &object, &token, 0);
+    require(first && second && token == 42);
+    std::barrier gate(3);
+    auto finish = [&](void *reader) {
+      gate.arrive_and_wait();
+      kalandra_handle_end_borrow_v1(reader);
+    };
+    std::thread a(finish, first), b(finish, second);
+    gate.arrive_and_wait();
+    require(kalandra_subscription_close_v1(&ctx, &object));
+    a.join();
+    b.join();
+    require(racedDisposals == i + 1);
+  }
 }
 } // namespace
 int main() {
@@ -76,4 +107,5 @@ int main() {
     kalandra_handle_end_borrow_v1(writer);
   }
   require(calls == 4);
+  raceRetirementWithReaders();
 }

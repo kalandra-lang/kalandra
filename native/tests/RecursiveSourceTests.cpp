@@ -1,17 +1,10 @@
-#include "kalandra/Backend.h"
+#include "../lib/TaskBackend.h"
 #include "kalandra/Continuation.h"
 #include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <stdexcept>
-namespace kalandra {
-// Private component path: source worker admission stays gated.
-std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &,
-                                                          std::optional<std::string>,
-                                                          ArithmeticMode = ArithmeticMode::Hardware,
-                                                          const CpuTarget & = {});
-} // namespace kalandra
 using namespace kalandra;
 static const std::string prefix = "enum List:\n  Nil\n  Cons:\n    head:i64\n    tail:List\n";
 static CheckResult analyze(std::string source) {
@@ -33,7 +26,8 @@ int main(int argc, char **argv) {
           std::cerr << renderDiagnostic(*checked.source, d);
         return 1;
       }
-      auto lowered = lowerTaskNative(*checked.module, "main");
+      auto lowered =
+          lowerTaskNative(*checked.module, "main", ArithmeticMode::Hardware, {}, Optimization::O0);
       if (!lowered)
         throw std::runtime_error(lowered.error());
       std::ofstream output(argv[2]);

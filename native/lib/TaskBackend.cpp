@@ -23,7 +23,7 @@
 #include "TaskValueCopy.h"
 #include "TaskValueTypes.h"
 #include "TimeLowering.h"
-#include "kalandra/Backend.h"
+#include "TaskBackend.h"
 #include "kalandra/Continuation.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Constants.h"
