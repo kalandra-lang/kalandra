@@ -110,6 +110,14 @@ with tempfile.TemporaryDirectory(prefix="Kalandra counted native ") as temp:
         subprocess.run([tools.compiler, "--project", manifest, mode, "-o", exe], check=True)
         assert subprocess.check_output([exe], text=True) == "7:8:1:1:1:3\n"
 
+    if tools.portable:
+        # Ownership/bounds and thread isolation can describe the same function.
+        h.write_text(header.replace("EXTENT(src, srcCount) EXTENT(dst, dstCount);",
+                                    'EXTENT(src, srcCount) EXTENT(dst, dstCount) __attribute__((swift_attr("@MainActor")));'))
+        subprocess.run([tools.compiler, "--project", manifest, "-O2", "-o", exe], check=True)
+        assert subprocess.check_output([exe], text=True) == "7:8:1:1:1:3\n"
+        h.write_text(header)
+
     def rejects(message):
         result = subprocess.run([tools.checker, "--project", manifest], capture_output=True, text=True)
         assert result.returncode and message in result.stderr, result

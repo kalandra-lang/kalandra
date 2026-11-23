@@ -98,6 +98,10 @@ fn main() -> ExitStatus:
 
 Here C calls the function with an i32 and receives its result directly. The compiler checks the signature and proves that the function can complete without a fault. The native implementation must finish using the function pointer before dispatch returns. This form accepts scalar callbacks without captured state.
 
+h2 { "Call a main-thread API" }
+
+Some native libraries require a particular function to run on the application's main thread. If the C header marks the function with Clang’s swift_attr("@MainActor") attribute, call it from Kalandra’s main function. The main task can await other work and resume on the same thread. Spawned tasks may run on worker threads. If a worker tries to call the marked function, Kalandra reports a fault before entering C.
+
 h2 { "Export types deliberately" }
 
 Record, enum and error declarations can be exported and imported. Aliasing preserves their nominal identity rather than creating a new type. A helper continues resolving its own private names in its declaring module; importing it does not expose all of that module.

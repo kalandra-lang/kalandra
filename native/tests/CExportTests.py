@@ -1,5 +1,6 @@
 """Exercise public C symbols through independent C and C++ translation units."""
 import argparse
+import os
 import platform
 import re
 from pathlib import Path
@@ -77,6 +78,68 @@ fn main() -> ExitStatus:
         run(args.checker, "--project", "kalandra.toml", cwd=path, expect="dispatch")
 
 
+def check_native_thread_requirement(args, path):
+    # An instrument binding is independent of window systems and SDKs.
+    header = path / "instrument.h"
+    header.write_text('''int threadIdentity(void);
+int readInstrument(void) __attribute__((swift_attr("@MainActor")));
+''')
+    (path / "instrument.c").write_text('''#include "instrument.h"
+#include <stdio.h>
+#ifdef _WIN32
+#include <windows.h>
+static DWORD initial;
+__attribute__((constructor)) static void remember(void) { initial = GetCurrentThreadId(); }
+int threadIdentity(void) { return initial == GetCurrentThreadId(); }
+#else
+#include <pthread.h>
+static pthread_t initial;
+__attribute__((constructor)) static void remember(void) { initial = pthread_self(); }
+int threadIdentity(void) { return pthread_equal(initial, pthread_self()) != 0; }
+#endif
+int readInstrument(void) {
+  if (!threadIdentity()) fputs("entered on wrong thread", stderr);
+  return threadIdentity();
+}
+''')
+    run(args.cc, "-c", "instrument.c", "-o", "instrument.o", cwd=path)
+    (path / "kalandra.toml").write_text(
+        'format=1\n[project]\nentry="app.k"\n[dependencies.instrument]\n'
+        'header="instrument.h"\nlibrary="instrument.o"\n')
+    source = path / "app.k"
+    program = '''from "instrument" import threadIdentity, readInstrument
+from "std/io" import println, IoError
+from "std/fmt" import format
+from "std/time" import sleep, milliseconds, TimeError
+fn probe() -> i32:
+  return threadIdentity()
+fn main() -> unit ! (IoError | TimeError | TaskError):
+  before = readInstrument()
+  child: i32 = try parallel:
+    work = spawn probe()
+    try await work
+  try sleep(try milliseconds(u64(3)))
+  try println(format("{} {} {}", before, child, readInstrument()))
+  return ()
+'''
+    source.write_text(program)
+    exe = path / ("app.exe" if sys.platform == "win32" else "app")
+    for workers, expected in ((1, "1 1 1"), (2, "1 0 1"), (4, "1 0 1")):
+        if workers == 1:
+            run(args.compiler, "--project", "kalandra.toml", "-O2", "-o", exe, cwd=path)
+        env = dict(os.environ, KALANDRA_WORKERS=str(workers))
+        assert subprocess.check_output([exe], cwd=path, text=True, env=env, timeout=20).strip() == expected
+    # Exercise an indirect call from a worker. The native function must never enter.
+    source.write_text(program.replace('return threadIdentity()', 'return readInstrument()'))
+    run(args.compiler, "--project", "kalandra.toml", "-O2", "-o", exe, cwd=path)
+    wrong = subprocess.run([exe], cwd=path, capture_output=True, text=True,
+                           env=dict(os.environ, KALANDRA_WORKERS="2"), timeout=20)
+    assert wrong.returncode and "entered on wrong thread" not in wrong.stderr, wrong
+    source.write_text(program.replace(", readInstrument\n", "\n").replace("readInstrument()", "threadIdentity()"))
+    run(args.compiler, "--project", "kalandra.toml", "-O2", "--emit-llvm", "plain.ll", "-o", exe, cwd=path)
+    assert "kalandra_run_native_application_v1" not in (path / "plain.ll").read_text()
+
+
 def main():
     parser = argparse.ArgumentParser()
     for name in ("compiler", "checker", "cc", "cxx"):
@@ -85,6 +148,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="kalandra C export ") as root:
         path = Path(root)
         check_application_callback(args, path)
+        check_native_thread_requirement(args, path)
         source = path / "geometry.k"
         source.write_text('''export "C" direct fn geometry_positive(x: f64) -> bool:
   return x > 0.0

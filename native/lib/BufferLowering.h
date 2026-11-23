@@ -23,6 +23,18 @@ inline void emitBufferOperation(llvm::IRBuilder<> &b, llvm::Module &module,
   auto *args = bufferArgumentsType(types, context), *transport = bufferResultType(types, context);
   b.CreateStore(llvm::Constant::getNullValue(packetType), packet);
   if (op.action == BufferAction::NativeCall) {
+    if (op.mainThreadOnly) {
+      auto check = module.getOrInsertFunction("kalandra_application_is_main_thread_v1", b.getInt32Ty());
+      auto *allowed = block("native.thread.valid"), *denied = block("native.thread.invalid");
+      b.CreateCondBr(b.CreateIsNotNull(b.CreateCall(check)), allowed, denied);
+      b.SetInsertPoint(denied);
+      const auto [line, column] = input.source->location(op.source.begin);
+      auto fault = module.getOrInsertFunction("kalandra_fault_v1", b.getVoidTy(), b.getPtrTy(),
+                                              b.getInt64Ty(), b.getInt64Ty(), b.getInt64Ty());
+      b.CreateCall(fault, {ctx, b.getInt64(3), b.getInt64(line), b.getInt64(column)});
+      b.CreateBr(abort);
+      b.SetInsertPoint(allowed);
+    }
     auto *ptr = b.getPtrTy();
     auto *slotType = llvm::StructType::get(context, {ptr, b.getInt64Ty(), b.getInt32Ty()});
     llvm::IRBuilder<> entry(&fn->getEntryBlock(), fn->getEntryBlock().begin());

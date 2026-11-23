@@ -1866,6 +1866,7 @@ private:
     if (!syntax.bufferCounts.empty()) {
       BufferOperation op{BufferAction::NativeCall, {}, fn.declaration};
       op.nativeSymbol = name(fn.declaration);
+      op.mainThreadOnly = syntax.nativeMainThread;
       op.counts = syntax.bufferCounts;
       for (const auto param : fn.parameters) {
         const auto &sym = output_.symbols[param];
@@ -1878,6 +1879,7 @@ private:
       return add(frame, *fn.declaredResult, fn.declaration, std::move(op));
     }
     ForeignCall call{name(fn.declaration), {}};
+    call.mainThreadOnly = syntax.nativeMainThread;
     for (auto param : fn.parameters) {
       auto value = add(frame, output_.symbols[param].type, fn.declaration, SymbolRead{param});
       if (!value)
@@ -7391,6 +7393,7 @@ private:
         return {};
       }
       ForeignCall call{name(syntax_.functions[id].name), operands};
+      call.mainThreadOnly = syntax_.functions[id].nativeMainThread;
       call.callbacks.resize(operands.size());
       for (std::size_t i = 0; i < operands.size(); ++i) {
         if (!node(operands[i]).type.callable)

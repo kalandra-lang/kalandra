@@ -141,9 +141,15 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
     return reject("unsupported C linkage or prototype");
   std::vector<int> counts(fn.getNumParams(), -1);
   bool borrowed = false;
+  bool mainThreadOnly = false;
   for (const auto *attr : fn.attrs()) {
     if (llvm::isa<clang::VisibilityAttr>(attr))
       continue;
+    if (const auto *isolation = llvm::dyn_cast<clang::SwiftAttrAttr>(attr);
+        isolation && isolation->getAttribute() == "@MainActor") {
+      mainThreadOnly = true;
+      continue;
+    }
     const auto *extent = llvm::dyn_cast<clang::DiagnoseIfAttr>(attr);
     if (!extent || !recordBound(*extent, fn, counts))
       return reject("unsupported native function contract");
@@ -189,6 +195,8 @@ std::expected<std::string, std::string> declaration(const clang::FunctionDecl &f
     }
     source += "arg" + std::to_string(i) + ": " + type;
   }
+  if (mainThreadOnly)
+    bounds[name].mainThreadOnly = true;
   if (borrowed)
     bounds[name].bufferCounts = std::move(counts);
   if (callbacks)

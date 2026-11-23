@@ -2945,6 +2945,19 @@ private:
               arguments.push_back(value);
               parameters.push_back(value.getType());
             }
+            if (operation.mainThreadOnly) {
+              constexpr auto check = "kalandra_application_is_main_thread_v1";
+              if (!module_->lookupSymbol<func::FuncOp>(check)) {
+                OpBuilder::InsertionGuard restore(builder_);
+                builder_.setInsertionPointToStart(module_->getBody());
+                func::FuncOp::create(builder_, loc, check,
+                                     builder_.getFunctionType({}, {builder_.getI32Type()})).setPrivate();
+              }
+              auto thread = func::CallOp::create(builder_, loc, check, TypeRange{builder_.getI32Type()}).getResult(0);
+              auto ok = arith::CmpIOp::create(builder_, loc, arith::CmpIPredicate::ne, thread,
+                                              arith::ConstantIntOp::create(builder_, loc, 0, 32));
+              guard(loc, ok, 3);
+            }
             const bool unit = node.type.builtin == BuiltinValue::Unit;
             if (!unit)
               results.push_back(type(node.type));

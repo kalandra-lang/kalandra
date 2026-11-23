@@ -133,6 +133,8 @@ struct TaskLimits {
   std::size_t bytes = 1024 * 1024;
   // Ordinary resumable calls consume memory, never task/group admission slots.
   std::size_t callBytes = 64 * 1024 * 1024;
+  // The first submitted root resumes on the creating/draining thread.
+  bool callerThreadRoot = false;
 };
 struct TaskStats {
   std::size_t retainedBytes = 0, peakBytes = 0, environmentBytes = 0, recursiveBytes = 0;

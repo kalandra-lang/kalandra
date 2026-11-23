@@ -23,6 +23,7 @@ struct SourceSpan {
 struct HeaderFunctionContract {
   std::vector<int> bufferCounts;
   bool hasCallbacks = false;
+  bool mainThreadOnly = false;
 };
 using HeaderContracts = std::unordered_map<std::string, HeaderFunctionContract>;
 class SourceFile {
@@ -320,6 +321,7 @@ struct Function {
   bool checkedCExport = false;
   bool cImport = false;
   bool nativeCallbacks = false;
+  bool nativeMainThread = false;
   std::vector<int> bufferCounts = {};
   std::string specializedName = {}; // Internal only; source names/spans remain unchanged.
 };

@@ -634,6 +634,7 @@ private:
       if (auto it = nativeHeader->find(symbol); it != nativeHeader->end()) {
         function.bufferCounts = it->second.bufferCounts;
         function.nativeCallbacks = it->second.hasCallbacks;
+        function.nativeMainThread = it->second.mainThreadOnly;
       }
     }
     function.checkedCExport = checkedCExport;

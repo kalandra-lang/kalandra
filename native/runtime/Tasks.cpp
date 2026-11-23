@@ -251,6 +251,11 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
   bool externalControllerWaiting = false;
   // Set before workers start; opaque ClosedTaskRunner is the only owner.
   bool closedCaller = false;
+  TaskHandle callerRoot;
+  std::thread::id callerThread;
+  bool callerReady() const noexcept {
+    return callerRoot && queueCount && queue[queueHead] == callerRoot;
+  }
   struct Guard {
     Impl &core;
     std::unique_lock<std::mutex> lock;
@@ -275,7 +280,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     }
     // A worker notification cannot be stolen by the controller (or vice versa).
     // In particular, budget exhaustion may stop draining before leases unwind.
-    if ((limits.workers == 1 && controlling && externalControllerWaiting) ||
+    if ((controlling && callerReady()) ||
+        (limits.workers == 1 && controlling && externalControllerWaiting) ||
         (limits.workers > 1 && controlling && !draining && !pumping && !preparing)) {
       TASK_PROBE(controllerSignals, 1);
       TASK_PROBE(notifications, 1);
@@ -324,8 +330,9 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
         });
       if (limits.workers == 1)
         return true;
-      workers.reserve(limits.workers);
-      for (std::uint32_t i = 0; i < limits.workers; ++i)
+      const auto background = limits.workers - (limits.callerThreadRoot ? 1u : 0u);
+      workers.reserve(background);
+      for (std::uint32_t i = 0; i < background; ++i)
         workers.emplace_back([this] {
           std::unique_lock lock(mutex, std::defer_lock);
           acquire(lock);
@@ -343,7 +350,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
               continue;
             }
             ++remaining;
-            if (!pumping && !preparing && !stats.externalPending && !stats.timers) {
+            if (!callerReady() && !pumping && !preparing && !stats.externalPending && !stats.timers) {
               draining = false;
               signal();
               continue;
@@ -865,9 +872,19 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     --pendingCount;
   }
   void pushReady(std::uint32_t index) {
-    queue[(queueHead + queueCount) % limits.ready] = handle(index);
+    const auto next = handle(index);
+    if (next == callerRoot && limits.workers > 1) {
+      // Keep the caller's continuation accessible while a child occupies each
+      // background worker. It consumes one ordinary bounded ready slot.
+      queueHead = queueHead ? queueHead - 1 : limits.ready - 1;
+      queue[queueHead] = next;
+    } else {
+      queue[(queueHead + queueCount) % limits.ready] = next;
+    }
     ++queueCount;
     tasks[index].queued = true;
+    if (callerReady() && controlling)
+      controllerChanged.notify_one();
     TASK_PROBE(readyPushes, 1);
   }
   void fillReady() {
@@ -1405,7 +1422,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
           failGroup(groupHandle(i), {TaskFailure::Cancelled});
     }
   }
-  bool step(std::unique_lock<std::mutex> &lock) {
+  bool step(std::unique_lock<std::mutex> &lock, bool callerOnly = false) {
     TASK_PROBE(steps, 1);
     struct Pump {
       Impl &core;
@@ -1426,10 +1443,24 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       pump.progressed = cleanupHead != nullptr;
       return pump.progressed;
     }
+    // Maintenance can release the mutex. Check the current queue head here,
+    // under the dispatch lock, even if the controller checked before stepping.
+    if (limits.workers > 1 && limits.callerThreadRoot) {
+      if (callerOnly && !callerReady())
+        return false;
+      if (!callerOnly && callerReady()) {
+        if (queueCount == 1)
+          return false;
+        // Leave the root at the new head. Other tasks keep their FIFO order.
+        std::swap(queue[queueHead], queue[(queueHead + 1) % limits.ready]);
+      }
+    }
     pump.progressed = true;
     const auto h = queue[queueHead];
     queueHead = (queueHead + 1) % limits.ready;
     --queueCount;
+    if (callerOnly && queueCount)
+      signal(true);
     // Keep the dispatch vacancy available during the callback. With a one-slot
     // ring a child must still be admissible while its parent is deferred.
     auto *record = get(h);
@@ -1521,6 +1552,8 @@ std::unique_ptr<TaskCore> TaskCore::create(TaskLimits limits, bool closedCaller)
   try {
     auto impl = std::make_shared<Impl>(limits);
     impl->closedCaller = closedCaller;
+    if (limits.callerThreadRoot)
+      impl->callerThread = std::this_thread::get_id();
     if (!impl->start())
       return {};
     return std::unique_ptr<TaskCore>(new TaskCore(std::move(impl)));
@@ -1642,7 +1675,10 @@ GroupHandle TaskCore::openRoot() noexcept {
 }
 TaskHandle TaskCore::submit(GroupHandle group, const TaskEntry &entry, Packet packet) noexcept {
   Impl::Guard guard(*impl_);
-  return impl_->submit(group, entry, packet, {}, guard.lock);
+  auto task = impl_->submit(group, entry, packet, {}, guard.lock);
+  if (impl_->limits.callerThreadRoot && !impl_->callerRoot)
+    impl_->callerRoot = task;
+  return task;
 }
 bool TaskCore::close(GroupHandle group) noexcept {
   Impl::Guard guard(*impl_);
@@ -1686,7 +1722,7 @@ bool TaskCore::release(GroupHandle group) noexcept {
 }
 bool TaskCore::step() noexcept {
   Impl::Guard guard(*impl_);
-  if (impl_->controlling || impl_->pumping >= impl_->limits.workers)
+  if (impl_->limits.callerThreadRoot || impl_->controlling || impl_->pumping >= impl_->limits.workers)
     return false;
   for (std::uint32_t i = 0; i < impl_->limits.records; ++i)
     if (impl_->tasks[i].runner == std::this_thread::get_id())
@@ -1695,7 +1731,8 @@ bool TaskCore::step() noexcept {
 }
 bool TaskCore::drain(std::size_t steps) noexcept {
   Impl::Guard guard(*impl_);
-  if (impl_->controlling || impl_->pumping)
+  if (impl_->controlling || impl_->pumping ||
+      (impl_->limits.callerThreadRoot && impl_->callerThread != std::this_thread::get_id()))
     return false;
   for (std::uint32_t i = 0; i < impl_->limits.records; ++i)
     if (impl_->tasks[i].runner == std::this_thread::get_id())
@@ -1726,9 +1763,18 @@ bool TaskCore::drain(std::size_t steps) noexcept {
     impl_->remaining = steps;
     impl_->draining = true;
     impl_->signal(true);
-    impl_->wait(
-        guard.lock, impl_->controllerChanged,
-        [&] { return !impl_->draining && !impl_->pumping && !impl_->preparing; }, true);
+    for (;;) {
+      impl_->wait(guard.lock, impl_->controllerChanged, [&] {
+        return (!impl_->draining && !impl_->pumping && !impl_->preparing) ||
+               (impl_->draining && impl_->remaining && impl_->callerReady());
+      }, true);
+      if (!impl_->draining)
+        break;
+      --impl_->remaining;
+      if (!impl_->step(guard.lock, true))
+        ++impl_->remaining;
+      impl_->signal(true);
+    }
   }
   impl_->controlling = false;
   return !impl_->hasWork();

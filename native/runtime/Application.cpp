@@ -15,6 +15,7 @@
 #endif
 namespace {
 std::atomic<unsigned> initialized{0};
+thread_local bool applicationThread = false;
 int argumentCount = 0;
 #ifdef _WIN32
 wchar_t **argumentValues = nullptr;
@@ -51,6 +52,7 @@ bool initializeApplicationArguments(int argc, char **argv) noexcept {
     argumentCount = argc;
     argumentValues = argv;
   }
+  applicationThread = valid;
   initialized.store(valid ? 2 : 3, std::memory_order_release);
   return valid;
 }
@@ -112,6 +114,9 @@ kalandra_application_arguments_v1(kalandra::runtime::Invocation *ctx,
   *out = {parts, parts, 0, static_cast<std::int64_t>(count), 1};
 }
 
+extern "C" std::int32_t kalandra_application_is_main_thread_v1() noexcept {
+  return applicationThread;
+}
 extern "C" bool kalandra_application_initialize_v1(std::int32_t argc, void *argv) noexcept {
 #ifdef _WIN32
   const auto valid =

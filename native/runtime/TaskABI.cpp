@@ -68,9 +68,10 @@ void kalandra_task_fault_v1(Task *task, std::int64_t code, std::int64_t line,
                             std::int64_t column) noexcept {
   task->fault(code, line, column);
 }
-void kalandra_run_task_v1(const TaskEntry *entry, const Packet *packet, void *output,
-                          Invocation *context, Failure *failure) noexcept {
+static void runTask(const TaskEntry *entry, const Packet *packet, void *output,
+                    Invocation *context, Failure *failure, bool callerThreadRoot) noexcept {
   TaskLimits limits;
+  limits.callerThreadRoot = callerThreadRoot;
   limits.workers = std::clamp(std::thread::hardware_concurrency(), 1u, 8u);
   if (const auto *configured = std::getenv("KALANDRA_WORKERS")) {
     char *end = nullptr;
@@ -110,5 +111,13 @@ void kalandra_run_task_v1(const TaskEntry *entry, const Packet *packet, void *ou
         *failure = {TaskFailure::Fault, 3};
       return;
     }
+}
+void kalandra_run_task_v1(const TaskEntry *entry, const Packet *packet, void *output,
+                          Invocation *context, Failure *failure) noexcept {
+  runTask(entry, packet, output, context, failure, false);
+}
+void kalandra_run_native_application_v1(const TaskEntry *entry, const Packet *packet, void *output,
+                                        Invocation *context, Failure *failure) noexcept {
+  runTask(entry, packet, output, context, failure, true);
 }
 }

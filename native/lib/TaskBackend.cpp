@@ -583,6 +583,14 @@ public:
       returnFailure();
       builder.SetInsertPoint(ready);
     }
+    const bool nativeApplication = planner.input.applicationEntry &&
+        std::ranges::any_of(planner.input.expressions, [](const auto &expr) {
+          if (const auto *call = std::get_if<ForeignCall>(&expr.operation))
+            return call->mainThreadOnly;
+          const auto *buffer = std::get_if<BufferOperation>(&expr.operation);
+          return buffer && buffer->mainThreadOnly;
+        });
+    const auto *runner = nativeApplication ? "kalandra_run_native_application_v1" : "kalandra_run_task_v1";
     if (synchronousEntries[id] && !coordinating.at(id) && !main->resultType.fallible) {
       Value *value = builder.CreateCall(synchronousEntries[id],
                                         {llvm::ConstantPointerNull::get(builder.getPtrTy()), ctx});
@@ -620,11 +628,11 @@ public:
       }
       builder.CreateBr(observed);
       builder.SetInsertPoint(scheduled);
-      call("kalandra_run_task_v1", voidType, {entries[id], packet, result, ctx, failure});
+      call(runner, voidType, {entries[id], packet, result, ctx, failure});
       builder.CreateBr(observed);
       builder.SetInsertPoint(observed);
     } else
-      call("kalandra_run_task_v1", voidType, {entries[id], packet, result, ctx, failure});
+      call(runner, voidType, {entries[id], packet, result, ctx, failure});
     auto *bad = Block::Create(context, "root.fault", entry);
     auto *ok = Block::Create(context, "root.result", entry);
     builder.CreateCondBr(hasFailure(failure), bad, ok);

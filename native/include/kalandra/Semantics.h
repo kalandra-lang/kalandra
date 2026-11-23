@@ -227,6 +227,7 @@ struct BufferOperation {
   std::string nativeSymbol = {};
   std::vector<int> counts = {};
   std::vector<bool> writable = {};
+  bool mainThreadOnly = false;
 };
 struct WorkgroupOperation {
   WorkgroupOperationMetadata metadata;
@@ -247,6 +248,7 @@ struct ForeignCall {
   std::string symbol;
   std::vector<ValueId> arguments;
   std::vector<std::string> callbacks = {};
+  bool mainThreadOnly = false;
 };
 struct TimeOperation {
   TimeAction action;
