@@ -1,0 +1,107 @@
+meta { title = "TCP networking", description = "Connect TCP peers, pass bytes with ByteBuffer, and split a connection between tasks.", order = 10, group = "Library reference" }
+
+Use std/net to listen on a local address or connect to a TCP peer by hostname, IPv4 address, or IPv6 address. A TcpStream implements the ByteReader and ByteWriter traits from std/stream. The same readInto and writeAll calls work with sockets, files and subprocess pipes.
+
+h2 { "Send bytes over loopback" }
+
+This program runs both ends locally. Port zero asks the operating system to assign an available port. The client sends three bytes, then finishes writing. The server can read the bytes, observe EOF, and send its reply on the same connection.
+
+codeblock { language = kalandra, """from "std/net" import listenTcp, localPort, connectTcp, accept, shutdownWrite, NetError
+from "std/stream" import readInto, writeAll, StreamError
+from "std/buffer" import byteBuffer, append, BufferError
+from "std/fmt" import format
+from "std/io" import println, IoError
+
+fn main() -> unit ! (NetError | StreamError | BufferError | IoError):
+  listener = try listenTcp("127.0.0.1", 0)
+  client = try connectTcp("127.0.0.1", try localPort(listener))
+  server = try accept(listener)
+  chunk = try byteBuffer(64)
+  try append(chunk, [65, 0, 66])
+  try writeAll(client, chunk)
+  try shutdownWrite(client)
+  while try readInto(server, chunk, 64) > 0:
+    try writeAll(server, chunk)
+  try shutdownWrite(server)
+  total: u64 = 0
+  while true:
+    n = try readInto(client, chunk, 64)
+    if n == 0: break
+    total = total + n
+  try println(format("{}", total))
+  return ()
+""" }
+
+The program prints 3, including the zero byte. A positive read can deliver any number of bytes up to the requested maximum. A zero result for a positive request means the peer finished sending. Use a length or a delimiter when your protocol needs message boundaries.
+
+h2 { "connectTcp" }
+
+code { "connectTcp(host: String, port: u16) -> TcpStream ! NetError" }
+
+Open a connection. The system resolver supplies IPv4 and IPv6 candidates for a hostname. The runtime tries them in order until one succeeds or the list is exhausted.
+
+h2 { "connectTcpWithin" }
+
+code { "connectTcpWithin(host: String, port: u16, timeout: Duration) -> TcpStream ! NetError" }
+
+Use one time budget for resolution and all connection attempts. A zero duration expires immediately. Construct the duration with std/time.
+
+h2 { "listenTcp" }
+
+code { "listenTcp(host: String, port: u16) -> TcpListener ! NetError" }
+
+Bind a listener to one local address. Use 127.0.0.1 or ::1 for loopback. Port zero asks the operating system to assign an available port.
+
+h2 { "accept" }
+
+code { "accept(listener: TcpListener) -> TcpStream ! NetError" }
+
+Wait for one incoming connection. The listener stays available to accept another peer. Each accepted connection starts with unlimited read and write waits.
+
+h2 { "localPort" }
+
+code { "localPort(listener: TcpListener) -> u16 ! NetError" }
+
+Read the port assigned to the listener. Use this after binding port zero to tell a client where to connect.
+
+h2 { "shutdownWrite" }
+
+code { "shutdownWrite(stream: TcpStream) -> unit ! NetError" }
+
+Finish sending and keep reading. The peer sees EOF after receiving queued bytes. Application-level acknowledgement is needed to know the peer processed them.
+
+h2 { "split" }
+
+code { "split(own stream: TcpStream) -> TcpHalves ! NetError" }
+
+Consume the connection and return an owner of its read and write halves. Each half can move into its own task. Closing the owner drops the halves still in its possession.
+
+h2 { "takeReader" }
+
+code { "takeReader(halves: TcpHalves) -> TcpReader ! NetError" }
+
+Take the read half. A second call reports NetError.HalfUnavailable. The reader implements ByteReader.
+
+h2 { "takeWriter" }
+
+code { "takeWriter(halves: TcpHalves) -> TcpWriter ! NetError" }
+
+Take the write half. A second call reports NetError.HalfUnavailable. The writer implements ByteWriter. Closing it signals EOF to the peer after queued bytes.
+
+h2 { "setTimeout" }
+
+code { "setTimeout[S: TcpTimeout](endpoint: S, timeout: Duration) -> unit ! NetError" }
+
+Set the time budget for each subsequent accept, read or write on this endpoint. A split carries the current budget into both halves. Accept uses NetError.TimedOut. Reads and writes use StreamError.TimedOut. An unsuccessful writeAll may already have sent a prefix.
+
+h2 { "Closure and errors" }
+
+A listener, stream or half closes on scope exit. Use try close(endpoint) to consume it explicitly.
+
+Connection setup reports NetError.Resolution with the resolver code, NetError.System with the OS code and message, or NetError.InvalidArgument for an invalid host. Stream operations have the same StreamError channel as files and pipes. Task cancellation follows the surrounding parallel scope. At most four operating-system lookups run concurrently. A lookup may outlive the task that requested it. The runtime retains at most 64 candidate addresses per operation and discards the result after cancellation. Network functions run on the host, including in applications that also run GPU work.
+
+list {
+  link { url = "/docs/streams", "Transfer bytes with generic readers and writers" },
+  link { url = "/docs/buffers", "Reuse a ByteBuffer" },
+  link { url = "/docs/time", "Construct a timeout duration" }
+}

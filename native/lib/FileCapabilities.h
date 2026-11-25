@@ -25,6 +25,55 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
     return scalar(t) && t.builtin == BuiltinValue::Numeric && t.element == NumericType::UInt64;
   };
   auto result = expression.type;
+  if (netAction(op->action)) {
+    if (!hostExecutionAvailable(target) || result.task || result.device || !result.fallible ||
+        !result.errorRecord || *result.errorRecord >= module.records.size() ||
+        module.records[*result.errorRecord].standard != StandardRecord::NetError)
+      return bad("requires a host NetError channel");
+    const auto action = op->action;
+    const unsigned count = action == FileAction::TcpConnect ? 3
+                           : (action == FileAction::TcpListen || action == FileAction::TcpTimeout)
+                               ? 2
+                               : 1;
+    if (op->arguments.size() != count || std::ranges::any_of(op->arguments, [&](auto id) {
+          return id >= module.expressions.size() || !scalar(module.expressions[id].type);
+        }))
+      return bad("invalid TCP arguments");
+    const auto arg = [&](unsigned i) -> const ValueType & {
+      return module.expressions[op->arguments[i]].type;
+    };
+    result.fallible = false;
+    result.errorRecord.reset();
+    if (!scalar(result))
+      return bad("invalid TCP result");
+    bool valid = false;
+    if (netAddressAction(action)) {
+      valid = arg(0).builtin == BuiltinValue::String && arg(1).builtin == BuiltinValue::Numeric &&
+              arg(1).element == NumericType::UInt16 &&
+              (action == FileAction::TcpConnect
+                   ? u64(arg(2)) && nominal(result, StandardRecord::TcpStream)
+                   : nominal(result, StandardRecord::TcpListener));
+    } else if (action == FileAction::TcpTimeout) {
+      valid = arg(0).record && *arg(0).record < module.records.size() &&
+              tcpResource(module.records[*arg(0).record].standard) &&
+              !nominal(arg(0), StandardRecord::TcpHalves) && u64(arg(1)) &&
+              result.builtin == BuiltinValue::Unit;
+    } else if (action == FileAction::TcpLocalPort || action == FileAction::TcpAccept) {
+      valid = nominal(arg(0), StandardRecord::TcpListener) &&
+              (action == FileAction::TcpAccept ? nominal(result, StandardRecord::TcpStream)
+                                               : result.builtin == BuiltinValue::Numeric &&
+                                                     result.element == NumericType::UInt16);
+    } else if (action == FileAction::TcpShutdown || action == FileAction::TcpSplit) {
+      valid = nominal(arg(0), StandardRecord::TcpStream) &&
+              (action == FileAction::TcpSplit ? nominal(result, StandardRecord::TcpHalves)
+                                              : result.builtin == BuiltinValue::Unit);
+    } else {
+      valid = nominal(arg(0), StandardRecord::TcpHalves) &&
+              nominal(result, action == FileAction::TcpTakeReader ? StandardRecord::TcpReader
+                                                                  : StandardRecord::TcpWriter);
+    }
+    return valid ? std::nullopt : bad("invalid TCP operation signature");
+  }
   if (op->action >= FileAction::StreamRead && op->action <= FileAction::Capture) {
     const bool process = op->action >= FileAction::Start;
     const bool read =
@@ -52,7 +101,8 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
     bool valid = false;
     if (read || write) {
       valid =
-          (nominal(first, StandardRecord::File) ||
+          (nominal(first, StandardRecord::File) || nominal(first, StandardRecord::TcpStream) ||
+           nominal(first, read ? StandardRecord::TcpReader : StandardRecord::TcpWriter) ||
            nominal(first, read ? StandardRecord::BufferedReader : StandardRecord::BufferedWriter) ||
            nominal(first, read ? StandardRecord::PipeReader : StandardRecord::PipeWriter)) &&
           scalar(arg(1)) && isByteBuffer(module, arg(1)) && (!read || u64(arg(2))) &&
@@ -60,7 +110,9 @@ fileCapabilityError(const TypedModule &module, const TypedExpr &expression, Nume
                                                     : u64(result));
     } else if (op->action == FileAction::PipeClose) {
       valid = (nominal(first, StandardRecord::PipeReader) ||
-               nominal(first, StandardRecord::PipeWriter)) &&
+               nominal(first, StandardRecord::PipeWriter) ||
+               (first.record && *first.record < module.records.size() &&
+                tcpResource(module.records[*first.record].standard))) &&
               result.builtin == BuiltinValue::Unit;
     } else if (commandAction(op->action)) {
       valid = nominal(first, StandardRecord::Command) &&
