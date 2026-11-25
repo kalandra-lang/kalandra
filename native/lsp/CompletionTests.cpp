@@ -22,6 +22,8 @@ static bool has(const lsp::CompletionInfo &info, const std::string &name) {
 }
 int main() {
   try {
+    require(has(query("from \"std/ne|\" import listenTcp\nfn main():\n  return ()\n"), "std/net"),
+            "std/net import path completion");
     auto importedOperatorCompletion = query(
         "from \"std/ops\" import Add\n"
         "fn join(text:String,left:i64,right:i64)->i64:\n  return left+right\n"
@@ -506,11 +508,12 @@ int main() {
         {(pathRoot / "main.k").string(), ""},
         {(pathRoot / "foreign" / "hidden.k").string(), ""}};
     info = pathQuery("from \"std/|\" import println\nfn main():\n  return ()\n", {});
-    require(info.names.size() == 14 && has(info, "std/gpu") && has(info, "std/ops") &&
+    require(info.names.size() == 16 && has(info, "std/gpu") && has(info, "std/ops") &&
                 has(info, "std/cmp") && has(info, "std/buffer") && has(info, "std/iter") &&
                 has(info, "std/option") && has(info, "std/time") && has(info, "std/env") &&
                 has(info, "std/path") && has(info, "std/parse") && has(info, "std/fs") &&
-                has(info, "std/io") && has(info, "std/fmt") && has(info, "std/process"),
+                has(info, "std/io") && has(info, "std/fmt") && has(info, "std/process") &&
+                has(info, "std/stream") && has(info, "std/net"),
             "standard modules complete without installed files or workspace overlays");
     info = pathQuery("from \"std/i|Suffix\" import println\nfn main():\n  return ()\n", {});
     require(info.names.size() == 2 && has(info, "std/io") && has(info, "std/iter") &&

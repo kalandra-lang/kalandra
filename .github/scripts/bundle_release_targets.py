@@ -27,6 +27,9 @@ with tempfile.TemporaryDirectory(prefix='bundled release ') as temporary:
     collect_gpu(output/'kalandra-cpu-target-runtimes.tar.gz', assets, backend='cuda',
                 rehearsal=not os.environ['GITHUB_REF'].startswith('refs/tags/'))
 
+    collect_gpu(output/'kalandra-cpu-target-runtimes.tar.gz', assets, backend='gpu',
+                rehearsal=not os.environ['GITHUB_REF'].startswith('refs/tags/'))
+
     for architecture in ('x86_64', 'arm64'):
         collect_windows_gpu(output/'kalandra-cpu-target-runtimes.tar.gz', assets, architecture,
                             rehearsal=not os.environ['GITHUB_REF'].startswith('refs/tags/'))

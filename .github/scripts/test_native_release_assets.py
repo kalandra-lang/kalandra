@@ -29,12 +29,19 @@ def write_fixture(root):
 class AssetTests(unittest.TestCase):
     def test_complete_release(self):
         with tempfile.TemporaryDirectory() as folder:
-            self.assertEqual(len(validate_assets(*write_fixture(Path(folder)))), 43)
+            self.assertEqual(len(validate_assets(*write_fixture(Path(folder)))), 49)
 
     def test_missing_vulkan_archive_blocks_release(self):
         with tempfile.TemporaryDirectory() as folder:
             unsigned, signed = write_fixture(Path(folder))
             (unsigned / "kalandra-native-vulkan-standalone-linux-x86_64.tar.gz").unlink()
+            with self.assertRaisesRegex(ValueError, "incomplete"):
+                validate_assets(unsigned, signed)
+
+    def test_missing_gpu_bundle_archive_blocks_release(self):
+        with tempfile.TemporaryDirectory() as folder:
+            unsigned, signed = write_fixture(Path(folder))
+            (unsigned / "kalandra-native-gpu-standalone-linux-x86_64.tar.gz").unlink()
             with self.assertRaisesRegex(ValueError, "incomplete"):
                 validate_assets(unsigned, signed)
 

@@ -91,7 +91,7 @@ list {
 
 h2 { "Program output and external libraries" }
 
-Applications display output explicitly with std/io and return unit or std/process ExitStatus from main. Console I/O and formatting are standard-module imports; file I/O is provided by std/fs. Network I/O is not provided by these modules. Packages can export their own functions; those names belong to the package rather than this built-in index.
+Applications display output explicitly with std/io and return unit or std/process ExitStatus from main. Console I/O and formatting are standard-module imports; files, byte streams, child processes and TCP sockets are provided by std/fs, std/stream, std/process and std/net. Packages can export their own functions; those names belong to the package rather than this built-in index.
 
 list {
   link { url = "/docs/packages", "Using source packages" }

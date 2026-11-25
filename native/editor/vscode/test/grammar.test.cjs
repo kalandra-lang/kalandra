@@ -75,4 +75,8 @@ test("loops and yield use control keyword scopes", async () => {
     const result = g.tokenizeLine(word, INITIAL);
     expect(result.tokens[0].scopes).toContain("keyword.control.kalandra");
   }
+  const exported = g.tokenizeLine('export "C" direct fn scale(v: f64) -> f64:', INITIAL);
+  expect(
+    exported.tokens.find((t) => t.startIndex === 11).scopes,
+  ).toContain("keyword.declaration.kalandra");
 });

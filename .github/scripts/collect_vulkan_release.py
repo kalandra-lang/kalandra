@@ -18,13 +18,13 @@ ARTIFACT = 'native-vulkan-package-linux-x86_64'
 
 
 def qualified_artifact(repository, commit, rehearsal=False, backend='vulkan', platform='linux-x86_64'):
-    if backend not in ('vulkan', 'cuda'):
+    if backend not in ('vulkan', 'cuda', 'gpu'):
         raise ValueError('Unknown GPU release backend')
     if platform not in ('linux-x86_64', 'windows-x86_64', 'windows-arm64'):
         raise ValueError('Unknown GPU release platform')
     windows = platform.startswith('windows-')
-    label = 'Windows GPU' if windows else ('CUDA' if backend == 'cuda' else 'Vulkan')
-    workflow = 'native-windows-gpu' if windows else f'native-{backend}'
+    label = 'Windows GPU' if windows else ('GPU bundle' if backend == 'gpu' else ('CUDA' if backend == 'cuda' else 'Vulkan'))
+    workflow = 'native-windows-gpu' if windows else ('native-cuda' if backend in ('cuda', 'gpu') else 'native-vulkan')
     artifact_name = (f'native-windows-gpu-packages-{platform.removeprefix("windows-")}' if windows
                      else f'native-{backend}-package-linux-x86_64')
     if not rehearsal and not os.environ.get("RELEASE_TAG"):
@@ -51,10 +51,10 @@ def qualified_artifact(repository, commit, rehearsal=False, backend='vulkan', pl
 
 
 def collect(runtime_archive, destination, rehearsal=False, backend='vulkan'):
-    if backend not in ('vulkan', 'cuda'):
+    if backend not in ('vulkan', 'cuda', 'gpu'):
         raise ValueError('Unknown GPU release backend')
     archive_name = f'kalandra-native-{backend}-standalone-linux-x86_64.tar.gz'
-    label = 'CUDA' if backend == 'cuda' else 'Vulkan'
+    label = 'GPU bundle' if backend == 'gpu' else ('CUDA' if backend == 'cuda' else 'Vulkan')
 
     repository, commit = os.environ['GH_REPO'], os.environ['GITHUB_SHA']
     run, artifact = qualified_artifact(repository, commit, rehearsal, backend)

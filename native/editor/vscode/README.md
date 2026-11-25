@@ -16,7 +16,7 @@ Configuration or workspace-folder changes restart the client. Use **Kalandra: Re
 
 Format Document uses the native fixed style and returns editor edits. Completion currently suggests in-scope names and needs parseable surrounding syntax. Hover/navigation/rename retain the native server's checked-graph requirements and documented search limits. This extension does not expand the compiler's supported language/backend subset.
 
-Build tooling uses Bun; VS Code runs the bundled client in its own extension host. The VSIX includes runtime dependency notices and needs no npm install after installation. Its `0.2.0` version identifies this editor package, independently of compiler releases.
+Build tooling uses Bun; VS Code runs the bundled client in its own extension host. The VSIX includes runtime dependency notices and needs no npm install after installation. Its `0.3.0` version identifies this editor package, independently of compiler releases.
 
 For maintainers, `bun test` checks configuration boundaries. Set `KALANDRA_VSCODE_EXECUTABLE` to an installed VS Code executable and run `bun run test:editor` to exercise the packed artifact in an isolated extension host. The test runner uses temporary profiles/workspaces and does not change your normal VS Code settings/extensions.
 

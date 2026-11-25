@@ -11,7 +11,7 @@ It does not publish npm packages, the website or the extension Marketplace.
   fail validation, including numeric identifiers with leading zeros.
 
 The root `VERSION` file is authoritative for the native toolchain. It currently
-contains `0.99.3`; CMake uses its numeric core as `PROJECT_VERSION` and embeds the
+contains `0.99.4`; CMake uses its numeric core as `PROJECT_VERSION` and embeds the
 full SemVer string in CLI tools, LSP `serverInfo` and installed `toolchain.json`
 metadata. LLVM and the VS Code extension retain their independent versions.
 

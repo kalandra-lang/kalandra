@@ -205,13 +205,11 @@ jobs:
           -DKALANDRA_SPIRV_VAL="$env:KALANDRA_SPIRV_VAL"
           -DKALANDRA_VULKAN_SPIRV_NOTICE="$env:KALANDRA_VULKAN_SPIRV_NOTICE"
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
-      - name: Build both standalone compiler archives
-        run: cmake --build build/windows-gpu --parallel 4 --target kalandra native-cuda-standalone-package native-vulkan-standalone-package
+      - name: Build standalone compiler archives
+        run: cmake --build build/windows-gpu --parallel 4 --target kalandra native-cuda-standalone-package native-vulkan-standalone-package native-gpu-standalone-package
       - name: Compile and test the multi-backend application
         run: |
-          cmake --build build/windows-gpu --parallel 4 --target kalandra-gpu-installed
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python native/gpu-bundle/qualify.py --compiler build/windows-gpu/native/kalandra.exe --output build/gpu-bundle
+          python native/gpu-bundle/qualify.py --compiler build/windows-gpu/native-gpu-standalone/package-stage/kalandra-native-gpu-standalone/bin/kalandra.exe --output build/gpu-bundle
       - name: Compile resumable host calls through both Windows GPU backends
         run: |
           foreach ($backend in @('cuda', 'vulkan')) {
@@ -230,7 +228,7 @@ jobs:
           }
       - name: Qualify relocated Windows packages
         run: |
-          foreach ($backend in @('cuda', 'vulkan')) {
+          foreach ($backend in @('cuda', 'vulkan', 'gpu')) {
             python native/gpu-runtime/qualification/windows_installed.py --backend $backend --archive "build/windows-gpu/native-$backend-standalone/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/installed-$backend" --arch ${{ matrix.arch }} --jobs 2
             if ($LASTEXITCODE -ne 0) { throw "$backend installed package failed" }
           }
@@ -256,7 +254,7 @@ jobs:
           retention-days: 3
       - name: Verify frozen archive reproducibility
         run: |
-          foreach ($backend in @('cuda', 'vulkan')) {
+          foreach ($backend in @('cuda', 'vulkan', 'gpu')) {
             $archive = Get-Item "build/windows-gpu/native-$backend-standalone/*.tar.gz"
             $before = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
             cmake --build build/windows-gpu --parallel 4 --target "native-$backend-standalone-package"
@@ -269,6 +267,7 @@ jobs:
           path: |
             build/windows-gpu/native-cuda-standalone/*.tar.gz*
             build/windows-gpu/native-vulkan-standalone/*.tar.gz*
+            build/windows-gpu/native-gpu-standalone/*.tar.gz*
             build/installed-*/qualification.json
             build/installed-*/compile-jobs.json
             build/installed-*/compile-logs/*.log

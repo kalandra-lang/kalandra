@@ -9,7 +9,7 @@ import sys
 import tarfile
 
 p = argparse.ArgumentParser(description=__doc__)
-p.add_argument('--backend', choices=('cuda', 'vulkan'), required=True)
+p.add_argument('--backend', choices=('cuda', 'vulkan', 'gpu'), required=True)
 p.add_argument('--archive', type=Path, required=True)
 p.add_argument('--root', type=Path, required=True)
 p.add_argument('--arch', choices=('x86_64', 'arm64'), required=True)
@@ -56,13 +56,14 @@ for relative in listed:
     assert base not in ('cuda.h', 'cuda_runtime.h', 'nvcuda.dll', 'vulkan-1.dll'), relative
     assert not any(x in base for x in ('cudart', 'cublas', 'nvrtc')), relative
     assert not base.endswith(('.cu', '.raw.ptx')), relative
-metadata = json.loads((prefix/f'share/kalandra-native-{a.backend}/toolchain.json').read_text())
-assert metadata['format'] == 1 and metadata['llvmVersion'] == '23.1.3'
-assert metadata['platform'] == 'windows-'+a.arch
-assert metadata['windowsGpuExecutionQualified'] is False and metadata['windowsGpuPerformanceQualified'] is False
-if a.backend == 'vulkan':
-    assert metadata['validatorBundledSHA256'] == digest(prefix/'libexec/kalandra/spirv-val.exe')
-    assert metadata['validatorNoticeSHA256'] == digest(prefix/'share/licenses/kalandra-vulkan/SPIRV-Tools-COPYRIGHT')
+for meta_backend in (('cuda', 'vulkan') if a.backend == 'gpu' else (a.backend,)):
+    metadata = json.loads((prefix/f'share/kalandra-native-{meta_backend}/toolchain.json').read_text())
+    assert metadata['format'] == 1 and metadata['llvmVersion'] == '23.1.3'
+    assert metadata['platform'] == 'windows-'+a.arch
+    assert metadata['windowsGpuExecutionQualified'] is False and metadata['windowsGpuPerformanceQualified'] is False
+    if meta_backend == 'vulkan':
+        assert metadata['validatorBundledSHA256'] == digest(prefix/'libexec/kalandra/spirv-val.exe')
+        assert metadata['validatorNoticeSHA256'] == digest(prefix/'share/licenses/kalandra-vulkan/SPIRV-Tools-COPYRIGHT')
 audit(prefix)
 verify_package_version(prefix)
 if a.bundled_targets:
@@ -78,17 +79,31 @@ run([compiler, '--test-entry', 'main', source, '-o', root/'cpu.exe'])
 assert subprocess.check_output([root/'cpu.exe'], text=True, timeout=30) == '42\n'
 # A wide output path must survive all child tools, including spirv-val.exe.
 unicode_output = root/'GPU application λ'
-run([compiler, '--test-entry', 'main', '--target', a.backend, '-O2',
-     repo/'native/metal-source/placed.k', '-o', unicode_output])
-assert (unicode_output/'program.exe').is_file()
-assert (unicode_output/('kernel0.ptx' if a.backend == 'cuda' else 'kernel0.spv')).is_file()
-
-compile_report = run_compile_jobs(compile_plan(a.backend, repo, compiler, root), root, a.jobs)
-if a.backend == 'cuda':
-    assert len(list((root/'applications').rglob('program.exe'))) == 51
-    probe = root/'applications/hardware/f32/program.exe'
+if a.backend == 'gpu':
+    run([compiler, '--target', 'cuda,vulkan', '-O2',
+         repo/'native/gpu-bundle/example.k', '-o', unicode_output])
+    assert (unicode_output/'program.exe').is_file()
+    assert list(unicode_output.glob('*.ptx')) and list(unicode_output.glob('*.spv'))
+    (root/'applications').mkdir(parents=True, exist_ok=True)
+    run([sys.executable, repo/'native/gpu-bundle/qualify.py', '--compiler', compiler, '--output', root/'applications/bundle'])
+    for single in ('cuda', 'vulkan'):
+        run([compiler, '--test-entry', 'main', '--target', single, '-O2',
+             repo/'native/metal-source/placed.k', '-o', root/f'applications/single-{single}'])
+    compile_report = {'suites': ['bundle']}
+    assert len(list((root/'applications').rglob('program.exe'))) == 3
+    probe = root/'applications/single-cuda/program.exe'
 else:
-    probe = root/'applications/matrix-hardware/program.exe'
+    run([compiler, '--test-entry', 'main', '--target', a.backend, '-O2',
+         repo/'native/metal-source/placed.k', '-o', unicode_output])
+    assert (unicode_output/'program.exe').is_file()
+    assert (unicode_output/('kernel0.ptx' if a.backend == 'cuda' else 'kernel0.spv')).is_file()
+
+    compile_report = run_compile_jobs(compile_plan(a.backend, repo, compiler, root), root, a.jobs)
+    if a.backend == 'cuda':
+        assert len(list((root/'applications').rglob('program.exe'))) == 51
+        probe = root/'applications/hardware/f32/program.exe'
+    else:
+        probe = root/'applications/matrix-hardware/program.exe'
 for application in root.rglob('program.exe'):
     # Real GPU programs must not statically depend on either driver or an SDK DLL.
     dependencies = [name.lower() for name in imports(application)]
@@ -96,20 +111,37 @@ for application in root.rglob('program.exe'):
 assert probe.is_file()
 # Only test actual driver absence when the hosted machine genuinely lacks it.
 # Never replace a physical GPU with a mock or software implementation.
-driver = Path(os.environ['SystemRoot'])/'System32'/('nvcuda.dll' if a.backend == 'cuda' else 'vulkan-1.dll')
+driver = Path(os.environ['SystemRoot'])/'System32'/('nvcuda.dll' if a.backend in ('cuda', 'gpu') else 'vulkan-1.dll')
 absent = not driver.is_file()
 if absent:
     result = subprocess.run([probe], capture_output=True, text=True, timeout=30)
-    label = 'CUDA' if a.backend == 'cuda' else 'Vulkan'
+    label = 'CUDA' if a.backend in ('cuda', 'gpu') else 'Vulkan'
     assert result.returncode == 1 and not result.stdout and result.stderr == label+' unavailable: 104\n', result
 placed = repo/'native/metal-source/placed.k'
-checks = ['libexec/kalandra/clang++.exe', f'libexec/kalandra/kalandra-{a.backend}-lower.exe',
-          f'lib/kalandra/native/kalandra-{a.backend}.lib',
-          f'lib/kalandra/native/headers/{a.backend}', 'lib/kalandra/toolchain/clang/include']
-if a.backend == 'vulkan':
-    checks += ['libexec/kalandra/mlir-opt.exe', 'libexec/kalandra/spirv-val.exe']
-checks += ['lib/kalandra/native/headers/gpu-runtime/ProgramDecl.inc']
-checks = [(relative, placed) for relative in checks]
+if a.backend == 'gpu':
+    example = repo/'native/gpu-bundle/example.k'
+    checks = [(relative, example) for relative in (
+        'libexec/kalandra/clang++.exe',
+        'libexec/kalandra/kalandra-cuda-lower.exe',
+        'libexec/kalandra/kalandra-vulkan-lower.exe',
+        'libexec/kalandra/mlir-opt.exe',
+        'libexec/kalandra/spirv-val.exe',
+        'lib/kalandra/native/kalandra-cuda.lib',
+        'lib/kalandra/native/kalandra-vulkan.lib',
+        'lib/kalandra/native/headers/cuda',
+        'lib/kalandra/native/headers/vulkan',
+        'lib/kalandra/native/headers/gpu-bundle/Language.h',
+        'lib/kalandra/native/headers/gpu-runtime/ProgramDecl.inc',
+        'lib/kalandra/toolchain/clang/include',
+    )]
+else:
+    checks = ['libexec/kalandra/clang++.exe', f'libexec/kalandra/kalandra-{a.backend}-lower.exe',
+              f'lib/kalandra/native/kalandra-{a.backend}.lib',
+              f'lib/kalandra/native/headers/{a.backend}', 'lib/kalandra/toolchain/clang/include']
+    if a.backend == 'vulkan':
+        checks += ['libexec/kalandra/mlir-opt.exe', 'libexec/kalandra/spirv-val.exe']
+    checks += ['lib/kalandra/native/headers/gpu-runtime/ProgramDecl.inc']
+    checks = [(relative, placed) for relative in checks]
 if a.backend == 'cuda':
     transform = root/'transpose.k'
     transform.write_text("""fn work(v:Tensor[f32,?,?])->Tensor[f32,?,?]:
@@ -130,8 +162,9 @@ for index, (relative, fixture) in enumerate(checks):
     owned.rename(saved)
     try:
         output = root/f'missing-{index}'
-        result = subprocess.run([compiler, '--test-entry', 'main', '--target', a.backend, fixture, '--matmul-policy', 'optimized', '-O2', '-o', output],
-                                capture_output=True, text=True, timeout=180)
+        target_arg = 'cuda,vulkan' if a.backend == 'gpu' else a.backend
+        cmd = [compiler] + ([] if a.backend == 'gpu' else ['--test-entry', 'main']) + ['--target', target_arg, fixture, '--matmul-policy', 'optimized', '-O2', '-o', output]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         assert result.returncode == 1 and not (output/'program.exe').exists(), (relative, result)
         if relative.endswith('/matmul-catalog.ptx'):
             compact = root/'cuda-small-without-catalog'

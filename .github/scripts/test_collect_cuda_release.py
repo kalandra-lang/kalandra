@@ -69,14 +69,42 @@ class CudaReleaseTests(unittest.TestCase):
         release=(root/'.github/workflows/native-release.yml').read_text()
         from native_release_assets import ARCHIVES
         self.assertIn(ARCHIVE,ARCHIVES)
+        self.assertIn('kalandra-native-gpu-standalone-linux-x86_64.tar.gz',ARCHIVES)
         import re
         for text in (workflow,release):
-            for script in re.findall(r'python3 (native/[\w/.-]*cuda[\w/.-]*\.py)',text):
+            for script in re.findall(r'python3 (native/[\w/.-]*(?:cuda|gpu-bundle)[\w/.-]*\.py)',text):
                 self.assertTrue((root/script).is_file(),script)
         self.assertIn('tags: ["v*"]',workflow)
         self.assertIn('  qualify-cuda:',release)
         self.assertIn(ARCHIVE,release)
+        self.assertIn('kalandra-native-gpu-standalone-linux-x86_64.tar.gz',release)
         self.assertIn('qualify-vulkan, qualify-cuda, qualify-windows-gpu, notarize]',release)
         self.assertIn("if: startsWith(github.ref, 'refs/tags/')",release.split('  publish:\n',1)[1])
+
+    def test_gpu_bundle_selects_cuda_workflow_and_own_artifact(self):
+        root,stack=self.workspace()
+        gpu_archive='kalandra-native-gpu-standalone-linux-x86_64.tar.gz'
+        gpu_artifact='native-gpu-package-linux-x86_64'
+        def api(path):
+            if '/workflows/' in path:
+                self.assertIn('/native-cuda.yml/',path)
+                return self.api(path)
+            return {'artifacts':[{'id':44,'name':gpu_artifact,'expired':False}]}
+        def download(command,stdout,check):
+            with zipfile.ZipFile(stdout,'w') as archive:
+                archive.writestr(gpu_archive,b'gpu')
+                import hashlib
+                archive.writestr(gpu_archive+'.sha256',hashlib.sha256(b'gpu').hexdigest()+'  '+gpu_archive+'\n')
+        def attach(source,runtimes,output):
+            self.assertEqual(source.name,gpu_archive)
+            output.mkdir();(output/gpu_archive).write_bytes(b'five CPU targets with CUDA and Vulkan')
+            (output/(gpu_archive+'.sha256')).write_text(collector.digest(output/gpu_archive)+'  '+gpu_archive+'\n')
+        stack.enter_context(patch.object(collector,'api',side_effect=api))
+        stack.enter_context(patch.object(collector.subprocess,'run',side_effect=download))
+        composition=stack.enter_context(patch.object(collector,'attach',side_effect=attach))
+        collector.collect(root/'runtimes',root/'assets',backend='gpu')
+        self.assertEqual(composition.call_count,2)
+        self.assertEqual({p.name for p in (root/'assets').iterdir()},{gpu_archive,gpu_archive+'.sha256'})
+        self.assertEqual(json.loads((root/'gpu-qualification.json').read_text())['archive'],gpu_archive)
 
 if __name__=='__main__':unittest.main()

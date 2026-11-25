@@ -1,168 +1,118 @@
-meta { title = "Kalandra 0.99.3 — language and standard-library foundations", description = "Local mutation, lazy generators, explicit returns, generics and traits, host I/O, and broader GPU language support.", order = 0, group = "Release archive" }
+meta { title = "Kalandra 0.99.4 — cooperative GPU kernels, streams, networking and C interop", description = "Workgroup GPU kernels, GPU UTF-8 text, combined CUDA+Vulkan bundles, streams, subprocesses, directory watching, TCP networking and C interop.", order = 0, group = "Release archive" }
 
-Kalandra 0.99.3 completes the core language milestone: checked local mutation, expression-valued control flow, lazy generators, explicit returns, static generics and traits, practical host I/O, and broader GPU language support. This page covers changes since 0.99.2.
+Kalandra 0.99.4 expands GPU programming and host systems support: cooperative workgroup GPU kernels in std/gpu, UTF-8 text processing on GPUs, combined CUDA and Vulkan application bundles and release compiler packages, byte streams and OS subprocesses, recursive filesystem operations and directory watching, event-driven TCP networking, C/C++ header imports and library exports, and -O0 through -O3 optimization controls. This page covers changes since 0.99.3.
 
-This release changes source syntax and application entry behavior. Read the migration section before rebuilding older programs. The compiler and native language server report 0.99.3; the separately versioned VS Code extension is 0.2.0.
+Existing 0.99.3 programs require no syntax migration. The compiler and native language server report 0.99.4; the separately versioned VS Code extension is 0.3.0.
 
 list {
-  link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.3", "Download Kalandra 0.99.3" },
+  link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.4", "Download Kalandra 0.99.4" },
   link { url = "/docs/installation", "Install a toolchain for your platform" },
   link { url = "/docs/tooling", "Update your code editor" }
 }
 
-h2 { "Local control flow and immutable composition" }
+h2 { "Cooperative GPU kernels, GPU text and multi-backend bundles" }
 
-Numeric and bool bindings can be reassigned without changing their type. Numeric and bool arrays support checked element mutation, replacement and in-place sorting. Aliases retain their storage identity: replacing a binding does not replace an alias. Concurrent task readers and conflicting accesses remain compiler-checked. A scalar parameter is a private value; rebinding it does not modify its caller.
+Import std/gpu when individual GPU invocations need to coordinate over shared workgroup memory. dispatch launches fixed-size workgroups across rank zero through eight numeric output shapes on Metal, Vulkan and CUDA. WorkItem provides globalIndex and localIndex coordinates, fixed-size numeric scratch via item.shared[T](count) returning Shared[T], and workgroup synchronization via item.barrier(). The compiler proves barrier convergence across branches, helpers and bounded loops, verifies shared-memory initialization and disjoint lane writes, and checks device limits without falling back to CPU execution.
 
-Use copy(values) for independent numeric, bool or String-array storage, sorted(values) for a sorted copy, and sort(values) to update existing numeric/bool storage. String text remains immutable. generate and map remain available for immutable array construction.
+Functions spawned on Metal, Vulkan or CUDA now accept String values and read-only [String] batches (up to 16 KiB per row in cooperative kernels). Device code supports Unicode-scalar length, byteLength, scalar indexing, half-open slice, exact equality, concatenation, and variable-length owned String results returned to the host.
 
-for, integer range, while, break and continue support ordinary iteration and early stopping. Loops can produce a single result using break value and an else result. A for/while expression containing yield instead constructs a lazy generator. Consumption runs its body; array(sequence) explicitly materializes an array.
-
-codeblock { language = kalandra, """from "std/io" import println, IoError
-from "std/fmt" import format
-
-fn main() -> unit ! IoError:
-  squares = for value in [0, 1, 2, 3, 4, 5]:
-    if value % 2 == 0:
-      yield value * value
-
-  total: i64 = 0
-  for value in squares:
-    total = total + value
-
-  try println(format("{}", total))
-  return ()
-""" }
-
-This prints 20. The generator produces 0, 4 and 16 as the consuming loop requests them.
+Linux and Windows releases now include combined multi-backend GPU compiler archives (kalandra-native-gpu-standalone-linux-x86_64.tar.gz and experimental Windows x86_64 and arm64 equivalents) alongside the single-backend cuda and vulkan archives. Compiling with --target cuda,vulkan produces one application directory with both PTX and SPIR-V artifacts. At runtime the first GPU request tries CUDA, then Vulkan, and caches the admitted device for the process. Set KALANDRA_GPU_BACKEND to force a backend or KALANDRA_GPU_TRACE=1 to inspect selection.
 
 list {
-  link { url = "/docs/syntax", "Bindings and local reassignment" },
-  link { url = "/docs/arrays", "Array aliases, copies and mutation" },
-  link { url = "/docs/control-flow", "Control flow and iteration" },
-  link { url = "/docs/iteration", "Lazy iterators and generators" }
+  link { url = "/docs/gpu-kernels", "Cooperative GPU kernels and shared scratch" },
+  link { url = "/docs/strings#process-text-on-a-gpu", "Process UTF-8 text on a GPU" },
+  link { url = "/docs/gpu#ship-one-application-for-cuda-and-vulkan", "Ship one application for CUDA and Vulkan" }
 }
 
-h2 { "Iteration, generics and explicit traits" }
-
-Option[T], the uninhabited primitive never, reusable Iterable sources and owned Iterator[T, E] cursors provide typed iteration and error channels. std/iter.map, filter and take compose lazy pipelines. Breaking out of iteration closes its cursor. Generator cleanup settles owned resources and cancels/joins unfinished children; children may keep running while the generator is paused. Eligible local scalar pipelines are fused conservatively, while escaping or effectful cursors retain their frames.
-
-Static generics support generic functions/types, explicit trait/impl conformance, associated types/errors, qualified calls and generic trait parameters. Conformance is deliberate rather than inferred from matching method names. Dispatch is static, without a user class hierarchy or runtime trait objects.
-
-Standard contracts include Equal; Order, Ordering, compare and totalCompare; stable sortedBy/sortBy; Display; and Add[Rhs], Sub[Rhs], Mul[Rhs], Div[Rhs], Rem[Rhs] and Neg with associated Output. Custom operators use ordinary evaluation, ownership and error rules. Arithmetic conformance does not grant mutation permission or automatically make a method GPU-compatible.
-
-list {
-  link { url = "/docs/generics-traits", "Generics and explicit conformance" },
-  link { url = "/docs/arithmetic-traits", "Arithmetic traits and operator methods" },
-  link { url = "/docs/ordering", "Equality, ordering and custom sorting" }
-}
-
-h2 { "Applications and host utilities" }
+h2 { "Streams, subprocesses, directory watching and TCP networking" }
 
 table {
   row = ["Module or feature", "What is available"],
-  row = ["Application entry", "main() or main(args: [String]) returns unit or ExitStatus {code: u8}. Arguments exclude the executable name. Console output is explicit."],
-  row = ["std/io", "Console/error output and bounded line input with typed IoError values."],
-  row = ["std/fmt", "Literal-template formatting, explicit Display implementations, checked precision/alignment/hexadecimal controls and Unicode-scalar widths."],
-  row = ["std/fs", "Owned files, incremental byte/text/line I/O, buffering, seeking, directory iterators, metadata, directory creation and file/empty-directory removal."],
-  row = ["std/buffer", "Owned growable ByteBuffer, capacity management, array conversion and direct filesystem buffer I/O."],
-  row = ["std/parse", "Checked parsing for all ten numeric primitives and bool, with typed failures and tested floating-point rounding."],
-  row = ["std/path and std/env", "Path operations and environment lookup."],
-  row = ["std/time", "Monotonic Instant/Duration values and cancellable sleep that releases the task's worker."]
+  row = ["std/stream", "ByteReader, ByteWriter and PipeCloser traits with generic readInto, readAppend, write, writeAll and close over ByteBuffer."],
+  row = ["std/process", "command, working-directory and environment overrides, piped or inherited stdio, start, takeStdin/takeStdout/takeStderr, cancellable wait and bounded capture."],
+  row = ["std/fs trees and watching", "copyTree, removeTree, symlink inspection/creation (symlinkMetadata, readLink, createSymlink) and native watchDir event iterators."],
+  row = ["std/net", "listenTcp, localPort, accept, connectTcp, connectTcpWithin, shutdownWrite, per-endpoint setTimeout, and split into independent TcpReader and TcpWriter halves."]
 }
 
-File handles and directory cursors close deterministically. finish flushes and consumes a buffered writer. Filesystem readInto, readAppend, write and writeAll accept buffers alongside their supported array forms. These are host services, including in mixed CPU/Metal/Vulkan/CUDA applications. std/process supplies application exit status; OS subprocess spawning is not part of this release.
+Files, buffered readers/writers, subprocess pipes and TCP endpoints share the std/stream traits, so one generic byte pump works across all four. Bounded DNS resolution limits concurrent OS lookups and discards stale results on cancellation. Suspended accept, read and write operations release their worker thread and wake immediately on OS socket readiness (kqueue on macOS, epoll on Linux, WSAPoll on Windows).
+
+codeblock { language = kalandra, """from "std/net" import listenTcp, localPort, connectTcp, accept, shutdownWrite, NetError
+from "std/stream" import readInto, writeAll, StreamError
+from "std/buffer" import byteBuffer, append, BufferError
+from "std/io" import println, IoError
+from "std/fmt" import format
+
+fn main() -> unit ! (NetError | StreamError | BufferError | IoError):
+  listener = try listenTcp("127.0.0.1", 0)
+  client = try connectTcp("127.0.0.1", try localPort(listener))
+  server = try accept(listener)
+
+  chunk = try byteBuffer(64)
+  try append(chunk, [75, 97, 108, 97, 110, 100, 114, 97])
+  try writeAll(client, chunk)
+  try shutdownWrite(client)
+
+  received = try readInto(server, chunk, 64)
+  try println(format("{}", received))
+  return ()
+""" }
+
+This prints 8 after sending eight bytes over loopback and signaling EOF from the client half.
 
 list {
-  link { url = "/docs/library", "Standard-library reference" },
-  link { url = "/docs/filesystem", "Files, buffering and directory cursors" },
-  link { url = "/docs/buffers", "Owned byte buffers" },
-  link { url = "/docs/console#format", "Formatting and Display" }
+  link { url = "/docs/streams", "Byte streams" },
+  link { url = "/docs/subprocesses", "Subprocesses and pipes" },
+  link { url = "/docs/filesystem", "Recursive filesystem operations and watchDir" },
+  link { url = "/docs/networking", "TCP networking and split connections" }
 }
 
-h2 { "GPU language coverage" }
+h2 { "Native C/C++ interop, CLI and editor tools" }
 
-Metal, Linux Vulkan and Linux CUDA support the admitted local control flow, safe mutation and device-array construction, checked transfer of supported CPU closures/captures, and device-compatible typed error handling. Eligibility follows specialized method bodies, supported values/effects and resource limits. Unsupported operations are diagnosed rather than silently executed on the CPU.
+Kalandra modules can import declarations directly from C headers using the destination ABI, pass checked noescape callbacks or handle-managed subscriptions (acquire_handle, release_handle and use_handle), enforce main-thread APIs marked with @MainActor, and exchange fixed-width C structs and counted UTF-8 text. Use export "C" fn or export "C" direct fn with kalandra --emit static, shared or object and --header to produce C/C++-callable libraries and matching headers. The cross-platform window example in native/examples/window opens a resizable GUI window on AppKit, Win32 and X11 from one Kalandra program.
 
-Host generators and I/O coexist with GPU work; suspended host cursor frames and host services are not device instructions. GPU strings/text and user-written low-level kernels remain separate work. Existing arithmetic and matmul policies retain their documented numerical contracts, including explicit software fallback where required.
+The compiler now accepts -O0, -O1, -O2 and -O3 while preserving checked arithmetic, floating-point policy, ownership and cancellation. Pairing --no-link with --emit-mlir or --emit-llvm validates frontend checking, MLIR lowering and LLVM IR emission without producing an object file or invoking the host linker. kalandra remove deletes a direct manifest dependency and prunes unreachable lock entries offline. Interactive terminal builds display phase timings, with --silent and --debug flags for scripts and logs.
 
-Windows x86-64/ARM64 GPU packages remain experimental. Build, source compilation, relocation and package checks pass, but physical Windows GPU execution/performance remains unqualified. ARM64 compiler availability does not establish NVIDIA ARM64 driver support.
+The 0.3.0 VS Code extension and 0.99.4 native language server add export "C" direct highlighting, std/net import-path completion, and crash-free trait conformance checking when an unrelated function signature in the workspace has diagnostics.
 
 list {
-  link { url = "/docs/gpu", "GPU programming, supported values and numerical policies" },
-  link { url = "/docs/errors", "Checked errors and handling" },
+  link { url = "/docs/modules#call-a-kalandra-function-from-c-or-c", "Call Kalandra from C/C++ and import C headers" },
+  link { url = "/docs/packages#remove-a-dependency", "Remove a dependency" },
+  link { url = "/docs/tooling", "Optimization levels, --no-link and editor setup" }
+}
+
+h2 { "Qualification and download" }
+
+Qualification covers native CPU execution across all 20 directed platform pairs, 64-bit Raspberry Pi OS Trixie userspace, CPU/Metal sanitizers where supported, reproducible standalone double-builds, and physical Linux CUDA, Vulkan and combined cuda,vulkan execution on RTX 5090. The external NVIDIA EGL/Mesa Vulkan LeakSanitizer retention tracked in issue 298 remains unchanged. Windows x86-64 and ARM64 cuda, vulkan and combined gpu compiler archives pass build, relocation, PE-closure and installed-package checks and remain experimental (broad physical hardware and ARM64 driver coverage remain tracked in issue 276).
+
+Download your host's package and kalandra-native.vsix (0.3.0) from GitHub Releases, verify their SHA-256 sidecars and keep the complete toolchain directory intact.
+
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.4", "Download Kalandra 0.99.4" },
+  link { url = "/docs/installation", "Installation and GPU package selection" },
+  link { url = "https://github.com/kalandra-lang/kalandra/issues/298", "Known Vulkan loader sanitizer finding" },
   link { url = "https://github.com/kalandra-lang/kalandra/issues/276", "Windows GPU hardware qualification" }
 }
 
-h2 { "Calls, correctness and editor tools" }
-
-Ordinary suspending function calls use task-local resumable call frames with a separate memory budget. Calling a function no longer consumes a task-admission slot by itself; explicit tasks retain scheduler admission limits. Ownership, errors, faults, cancellation and child settlement are preserved across suspension and early return.
-
-Buffer reuse after cancelled native file work now synchronizes with retired readers. Live snapshots still trigger copy-on-write. Shared compiler type facts and capability prerequisites add no runtime type-category dispatch.
-
-Qualification includes native CPU execution across all 20 directed platform pairs, CPU/Metal sanitizers where supported, and physical Linux CUDA/Vulkan correctness on RTX 5090. Vulkan Intel ASan/UBSan exits cleanly. NVIDIA retains the unsuppressed external loader/D-Bus leak tracked in issue 298; a same-path pre-refactor control reproduces it, and it is not reported as a clean NVIDIA LeakSanitizer pass. CUDA ASan/TSan, Vulkan TSan, Windows sanitizer limitations and cross-target sanitizer restrictions remain explicit.
-
-The updated VS Code extension and native language server cover the new keywords, primitives, traits, associated members and library APIs. Language services include diagnostics, completion, hover, navigation, references, rename and formatting. Install extension 0.2.0 from this release and select the matching native server. Other LSP editors use the same server over standard input/output; installed native tools and the VSIX do not require Node.js or npm.
+h2 { "Changes since 0.99.3" }
 
 list {
-  link { url = "/docs/tooling", "Install or update editor support" },
-  link { url = "https://github.com/kalandra-lang/kalandra/issues/298", "Known Vulkan loader sanitizer finding" }
-}
-
-h2 { "Migrate from 0.99.2" }
-
-table {
-  row = ["Previous source or behavior", "0.99.3"],
-  row = ["int8…int64, uint8…uint64, float32, float64", "i8…i64, u8…u64, f32, f64"],
-  row = ["int, uint, float type aliases", "Choose an explicit width such as i64, u64 or f64."],
-  row = ["Bool", "bool; unit uses the literal ()."],
-  row = ["Final expression implicitly returns a result", "Write return value, including in anonymous functions."],
-  row = ["Returning a main result prints it", "Call print/println explicitly; return unit or ExitStatus."]
-}
-
-Unconstrained integer/decimal literals still infer i64/f64. Larger types retain PascalCase. Unit functions may finish naturally, use bare return, or return (). Expression-valued if, match and loops remain useful as operands, including after return.
-
-Mutable function parameters use the explicit mut contract; owned resources use own when ownership transfers. Aliases and task readers constrain in-place writes. copy explicitly copies storage rather than changing the meaning of assignment.
-
-h2 { "Download and install" }
-
-Choose your build host's package from GitHub Releases, verify its SHA-256 sidecar and keep the complete directory together. Package names and platform baselines are unchanged. macOS 26+ Apple silicon uses signed/notarized Metal, CPU-only or editor-only DMGs. Metal compilation requires Xcode 26.2 and the pinned Metal Toolchain component. Linux x86-64/ARM64 requires glibc 2.39 or newer; modern Raspberry Pi systems use 64-bit Raspberry Pi OS Trixie. Windows 11 x86-64/ARM64 requires matching Visual Studio C++ tools and the Windows SDK.
-
-Linux x86-64 also provides CUDA/Vulkan archives; Windows GPU archives remain experimental. Host packages bundle private compiler/linker tools and CPU runtime data for all five destinations. System development libraries and GPU drivers remain prerequisites. Cross-compilation covers CPU programs. Keep a generated GPU application's executable and PTX/SPIR-V resources together. Standalone CUDA compilers do not require the CUDA toolkit, NVRTC or cuBLAS; execution requires a compatible NVIDIA driver supporting PTX 9.2.
-
-Download kalandra-native.vsix from the same release and use Extensions: Install from VSIX. Select its native language server using Kalandra Native: Server Path. The extension version is 0.2.0; the native compiler and language server report 0.99.3.
-
-list {
-  link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.3", "Download Kalandra 0.99.3" },
-  link { url = "/docs/installation", "Installation and platform requirements" },
-  link { url = "/docs/cross-compilation", "CPU cross-compilation" },
-  link { url = "/docs/tooling", "Editor setup" }
-}
-
-h2 { "Changes since 0.99.2" }
-
-list {
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/277", "Local mutation and loops" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/281", "GPU language coverage" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/285", "CPU-to-GPU closure transfer" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/286", "Device-compatible errors" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/287", "Explicit returns and primitive names" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/291", "Application and console I/O" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/294", "Filesystem handles and buffered I/O" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/297", "Checked parsing" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/300", "Path utilities" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/301", "Environment lookup" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/302", "Monotonic clocks and task sleep" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/303", "Task-local resumable call stacks" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/304", "Owned byte buffers and filesystem integration" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/306", "Generics and explicit traits" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/308", "Lazy iterators and generators" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/310", "Display and formatting controls" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/312", "Directory and filesystem utilities" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/314", "Equality" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/316", "Ordering and comparator-based sorting" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/318", "Arithmetic traits and generic trait parameters" },
-  link { url = "https://github.com/kalandra-lang/kalandra/pull/320", "Compiler capability checks and buffer safety" },
-  link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.2...v0.99.3", "Full release comparison" },
-  link { url = "/docs/release-0-99-2", "Previous release: 0.99.2 — CUDA and Vulkan" }
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/322", "Issue-based design workflow" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/323", "Cooperative workgroup GPU kernels and Shared[T]" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/324", "GPU UTF-8 string inputs and results" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/325", "Windows GPU runtime and package qualification" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/326", "Vulkan loader lifecycle hardening" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/327", "Byte streams and OS subprocesses" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/328", "Recursive filesystem copies, removals and symlinks" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/329", "Native directory watching" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/330", "kalandra remove dependency command" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/331", "Interactive CLI build progress, --silent and --debug" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/332", "Native -O0, -O1, -O2 and -O3 optimization levels" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/335", "Multi-backend CUDA and Vulkan application bundles" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/336", "C header imports, C exports and native windowing" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/337", "std/net TCP networking and DNS resolution" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/338", "Event-driven socket readiness and website upgrade" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/339", "kalandra --no-link and parallel suite qualification" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/340", "Partial-signature trait conformance fix" },
+  link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.3...v0.99.4", "Full release comparison" },
+  link { url = "/docs/release-0-99-3", "Previous release: 0.99.3 — language and standard-library foundations" }
 }

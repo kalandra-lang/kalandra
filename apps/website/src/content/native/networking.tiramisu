@@ -98,7 +98,7 @@ h2 { "Closure and errors" }
 
 A listener, stream or half closes on scope exit. Use try close(endpoint) to consume it explicitly.
 
-Connection setup reports NetError.Resolution with the resolver code, NetError.System with the OS code and message, or NetError.InvalidArgument for an invalid host. Stream operations have the same StreamError channel as files and pipes. Task cancellation follows the surrounding parallel scope. At most four operating-system lookups run concurrently. A lookup may outlive the task that requested it. The runtime retains at most 64 candidate addresses per operation and discards the result after cancellation. Network functions run on the host, including in applications that also run GPU work.
+Connection setup reports NetError.Resolution with the resolver code, NetError.System with the OS code and message, or NetError.InvalidArgument for an invalid host. Stream operations have the same StreamError channel as files and pipes. Suspended accept, read and write operations release their worker thread and resume on operating-system socket readiness (kqueue on macOS, epoll on Linux, WSAPoll on Windows). Task cancellation follows the surrounding parallel scope. At most four operating-system lookups run concurrently. A lookup may outlive the task that requested it. The runtime retains at most 64 candidate addresses per operation and discards the result after cancellation. Network functions run on the host, including in applications that also run GPU work.
 
 list {
   link { url = "/docs/streams", "Transfer bytes with generic readers and writers" },

@@ -24,7 +24,7 @@ class WindowsGpuReleaseTests(unittest.TestCase):
         (root/'assets').mkdir()
         def download(command, stdout, check):
             members = {}
-            for backend in ('cuda', 'vulkan'):
+            for backend in ('cuda', 'vulkan', 'gpu'):
                 name = f'kalandra-native-{backend}-standalone-windows-{architecture}.tar.gz'
                 data = backend.encode()
                 sha = hashlib.sha256(data).hexdigest()
@@ -35,7 +35,7 @@ class WindowsGpuReleaseTests(unittest.TestCase):
                     backend=backend, architecture=architecture, archiveSHA256=sha,
                     installedCompiler=True, cpuExecution=True, gpuExecution=False,
                     performanceQualified=False, bundledTargets=False,
-                    gpuSourceBuilds=51 if backend == 'cuda' else 15))
+                    gpuSourceBuilds=51 if backend == 'cuda' else (15 if backend == 'vulkan' else 3)))
             if mutate:
                 mutate(members)
             with zipfile.ZipFile(stdout, 'w') as archive:
@@ -57,8 +57,8 @@ class WindowsGpuReleaseTests(unittest.TestCase):
             with self.subTest(architecture=architecture):
                 root, select, compose = self.workspace(architecture)
                 collector.collect(Path('runtimes'), root/'assets', architecture)
-                self.assertEqual(compose.call_count, 4)
-                self.assertEqual(len(list((root/'assets').iterdir())), 4)
+                self.assertEqual(compose.call_count, 6)
+                self.assertEqual(len(list((root/'assets').iterdir())), 6)
                 select.assert_called_once_with('example/project', 'commit', False, platform='windows-'+architecture)
 
     def test_modified_report_checksum_missing_or_unexpected_member_reject_before_composition(self):
@@ -83,13 +83,13 @@ class WindowsGpuReleaseTests(unittest.TestCase):
 
     def test_compile_evidence_is_accepted_without_exporting_it(self):
         def diagnostics(members):
-            for backend in ('cuda', 'vulkan'):
+            for backend in ('cuda', 'vulkan', 'gpu'):
                 members[f'installed-{backend}/compile-jobs.json'] = '{"suites": []}'
                 members[f'installed-{backend}/compile-logs/generators.log'] = 'qualified'
         root, _, compose = self.workspace(mutate=diagnostics)
         collector.collect(Path('runtimes'), root/'assets', 'arm64')
-        self.assertEqual(compose.call_count, 4)
-        self.assertEqual(len(list((root/'assets').iterdir())), 4)
+        self.assertEqual(compose.call_count, 6)
+        self.assertEqual(len(list((root/'assets').iterdir())), 6)
         self.assertFalse(list(root.glob('*.log')))
         self.assertFalse(list(root.glob('compile-jobs.json')))
 
@@ -142,7 +142,7 @@ class WindowsGpuReleaseTests(unittest.TestCase):
     def test_release_requires_windows_archives_tag_builds_and_final_qualifier(self):
         from native_release_assets import ARCHIVES
         root = Path(__file__).resolve().parents[2]
-        for backend in ('cuda','vulkan'):
+        for backend in ('cuda','vulkan','gpu'):
             for architecture in ('x86_64','arm64'):
                 self.assertIn(f'kalandra-native-{backend}-standalone-windows-{architecture}.tar.gz', ARCHIVES)
         self.assertIn('tags: ["v*"]', (root/'.github/workflows/native-windows-gpu.yml').read_text())
