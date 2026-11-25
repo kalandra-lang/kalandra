@@ -64,6 +64,8 @@ void tcpOpen(Job &job) {
       int status = tcp::ready(socket->fd);
       if (!status || (status < 0 && tcp::pending(tcp::error()))) {
         addresses.connecting = std::move(socket);
+        job.waitSocket = addresses.connecting;
+        job.waitWrite = true;
         job.retry = true;
         return;
       }
@@ -114,6 +116,8 @@ void tcpOpen(Job &job) {
           continue;
         }
         addresses.connecting = std::move(socket);
+        job.waitSocket = addresses.connecting;
+        job.waitWrite = true;
         job.retry = true;
         return;
       }
@@ -155,9 +159,11 @@ void tcpControl(Job &job) {
 #endif
     if (socket.fd == tcp::invalid) {
       const int error = tcp::error();
-      if (tcp::pending(error))
+      if (tcp::pending(error)) {
+        job.waitSocket = endpoint.socket;
+        job.waitWrite = false;
         job.retry = true;
-      else
+      } else
         job.system(error);
       return;
     }

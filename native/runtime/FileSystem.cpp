@@ -1,5 +1,6 @@
 // Winsock2 must precede every header that may import windows.h.
 #include "TcpSocket.h"
+#include "SocketPoller.h"
 
 #include "FileSystem.h"
 #include "../include/kalandra/Utf8.h"
@@ -144,6 +145,11 @@ struct CaptureData {
 };
 struct Job {
   std::atomic<bool> done{false}, abandoned{false};
+  std::mutex waiterMutex;
+  std::condition_variable waiterCv;
+  ExternalCompletion waiter;
+  tcp::PollerTicket timerTicket;
+  std::shared_ptr<tcp::Socket> waitSocket;
   FileAction action;
   FileKind kind = FileKind::Success;
   std::int32_t error = 0;
@@ -151,7 +157,7 @@ struct Job {
   FileState *file = nullptr, *output = nullptr;
   AllocationLease fileOwner, outputOwner;
   BufferIO buffer;
-  bool direct = false, retry = false, stream = false;
+  bool direct = false, retry = false, stream = false, waitWrite = false;
   std::unique_ptr<process::Command> command;
   std::unique_ptr<CaptureData> capture;
   std::string walkPath;
@@ -166,6 +172,10 @@ struct Job {
                    .count()) >= timeout;
   }
   explicit Job(FileAction action) noexcept : action(action) {}
+  ~Job() {
+    if (timerTicket)
+      tcp::poller().cancel(timerTicket);
+  }
   unsigned char *data() noexcept {
     return direct ? buffer.data : reinterpret_cast<unsigned char *>(this + 1);
   }
@@ -194,9 +204,11 @@ std::uint64_t nativeRead(Job &job, FileState &file, unsigned char *bytes,
     if (n >= 0)
       return static_cast<std::uint64_t>(n);
     const int error = tcp::error();
-    if (tcp::pending(error))
+    if (tcp::pending(error)) {
+      job.waitSocket = file.socket->socket;
+      job.waitWrite = false;
       job.retry = true;
-    else
+    } else
       job.system(error);
     return 0;
   }
@@ -248,9 +260,11 @@ std::uint64_t nativeWrite(Job &job, FileState &file, const unsigned char *bytes,
     if (n >= 0)
       return static_cast<std::uint64_t>(n);
     const int error = tcp::error();
-    if (tcp::pending(error))
+    if (tcp::pending(error)) {
+      job.waitSocket = file.socket->socket;
+      job.waitWrite = true;
       job.retry = true;
-    else
+    } else
       job.system(error);
     return 0;
   }
@@ -783,7 +797,19 @@ struct Executor {
       if (!current.job->retry)
         current.job->buffer.payload = {};
       const bool processJob = isProcessAction(current.job->action);
-      current.job->done.store(true, std::memory_order_release);
+      ExternalCompletion waiter;
+      tcp::PollerTicket timerTicket;
+      {
+        std::lock_guard wlock(current.job->waiterMutex);
+        current.job->done.store(true, std::memory_order_release);
+        waiter = std::exchange(current.job->waiter, {});
+        timerTicket = std::exchange(current.job->timerTicket, {});
+      }
+      current.job->waiterCv.notify_all();
+      if (timerTicket)
+        tcp::poller().cancel(timerTicket);
+      if (waiter)
+        (void)waiter.signal();
       current.owner = {};
       {
         std::lock_guard lock(mutex);
@@ -872,11 +898,15 @@ void deferClose(NativeFile &file, std::size_t &slot, NativeDirectory &directory,
   ++service.closeCount;
   service.changed.notify_one();
 }
+enum class PauseKind : std::uint8_t { Yield, Executor, Socket, Timer };
 struct Operation {
   Invocation::OwnershipScope storage;
   Job *job = nullptr;
   AllocationLease owner;
+  std::shared_ptr<tcp::Socket> waitSocket;
+  PauseKind pause = PauseKind::Timer;
   bool submitted = false;
+  bool waitWrite = false;
   explicit Operation(Invocation &ctx) noexcept : storage(ctx) {}
   ~Operation() {
     if (job)
@@ -884,6 +914,22 @@ struct Operation {
   }
   static void cleanup(void *p) noexcept { static_cast<Operation *>(p)->~Operation(); }
 };
+std::chrono::nanoseconds remainingWait(const Job &job,
+                                       std::chrono::nanoseconds limit) noexcept {
+  if (job.timeout == UINT64_MAX)
+    return limit;
+  const auto elapsed =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(Job::Clock::now() - job.started);
+  if (elapsed.count() < 0)
+    return limit;
+  const auto used = static_cast<std::uint64_t>(elapsed.count());
+  if (used >= job.timeout)
+    return std::chrono::nanoseconds::zero();
+  const auto left = job.timeout - used;
+  if (left >= static_cast<std::uint64_t>(limit.count()))
+    return limit;
+  return std::chrono::nanoseconds(static_cast<std::chrono::nanoseconds::rep>(left));
+}
 void systemError(Invocation &ctx, FileResult &out, std::int32_t code, bool network) noexcept {
   char message[80];
   const std::string_view prefix = network ? "TCP operation failed (system code "
@@ -1065,6 +1111,7 @@ bool socketBytes(Job &job) noexcept {
   // Socket handles always use nonblocking I/O. Try immediately and park only
   // on backpressure, contention or after a bounded turn. No idle service worker
   // or delayed file-completion poll is needed for the common ready case.
+  job.waitSocket.reset();
   auto &file = *job.file;
   std::unique_lock lock(file.mutex, std::try_to_lock);
   if (!lock)
@@ -1097,6 +1144,8 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
   auto *op = *state ? static_cast<Operation *>(*state) : prepare(ctx, out, action, args, state);
   if (!op || !op->job || !healthy(ctx))
     return true;
+  op->pause = PauseKind::Timer;
+  op->waitSocket.reset();
   auto &job = *op->job;
   action = job.action;
   if (action == FileAction::TcpConnect && !job.done.load(std::memory_order_acquire) &&
@@ -1105,8 +1154,16 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
     return true;
   }
   if (job.direct && job.file->network) {
-    if (!socketBytes(job))
+    if (!socketBytes(job)) {
+      if (job.waitSocket) {
+        op->pause = PauseKind::Socket;
+        op->waitSocket = std::move(job.waitSocket);
+        op->waitWrite = job.waitWrite;
+      } else {
+        op->pause = PauseKind::Yield;
+      }
       return false;
+    }
   } else {
     if (!op->submitted) {
       auto retained = ctx.lease(&job);
@@ -1119,8 +1176,10 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
         return false;
       op->submitted = true;
     }
-    if (!job.done.load(std::memory_order_acquire))
+    if (!job.done.load(std::memory_order_acquire)) {
+      op->pause = PauseKind::Executor;
       return false;
+    }
     if (job.capture && job.kind == FileKind::Success) {
       Invocation::OwnershipSelection selection(op->storage);
       auto &capture = *job.capture;
@@ -1142,6 +1201,11 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
       }
     }
     if (job.retry) {
+      if (job.waitSocket) {
+        op->pause = PauseKind::Socket;
+        op->waitSocket = std::move(job.waitSocket);
+        op->waitWrite = job.waitWrite;
+      }
       job.retry = false;
       job.done.store(false, std::memory_order_relaxed);
       op->submitted = false;
@@ -1244,6 +1308,36 @@ bool step(Invocation &ctx, ProcessResult &out, FileAction action, const ProcessA
     out.bytes.strides[0] = 1;
   return true;
 }
+void waitOperation(void *state) noexcept {
+  if (!state) {
+    std::this_thread::sleep_for(1ms);
+    return;
+  }
+  auto &op = *static_cast<Operation *>(state);
+  if (!op.job)
+    return;
+  switch (op.pause) {
+  case PauseKind::Yield:
+    std::this_thread::yield();
+    return;
+  case PauseKind::Executor: {
+    std::unique_lock lock(op.job->waiterMutex);
+    if (!op.job->done.load(std::memory_order_acquire))
+      op.job->waiterCv.wait_for(lock, 1ms,
+                                [&] { return op.job->done.load(std::memory_order_acquire); });
+    return;
+  }
+  case PauseKind::Socket: {
+    auto socket = std::move(op.waitSocket);
+    if (socket)
+      tcp::waitReady(socket->fd, op.waitWrite, remainingWait(*op.job, 1ms));
+    return;
+  }
+  case PauseKind::Timer:
+    std::this_thread::sleep_for(1ms);
+    return;
+  }
+}
 } // namespace
 extern "C" bool kalandra_file_step_v2(Invocation *ctx, ProcessResult *out, std::uint32_t action,
                                       const ProcessArguments *args, void **state) noexcept {
@@ -1273,11 +1367,70 @@ extern "C" void kalandra_file_v2(Invocation *ctx, ProcessResult *out, std::uint3
                                  const ProcessArguments *args) noexcept {
   void *state = nullptr;
   while (!kalandra_file_step_v2(ctx, out, action, args, &state))
-    std::this_thread::sleep_for(1ms);
+    waitOperation(state);
 }
-extern "C" void kalandra_file_pause_v1(kalandra::runtime::Task *task, void *) noexcept {
-  // Reuse the fixed, bounded five-millisecond scheduler notification mailbox.
-  kalandra_console_pause_v1(task, nullptr);
+extern "C" void kalandra_file_pause_v1(kalandra::runtime::Task *task, void *state) noexcept {
+  if (!state) {
+    kalandra_console_pause_v1(task, nullptr);
+    return;
+  }
+  auto &op = *static_cast<Operation *>(state);
+  if (!op.job || op.pause == PauseKind::Timer) {
+    kalandra_console_pause_v1(task, nullptr);
+    return;
+  }
+  ExternalCompletion completion;
+  try {
+    auto &poller = tcp::poller();
+    completion = task->suspendExternal();
+    if (!completion)
+      return;
+    switch (op.pause) {
+    case PauseKind::Yield:
+      (void)completion.signal();
+      return;
+    case PauseKind::Executor: {
+      // Bound external suspension to 5ms if an OS request blocks during cancellation,
+      // while waking immediately whenever the executor worker finishes first.
+      const auto ticket = poller.addTimer(5ms, completion);
+      bool ready = false;
+      tcp::PollerTicket staleTicket{};
+      {
+        std::lock_guard lock(op.job->waiterMutex);
+        if (op.job->done.load(std::memory_order_acquire)) {
+          ready = true;
+        } else {
+          staleTicket = std::exchange(op.job->timerTicket, ticket);
+          op.job->waiter = completion;
+        }
+      }
+      if (staleTicket)
+        poller.cancel(staleTicket);
+      if (ready) {
+        if (ticket)
+          poller.cancel(ticket);
+        (void)completion.signal();
+      }
+      return;
+    }
+    case PauseKind::Socket: {
+      auto socket = std::move(op.waitSocket);
+      if (!socket) {
+        (void)completion.signal();
+        return;
+      }
+      poller.waitSocket(std::move(socket), op.waitWrite, remainingWait(*op.job, 5ms), completion);
+      return;
+    }
+    case PauseKind::Timer:
+      (void)completion.signal();
+      return;
+    }
+  } catch (...) {
+    if (completion)
+      (void)completion.signal();
+    task->context().fault(2);
+  }
 }
 
 kalandra::runtime::FileServiceStats kalandra::runtime::fileServiceStats() noexcept {
@@ -1301,5 +1454,5 @@ extern "C" void kalandra_file_v1(Invocation *ctx, FileResult *out, std::uint32_t
                                  const FileArguments *args) noexcept {
   void *state = nullptr;
   while (!kalandra_file_step_v1(ctx, out, action, args, &state))
-    std::this_thread::sleep_for(1ms);
+    waitOperation(state);
 }
