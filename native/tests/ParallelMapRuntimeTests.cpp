@@ -23,7 +23,7 @@ struct Result {
   Array value;
 };
 static_assert(sizeof(Result) == 72);
-static std::atomic<unsigned> active, peak, calls;
+static std::atomic<unsigned> active, peak, calls, currentMode;
 static std::atomic<bool> overlap, hold, timedOut;
 static unsigned workers;
 static void require(bool ok, const char *message) {
@@ -35,19 +35,24 @@ extern "C" void kalandra_parallel_probe(Task &task) {
   auto previous = peak.load();
   while (previous < current && !peak.compare_exchange_weak(previous, current)) {
   }
-  ++calls;
+  const auto callIndex = calls.fetch_add(1) + 1;
   if (current >= 2)
     overlap = true;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while ((hold.load() || (workers > 1 && !overlap.load())) && !task.cancelled()) {
+  while ((hold.load() || (workers > 1 && !overlap.load() && currentMode.load() != 4)) &&
+         !task.cancelled()) {
     if (std::chrono::steady_clock::now() > deadline) {
       timedOut = true;
       break;
     }
     std::this_thread::yield();
   }
-  if (task.releaseGroup({}))
-    timedOut = true;
+  if (currentMode.load() == 4 && callIndex == 1) {
+    if (task.releaseGroup({}) || task.context().status() != 3)
+      timedOut = true;
+    --active;
+    return;
+  }
   kalandra_parallel_original(task);
   --active;
 }
@@ -63,7 +68,8 @@ int main() {
     require(entry.packetBytes == 0 && entry.result->bytes == sizeof(Result),
             "parallel-map probe ABI changed");
     for (workers = 1; workers <= 4; workers *= 2) {
-      for (unsigned mode = 0; mode < 4; ++mode) {
+      for (unsigned mode = 0; mode < 5; ++mode) {
+        currentMode = mode;
         active = 0;
         peak = 0;
         calls = 0;
@@ -120,6 +126,11 @@ int main() {
                           static_cast<std::int32_t>(TaskFailure::AdmissionRejected) &&
                       result.value.count == 0,
                   "parallel map lost quota rejection or exposed partial output");
+        } else if (mode == 4) {
+          require(core->observe(task, *entry.result, observer, &result) &&
+                      result.header.kind == static_cast<std::int32_t>(TaskFailure::Fault) &&
+                      result.header.code == 3 && result.value.count == 0,
+                  "parallel map accepted invalid group release or exposed partial output");
         } else {
           require(stopped &&
                       core->failure(group).kind ==

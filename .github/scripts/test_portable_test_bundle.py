@@ -22,7 +22,7 @@ class IsolatedHarnessTests(unittest.TestCase):
                 {p.name for p in tests.iterdir()},
                 {"PortableCPUAcceptance.py", "VersionCheck.py", "WindowsPlatform.py", "LoopCases.py", "FileSystemCases.py", "ParseCases.py", "PathCases.py", "EnvironmentCases.py", "TimeCases.py", "CallCases.py", "BufferCases.py", "GenericsCases.py", "expected-version.txt",
                  "ProtocolClient.py", "ProtocolTests.py", "RecoveryProtocolTests.py",
-                 "PackageRemoveManifests.py", "CliFeedbackTests.py"})
+                 "PackageRemoveManifests.py", "CliFeedbackTests.py", "CountedImportTests.py"})
             result = subprocess.run(
                 [sys.executable, "-I", "-c",
                  "import sys,json;sys.path.insert(0,sys.argv[1]);"

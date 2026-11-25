@@ -1,11 +1,12 @@
 """List or run targeted CTest groups without changing their test contracts.
 
 Labels describe test families, not an automatic source-dependency analysis.
-Default execution remains serial; parallel package compilation is scheduled
-separately in the Windows qualification harness.
+Execution runs in parallel by default using isolated per-test output paths and
+explicit CTest RESOURCE_LOCK declarations for GPU and saturation suites.
 """
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -34,7 +35,11 @@ def main(argv=None):
     parser.add_argument('--list', action='store_true', help='Inspect the exact selection without executing')
     parser.add_argument('--report', type=Path, help='Write the selected names and original CTest commands')
     parser.add_argument('--junit', type=Path)
+    parser.add_argument('-j', '--jobs', type=int, default=min(os.cpu_count() or 4, 8),
+                        help='Parallel CTest worker count (default: min(cpu_count, 8))')
     args = parser.parse_args(argv)
+    if args.jobs < 1:
+        parser.error('--jobs must be at least 1')
     if not (args.build_dir/'CTestTestfile.cmake').is_file():
         parser.error('configure a BUILD_TESTING=ON build directory first')
     command = ['ctest', '--test-dir', str(args.build_dir),
@@ -56,9 +61,7 @@ def main(argv=None):
         print('\n'.join(t['name'] for t in tests))
         return 0
     extra = ['--output-junit', str(args.junit)] if args.junit else []
-    # Do not inherit unbounded CTEST_PARALLEL_LEVEL: several legacy suites
-    # intentionally share generated output paths. Their scheduling is unchanged.
-    return subprocess.run([*command, '--parallel', '1', '--output-on-failure', '--no-tests=error', *extra]).returncode
+    return subprocess.run([*command, '--parallel', str(args.jobs), '--output-on-failure', '--no-tests=error', *extra]).returncode
 
 
 if __name__ == '__main__':

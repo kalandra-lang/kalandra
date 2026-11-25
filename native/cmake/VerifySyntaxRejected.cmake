@@ -1,3 +1,4 @@
+file(MAKE_DIRECTORY "${OUTPUT_DIR}")
 file(WRITE "${OUTPUT_DIR}/invalid.k" "fn first():\n  a =\n  b =\n  1\nfn last():\n  2\n")
 execute_process(COMMAND "${PARSER}" "${OUTPUT_DIR}/invalid.k"
   RESULT_VARIABLE STATUS OUTPUT_VARIABLE STDOUT ERROR_VARIABLE STDERR)

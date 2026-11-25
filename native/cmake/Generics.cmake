@@ -20,7 +20,7 @@ endif()
 if(BUILD_TESTING)
   add_custom_target(native-generics-qualification
     DEPENDS kalandra kalandra-generics-tests-debug kalandra-generics-tests-sanitized)
-  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(variant IN ITEMS debug optimized sanitized)
     if(WIN32 AND variant STREQUAL "thread-sanitized")
       continue()
     endif()

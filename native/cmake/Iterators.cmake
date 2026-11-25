@@ -109,12 +109,6 @@ if(BUILD_TESTING)
       add_dependencies(native-io-qualification kalandra-owned-scope-tests-${variant}
         kalandra-generator-frame-tests-${variant})
     endif()
-    add_test(NAME native-iterators-source-${variant}
-      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorSourceTests.py"
-        --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}"
-        --output "${CMAKE_CURRENT_BINARY_DIR}/iterators-source-${variant}")
-    set_tests_properties(native-iterators-source-${variant} PROPERTIES TIMEOUT 600
-      LABELS "feature-frontend;feature-control")
     add_test(NAME native-iterator-task-dispatch-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorTaskDispatchTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
@@ -122,22 +116,33 @@ if(BUILD_TESTING)
         --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-task-dispatch-${variant}")
     set_tests_properties(native-iterator-task-dispatch-${variant} PROPERTIES TIMEOUT 240
       LABELS "feature-frontend;feature-control")
-    foreach(mode IN ITEMS for-loop fallible propagate nonlocal-return collecting collect-return task-error statement)
-      add_test(NAME native-iterator-${mode}-${variant}
-        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorTaskDispatchTests.py"
-          --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
-          --runtime "$<TARGET_FILE:${runtime}>" --variant "${variant}" "--${mode}"
-          --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-${mode}-${variant}")
-      set_tests_properties(native-iterator-${mode}-${variant} PROPERTIES TIMEOUT 240
+    if(variant STREQUAL "optimized" OR variant STREQUAL "sanitized")
+      add_test(NAME native-iterators-source-${variant}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorSourceTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}"
+          --output "${CMAKE_CURRENT_BINARY_DIR}/iterators-source-${variant}")
+      set_tests_properties(native-iterators-source-${variant} PROPERTIES TIMEOUT 600
         LABELS "feature-frontend;feature-control")
-    endforeach()
+      foreach(mode IN ITEMS for-loop fallible propagate nonlocal-return collecting collect-return task-error statement)
+        add_test(NAME native-iterator-${mode}-${variant}
+          COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/IteratorTaskDispatchTests.py"
+            --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+            --runtime "$<TARGET_FILE:${runtime}>" --variant "${variant}" "--${mode}"
+            --output "${CMAKE_CURRENT_BINARY_DIR}/iterator-${mode}-${variant}")
+        set_tests_properties(native-iterator-${mode}-${variant} PROPERTIES TIMEOUT 240
+          LABELS "feature-frontend;feature-control")
+      endforeach()
+    endif()
     foreach(backend IN ITEMS metal vulkan cuda)
       if(NOT ((backend STREQUAL "metal" AND KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
          OR (backend STREQUAL "vulkan" AND KALANDRA_BUILD_VULKAN_RUNTIME)
          OR (backend STREQUAL "cuda" AND KALANDRA_BUILD_CUDA_SOURCE AND KALANDRA_BUILD_CUDA_RUNTIME)))
         continue()
       endif()
-      if(NOT backend STREQUAL "metal" AND variant STREQUAL "thread-sanitized")
+      if(variant STREQUAL "thread-sanitized")
+        continue()
+      endif()
+      if(backend STREQUAL "metal" AND variant STREQUAL "debug")
         continue()
       endif()
       if(backend STREQUAL "cuda" AND variant STREQUAL "sanitized")

@@ -3,16 +3,19 @@ on:
   pull_request:
     paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-*.yml", ".github/scripts/**", ".github/tools/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
   push:
+    branches: ["native"]
     tags: ["v*"]
+    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-*.yml", ".github/scripts/**", ".github/tools/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: native-cross-os-${{ github.ref }}
-  cancel-in-progress: false
+  group: native-cross-os-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   packages:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     runs-on: ubuntu-24.04
     # The Windows package producer has a 180-minute build budget.
     timeout-minutes: 200
@@ -75,22 +78,27 @@ jobs:
           brew install cmake ninja tomlplusplus zstd z3
           brew upgrade zstd z3
       - run: python3 .github/scripts/provision_native_llvm.py --install --directory "$RUNNER_TEMP/pinned-llvm"
-      - run: python3 .github/scripts/provision_cross_lld.py --llvm "$KALANDRA_LLVM_ROOT" --directory "$RUNNER_TEMP/cross-lld"
-      - name: Build host compiler with private cross linkers
+      - name: Build private cross linkers
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
+        run: python3 .github/scripts/provision_cross_lld.py --llvm "$KALANDRA_LLVM_ROOT" --directory "$RUNNER_TEMP/cross-lld"
+      - name: Configure and test macOS host compiler
         run: |
           cmake -S . -B build/macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
             -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
-          cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-test-observer kalandra-cross-target-tests kalandra-type-capability-tests kalandra-native-subscription-tests kalandra-tcp-lifecycle-tests -j2
+          cmake --build build/macos --target kalandra kalandra-test-observer kalandra-cross-target-tests kalandra-type-capability-tests kalandra-native-subscription-tests kalandra-tcp-lifecycle-tests -j4
           build/macos/native/kalandra-type-capability-tests
-          ctest --test-dir build/macos --output-on-failure \
+          ctest --test-dir build/macos --output-on-failure -j4 \
             -R '^native-(subscription-lifecycle|c-exports|c-portable-buffer-imports|c-header-imports|c-counted-imports|apple-sdk-imports|cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
+      - name: Package standalone macOS compiler
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
+        run: cmake --build build/macos --target native-cpu-standalone-package -j4
       - name: Verify native values through an installed package
         run: python3 native/tests/NativeValueImportTests.py --compiler build/macos/native/kalandra
       - name: Verify cancellation and socket ownership cleanup
         run: build/macos/native/kalandra-tcp-lifecycle-tests
       - name: Exercise TCP over IPv4 and IPv6 on macOS
-        run: ctest --test-dir build/macos --output-on-failure -R '^native-tcp-source-(debug|optimized|sanitized)$'
+        run: ctest --test-dir build/macos --output-on-failure -j3 -R '^native-tcp-source-(debug|optimized|sanitized)$'
       - name: Exercise AppKit windows and native event delivery
         run: python3 native/tests/WindowInteropTests.py --compiler build/macos/native/kalandra
       - name: Qualify explicit returns and primitive types
@@ -99,32 +107,36 @@ jobs:
           -R '^native-explicit-returns$'
       - name: Qualify iterator contracts and source generators
         run: |
-          cmake --build build/macos --target native-iterator-qualification -j2
-          ctest --test-dir build/macos --output-on-failure -j2 \
+          cmake --build build/macos --target native-iterator-qualification -j4
+          ctest --test-dir build/macos --output-on-failure -j4 \
             -R '^(frontend-iterator-(contracts|fusion)-|native-((iterators|generator)-source-|iterator-fusion-))'
       - name: Qualify scoped ownership and compiler value layouts
         run: |
-          cmake --build build/macos --target kalandra-ownership-scope-optimized kalandra-value-scope-optimized -j2
-          ctest --test-dir build/macos --output-on-failure \
+          cmake --build build/macos --target kalandra-ownership-scope-optimized kalandra-value-scope-optimized -j4
+          ctest --test-dir build/macos --output-on-failure -j3 \
             -R '^native-(ownership-scope-optimized|value-scope-optimized|value-scope-layout-optimized)$'
       - name: Validate macOS 26 system imports and build own C++ safety objects
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
         run: >-
           python3 .github/scripts/macos_link_imports.py
           --package build/macos/native-cpu-standalone/package-stage/kalandra-native-cpu-standalone
           --clang "$KALANDRA_LLVM_ROOT/bin/clang++" --nm "$KALANDRA_LLVM_ROOT/bin/llvm-nm"
           --output macos-link-imports
       - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
         with:
           name: cross-native-macos-assets
           path: build/macos/native-cpu-standalone/*.tar.gz*
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
         with:
           name: macos-link-imports
           path: macos-link-imports/*
           if-no-files-found: error
 
   runtime-bundle:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     needs: [packages, macos-package]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -189,6 +201,7 @@ jobs:
 
   windows-sdk-send:
     # Receiver keys are created by cross-build jobs after the runtime bundle exists.
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     needs: runtime-bundle
     name: Encrypted Windows SDK ${{ matrix.target }}
     strategy:
@@ -278,6 +291,7 @@ jobs:
 
   cross-build:
     name: CPU cross-build from ${{ matrix.system }}-${{ matrix.host }}
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     needs: [packages, macos-package, runtime-bundle]
     strategy:
       fail-fast: false

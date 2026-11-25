@@ -5,7 +5,19 @@ on:
       [
         "CMakeLists.txt",
         "VERSION",
-        "native/**",
+        "native/CMakeLists.txt",
+        "native/cuda/**",
+        "native/cuda-source/**",
+        "native/vulkan/**",
+        "native/gpu-source/**",
+        "native/gpu-runtime/**",
+        "native/gpu-bundle/**",
+        "native/windows/**",
+        "native/packaging/**",
+        "native/toolchain-proof/toolchain.json",
+        "scripts/test-native.py",
+        "native/cmake/TestWorkflow.cmake",
+        "native/tests/TestWorkflowTests.py",
         ".github/workflows/native-windows-gpu.yml",
         ".github/scripts/provision_native_platform.py",
       ]
@@ -24,6 +36,9 @@ on:
 permissions:
   contents: read
   actions: read
+concurrency:
+  group: native-windows-gpu-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   device-resources:
     runs-on: ubuntu-24.04
@@ -49,7 +64,7 @@ jobs:
           -DKALANDRA_CUDA_NVRTC="$KALANDRA_CUDA_NVRTC"
           -DKALANDRA_CUDA_CRT_HEADERS="$KALANDRA_CUDA_CRT_HEADERS"
           -DKALANDRA_CUDA_CCCL_HEADERS="$KALANDRA_CUDA_CCCL_HEADERS"
-      - run: cmake --build build/device-resources --target portable-gpu-resources --parallel 2
+      - run: cmake --build build/device-resources --target portable-gpu-resources --parallel 4
       - run: python3 native/gpu-runtime/qualification/portable_resources.py --export build/device-resources --directory build/portable-bytecode
       - uses: actions/upload-artifact@v4
         with:
@@ -116,9 +131,10 @@ jobs:
 
   compiler-package:
     name: Windows GPU compiler packages (${{ matrix.arch }})
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     concurrency:
-      group: windows-gpu-compiler-${{ github.ref }}-${{ matrix.arch }}
-      cancel-in-progress: false
+      group: windows-gpu-compiler-${{ github.event.pull_request.number || github.ref }}-${{ matrix.arch }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     needs: device-resources
     strategy:
       fail-fast: false
@@ -190,10 +206,10 @@ jobs:
           -DKALANDRA_VULKAN_SPIRV_NOTICE="$env:KALANDRA_VULKAN_SPIRV_NOTICE"
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Build both standalone compiler archives
-        run: cmake --build build/windows-gpu --parallel 2 --target kalandra native-cuda-standalone-package native-vulkan-standalone-package
+        run: cmake --build build/windows-gpu --parallel 4 --target kalandra native-cuda-standalone-package native-vulkan-standalone-package
       - name: Compile and test the multi-backend application
         run: |
-          cmake --build build/windows-gpu --parallel 2 --target kalandra-gpu-installed
+          cmake --build build/windows-gpu --parallel 4 --target kalandra-gpu-installed
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python native/gpu-bundle/qualify.py --compiler build/windows-gpu/native/kalandra.exe --output build/gpu-bundle
       - name: Compile resumable host calls through both Windows GPU backends
@@ -243,7 +259,7 @@ jobs:
           foreach ($backend in @('cuda', 'vulkan')) {
             $archive = Get-Item "build/windows-gpu/native-$backend-standalone/*.tar.gz"
             $before = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
-            cmake --build build/windows-gpu --parallel 2 --target "native-$backend-standalone-package"
+            cmake --build build/windows-gpu --parallel 4 --target "native-$backend-standalone-package"
             if ($LASTEXITCODE -ne 0) { throw "$backend repeat package failed" }
             if ((Get-FileHash $archive.FullName -Algorithm SHA256).Hash -ne $before) { throw "$backend archive is not reproducible" }
           }
@@ -256,99 +272,5 @@ jobs:
             build/installed-*/qualification.json
             build/installed-*/compile-jobs.json
             build/installed-*/compile-logs/*.log
-          if-no-files-found: error
-          retention-days: 7
-
-  bundled-package:
-    name: Windows GPU bundled CPU targets (${{ matrix.arch }})
-    if: github.event_name == 'pull_request'
-    needs: compiler-package
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-2025
-            arch: x86_64
-            msvc: x64
-          - runner: windows-11-arm
-            arch: arm64
-            msvc: arm64
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 180
-    defaults:
-      run:
-        shell: pwsh
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: ${{ matrix.msvc }}
-      - uses: actions/download-artifact@v4
-        with:
-          name: native-windows-gpu-packages-${{ matrix.arch }}
-          path: gpu-assets
-      - name: Locate same-revision CPU runtime data
-        id: runtimes
-        uses: actions/github-script@v7
-        env:
-          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        with:
-          script: |
-            // Producer workflows may queue and then build all five host runtimes.
-            // Keep this wait within the job budget, including package checks.
-            for (let attempt = 0; attempt < 300; attempt++) {
-              const runs = await github.rest.actions.listWorkflowRuns({
-                ...context.repo, workflow_id: 'native-cross-os.yml',
-                head_sha: process.env.SOURCE_SHA, per_page: 20,
-              });
-              const run = runs.data.workflow_runs.find(run => run.head_sha === process.env.SOURCE_SHA &&
-                run.head_repository.full_name === context.repo.owner + '/' + context.repo.repo);
-              if (run) {
-                const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
-                  {...context.repo, run_id: run.id, per_page: 100});
-                if (artifacts.some(a => a.name === 'cpu-target-runtimes' && !a.expired)) {
-                  core.setOutput('run', String(run.id));
-                  return;
-                }
-                if (run.status === 'completed') throw new Error('CPU qualification ended without runtime data');
-              }
-              await new Promise(resolve => setTimeout(resolve, 30000));
-            }
-            throw new Error('Timed out waiting for same-revision CPU runtime data');
-      - uses: actions/download-artifact@v4
-        with:
-          name: cpu-target-runtimes
-          path: runtime-assets
-          run-id: ${{ steps.runtimes.outputs.run }}
-          github-token: ${{ github.token }}
-      - name: Attach same-revision CPU runtime data reproducibly
-        run: |
-          foreach ($backend in @('cuda', 'vulkan')) {
-            $archive = Get-Item "gpu-assets/windows-gpu/native-$backend-standalone/*.tar.gz"
-            python native/packaging/RuntimeBundles.py --host-package $archive.FullName --runtime-bundle runtime-assets/kalandra-cpu-target-runtimes.tar.gz --output bundled-assets
-            if ($LASTEXITCODE -ne 0) { throw "$backend CPU runtime attachment failed" }
-            python native/packaging/RuntimeBundles.py --host-package $archive.FullName --runtime-bundle runtime-assets/kalandra-cpu-target-runtimes.tar.gz --output repeated-assets
-            if ($LASTEXITCODE -ne 0) { throw "$backend repeated attachment failed" }
-            $first = (Get-FileHash "bundled-assets/$($archive.Name)" -Algorithm SHA256).Hash
-            if ((Get-FileHash "repeated-assets/$($archive.Name)" -Algorithm SHA256).Hash -ne $first) { throw "$backend runtime attachment is not reproducible" }
-          }
-      - name: Qualify relocated Windows GPU compilers with five bundled CPU targets
-        run: |
-          foreach ($backend in @('cuda', 'vulkan')) {
-            python native/gpu-runtime/qualification/windows_installed.py --backend $backend --bundled-targets --archive "bundled-assets/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/combined-$backend" --arch ${{ matrix.arch }} --jobs 2
-            if ($LASTEXITCODE -ne 0) { throw "$backend combined package qualification failed" }
-          }
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: native-windows-gpu-bundled-packages-${{ matrix.arch }}
-          path: |
-            bundled-assets/*.tar.gz*
-            build/combined-*/qualification.json
-            build/combined-*/compile-jobs.json
-            build/combined-*/compile-logs/*.log
           if-no-files-found: error
           retention-days: 7

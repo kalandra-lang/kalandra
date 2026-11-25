@@ -1,3 +1,4 @@
+file(MAKE_DIRECTORY "${OUTPUT_DIR}")
 file(WRITE "${OUTPUT_DIR}/invalid-types.k"
   "fn first() -> f32:\n  return unknown\nfn second(x: Tensor[f32,2,3]) -> f32:\n  return x\n")
 execute_process(COMMAND "${CHECKER}" --dump-ir "${OUTPUT_DIR}/invalid-types.k"

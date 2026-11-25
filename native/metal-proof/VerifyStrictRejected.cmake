@@ -1,3 +1,4 @@
+file(MAKE_DIRECTORY "${OUTPUT_DIR}")
 foreach(KIND IN ITEMS remf add64 vector neg64 negvector)
   if(KIND STREQUAL "remf")
     set(TYPE f32)

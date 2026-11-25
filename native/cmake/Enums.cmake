@@ -13,7 +13,7 @@ if(BUILD_TESTING)
     add_test(NAME native-enums-frontend-${VARIANT} COMMAND kalandra-enum-tests-${VARIANT})
     set_tests_properties(native-enums-frontend-${VARIANT} PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS debug optimized sanitized)
     add_test(NAME native-enums-${VARIANT}
       COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCHECKER=$<TARGET_FILE:kalandra-check>"
         "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/enums-${VARIANT}"

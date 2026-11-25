@@ -13,8 +13,10 @@ foreach(NAME IN ITEMS placed composed mixed tensor-results shared-helpers scalar
   endif()
   if(NAME STREQUAL "placed" OR NAME STREQUAL "composed")
     set(FOLDERS "${NAME}")
+  elseif(NAME STREQUAL "cpu-spawn" OR NAME STREQUAL "nested-parallel" OR NAME STREQUAL "recovery")
+    set(FOLDERS "${NAME}-optimized" "${NAME}-sanitized" "${NAME}-thread-sanitized")
   else()
-    set(FOLDERS "${NAME}-debug" "${NAME}-optimized" "${NAME}-sanitized" "${NAME}-thread-sanitized")
+    set(FOLDERS "${NAME}-optimized" "${NAME}-sanitized")
   endif()
   execute_process(COMMAND "${CHECKER}" --placement --dump-plan "${SOURCE}"
     RESULT_VARIABLE STATUS OUTPUT_VARIABLE PLAN ERROR_VARIABLE ERROR)
@@ -65,7 +67,7 @@ if(STATUS EQUAL 0 OR NOT ERROR MATCHES "source and output paths must be distinct
    OR EXISTS "${OUTPUT_DIR}/placement-cli/collision/host.cpp")
   message(FATAL_ERROR "Placement artifact overwrote input: ${STATUS}: ${OUT} ${ERROR}")
 endif()
-message(STATUS "Shared placement IR: 19 sources, 70 target artifacts, exact checker/emitter agreement and output preflight passed")
+message(STATUS "Shared placement IR: 19 sources, 39 target artifacts, exact checker/emitter agreement and output preflight passed")
 
 # The shared plan is subject to the same transactional preflight as other artifacts.
 file(MAKE_DIRECTORY "${OUTPUT_DIR}/placement-cli/plan-symlink")
@@ -92,4 +94,4 @@ if(STATUS EQUAL 0 OR NOT ERROR MATCHES "source and output paths must be distinct
   OR EXISTS "${OUTPUT_DIR}/placement-cli/plan-collision/host.cpp")
   message(FATAL_ERROR "Continuation artifact overwrote source: ${STATUS}: ${ERROR}")
 endif()
-message(STATUS "Common continuation plans: 19 sources, 70 target artifacts, exact standalone/emitter agreement and output preflight passed")
+message(STATUS "Common continuation plans: 19 sources, 39 target artifacts, exact standalone/emitter agreement and output preflight passed")

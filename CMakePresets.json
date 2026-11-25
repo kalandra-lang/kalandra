@@ -15,6 +15,7 @@
     {
       "name": "native",
       "configurePreset": "native",
+      "execution": { "jobs": 8 },
       "output": { "outputOnFailure": true }
     }
   ]

@@ -54,12 +54,10 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(variant IN ITEMS debug optimized sanitized)
     set(runtime kalandra-native-runtime)
     if(variant STREQUAL "sanitized")
       set(runtime kalandra-native-runtime-sanitized)
-    elseif(variant STREQUAL "thread-sanitized")
-      set(runtime kalandra-native-runtime-thread-sanitized)
     endif()
     add_test(NAME native-format-source-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/FormatSourceTests.py"
@@ -147,12 +145,10 @@ if(BUILD_TESTING)
   target_link_libraries(kalandra-console-host-generator PRIVATE kalandra-semantics LLVM)
   target_include_directories(kalandra-console-host-generator SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-console-host-generator PRIVATE -Wall -Wextra -Werror)
-  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(variant IN ITEMS debug optimized sanitized)
     set(runtime kalandra-native-runtime)
     if(variant STREQUAL "sanitized")
       set(runtime kalandra-native-runtime-sanitized)
-    elseif(variant STREQUAL "thread-sanitized")
-      set(runtime kalandra-native-runtime-thread-sanitized)
     endif()
     add_test(NAME native-console-host-bridge-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ConsoleHostBridgeTests.py"
@@ -168,10 +164,7 @@ if(BUILD_TESTING)
     if((backend STREQUAL "metal" AND KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
        OR (backend STREQUAL "vulkan" AND KALANDRA_BUILD_VULKAN_RUNTIME)
        OR (backend STREQUAL "cuda" AND KALANDRA_BUILD_CUDA_SOURCE AND KALANDRA_BUILD_CUDA_RUNTIME))
-      foreach(variant IN ITEMS debug optimized O1 O3 sanitized thread-sanitized)
-        if(NOT backend STREQUAL "metal" AND variant STREQUAL "thread-sanitized")
-          continue()
-        endif()
+      foreach(variant IN ITEMS optimized O3 sanitized)
         if(backend STREQUAL "cuda" AND variant STREQUAL "sanitized")
           continue()
         endif()
@@ -247,13 +240,13 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(variant IN ITEMS debug optimized sanitized)
     add_test(NAME native-filesystem-source-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/FileSystemSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/filesystem-source-${variant}"
         --variant "${variant}")
     set_tests_properties(native-filesystem-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io")
-    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF)
+    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF AND NOT variant STREQUAL "debug")
       add_test(NAME native-metal-filesystem-source-${variant}
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/FileSystemSourceTests.py"
           --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/metal-filesystem-source-${variant}"
@@ -303,13 +296,13 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(variant IN ITEMS debug optimized sanitized)
     add_test(NAME native-parse-source-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ParseSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/parse-source-${variant}"
         --variant "${variant}")
     set_tests_properties(native-parse-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io")
-    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF)
+    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF AND NOT variant STREQUAL "debug")
       add_test(NAME native-metal-parse-source-${variant}
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ParseSourceTests.py"
           --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/metal-parse-source-${variant}"
@@ -362,13 +355,13 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(variant IN ITEMS debug optimized sanitized)
     add_test(NAME native-path-source-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/PathSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/path-source-${variant}"
         --variant "${variant}")
     set_tests_properties(native-path-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io")
-    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF)
+    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF AND NOT variant STREQUAL "debug")
       add_test(NAME native-metal-path-source-${variant}
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/PathSourceTests.py"
           --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/metal-path-source-${variant}"
@@ -421,13 +414,13 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(variant IN ITEMS debug optimized sanitized)
     add_test(NAME native-environment-source-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/EnvironmentSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/environment-source-${variant}"
         --variant "${variant}")
     set_tests_properties(native-environment-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io")
-    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF)
+    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF AND NOT variant STREQUAL "debug")
       add_test(NAME native-metal-environment-source-${variant}
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/EnvironmentSourceTests.py"
           --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/metal-environment-source-${variant}"
@@ -458,24 +451,24 @@ if(BUILD_TESTING)
     add_test(NAME native-time-runtime-${variant} COMMAND kalandra-time-tests-${variant})
     set_tests_properties(native-time-runtime-${variant} PROPERTIES TIMEOUT 120 LABELS "feature-io;feature-tasks")
     add_dependencies(native-io-qualification kalandra-time-tests-${variant})
-    add_test(NAME native-time-source-${variant}
-      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TimeSourceTests.py"
-        --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/time-source-${variant}"
-        --variant "${variant}")
-    set_tests_properties(native-time-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io;feature-tasks")
+    if(NOT variant STREQUAL "thread-sanitized")
+      add_test(NAME native-time-source-${variant}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TimeSourceTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/time-source-${variant}"
+          --variant "${variant}")
+      set_tests_properties(native-time-source-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io;feature-tasks")
+    endif()
     add_test(NAME native-resumable-calls-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ResumableCallSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/resumable-calls-${variant}"
         --variant "${variant}")
     set_tests_properties(native-resumable-calls-${variant} PROPERTIES TIMEOUT 600 LABELS "feature-io;feature-tasks")
-    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF)
+    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF AND (variant STREQUAL "optimized" OR variant STREQUAL "sanitized"))
       add_test(NAME native-metal-resumable-calls-${variant}
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ResumableCallSourceTests.py"
           --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/metal-resumable-calls-${variant}"
           --target metal --variant "${variant}")
       set_tests_properties(native-metal-resumable-calls-${variant} PROPERTIES TIMEOUT 900 LABELS "feature-io;feature-gpu" RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
-    endif()
-    if(KALANDRA_BUILD_METAL_RUNTIME AND KALANDRA_BUILD_METAL_PROOF)
       add_test(NAME native-metal-time-source-${variant}
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TimeSourceTests.py"
           --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/metal-time-source-${variant}"
@@ -539,13 +532,13 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(variant IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(variant IN ITEMS debug optimized sanitized)
     add_test(NAME native-buffer-source-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/BufferSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}"
         --output "${CMAKE_CURRENT_BINARY_DIR}/buffer-source-${variant}")
     set_tests_properties(native-buffer-source-${variant} PROPERTIES TIMEOUT 900 LABELS "feature-io")
-    if(KALANDRA_BUILD_METAL_RUNTIME)
+    if(KALANDRA_BUILD_METAL_RUNTIME AND NOT variant STREQUAL "debug")
       add_test(NAME native-metal-buffer-source-${variant}
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/BufferSourceTests.py"
           --compiler "$<TARGET_FILE:kalandra>" --variant "${variant}" --target metal

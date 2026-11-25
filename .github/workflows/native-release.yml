@@ -94,28 +94,28 @@ jobs:
         run: >-
           cmake --build build/native --target kalandra kalandra-test-observer native-cpu-package native-editor-tools-package
           native-cpu-standalone-package native-editor-tools-standalone-package
-          native-metal-package native-metal-standalone-package -j2
+          native-metal-package native-metal-standalone-package -j4
       - name: Qualify cooperative workgroup source and safety proofs
         run: |
-          cmake --build build/native --target native-workgroup-qualification -j2
-          ctest --test-dir build/native --output-on-failure -R '^frontend-workgroup-'
+          cmake --build build/native --target native-workgroup-qualification -j4
+          ctest --test-dir build/native --output-on-failure -j4 -R '^frontend-workgroup-'
       - name: Qualify application entries, console I/O and formatting
         run: |
-          cmake --build build/native --target native-io-qualification -j2
-          ctest --test-dir build/native --output-on-failure -j2 -L '^feature-io$' -LE '^feature-gpu$'
+          cmake --build build/native --target native-io-qualification -j4
+          ctest --test-dir build/native --output-on-failure -j4 -L '^feature-io$' -LE '^feature-gpu$'
       - name: Qualify explicit returns and primitive types
         run: >-
           ctest --test-dir build/native --output-on-failure
           -R '^native-explicit-returns$'
       - name: Qualify iterator contracts and source generators
         run: |
-          cmake --build build/native --target native-iterator-qualification -j2
-          ctest --test-dir build/native --output-on-failure -j2 \
+          cmake --build build/native --target native-iterator-qualification -j4
+          ctest --test-dir build/native --output-on-failure -j4 \
             -R '^(frontend-iterator-(contracts|fusion)-|native-((iterators|generator)-source-|iterator-fusion-))'
       - name: Qualify checked recursive calls and signed remainder
         run: |
-          cmake --build build/native --target kalandra-checked-inlining-tests -j2
-          ctest --test-dir build/native --output-on-failure -j2 \
+          cmake --build build/native --target kalandra-checked-inlining-tests -j4
+          ctest --test-dir build/native --output-on-failure -j4 \
             -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|call-foundation-source|windows-tail-codegen|recursive-scalars|signed-remainder|tail-calls(-software)?|fast-calls)$'
       - name: Qualify CPU tensor transforms
         run: >-
@@ -124,11 +124,11 @@ jobs:
           --output build/native/tensor-transforms --quick
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
         run: >-
-          ctest --test-dir build/native --output-on-failure
+          ctest --test-dir build/native --output-on-failure -j4
           -R '^native-(arithmetic-policy|fair-benchmark-evidence|steel-vendor-license)$'
       - name: Qualify opaque synchronous task ownership
         run: |
-          cmake --build build/native --target kalandra-closed-task-tests-optimized -j2
+          cmake --build build/native --target kalandra-closed-task-tests-optimized -j4
           ctest --test-dir build/native --output-on-failure -R '^native-closed-tasks-optimized$'
       - name: Remove archive staging copies before the independent build
         run: |
@@ -149,7 +149,7 @@ jobs:
             -DKALANDRA_METAL_COMPILER="$KALANDRA_METAL_COMPILER" \
             -DKALANDRA_BUILD_METAL_RUNTIME=ON -DKALANDRA_BUILD_METAL_PROOF=ON
           cmake --build build/native-repro --target native-cpu-standalone-package \
-            native-editor-tools-standalone-package native-metal-standalone-package -j2
+            native-editor-tools-standalone-package native-metal-standalone-package -j4
           python3 - <<'PY'
           from pathlib import Path
           import shutil

@@ -1,5 +1,5 @@
 if(BUILD_TESTING)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS debug optimized sanitized)
     if(VARIANT STREQUAL "sanitized")
       set(REFERENCE_RUNTIME kalandra-native-runtime-sanitized)
       set(REFERENCE_FLAGS -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all)

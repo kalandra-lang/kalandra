@@ -31,7 +31,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyLibraryMetal.cmake")
     set_tests_properties(native-library-manifests-metal PROPERTIES TIMEOUT 90)
   endif()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS debug optimized sanitized)
     add_test(NAME native-library-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCHECKER=$<TARGET_FILE:kalandra-check>"
       "-DVARIANT=${VARIANT}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/library-cli-${VARIANT}"

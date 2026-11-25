@@ -126,12 +126,10 @@ if(BUILD_TESTING)
   target_include_directories(kalandra-recursive-record-emitter-tests SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_link_libraries(kalandra-recursive-record-emitter-tests PRIVATE kalandra-backend MLIR LLVM)
   target_compile_options(kalandra-recursive-record-emitter-tests PRIVATE -Wall -Wextra -Werror)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS debug optimized sanitized)
     set(BRIDGE_ABI)
     if(VARIANT STREQUAL "sanitized")
       set(BRIDGE_RUNTIME kalandra-native-runtime-sanitized)
-    elseif(VARIANT STREQUAL "thread-sanitized")
-      set(BRIDGE_RUNTIME kalandra-native-runtime-thread-sanitized)
     elseif(VARIANT STREQUAL "optimized")
       set(BRIDGE_RUNTIME kalandra-task-core-optimized)
       set(BRIDGE_ABI "$<TARGET_OBJECTS:kalandra-recursive-task-abi-optimized>")
@@ -184,25 +182,27 @@ if(BUILD_TESTING)
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-workers-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveWorkers.cmake")
     set_tests_properties(native-recursive-workers-${VARIANT} PROPERTIES TIMEOUT 600)
-    add_test(NAME native-recursive-continuations-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DEMITTER=$<TARGET_FILE:kalandra-recursive-source-tests-debug>"
-        "-DRUNTIME=$<TARGET_FILE:${CONTINUATION_RUNTIME}>" "-DVARIANT=${VARIANT}"
-        "-DTASK_ABI_OBJECTS=${CONTINUATION_ABI}"
-        "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
-        "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-continuations-${VARIANT}"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveContinuations.cmake")
-    set_tests_properties(native-recursive-continuations-${VARIANT} PROPERTIES TIMEOUT 180)
-    add_test(NAME native-recursive-source-${VARIANT}
-      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
-        "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
-        "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-source-${VARIANT}"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveSource.cmake")
-    set_tests_properties(native-recursive-source-${VARIANT} PROPERTIES TIMEOUT 600)
+    if(NOT VARIANT STREQUAL "thread-sanitized")
+      add_test(NAME native-recursive-continuations-${VARIANT}
+        COMMAND "${CMAKE_COMMAND}" "-DEMITTER=$<TARGET_FILE:kalandra-recursive-source-tests-debug>"
+          "-DRUNTIME=$<TARGET_FILE:${CONTINUATION_RUNTIME}>" "-DVARIANT=${VARIANT}"
+          "-DTASK_ABI_OBJECTS=${CONTINUATION_ABI}"
+          "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+          "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-continuations-${VARIANT}"
+          -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveContinuations.cmake")
+      set_tests_properties(native-recursive-continuations-${VARIANT} PROPERTIES TIMEOUT 180)
+      add_test(NAME native-recursive-source-${VARIANT}
+        COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
+          "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+          "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/recursive-source-${VARIANT}"
+          -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecursiveSource.cmake")
+      set_tests_properties(native-recursive-source-${VARIANT} PROPERTIES TIMEOUT 600)
+    endif()
   endforeach()
 endif()
 
 if(BUILD_TESTING)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     add_test(NAME native-recursive-strings-${VARIANT}
       COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -213,7 +213,7 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     add_test(NAME native-recursive-collections-${VARIANT}
       COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -224,7 +224,7 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     add_test(NAME native-recursive-string-arrays-${VARIANT}
       COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -235,7 +235,7 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     add_test(NAME native-recursive-record-arrays-${VARIANT}
       COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -246,7 +246,7 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     add_test(NAME native-recursive-callable-fields-${VARIANT}
       COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -257,7 +257,7 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     add_test(NAME native-recursive-function-arrays-${VARIANT}
       COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"

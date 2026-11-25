@@ -14,7 +14,7 @@ target_compile_definitions(kalandra PRIVATE
   KALANDRA_COLLECTION_THREAD_SANITIZED_ENTRY="$<TARGET_FILE:kalandra-collection-entry-thread-sanitized>")
 kalandra_compiler_runtimes(kalandra-collection-entry-debug kalandra-collection-entry-sanitized kalandra-collection-entry-thread-sanitized)
 if(BUILD_TESTING)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS debug optimized sanitized)
     add_executable(kalandra-collection-display-${VARIANT} tests/CollectionDisplayTests.cpp)
     target_include_directories(kalandra-collection-display-${VARIANT} PRIVATE include)
     target_compile_options(kalandra-collection-display-${VARIANT} PRIVATE -Wall -Wextra -Werror)

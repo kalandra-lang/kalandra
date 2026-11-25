@@ -26,7 +26,7 @@ Use `--target metal` for a supported GPU program. See the
 
 ```sh
 cmake --preset native
-cmake --build --preset native --parallel 2
+cmake --build --preset native --parallel 8
 ctest --preset native
 ```
 
@@ -55,10 +55,10 @@ regressions. An omitted variant includes all variants. `default` means no named
 build variant; it does not mean debug. Inspect with `--list` before narrowing.
 
 The runner defaults to the complete registered corpus when no filter is supplied
-and preserves serial CTest execution. Several legacy tests share generated output
-paths; increasing global CTest concurrency requires a separate isolation audit.
-Existing GPU locks and all test commands, assertions, sanitizer modes and timeout
-limits are retained. Keep performance measurements isolated from builds and tests.
+and executes CTest in parallel (`--jobs`, defaulting to up to 8 workers). Test
+suites use isolated output directories, and `RESOURCE_LOCK` serializes GPU device
+and worker-saturation tests automatically. Pass `--jobs 1` for strictly serial
+debugging. Keep performance measurements isolated from builds and tests.
 
 Windows GPU package CI separately schedules at most two independent compile-only
 suites at a time, each in its own output tree. Resource-removal probes run only

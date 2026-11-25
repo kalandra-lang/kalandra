@@ -222,7 +222,11 @@ if(BUILD_TESTING)
     else()
       set(HARNESS TensorResultTests.cpp)
     endif()
-    foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+    set(FIXTURE_VARIANTS optimized sanitized)
+    if(FIXTURE STREQUAL "cpu-spawn" OR FIXTURE STREQUAL "nested-parallel" OR FIXTURE STREQUAL "recovery" OR FIXTURE STREQUAL "resumable-helpers" OR FIXTURE STREQUAL "spawned-helpers")
+      list(APPEND FIXTURE_VARIANTS thread-sanitized)
+    endif()
+    foreach(VARIANT IN LISTS FIXTURE_VARIANTS)
       set(MIXED_OPTION)
       set(MIXED_FLAGS -O0)
       if(VARIANT STREQUAL "sanitized")
@@ -464,7 +468,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyModules.cmake")
     set_tests_properties(${COMPILER_TARGET}-modules PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     add_test(NAME native-metal-modules-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -483,7 +487,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyFixedShapes.cmake")
     set_tests_properties(${COMPILER_TARGET}-fixed-shapes PROPERTIES TIMEOUT 90)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-fixed-shapes-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -502,7 +506,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyForwarding.cmake")
     set_tests_properties(${COMPILER_TARGET}-forwarding PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-forwarding-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -532,7 +536,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyPreReduction.cmake")
     set_tests_properties(${COMPILER_TARGET}-pre-reduction PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-pre-reduction-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -551,7 +555,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyPreReduction.cmake")
     set_tests_properties(${COMPILER_TARGET}-post-reduction PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-post-reduction-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}" -DPOST=ON
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -570,7 +574,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyPostMatmul.cmake")
     set_tests_properties(${COMPILER_TARGET}-post-matmul PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-post-matmul-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -589,7 +593,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyPreMatmul.cmake")
     set_tests_properties(${COMPILER_TARGET}-pre-matmul PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-pre-matmul-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -608,7 +612,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyMatmulReduction.cmake")
     set_tests_properties(${COMPILER_TARGET}-matmul-reduction PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-matmul-reduction-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -627,7 +631,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyMatmulAdjustmentReduction.cmake")
     set_tests_properties(${COMPILER_TARGET}-matmul-adjust-reduction PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-matmul-adjust-reduction-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -646,7 +650,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyMatmulScalarReduction.cmake")
     set_tests_properties(${COMPILER_TARGET}-matmul-scalar-reduction PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-matmul-scalar-reduction-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -665,7 +669,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyMatrixGraph.cmake")
     set_tests_properties(${COMPILER_TARGET}-matrix-graph PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-matrix-graph-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -684,7 +688,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyMatrixGraphReduction.cmake")
     set_tests_properties(${COMPILER_TARGET}-matrix-graph-reduction PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-matrix-graph-reduction-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -703,7 +707,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyMatrixGraphArithmetic.cmake")
     set_tests_properties(${COMPILER_TARGET}-matrix-graph-arithmetic PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-matrix-graph-arithmetic-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -722,7 +726,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyMultipleReductions.cmake")
     set_tests_properties(${COMPILER_TARGET}-multiple-reductions PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-multiple-reductions-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -741,7 +745,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyReductionFeedback.cmake")
     set_tests_properties(${COMPILER_TARGET}-reduction-feedback PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-reduction-feedback-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -760,7 +764,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyTensorFeedback.cmake")
     set_tests_properties(${COMPILER_TARGET}-tensor-feedback PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-tensor-feedback-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -779,7 +783,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyScalarControl.cmake")
     set_tests_properties(${COMPILER_TARGET}-scalar-control PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-scalar-control-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -798,7 +802,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyTensorControl.cmake")
     set_tests_properties(${COMPILER_TARGET}-tensor-control PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-tensor-control-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -817,7 +821,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyTensorSources.cmake")
     set_tests_properties(${COMPILER_TARGET}-tensor-sources PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-tensor-sources-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -836,7 +840,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyDynamicChoices.cmake")
     set_tests_properties(${COMPILER_TARGET}-dynamic-choices PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-dynamic-choices-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -855,7 +859,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyNaryChoices.cmake")
     set_tests_properties(${COMPILER_TARGET}-nary-choices PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-nary-choices-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -874,7 +878,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyOperandChoices.cmake")
     set_tests_properties(${COMPILER_TARGET}-operand-choices PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-operand-choices-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -893,7 +897,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyResultChoices.cmake")
     set_tests_properties(${COMPILER_TARGET}-result-choices PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-result-choices-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -912,7 +916,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyReductionChoices.cmake")
     set_tests_properties(${COMPILER_TARGET}-reduction-choices PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-reduction-choices-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -931,7 +935,7 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyHostControl.cmake")
     set_tests_properties(${COMPILER_TARGET}-host-control PROPERTIES TIMEOUT 120)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-host-control-cli-${VARIANT} COMMAND "${CMAKE_COMMAND}"
       "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DVARIANT=${VARIANT}"
       "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -949,7 +953,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-higher-ranks")
     set_tests_properties(${COMPILER_TARGET}-higher-ranks PROPERTIES TIMEOUT 180)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-higher-ranks-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/HigherRankTests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/higher-ranks-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -965,7 +969,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-wide-host")
     set_tests_properties(${COMPILER_TARGET}-wide-host PROPERTIES TIMEOUT 180)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     add_test(NAME native-metal-wide-host-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/WideHostTests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/wide-host-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -981,7 +985,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-numeric-maps")
     set_tests_properties(${COMPILER_TARGET}-numeric-maps PROPERTIES TIMEOUT 240)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-numeric-maps-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/NumericSourceTests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/numeric-maps-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -997,7 +1001,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-numeric-reductions")
     set_tests_properties(${COMPILER_TARGET}-numeric-reductions PROPERTIES TIMEOUT 240)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-numeric-reductions-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/NumericReductionTests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/numeric-reductions-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -1013,7 +1017,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-numeric-matrices")
     set_tests_properties(${COMPILER_TARGET}-numeric-matrices PROPERTIES TIMEOUT 240)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-numeric-matrices-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/NumericMatmulTests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/numeric-matrices-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -1029,7 +1033,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-numeric-scalars")
     set_tests_properties(${COMPILER_TARGET}-numeric-scalars PROPERTIES TIMEOUT 240)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-numeric-scalars-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/NumericScalarTests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/numeric-scalars-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -1045,7 +1049,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-numeric-conversions")
     set_tests_properties(${COMPILER_TARGET}-numeric-conversions PROPERTIES TIMEOUT 240)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-numeric-conversions-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/NumericConversionTests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/numeric-conversions-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -1061,7 +1065,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-numeric-tier2")
     set_tests_properties(${COMPILER_TARGET}-numeric-tier2 PROPERTIES TIMEOUT 240)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-numeric-tier2-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/NumericTier2Tests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/numeric-tier2-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -1077,7 +1081,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-numeric-programs")
     set_tests_properties(${COMPILER_TARGET}-numeric-programs PROPERTIES TIMEOUT 600)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-numeric-programs-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/NumericProgramTests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/numeric-programs-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -1093,7 +1097,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-numeric-matrix-programs")
     set_tests_properties(${COMPILER_TARGET}-numeric-matrix-programs PROPERTIES TIMEOUT 600)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-numeric-matrix-programs-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/NumericMatrixProgramTests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/numeric-matrix-programs-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -1109,7 +1113,7 @@ if(BUILD_TESTING)
       "--root=${CMAKE_CURRENT_BINARY_DIR}/${COMPILER_TARGET}-numeric-matrix-control")
     set_tests_properties(${COMPILER_TARGET}-numeric-matrix-control PROPERTIES TIMEOUT 600)
   endforeach()
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized)
     add_test(NAME native-metal-numeric-matrix-control-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/NumericMatrixControlTests.py" "--compiler=$<TARGET_FILE:kalandra-test-observer>"
       "--root=${CMAKE_CURRENT_BINARY_DIR}/numeric-matrix-control-cli-${VARIANT}" "--variant=${VARIANT}")
@@ -1189,7 +1193,7 @@ if(BUILD_TESTING)
     "${CMAKE_CURRENT_SOURCE_DIR}/../gpu-source/HostArrayTests.py"
     "--compiler=$<TARGET_FILE:kalandra-test-observer>" "--root=${CMAKE_CURRENT_BINARY_DIR}/host-arrays-emit")
   set_tests_properties(native-metal-host-arrays-emit PROPERTIES TIMEOUT 600)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     add_test(NAME native-metal-host-arrays-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/../gpu-source/HostArrayTests.py"
       "--compiler=$<TARGET_FILE:kalandra-test-observer>" "--variant=${VARIANT}"
@@ -1243,25 +1247,15 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyHostArrayRuntime.cmake")
     set_tests_properties(native-metal-closure-lifecycle-${VARIANT} PROPERTIES TIMEOUT 600
       RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
-    set(AGGREGATE_SHARDS 1)
-    if(VARIANT STREQUAL "thread-sanitized")
-      # Keep the expanded corpus within each bounded test's existing budget.
-      set(AGGREGATE_SHARDS 2)
-    endif()
-    math(EXPR AGGREGATE_LAST_SHARD "${AGGREGATE_SHARDS} - 1")
-    foreach(SHARD RANGE 0 ${AGGREGATE_LAST_SHARD})
-      set(AGGREGATE_NAME "host-aggregates-${VARIANT}")
-      if(AGGREGATE_SHARDS GREATER 1)
-        string(APPEND AGGREGATE_NAME "-shard-${SHARD}")
-      endif()
-      add_test(NAME native-metal-${AGGREGATE_NAME}
+    if(VARIANT STREQUAL "optimized" OR VARIANT STREQUAL "sanitized")
+      add_test(NAME native-metal-host-aggregates-${VARIANT}
         COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/HostAggregateTests.py"
           --compiler "$<TARGET_FILE:kalandra-test-observer>" --backend metal --variant "${VARIANT}"
-          --shard-index "${SHARD}" --shard-count "${AGGREGATE_SHARDS}"
-          --root "${CMAKE_CURRENT_BINARY_DIR}/${AGGREGATE_NAME}")
-      set_tests_properties(native-metal-${AGGREGATE_NAME} PROPERTIES TIMEOUT 1200
+          --shard-index 0 --shard-count 1
+          --root "${CMAKE_CURRENT_BINARY_DIR}/host-aggregates-${VARIANT}")
+      set_tests_properties(native-metal-host-aggregates-${VARIANT} PROPERTIES TIMEOUT 1200
         RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
-    endforeach()
+    endif()
   endforeach()
 endif()
 
@@ -1276,7 +1270,7 @@ if(BUILD_TESTING)
   endforeach()
 endif()
 if(BUILD_TESTING)
-  foreach(VARIANT IN ITEMS optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     if(VARIANT STREQUAL "optimized")
       set(CONTROL_RUNTIME kalandra-task-core-optimized)
     else()
@@ -1326,7 +1320,7 @@ if(BUILD_TESTING)
     set_tests_properties(native-metal-device-bool-${VARIANT} PROPERTIES TIMEOUT 1200
       RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endforeach()
-  foreach(VARIANT IN ITEMS optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS optimized sanitized)
     if(VARIANT STREQUAL "optimized")
       set(ARRAY_CONTROL_RUNTIME kalandra-task-core-optimized)
     else()

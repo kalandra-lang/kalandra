@@ -31,10 +31,11 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: native-linux-${{ github.ref }}
-  cancel-in-progress: false
+  group: native-linux-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   cpu:
+    if: matrix.arch == 'x86_64' || github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     strategy:
       fail-fast: false
       matrix:
@@ -89,14 +90,14 @@ jobs:
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Qualify filesystem ownership, watch cancellation and overflow
         run: |
-          cmake --build build/linux --target kalandra-filesystem-tests-optimized -j2
+          cmake --build build/linux --target kalandra-filesystem-tests-optimized -j4
           ctest --test-dir build/linux --output-on-failure -R '^native-filesystem-runtime-optimized$'
       - name: Build native CPU toolchain
         run: |
-          cmake --build build/linux --target native-cpu-toolchain kalandra kalandra-type-capability-tests kalandra-native-subscription-tests -j2
+          cmake --build build/linux --target native-cpu-toolchain kalandra kalandra-type-capability-tests kalandra-native-subscription-tests -j4
           build/linux/native/kalandra-type-capability-tests
       - name: Link and run C and C++ callers
-        run: ctest --test-dir build/linux --output-on-failure -R "^native-(subscription-lifecycle|c-exports|c-portable-buffer-imports|c-header-imports)$"
+        run: ctest --test-dir build/linux --output-on-failure -j4 -R "^native-(subscription-lifecycle|c-exports|c-portable-buffer-imports|c-header-imports)$"
       - name: Verify native values through an installed package
         run: python3 native/tests/NativeValueImportTests.py --compiler build/linux/native/kalandra
       - name: Exercise X11 windows and native event delivery
@@ -105,34 +106,34 @@ jobs:
         run: python3 native/tests/FileSystemSourceTests.py --compiler build/linux/native/kalandra --variant optimized --case watch-directory --output build/linux/watch-source
       - name: Qualify cooperative workgroup source and safety proofs
         run: |
-          cmake --build build/linux --target native-workgroup-qualification -j2
-          ctest --test-dir build/linux --output-on-failure -R '^frontend-workgroup-'
+          cmake --build build/linux --target native-workgroup-qualification -j4
+          ctest --test-dir build/linux --output-on-failure -j4 -R '^frontend-workgroup-'
       - name: Qualify application entries, console I/O and formatting
         run: |
-          cmake --build build/linux --target native-io-qualification -j2
-          ctest --test-dir build/linux --output-on-failure -j2 -L '^feature-io$' -LE '^feature-gpu$'
+          cmake --build build/linux --target native-io-qualification -j4
+          ctest --test-dir build/linux --output-on-failure -j4 -L '^feature-io$' -LE '^feature-gpu$'
       - name: Qualify explicit returns and primitive types
         run: >-
           ctest --test-dir build/linux --output-on-failure
           -R '^native-explicit-returns$'
       - name: Qualify iterator contracts and source execution
         run: |
-          cmake --build build/linux --target native-iterator-qualification -j2
-          ctest --test-dir build/linux --output-on-failure -j2 \
+          cmake --build build/linux --target native-iterator-qualification -j4
+          ctest --test-dir build/linux --output-on-failure -j4 \
             -R '^(frontend-iterator-(contracts|fusion)-|native-((iterators|generator)-source-|iterator-fusion-))'
       - name: Qualify checked recursive calls and signed remainder
         run: |
-          cmake --build build/linux --target kalandra-checked-inlining-tests kalandra-cross-target-tests -j2
-          ctest --test-dir build/linux --output-on-failure -j2 \
+          cmake --build build/linux --target kalandra-checked-inlining-tests kalandra-cross-target-tests -j4
+          ctest --test-dir build/linux --output-on-failure -j4 \
             -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|cross-target-codegen|call-foundation-source|windows-tail-codegen|recursive-scalars|signed-remainder|tail-calls(-software)?|fast-calls)$'
       - name: Verify ordinary direct ABI and resource cleanup
         run: |
-          cmake --build build/linux --target kalandra-ordinary-entry-tests kalandra-task-core-optimized -j2
-          ctest --test-dir build/linux --output-on-failure -j2 \
+          cmake --build build/linux --target kalandra-ordinary-entry-tests kalandra-task-core-optimized -j4
+          ctest --test-dir build/linux --output-on-failure -j4 \
             -R '^native-(ordinary-(entry|source|pair-source|arrays|reductions|buffer-types|buffer-faults|direct-faults|scalar-exact|integer-cases)|windows-ordinary-codegen)$'
       - name: Qualify loop checking and native copy budgets
         run: |
-          cmake --build build/linux --target kalandra-local-rebinding-tests-debug -j2
+          cmake --build build/linux --target kalandra-local-rebinding-tests-debug -j4
           ctest --test-dir build/linux --output-on-failure -R '^native-local-rebinding-frontend-debug$'
       - name: Qualify loop exits, cancellation and bounded structured groups
         run: >-
@@ -145,16 +146,16 @@ jobs:
           --output build/linux/tensor-transforms --quick
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
         run: >-
-          ctest --test-dir build/linux --output-on-failure
+          ctest --test-dir build/linux --output-on-failure -j4
           -R '^native-(cross-toolchain-validation|arithmetic-policy|ordering-(float|sort)-references|fair-benchmark-evidence|steel-vendor-license)$'
       - name: Qualify opaque synchronous task ownership
         run: |
-          cmake --build build/linux --target kalandra-closed-task-tests-optimized -j2
+          cmake --build build/linux --target kalandra-closed-task-tests-optimized -j4
           ctest --test-dir build/linux --output-on-failure -R '^native-closed-tasks-optimized$'
       - name: Qualify scoped ownership and compiler value layouts
         run: |
-          cmake --build build/linux --target kalandra-ownership-scope-optimized kalandra-value-scope-optimized -j2
-          ctest --test-dir build/linux --output-on-failure \
+          cmake --build build/linux --target kalandra-ownership-scope-optimized kalandra-value-scope-optimized -j4
+          ctest --test-dir build/linux --output-on-failure -j4 \
             -R '^native-(ownership-scope-optimized|value-scope-optimized|value-scope-layout-optimized)$'
       - uses: oven-sh/setup-bun@v2
         with:
@@ -168,20 +169,24 @@ jobs:
           path: docs-verification.json
           if-no-files-found: error
       - name: Package standalone compiler
-        run: cmake --build build/linux --target native-cpu-standalone-package
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
+        run: cmake --build build/linux --target native-cpu-standalone-package -j4
       - name: Independently rebuild and compare the distribution
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
         run: |
           cmake -S . -B build/linux-repro -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DCMAKE_INSTALL_LIBDIR=lib -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" \
             -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
-          cmake --build build/linux-repro --target native-cpu-standalone-package -j2
+          cmake --build build/linux-repro --target native-cpu-standalone-package -j4
           python3 native/packaging/CompareDistributions.py build/linux build/linux-repro --platform linux-${{ matrix.arch }} --kind cpu
       - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
         with:
           name: ${{ matrix.artifact }}
           path: build/linux/native-cpu-standalone/*.tar.gz*
           if-no-files-found: error
   cross-sdk:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     strategy:
       fail-fast: false
       matrix:
@@ -220,6 +225,7 @@ jobs:
           path: cross-sdk/*
           if-no-files-found: error
   downloaded-package:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     needs: cpu
     strategy:
       fail-fast: false
@@ -251,6 +257,7 @@ jobs:
       - name: Qualify downloaded compiler without LLVM or the checkout
         run: python3 native/packaging/PortablePackageTests.py downloaded/kalandra-native-cpu-standalone-linux-${{ matrix.arch }}.tar.gz
   raspberry-pi-os:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     needs: cpu
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45

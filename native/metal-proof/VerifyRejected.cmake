@@ -1,3 +1,4 @@
+file(MAKE_DIRECTORY "${OUTPUT_DIR}")
 file(WRITE "${OUTPUT_DIR}/no-kernel.mlir" "module {}\n")
 file(WRITE "${OUTPUT_DIR}/bad-input.mlir" "not MLIR\n")
 file(WRITE "${OUTPUT_DIR}/two-kernels.mlir" "module { spirv.module @a Logical GLSL450 {} spirv.module @b Logical GLSL450 {} }\n")

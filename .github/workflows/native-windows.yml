@@ -29,10 +29,11 @@ defaults:
 permissions:
   contents: read
 concurrency:
-  group: native-windows-${{ github.ref }}
-  cancel-in-progress: false
+  group: native-windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   cpu:
+    if: matrix.arch == 'x86_64' || github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     strategy:
       fail-fast: false
       matrix:
@@ -91,7 +92,7 @@ jobs:
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Qualify filesystem ownership, watch cancellation and overflow
         run: |
-          cmake --build build/windows --target kalandra-task-core-optimized -j2
+          cmake --build build/windows --target kalandra-task-core-optimized -j4
           if ($LASTEXITCODE -ne 0) { throw "Filesystem runtime build failed" }
           & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/FileSystemRuntimeTests.cpp native/tests/FileSystemUtilitiesTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/filesystem-runtime-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Filesystem runtime driver failed to compile' }
@@ -99,7 +100,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Filesystem runtime ownership qualification failed' }
       - name: Build native CPU toolchain
         run: |
-          cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized kalandra-type-capability-tests kalandra-native-subscription-tests kalandra-tcp-lifecycle-tests -j2 -- -k 0
+          cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized kalandra-type-capability-tests kalandra-native-subscription-tests kalandra-tcp-lifecycle-tests -j4 -- -k 0
           if ($LASTEXITCODE -ne 0) { throw 'Native CPU toolchain build failed' }
           & build/windows/native/kalandra-type-capability-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Type-capability contracts failed' }
@@ -166,7 +167,11 @@ jobs:
       - name: Qualify application entries, console I/O and formatting
         run: |
           $env:PYTHONUTF8 = '1'
-          $variants = @('debug', 'optimized')
+          if ('${{ github.event_name }}' -eq 'pull_request' -and '${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}' -ne 'true') {
+            $variants = @('optimized')
+          } else {
+            $variants = @('debug', 'optimized')
+          }
           if ('${{ matrix.arch }}' -eq 'x86_64') {
             $variants += 'sanitized'
             $sanitizerRuntime = @(Get-Item "$env:KALANDRA_LLVM_ROOT/lib/clang/*/lib/windows")
@@ -332,27 +337,30 @@ jobs:
           path: build/windows/arm64-performance/measurement.json
           if-no-files-found: warn
       - name: Package standalone compiler
-        run: cmake --build build/windows --target native-cpu-standalone-package
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
+        run: cmake --build build/windows --target native-cpu-standalone-package -j4
       - name: Independently configure the second build
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
         run: >-
           cmake -S . -B build/windows-repro -G Ninja -DCMAKE_BUILD_TYPE=Release
           -DBUILD_TESTING=OFF -DKALANDRA_BUILD_TEST_OBSERVER=ON -DCMAKE_INSTALL_LIBDIR=lib
           -DKALANDRA_LLVM_ROOT="$env:KALANDRA_LLVM_ROOT"
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Independently rebuild and compare the distribution
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
         run: |
-          cmake --build build/windows-repro --target native-cpu-standalone-package -j2
+          cmake --build build/windows-repro --target native-cpu-standalone-package -j4
           python native/packaging/CompareDistributions.py build/windows build/windows-repro --platform windows-${{ matrix.arch }} --kind cpu
       - uses: actions/upload-artifact@v4
         id: archive
-        if: ${{ always() && hashFiles('build/windows/native-cpu-standalone/*.tar.gz') != '' }}
+        if: ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) && always() && hashFiles('build/windows/native-cpu-standalone/*.tar.gz') != '' }}
         with:
           name: ${{ matrix.artifact }}
           path: build/windows/native-cpu-standalone/*.tar.gz*
           if-no-files-found: error
   downloaded-package:
     needs: cpu
-    if: ${{ always() && needs.cpu.outputs.archive-ready == 'true' }}
+    if: ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) && always() && needs.cpu.outputs.archive-ready == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -382,6 +390,7 @@ jobs:
       - name: Qualify downloaded compiler without installing LLVM
         run: python native/packaging/PortablePackageTests.py downloaded/kalandra-native-cpu-standalone-windows-${{ matrix.arch }}.tar.gz
   editor-arm64:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     needs: [cpu, downloaded-package]
     runs-on: windows-11-arm
     timeout-minutes: 20

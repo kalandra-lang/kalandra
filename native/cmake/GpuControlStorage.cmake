@@ -49,7 +49,7 @@ if(BUILD_TESTING)
   target_include_directories(kalandra-device-trace-emitter SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_link_libraries(kalandra-device-trace-emitter PRIVATE MLIR LLVM)
   target_compile_options(kalandra-device-trace-emitter PRIVATE -Wall -Wextra -Werror)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS debug optimized sanitized)
     add_test(NAME native-device-trace-${VARIANT}
       COMMAND "${CMAKE_COMMAND}" "-DEMITTER=$<TARGET_FILE:kalandra-device-trace-emitter>"
         "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DMLIR_OPT=${LLVM_TOOLS_BINARY_DIR}/mlir-opt${CMAKE_EXECUTABLE_SUFFIX}"

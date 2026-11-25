@@ -334,7 +334,7 @@ public:
       for (std::size_t id = 0; id < planner.plans.size(); ++id)
         emitPlan(id);
     if (exports.empty())
-      for (std::size_t id = 0; id < planner.plans.size(); ++id)
+      for (std::size_t id = 0; id < planner.input.functions.size(); ++id)
         if (planner.input.functions[id].generator && !coordinating[id]) {
           emitPlan(id, false, false, true);
           if (auto error = nativeStackBudgetError(
@@ -2259,7 +2259,8 @@ private:
     if (auto found = synchronousGeneratorEntries.find(id);
         found != synchronousGeneratorEntries.end())
       return found->second;
-    if (!planner.input.functions[id].generator || coordinating[id])
+    if (id >= planner.input.functions.size() || !planner.input.functions[id].generator ||
+        coordinating[id])
       throw std::runtime_error("synchronous generator requires a non-coordinating producer");
     llvm::IRBuilderBase::InsertPointGuard restore(builder);
     auto *construct =
@@ -2331,7 +2332,9 @@ private:
     Function *construct = nullptr;
     if (!synchronous && !generator) {
       const auto name = "task.construct." + std::to_string(id);
-      construct = planner.input.functions[id].generator
+      const bool isGeneratorFunction =
+          id < planner.input.functions.size() && bool(planner.input.functions[id].generator);
+      construct = isGeneratorFunction
                       ? forwardFunction(name, boolean, {pointer, pointer, pointer})
                       : function(name, boolean, {pointer, pointer, pointer});
       builder.SetInsertPoint(Block::Create(context, "entry", construct));
@@ -2698,7 +2701,8 @@ private:
         break;
       }
       case Code::GeneratorYield: {
-        if (synchronous || !planner.input.functions[id].generator)
+        if (synchronous || id >= planner.input.functions.size() ||
+            !planner.input.functions[id].generator)
           throw std::runtime_error("generator yield requires its producer continuation");
         const auto input = instruction.args[0];
         if (generator) {

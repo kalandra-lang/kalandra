@@ -1,7 +1,15 @@
 name: Website
-on: [push, pull_request]
+on:
+  push:
+    branches: [develop, native, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: website-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   website:
     runs-on: ubuntu-latest

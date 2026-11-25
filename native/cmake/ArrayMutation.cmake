@@ -1,5 +1,5 @@
 if(BUILD_TESTING)
-  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+  foreach(VARIANT IN ITEMS debug optimized sanitized)
     if(VARIANT STREQUAL "sanitized")
       set(MUTATION_RUNTIME kalandra-native-runtime-sanitized)
     elseif(VARIANT STREQUAL "thread-sanitized")

@@ -81,7 +81,7 @@ if(BUILD_TESTING)
   add_test(NAME metal-proof-artifacts COMMAND "${CMAKE_COMMAND}" "-DOUTPUT_DIR=${OUT}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyArtifacts.cmake")
   add_test(NAME metal-proof-extract-errors COMMAND "${CMAKE_COMMAND}"
-    "-DEXTRACTOR=$<TARGET_FILE:kalandra-metal-extract>" "-DOUTPUT_DIR=${OUT}"
+    "-DEXTRACTOR=$<TARGET_FILE:kalandra-metal-extract>" "-DOUTPUT_DIR=${OUT}/extract-errors"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyRejected.cmake")
 endif()
 
@@ -165,7 +165,7 @@ endforeach()
 add_custom_target(native-metal-strict ALL DEPENDS ${STRICT_OUTPUTS})
 if(BUILD_TESTING)
   add_test(NAME metal-strict-artifacts COMMAND "${CMAKE_COMMAND}" "-DOUTPUT_DIR=${OUT}" -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyStrict.cmake")
-  add_test(NAME metal-strict-rejected COMMAND "${CMAKE_COMMAND}" "-DLOWERER=$<TARGET_FILE:kalandra-metal-strict>" "-DOUTPUT_DIR=${OUT}" -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyStrictRejected.cmake")
+  add_test(NAME metal-strict-rejected COMMAND "${CMAKE_COMMAND}" "-DLOWERER=$<TARGET_FILE:kalandra-metal-strict>" "-DOUTPUT_DIR=${OUT}/strict-rejected" -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyStrictRejected.cmake")
 endif()
 
 if(BUILD_TESTING)
