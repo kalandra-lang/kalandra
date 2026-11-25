@@ -296,10 +296,10 @@ std::optional<ValueId> traitFunctionValue(Frame &frame, SourceSpan span, SourceS
                            signature->mutableParameters, signature->ownedParameters);
   if (!type)
     return {};
-  const auto target = conformance->methods.at(name(methodName));
-  if (!analyzeFunction(target))
+  const auto target = conformance->methods.find(name(methodName));
+  if (target == conformance->methods.end() || !analyzeFunction(target->second))
     return {};
-  auto result = add(frame, *type, span, FunctionReference{target});
+  auto result = add(frame, *type, span, FunctionReference{target->second});
   if (result && genericContext(frame)) {
     auto term = concreteGenericTerm(*type);
     for (std::size_t n = 0; n < method->parameters.size(); ++n)

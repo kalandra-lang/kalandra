@@ -927,12 +927,14 @@ invokeTrait(Frame &frame, SourceSpan span, SourceSpan traitName, SourceSpan meth
         return {};
       }
     }
-  const auto method = conformance->methods.at(name(methodName));
+  const auto method = conformance->methods.find(name(methodName));
+  if (method == conformance->methods.end())
+    return {};
   ResolvedSourceToken methodToken{methodName, requirement->name, {}, {}};
   methodToken.label = sourceFunctionLabel(*requirement);
   rememberSourceToken(std::move(methodToken));
   auto result = invoke(frame, span, methodName, arguments, expected, selection, checkedSelection,
-                       spawned, method, std::move(operands));
+                       spawned, method->second, std::move(operands));
   if (result && genericContext(frame)) {
     auto resultTerm = requirement->result
                           ? instantiateGenericTerm(*requirement->result, node(*result).type, terms)

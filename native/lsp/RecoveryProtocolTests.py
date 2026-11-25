@@ -56,6 +56,50 @@ with tempfile.TemporaryDirectory(dir=root) as temporary:
     # A separate broken declaration cannot swallow the queried body.
     text, offset, pos, _ = install('fn broken():\n  add(1,\n' + base + '  va|\n')
     assert any(i['label']=='value' for i in client.completion(path,*pos)['result']['items'])
+    # A broken error signature in an importing module must publish S072 and never crash LSP queries.
+    iter_helper = folder / 'iter_helper.k'
+    iter_helper.write_text(
+        'from "std/iter" import Iterable, Iterator, iter, range\n'
+        'type Countdown:\n  stop:i64\n'
+        'impl Iterable for Countdown:\n'
+        '  type Item=i64\n  type Error=never\n'
+        '  fn iterator(values:Self)->Iterator[i64,never]:\n'
+        '    return iter(range(values.stop,0,-1))\n'
+        'fn begin[S:Iterable](values:S)->Iterator[S.Item,S.Error]:\n'
+        '  return iter(values)\n'
+        'export fn sub()->i64:\n'
+        '  c=begin(Countdown {stop:3})\n'
+        '  return 2\n'
+    )
+    version += 1
+    client.change(
+        path,
+        'from "./iter_helper.k" import sub\n'
+        'from "./helper.k" import add\n'
+        'fn brokenSig()->unit ! IoError:\n  return ()\n'
+        'fn main()->i64:\n  value=sub()\n  return add(1,value)\n',
+        version,
+    )
+    sig_report = publications(client.barrier())[path.as_uri()]
+    assert any(d['code'] == 'S072' for d in sig_report['diagnostics']), sig_report
+    text, offset, pos, _ = install(
+        'from "./iter_helper.k" import sub\n'
+        'from "./helper.k" import add\n'
+        'fn brokenSig()->unit ! IoError:\n  return ()\n'
+        'fn main():\n  value=sub()\n  add(1,va|\n'
+    )
+    assert client.signature(path, *pos)['result'] is None
+    assert client.completion(path, *pos)['result']['items'] == []
+    text, offset, pos, _ = install(
+        'from "std/io" import IoError\n'
+        'from "./iter_helper.k" import sub\n'
+        'from "./helper.k" import add\n'
+        'fn brokenSig()->unit ! IoError:\n  return ()\n'
+        'fn main():\n  value=sub()\n  add(1,va|\n'
+    )
+    sig_hint = client.signature(path, *pos)['result']
+    assert sig_hint and sig_hint['activeParameter'] == 1, sig_hint
+    assert any(i['label'] == 'value' for i in client.completion(path, *pos)['result']['items'])
     # Current imported fields and parameters participate; disk stays unchanged.
     client.open(helper, helper_text, 1)
     client.barrier()

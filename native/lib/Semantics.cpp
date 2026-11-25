@@ -205,6 +205,7 @@ public:
       }
     }
     registerSignatures();
+    genericRegistryReady_ = true;
     if (diagnostics_.empty())
       validateTraitImplementations();
     if (diagnostics_.empty())
@@ -2387,10 +2388,12 @@ private:
         auto conformance = requireConformance(*display, genericValueType(type), site);
         if (!conformance || !requireGenericTraitProof(frame, *display, genericTerm(value), site))
           return {};
-        const auto method = conformance->methods.at("display");
+        const auto method = conformance->methods.find("display");
+        if (method == conformance->methods.end())
+          return {};
         const auto methodName = syntax_.traits[*display].methods.front().name;
         auto converted = invoke(frame, site, methodName, {arguments[index + 1]}, result, {},
-                                nullptr, false, method, std::vector<ValueId>{value});
+                                nullptr, false, method->second, std::vector<ValueId>{value});
         if (!converted)
           return {};
         values[index] = *converted;
@@ -3494,12 +3497,14 @@ private:
               !requireGenericTraitProof(frame, *capability, genericTerm(*left), span) ||
               !requireGenericTraitProof(frame, *capability, genericTerm(*right), span))
             return {};
-          const auto method = conformance->methods.at("equal");
+          const auto method = conformance->methods.find("equal");
+          if (method == conformance->methods.end())
+            return {};
           const auto token = syntax_.traits[*capability].methods.front().name;
           ValueType result;
           result.builtin = BuiltinValue::Bool;
           auto value = invoke(frame, span, token, {comparison.left, comparison.right}, result, {},
-                              nullptr, false, method, std::vector<ValueId>{*left, *right});
+                              nullptr, false, method->second, std::vector<ValueId>{*left, *right});
           if (!value || comparison.operation == ComparisonKind::Equal)
             return value;
           auto no = add(frame, result, span, BoolLiteral{false});

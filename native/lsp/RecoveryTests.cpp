@@ -87,6 +87,16 @@ int main() {
     signature(prefix + "  add(1,missing+va|\n", false);
     signature(prefix + "  missing(1,va|\n", false);
     signature("fn broken():\n  value=\n" + prefix + "  add(1,va|\n");
+    const std::string traitRecovery =
+        "type Point:\n  x:i64\n"
+        "trait Measure:\n  type Output\n  fn size(value:Self)->Self.Output\n"
+        "impl Measure for Point:\n  type Output=i64\n  fn size(value:Self)->i64:\n    return value.x\n"
+        "fn readSize[M:Measure](item:M)->M.Output:\n  return Measure.size(item)\n"
+        "fn brokenSignature()->unit ! MissingError:\n  return ()\n" +
+        add +
+        "fn main():\n  value=readSize(Point {x:2})\n  fnPtr=Measure[Point].size\n  total=fnPtr(Point {x:1})\n";
+    completion(traitRecovery + "  va|\n", false);
+    signature(traitRecovery + "  add(total,va|\n", false);
     // Every recovery path must obey ordinary resource limits and stop making progress.
     const auto invalid = std::make_shared<const SourceFile>(path, prefix + "  add(1,values[va\n");
     for (int budget = 0; budget < 5; ++budget) {

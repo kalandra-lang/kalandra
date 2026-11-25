@@ -108,9 +108,11 @@ std::optional<ValueId> invokeArithmetic(Frame &frame, SourceSpan span, TokenKind
       !requireGenericTraitProof(frame, *trait, genericTerm(operands[0]), span, terms))
     return {};
   const auto requirement = syntax_.traits[*trait].methods.front();
-  const auto method = conformance->methods.at(name(requirement.name));
+  const auto method = conformance->methods.find(name(requirement.name));
+  if (method == conformance->methods.end())
+    return {};
   auto result = invoke(frame, span, requirement.name, arguments, expected, {}, nullptr, false,
-                       method, operands);
+                       method->second, operands);
   if (result && genericContext(frame))
     genericValueTerms_[*result] =
         projectedGenericTerm(*trait, genericTerm(operands[0]), terms, "Output", node(*result).type);
