@@ -37,7 +37,7 @@ def prepare(output):
     output.mkdir(parents=True)
     libraries = output / 'lib'
     libraries.mkdir()
-    pending = {'libcmt.lib', 'libcpmt.lib', 'libucrt.lib', 'libvcruntime.lib', 'oldnames.lib', 'kernel32.lib'}
+    pending = {'libcmt.lib', 'libcpmt.lib', 'libucrt.lib', 'libvcruntime.lib', 'oldnames.lib', 'kernel32.lib', 'ws2_32.lib'}
     for optional in ('legacy_stdio_definitions.lib', 'synchronization.lib', 'uuid.lib', 'ntdll.lib'):
         if optional in candidates: pending.add(optional)
     copied = set()

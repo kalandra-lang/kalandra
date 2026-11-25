@@ -82,7 +82,7 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
       const auto &record = input.records[id];
       if (record.standard == StandardRecord::ByteBuffer)
         return reject("ByteBuffer is a host resource and cannot be transferred to a GPU");
-      if (record.standard == StandardRecord::Child ||
+      if (record.standard == StandardRecord::Child || tcpResource(record.standard) ||
           record.standard == StandardRecord::PipeReader ||
           record.standard == StandardRecord::PipeWriter ||
           record.standard == StandardRecord::File ||

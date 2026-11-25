@@ -22,7 +22,10 @@ enum class FileKind : std::uint32_t {
   ResourceLimit,
   BrokenPipe,
   PipeUnavailable,
-  OutputLimit
+  OutputLimit,
+  Resolution,
+  TimedOut,
+  HalfUnavailable
 };
 struct FileArguments {
   FileDescriptor file;

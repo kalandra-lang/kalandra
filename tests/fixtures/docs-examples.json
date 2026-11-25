@@ -705,6 +705,12 @@
       "expected": "negative at 1: -2"
     }
   ],
+  "networking": [
+    {
+      "kind": "cpu",
+      "expected": "3"
+    }
+  ],
   "streams": [
     {
       "kind": "cpu",

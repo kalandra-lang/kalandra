@@ -1,6 +1,6 @@
 meta { title = "Byte streams", description = "Copy binary data with a reusable ByteBuffer and generic readers and writers.", order = 8, group = "Library reference" }
 
-Use ByteReader and ByteWriter from std/stream when a function needs to move bytes between endpoints. A File implements both traits. A BufferedReader implements ByteReader and a BufferedWriter implements ByteWriter.
+Use ByteReader and ByteWriter from std/stream when a function needs to move bytes between endpoints. A File and a TcpStream implement both traits. A split TCP reader or writer implements its corresponding trait. A BufferedReader implements ByteReader and a BufferedWriter implements ByteWriter.
 
 h2 { "Copy a file with one reusable buffer" }
 
@@ -60,10 +60,14 @@ h2 { "writeAll" }
 
 code { "writeAll[S: ByteWriter](stream: S, buffer: ByteBuffer) -> unit ! StreamError" }
 
-Write the entire initialized prefix, suspending as space becomes available. On error some bytes may already have been delivered. StreamError.BrokenPipe carries the native code for a closed peer. StreamError.System carries the OS code and a diagnostic message. StreamError.InvalidArgument reports an incompatible operation.
+Write the entire initialized prefix, suspending as space becomes available. On error some bytes may already have been delivered. StreamError.BrokenPipe carries the native code for a closed peer. StreamError.System carries the OS code and a diagnostic message. StreamError.InvalidArgument reports an incompatible operation. TCP endpoints with a time budget report StreamError.TimedOut when it expires.
 
 h2 { "close" }
 
 code { "close[S: PipeCloser](own stream: S) -> unit ! StreamError" }
 
-Consume a PipeReader or PipeWriter. Closing the last writer delivers EOF after pending bytes have been read. Owned endpoints also close when their scope exits. Use std/fs.close for files and std/fs.finish to flush and close a BufferedWriter.
+Consume a pipe or TCP endpoint. Closing the last pipe writer or the TCP writer half delivers EOF after pending bytes have been read. Owned endpoints also close when their scope exits. Use std/fs.close for files and std/fs.finish to flush and close a BufferedWriter.
+
+list {
+  link { url = "/docs/networking", "TCP connections, timeouts and socket ownership" }
+}

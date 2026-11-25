@@ -1184,6 +1184,20 @@ private:
           header.standard = StandardRecord::ExitStatus;
         if (syntax_.standardModules[origin] == StandardModule::Process && label == "Child")
           header.standard = StandardRecord::Child;
+        if (syntax_.standardModules[origin] == StandardModule::Net) {
+          if (label == "TcpStream")
+            header.standard = StandardRecord::TcpStream;
+          if (label == "TcpListener")
+            header.standard = StandardRecord::TcpListener;
+          if (label == "TcpHalves")
+            header.standard = StandardRecord::TcpHalves;
+          if (label == "TcpReader")
+            header.standard = StandardRecord::TcpReader;
+          if (label == "TcpWriter")
+            header.standard = StandardRecord::TcpWriter;
+          if (label == "NetError")
+            header.standard = StandardRecord::NetError;
+        }
         if (syntax_.standardModules[origin] == StandardModule::Stream && label == "PipeReader")
           header.standard = StandardRecord::PipeReader;
         if (syntax_.standardModules[origin] == StandardModule::Stream && label == "PipeWriter")
@@ -2107,6 +2121,8 @@ private:
     if (fn.moduleIndex >= syntax_.standardModules.size())
       return {};
     const auto module = syntax_.standardModules[fn.moduleIndex];
+    if (module == StandardModule::Net)
+      return netAction(name(fn.name));
     if (module == StandardModule::Process)
       return processAction(name(fn.name));
     if (module == StandardModule::Stream)
@@ -2228,8 +2244,8 @@ private:
         const bool write = action == FileAction::Write || action == FileAction::WriteAll ||
                            action == FileAction::WriteText || action == FileAction::WriteLine ||
                            action == FileAction::Flush;
-        if (standard == StandardRecord::Child || standard == StandardRecord::PipeReader ||
-            standard == StandardRecord::PipeWriter ||
+        if (tcpResource(standard) || standard == StandardRecord::Child ||
+            standard == StandardRecord::PipeReader || standard == StandardRecord::PipeWriter ||
             (read && standard == StandardRecord::BufferedWriter) ||
             (write && standard == StandardRecord::BufferedReader) ||
             ((action == FileAction::BufferedReader || action == FileAction::BufferedWriter) &&
