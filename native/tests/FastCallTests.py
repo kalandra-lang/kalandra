@@ -21,7 +21,7 @@ variants=[('debug','-O0',['-O0']),('optimized','-O2',['-O2']),('sanitized','--sa
 if sys.platform!='win32':variants.append(('thread-sanitized','--thread-sanitize',['-O1','-g','-fsanitize=thread','-fno-omit-frame-pointer']))
 for name,flag,flags in variants:
  binary=a.output/name;ir=binary.with_suffix('.ll')
- run([a.compiler,source,'--test-entry','tree','--emit-llvm',ir,flag,'-o',str(binary)+'-standalone'])
+ run([a.compiler,source,'--test-entry','tree','--emit-llvm',ir,flag,'--no-link'])
  text=ir.read_text()
  assert 'kalandra_source_run_v4' in text
  assert 'llvm.read_volatile_register' in text and 'tail.unwind' not in text

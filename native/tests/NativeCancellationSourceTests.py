@@ -43,7 +43,7 @@ records = []
 for name, flag, flags in variants:
     binary = a.output / name
     ir = binary.with_suffix('.ll')
-    run([a.compiler, source, '--test-entry', 'run', '--emit-llvm', ir, flag, '-o', str(binary) + '-standalone'])
+    run([a.compiler, source, '--test-entry', 'run', '--emit-llvm', ir, flag, '--no-link'])
     text = ir.read_text()
     assert 'kalandra_source_run_v4' in text
     if sys.platform == 'darwin':

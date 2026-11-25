@@ -48,7 +48,13 @@ def build(name, source, diagnostic=None):
     return destination / executable.name if gpu else executable
 
 
-def run(name, source, stdout, variables=VARIABLES):
+from ParallelTestRunner import run_parallel
+
+queued_tasks = []
+
+
+def execute_run(spec):
+    name, source, stdout, variables = spec
     if gpu:
         source = re.sub(r"(fn main\(\)\s*->\s*unit\s*!\s*\()([^)]+)(\):)",
                         lambda m: m[0] if "TaskError" in m[2] else
@@ -74,6 +80,10 @@ def run(name, source, stdout, variables=VARIABLES):
             assert result.returncode == 0 and result.stdout == stdout.encode() and not stderr, (
                 name, workers, result)
     print("PASS:", "compiled" if args.compile_only else "executed", name, flush=True)
+
+
+def run(name, source, stdout, variables=VARIABLES):
+    queued_tasks.append(lambda: execute_run((name, source, stdout, variables)))
 
 
 run("configuration", SOURCE, expected(windows))
@@ -122,6 +132,8 @@ if not windows and not args.compile_only:
 ''', "invalid encoding\n", {"KALANDRA_QUAL_ENV_INVALID": b"\xff"})
 
 if gpu:
+    for task in queued_tasks:
+        task()
     build("device-rejection", IMPORTS + '''fn work(n:i64)->i64 ! EnvError:
   setting=try get("KALANDRA_QUAL_ENV_TEXT")
   return match setting:
@@ -135,7 +147,8 @@ fn main()->unit ! (EnvError | TaskError | IoError):
   return ()
 ''', b"error[G001]")
 else:
-    executable = build("exit-status", '''from "std/env" import get, EnvValue, EnvError
+    def check_exit_status():
+        executable = build("exit-status", '''from "std/env" import get, EnvValue, EnvError
 from "std/process" import ExitStatus
 fn main()->ExitStatus ! EnvError:
   setting=try get("KALANDRA_QUAL_ENV_TEXT")
@@ -146,12 +159,15 @@ fn main()->ExitStatus ! EnvError:
     return ExitStatus {code:42}
   return ExitStatus {code:1}
 ''')
-    if not args.compile_only:
-        result = subprocess.run([executable], capture_output=True, timeout=30,
-                                env=with_environment(os.environ, windows=windows))
-        assert result.returncode == 42 and not result.stdout and not result.stderr, result
-    build("private-intrinsic", '''fn main()->unit:
+        if not args.compile_only:
+            result = subprocess.run([executable], capture_output=True, timeout=30,
+                                    env=with_environment(os.environ, windows=windows))
+            assert result.returncode == 42 and not result.stdout and not result.stderr, result
+
+    queued_tasks.append(check_exit_status)
+    queued_tasks.append(lambda: build("private-intrinsic", '''fn main()->unit:
   value=__kalandra_environment_get("key")
   return ()
-''', b"error[S031]")
+''', b"error[S031]"))
+    run_parallel(queued_tasks, lambda fn: fn())
 print("PASS: lookup rejected in unsupported context", flush=True)

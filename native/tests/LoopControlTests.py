@@ -5,6 +5,9 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+
+from ParallelTestRunner import run_parallel
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packaging"))
 from LoopCases import CASES, REJECTED
 
@@ -25,8 +28,8 @@ def main():
         assert not any(word in result.stderr for word in ('AddressSanitizer', 'ThreadSanitizer', 'runtime error:')), (command, result.stderr)
         return result
 
-    records = []
-    for name, (text, expected) in CASES.items():
+    def run_case(item):
+        name, (text, expected) = item
         source, output = args.output / (name + '.k'), args.output / name
         source.write_text(text)
         result = invoke([args.compiler, source, '--test-entry', 'main', '-o', output, '--emit-llvm', str(output) + '.ll', *flags])
@@ -34,17 +37,21 @@ def main():
         for workers in (1, 2, 4):
             result = invoke([output.resolve()], env=dict(os.environ, KALANDRA_WORKERS=str(workers)))
             assert result.returncode == 0 and result.stdout == expected + '\n' and not result.stderr, (name, workers, result.returncode, result.stdout, result.stderr)
-        records.append(dict(case=name, output=expected, workers=[1, 2, 4]))
         print('PASS', name, flush=True)
-    for name, text in REJECTED.items():
+        return dict(case=name, output=expected, workers=[1, 2, 4])
+
+    def run_rejected(item):
+        name, text = item
         source, output = args.output / (name + '.k'), args.output / name
         source.write_text(text)
         output.write_text('preserved output\n')
         result = invoke([args.compiler, source, '--test-entry', 'main', '-o', output, *flags])
         assert result.returncode != 0 and result.stderr, (name, 'invalid source admitted')
         assert output.read_text() == 'preserved output\n', (name, 'damaged existing output')
-        records.append(dict(case=name, rejected=True))
         print('PASS rejection', name, flush=True)
+        return dict(case=name, rejected=True)
+
+    records = run_parallel(CASES.items(), run_case) + run_parallel(REJECTED.items(), run_rejected)
     source = args.output / 'zero-step.k'
     source.write_text('fn zero()->i64:\n  return 0\nfn main()->i64:\n  for i in range(0,0,zero()):\n    i+1\n  return 42\n')
     output = args.output / 'zero-step'

@@ -2,6 +2,8 @@
 import argparse,json,os,subprocess,sys
 from pathlib import Path
 from OrdinaryTestEnvironment import configure, qualified_variants
+from ParallelTestRunner import run_parallel
+
 p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True);root=Path(__file__).resolve().parents[2];windows=sys.platform=='win32'
 configure(a.clang)
 def run(args,env=None):
@@ -10,20 +12,8 @@ def run(args,env=None):
  return r.stdout
 variants=[('debug',[],['-O0'],'native-runtime'),('optimized',['-O2'],['-O2'],'task-core-optimized'),('sanitized',['-O2','--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),('thread-sanitized',['-O2','--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]
 variants=qualified_variants(variants,a.compiler)
-results=[]
-for mode,extra,flags,library in variants:
- if windows and mode=='thread-sanitized':continue
- for width in (2,8,32,128):
-  for lang,cpp in [('i64','std::int64_t'),('f64','double'),('bool','bool')]:
-   name=f'{mode}-{lang}-{width}';source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
-   values=','.join('a' if i%2==0 else 'b' for i in range(width));value='acc' if lang=='i64' else 'acc != 0' if lang=='bool' else 'f64(acc)';main='false' if lang=='bool' else lang+'(0)'
-   source.write_text(f'fn total(values:[i64],index:i64,acc:i64)->{lang}:\n  return if index == {width}:\n    {value}\n  else:\n    total(values,index+1,acc+values[index])\nfn value(a:i64,b:i64)->{lang}:\n  return total([{values}],0,0)\nfn main()->{lang}:\n  return {main}\n')
-   run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
-   if width>=32:
-    assert 'kalandra.ordinary.reduction' in ir.read_text(),name
-    assert 'kalandra.ordinary.base-case' in ir.read_text(),name
-   assert '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir.read_text(),name
-   text=r'''
+
+DRIVER_TEMPLATE=r'''
 #include "RUNTIME"
 #include "FAULT"
 #include <array>
@@ -54,8 +44,6 @@ int main(){
   }
   __int128 sum=0;bool overflow=false;
   for(unsigned i=0;i<WIDTH;++i){sum+=i%2?b:a;if(sum<lo || sum>hi){overflow=true;break;}}
-  // Explicit injected allocation failures precede arithmetic. Otherwise this
-  // independent wide accumulator must agree, including intermediate overflow.
   if(!std::getenv("KALANDRA_TEST_FAIL_ALLOC_AT") || std::strtoull(std::getenv("KALANDRA_TEST_FAIL_ALLOC_AT"),nullptr,10)==0) {
    if(failed!=overflow)std::abort();
    if(!overflow && value!=Result(I(sum)))std::abort();
@@ -66,9 +54,29 @@ int main(){
  std::printf("%u deferred reduction/range replay/first-fault cases passed\n",cases);
 }
 '''
-   text=text.replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp).replace('WIDTH',str(width));driver.write_text(text)
-   runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'));host=['-fms-runtime-lib=static'] if windows else ['-pthread']
-   run([a.clang,'-std=c++23',*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe])
-   for failure in (0,1,2,3,5,17):
-    output=run([exe],dict(os.environ,KALANDRA_TEST_FAIL_ALLOC_AT=str(failure)));print(name,failure,output.strip(),flush=True);results.append(dict(mode=mode,type=lang,width=width,failure=failure,result=output.strip()))
+
+def run_task(task):
+ mode,extra,flags,library,width,lang,cpp=task
+ name=f'{mode}-{lang}-{width}';source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
+ values=','.join('a' if i%2==0 else 'b' for i in range(width));value='acc' if lang=='i64' else 'acc != 0' if lang=='bool' else 'f64(acc)';main='false' if lang=='bool' else lang+'(0)'
+ source.write_text(f'fn total(values:[i64],index:i64,acc:i64)->{lang}:\n  return if index == {width}:\n    {value}\n  else:\n    total(values,index+1,acc+values[index])\nfn value(a:i64,b:i64)->{lang}:\n  return total([{values}],0,0)\nfn main()->{lang}:\n  return {main}\n')
+ run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'--no-link',*extra])
+ ir_text=ir.read_text()
+ if width>=32:
+  assert 'kalandra.ordinary.reduction' in ir_text,name
+  assert 'kalandra.ordinary.base-case' in ir_text,name
+ assert '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir_text,name
+ text=DRIVER_TEMPLATE.replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp).replace('WIDTH',str(width));driver.write_text(text)
+ runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'));host=['-fms-runtime-lib=static'] if windows else ['-pthread']
+ run([a.clang,'-std=c++23',*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe])
+ chunk=[]
+ for failure in (0,1,2,3,5,17):
+  output=run([exe],dict(os.environ,KALANDRA_TEST_FAIL_ALLOC_AT=str(failure)));print(name,failure,output.strip(),flush=True);chunk.append(dict(mode=mode,type=lang,width=width,failure=failure,result=output.strip()))
+ return chunk
+
+tasks=[(mode,extra,flags,library,width,lang,cpp)
+       for mode,extra,flags,library in variants if not (windows and mode=='thread-sanitized')
+       for width in (2,8,32,128)
+       for lang,cpp in [('i64','std::int64_t'),('f64','double'),('bool','bool')]]
+results=[record for chunk in run_parallel(tasks, run_task) for record in chunk]
 (a.output/'results.json').write_text(json.dumps(results,indent=2)+'\n')

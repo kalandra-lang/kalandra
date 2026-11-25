@@ -44,7 +44,7 @@ fn main()->unit:
         binary = args.output.resolve() / (numeric + '-' + variant + ('.exe' if sys.platform == 'win32' else ''))
         ir = binary.with_suffix('.ll')
         run([args.compiler, source, '--test-entry', 'ordered', flag, '--emit-llvm', ir,
-             '-o', str(binary) + '-standalone'])
+             '--no-link'])
         runtime = args.compiler.parent / (('' if sys.platform == 'win32' else 'lib') +
             'kalandra-native-runtime' + ('-' + variant if 'sanitized' in variant else '') +
             ('.lib' if sys.platform == 'win32' else '.a'))

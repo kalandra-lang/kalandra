@@ -72,20 +72,43 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+      - name: Cache verified LLVM and Z3 bottles
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/pinned-llvm
+          key: macos-pinned-llvm-bottles-${{ hashFiles('native/toolchain-proof/toolchain.json') }}
+      - name: Cache compiler objects
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci')
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-macos-arm64-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-macos-arm64-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-
       - name: Install native dependencies
         run: |
-          brew update
-          brew install cmake ninja tomlplusplus zstd z3
-          brew upgrade zstd z3
+          packages=(tomlplusplus zstd)
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}" != "true" ]; then
+            packages+=(ccache)
+          fi
+          command -v cmake >/dev/null || packages+=(cmake)
+          command -v ninja >/dev/null || packages+=(ninja)
+          brew install --quiet "${packages[@]}"
       - run: python3 .github/scripts/provision_native_llvm.py --install --directory "$RUNNER_TEMP/pinned-llvm"
       - name: Build private cross linkers
         if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
         run: python3 .github/scripts/provision_cross_lld.py --llvm "$KALANDRA_LLVM_ROOT" --directory "$RUNNER_TEMP/cross-lld"
       - name: Configure and test macOS host compiler
         run: |
+          launcher=()
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}" != "true" ]; then
+            export CCACHE_DIR="$RUNNER_TEMP/ccache" CCACHE_MAXSIZE=1G
+            printf 'CCACHE_DIR=%s\nCCACHE_MAXSIZE=1G\n' "$CCACHE_DIR" >> "$GITHUB_ENV"
+            launcher=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
+          fi
           cmake -S . -B build/macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
-            -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+            -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF "${launcher[@]}"
           cmake --build build/macos --target kalandra kalandra-check kalandra-test-observer kalandra-cross-target-tests kalandra-type-capability-tests kalandra-native-subscription-tests kalandra-tcp-lifecycle-tests -j4
           build/macos/native/kalandra-type-capability-tests
           ctest --test-dir build/macos --output-on-failure -j4 \
@@ -106,9 +129,15 @@ jobs:
           ctest --test-dir build/macos --output-on-failure
           -R '^native-explicit-returns$'
       - name: Qualify iterator contracts and source generators
+        env:
+          KALANDRA_TEST_JOBS: "2"
         run: |
           cmake --build build/macos --target native-iterator-qualification -j4
-          ctest --test-dir build/macos --output-on-failure -j4 \
+          exclude=()
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}" != "true" ]; then
+            exclude=(-E '^native-(generator-source|iterator-fusion-cancellation)-(debug|thread-sanitized)$')
+          fi
+          ctest --test-dir build/macos --output-on-failure -j4 "${exclude[@]}" \
             -R '^(frontend-iterator-(contracts|fusion)-|native-((iterators|generator)-source-|iterator-fusion-))'
       - name: Qualify scoped ownership and compiler value layouts
         run: |

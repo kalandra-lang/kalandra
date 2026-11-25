@@ -45,7 +45,8 @@ int wmain(int argc, wchar_t **argv) {
   bool selected = false, compiling = false;
   for (int i = 1; i < argc; ++i) {
     selected |= std::wstring_view(argv[i]) == L"--test-entry";
-    compiling |= std::wstring_view(argv[i]) == L"-o";
+    compiling |=
+        std::wstring_view(argv[i]) == L"-o" || std::wstring_view(argv[i]) == L"--no-link";
     values.emplace_back(argv[i]);
   }
   if (compiling && !selected) {
@@ -72,7 +73,7 @@ int main(int argc, char **argv) {
   bool selected = false, compiling = false;
   for (int i = 1; i < argc; ++i) {
     selected |= std::string_view(argv[i]) == "--test-entry";
-    compiling |= std::string_view(argv[i]) == "-o";
+    compiling |= std::string_view(argv[i]) == "-o" || std::string_view(argv[i]) == "--no-link";
     values.emplace_back(argv[i]);
   }
   if (compiling && !selected) {

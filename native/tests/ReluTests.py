@@ -34,7 +34,7 @@ for numeric in types:
  path=a.output/(numeric+'.k');path.write_text(f'fn activate(a:Tensor[{numeric},?])->Tensor[{numeric},?]:\n  return relu(a)\nfn main()->i64:\n  return 0\n')
  for variant,flag,flags in ([] if a.gpu_only else variants):
   binary=a.output/(numeric+'-'+variant);ir=binary.with_suffix('.ll')
-  run([compiler,path,'--test-entry','activate','--arithmetic',a.arithmetic,'--emit-llvm',ir,flag,'-o',str(binary)+'-standalone'])
+  run([compiler,path,'--test-entry','activate','--arithmetic',a.arithmetic,'--emit-llvm',ir,flag,'--no-link'])
   runtime=compiler.parent/(('' if sys.platform=='win32' else 'lib')+'kalandra-native-runtime'+('-'+variant if 'sanitized' in variant else '')+('.lib' if sys.platform=='win32' else '.a'))
   run([clang,'-std=c++23','-ffp-contract=off','-Wno-override-module','-pthread',*flags,*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),'-DELEMENT='+('UInt'+numeric[1:] if numeric.startswith('u') else 'Int'+numeric[1:] if numeric.startswith('i') else 'Float'+numeric[1:]),root/'native/tests/ReluCpu.cpp',ir,runtime,'-o',binary])
   print(variant+': '+run([binary]).strip(),flush=True)

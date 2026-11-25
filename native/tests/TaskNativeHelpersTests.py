@@ -49,7 +49,7 @@ for mode,extra,flags,runtime in [
     if windows and mode=='thread-sanitized': continue
     ir=a.output/(mode+'.ll')
     run([a.compiler,root/'native/tests/fixtures/task-native-helpers.k','--test-entry','worker',
-         '--emit-llvm',ir,'-o',a.output/(mode+'-cli'),*extra])
+         '--emit-llvm',ir,'--no-link',*extra])
     # Pure helpers must not acquire the old synchronous continuation call ABI.
     assert 'kalandra_callable_plan_' not in ir.read_text()
     binary=executable(mode+'-runtime')
@@ -61,7 +61,7 @@ for mode,extra,flags,runtime in [
     run([binary])
     local_ir=a.output/(mode+'-local.ll')
     run([a.compiler,local,'--test-entry','probe','--emit-llvm',local_ir,
-         '-o',a.output/(mode+'-local-cli'),*extra])
+         '--no-link',*extra])
     local_binary=executable(mode+'-local-runtime')
     run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
          *flags,root/'native/tests/LocalClosureRuntimeTests.cpp',local_ir,
@@ -69,7 +69,7 @@ for mode,extra,flags,runtime in [
     run([local_binary])
     captured_ir=a.output/(mode+'-captured-ranges.ll')
     run([a.compiler,root/'native/benchmarks/fair/RuntimeWorkloads.k','--test-entry','closure',
-         '--emit-llvm',captured_ir,'-o',executable(mode+'-captured-ranges-cli'),*extra])
+         '--emit-llvm',captured_ir,'--no-link',*extra])
     if mode != 'debug': assert 'entry.unbound' in captured_ir.read_text()
     captured_binary=executable(mode+'-captured-ranges')
     run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
@@ -79,7 +79,7 @@ for mode,extra,flags,runtime in [
     for entry in ('divide','remainder'):
         ir=a.output/(mode+'-width-'+entry+'.ll')
         run([a.compiler,root/'native/tests/IntegerWidthSpecialization.k','--test-entry',entry,
-             '--emit-llvm',ir,'-o',executable(mode+'-width-'+entry+'-cli'),*extra])
+             '--emit-llvm',ir,'--no-link',*extra])
         binary=executable(mode+'-width-'+entry)
         run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
              *flags,*(['-DREMAINDER'] if entry=='remainder' else []),
@@ -88,7 +88,7 @@ for mode,extra,flags,runtime in [
     for case in range(7):
         ir=a.output/(mode+'-range-loop-'+str(case)+'.ll')
         run([a.compiler,root/'native/tests/IntegerRangeLoops.k','--test-entry','probe'+str(case),
-             '--emit-llvm',ir,'-o',executable(mode+'-range-loop-'+str(case)+'-cli'),*extra])
+             '--emit-llvm',ir,'--no-link',*extra])
         binary=executable(mode+'-range-loop-'+str(case))
         run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
              *flags,'-DCASE='+str(case),root/'native/tests/IntegerRangeLoopsTests.cpp',
@@ -96,7 +96,7 @@ for mode,extra,flags,runtime in [
         run([binary])
     array_ir=a.output/(mode+'-array.ll')
     run([a.compiler,root/'native/benchmarks/fair/RuntimeWorkloads.k','--test-entry','arrays',
-         '--emit-llvm',array_ir,'-o',a.output/(mode+'-array-cli'),*extra])
+         '--emit-llvm',array_ir,'--no-link',*extra])
     # Instrument only allocations in this correctness executable. The wrapper
     # calls the production allocator and records live backing count; acceptance
     # benchmarks use the original, uninstrumented compiler output.
@@ -108,7 +108,7 @@ for mode,extra,flags,runtime in [
     run([array_binary])
     spin_ir=a.output/(mode+'-spin.ll')
     run([a.compiler,spin,'--test-entry','spin','--emit-llvm',spin_ir,
-         '-o',executable(mode+'-spin-cli'),*extra])
+         '--no-link',*extra])
     spin_binary=executable(mode+'-spin-runtime')
     run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
          *flags,root/'native/tests/ArrayTailSpinTests.cpp',spin_ir,runtime_file(runtime),'-o',spin_binary])
@@ -124,7 +124,7 @@ fn main()->{numeric}:
         for policy in (('hardware','software') if mode=='optimized' else ('hardware',)):
             ir=a.output/(mode+'-'+numeric+'-'+policy+'-bits.ll')
             run([a.compiler,floating,'--test-entry','walk','--arithmetic',policy,'--emit-llvm',ir,
-                 '-o',executable(mode+'-'+numeric+'-'+policy+'-bits-cli'),*extra])
+                 '--no-link',*extra])
             binary=executable(mode+'-'+numeric+'-'+policy+'-bits-runtime')
             run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
                  *flags,*(['-DFLOAT32'] if numeric=='f32' else []),

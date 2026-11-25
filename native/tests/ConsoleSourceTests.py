@@ -4,6 +4,9 @@ import os
 from pathlib import Path
 import subprocess
 import threading
+
+from ParallelTestRunner import run_parallel
+
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--compiler',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
@@ -11,6 +14,7 @@ p.add_argument('--variant',choices=('debug','optimized','O1','O3','sanitized','t
 a=p.parse_args();a.compiler=a.compiler.resolve();a.output.mkdir(parents=True,exist_ok=True)
 flags={'debug':['-O0'],'optimized':['-O2'],'O1':['-O1'],'O3':['-O3'],'sanitized':['--sanitize'],'thread-sanitized':['--thread-sanitize']}[a.variant]
 prelude='from "std/io" import print, println, eprint, eprintln, readLine, Line, IoError\nfrom "std/fmt" import format\n'
+
 def build(name,source):
     directory=a.output/name;directory.mkdir(exist_ok=True)
     path=directory/'main.k';path.write_text(prelude+source, encoding='utf-8')
@@ -26,21 +30,6 @@ def run(exe,data=b'',out=b'',err=b''):
         assert result.returncode==0 and result.stdout==out and result.stderr==err,(exe,workers,result,out,err)
     print('PASS:',exe.parent.name,flush=True)
 
-run(build('streams','''fn main()->unit ! IoError:
-  try print("α\\0")
-  try println(format("value={}",42))
-  try eprint("error ")
-  try eprintln("stream")
-  return ()
-'''),out='α\0value=42\n'.encode(),err=b'error stream\n')
-run(build('console-function-values','''fn main()->unit ! (IoError | TaskError):
-  emit=println
-  try emit("callable")
-  return try parallel:
-    work=spawn println("task")
-    try await work
-    ()
-'''),out=b'callable\ntask\n')
 read='''fn next()->String ! IoError:
   line=try readLine(100)
   return match line:
@@ -52,8 +41,25 @@ fn main()->unit ! IoError:
   try println(try next())
   return ()
 '''
-run(build('lines',read),'α\0é\r\nlast'.encode(),'α\0é\nlast\n<end>\n'.encode())
-run(build('caught-errors','''fn next()->String ! IoError:
+
+SOURCES = {
+    'streams': '''fn main()->unit ! IoError:
+  try print("α\\0")
+  try println(format("value={}",42))
+  try eprint("error ")
+  try eprintln("stream")
+  return ()
+''',
+    'console-function-values': '''fn main()->unit ! (IoError | TaskError):
+  emit=println
+  try emit("callable")
+  return try parallel:
+    work=spawn println("task")
+    try await work
+    ()
+''',
+    'lines': read,
+    'caught-errors': '''fn next()->String ! IoError:
   line=try readLine(2)
   return match line:
     Line.End:"<end>"
@@ -69,16 +75,16 @@ fn main()->unit ! IoError:
   try println(recover())
   try println(recover())
   return ()
-'''),b'long\n\xff\nok\n',b'limit=2\nencoding\nok\n')
-run(build('closure','''fn main()->unit ! IoError:
+''',
+    'closure': '''fn main()->unit ! IoError:
   prefix="value="
   emit=fn(value:i64)->unit ! IoError:
     try println(format("{}{}",prefix,value))
     return ()
   try emit(42)
   return ()
-'''),out=b'value=42\n')
-run(build('task-output','''fn emit(value:i64)->unit ! IoError:
+''',
+    'task-output': '''fn emit(value:i64)->unit ! IoError:
   try println(format("value={}",value))
   return ()
 fn main()->unit ! (IoError | TaskError):
@@ -86,27 +92,20 @@ fn main()->unit ! (IoError | TaskError):
     first=spawn emit(42)
     try await first
     ()
-'''),out=b'value=42\n')
-run(build('loop-scopes','''fn main()->unit ! IoError:
+''',
+    'loop-scopes': '''fn main()->unit ! IoError:
   for i in range(3):
     line=try readLine(300000)
     match line:
       Line.End:()
       Line.Text {text}:try println(format("{}:{}",i,byteLength(text)))
   return ()
-'''),b'a'*100000+b'\nbb\nccc\n',b'0:100000\n1:2\n2:3\n')
-
-# The source bound is not an exemption from the scheduler's resource budget.
-large=build('resource-bound','''fn main()->unit ! IoError:
+''',
+    'resource-bound': '''fn main()->unit ! IoError:
   line=try readLine(2000000)
   return ()
-''')
-result=subprocess.run([large],input=b'a'*2000000+b'\n',capture_output=True,timeout=15)
-assert result.returncode==86 and not result.stdout and b'AllocationFault' in result.stderr,result
-print('PASS: oversized allocation preserves the task resource bound',flush=True)
-
-# Keep stdin open with no data: EOF would conceal a worker-starvation bug.
-exe=build('blocked-sibling','''fn input()->unit ! IoError:
+''',
+    'blocked-sibling': '''fn input()->unit ! IoError:
   try eprintln("reading")
   line=try readLine(100)
   return ()
@@ -120,13 +119,30 @@ fn run()->i64 ! (IoError | TaskError):
     try await failure
 fn main()->i64:
   return run() catch fn(error):return 42
-''')
+''',
+}
+
+exes = dict(run_parallel(SOURCES.items(), lambda item: (item[0], build(item[0], item[1]))))
+
+run(exes['streams'],out='α\0value=42\n'.encode(),err=b'error stream\n')
+run(exes['console-function-values'],out=b'callable\ntask\n')
+run(exes['lines'],'α\0é\r\nlast'.encode(),'α\0é\nlast\n<end>\n'.encode())
+run(exes['caught-errors'],b'long\n\xff\nok\n',b'limit=2\nencoding\nok\n')
+run(exes['closure'],out=b'value=42\n')
+run(exes['task-output'],out=b'value=42\n')
+run(exes['loop-scopes'],b'a'*100000+b'\nbb\nccc\n',b'0:100000\n1:2\n2:3\n')
+
+result=subprocess.run([exes['resource-bound']],input=b'a'*2000000+b'\n',capture_output=True,timeout=15)
+assert result.returncode==86 and not result.stdout and b'AllocationFault' in result.stderr,result
+print('PASS: oversized allocation preserves the task resource bound',flush=True)
+
+exe=exes['blocked-sibling']
 for workers in (1,4):
     child=subprocess.Popen([exe],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                             env=dict(os.environ,KALANDRA_WORKERS=str(workers)))
     timer=threading.Timer(10,child.kill);timer.start()
     try:
-        status=child.wait(timeout=12) # Deliberately do not close stdin before task cancellation.
+        status=child.wait(timeout=12)
         output,error=child.communicate(timeout=2)
         assert status==0 and output.replace(b'\r\n',b'\n')==b'42\n' and b'reading\n'.startswith(error),(workers,status,output,error)
     finally:

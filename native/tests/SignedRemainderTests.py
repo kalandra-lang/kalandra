@@ -38,7 +38,7 @@ for name, flag, flags in variants:
         binary = a.output / (name + '-' + version)
         ir = binary.with_suffix('.ll')
         run([compiler, source, '--test-entry', 'run', '--emit-llvm', ir, flag,
-             '-o', str(binary) + '-standalone'])
+             *(['--no-link'] if version == 'current' else ['-o', str(binary) + '-standalone'])])
         runtime = a.compiler.parent / (('' if sys.platform == 'win32' else 'lib') +
             'kalandra-native-runtime' + ('-' + name if 'sanitized' in name else '') +
             ('.lib' if sys.platform == 'win32' else '.a'))

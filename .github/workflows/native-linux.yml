@@ -46,6 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Reserve disk space for the LLVM SDK
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
         run: |
           df -h "$RUNNER_TEMP"
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
@@ -74,13 +75,27 @@ jobs:
       - name: Install system build prerequisites
         run: |
           sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
-          sudo apt-get install -y cmake ninja-build patchelf bubblewrap libx11-dev xvfb xauth xfonts-base
+          sudo apt-get install -y cmake ninja-build ccache patchelf bubblewrap libx11-dev xvfb xauth xfonts-base
           sudo sysctl -w vm.mmap_rnd_bits=28
+      - name: Cache compiler objects
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci')
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-linux-${{ matrix.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-linux-${{ matrix.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-
       - name: Configure native CPU compiler
-        run: >-
-          cmake -S . -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-          -DCMAKE_INSTALL_LIBDIR=lib -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
-          -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+        run: |
+          launcher=()
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}" != "true" ]; then
+            export CCACHE_DIR="$RUNNER_TEMP/ccache" CCACHE_MAXSIZE=1G
+            printf 'CCACHE_DIR=%s\nCCACHE_MAXSIZE=1G\n' "$CCACHE_DIR" >> "$GITHUB_ENV"
+            launcher=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
+          fi
+          cmake -S . -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
+            -DCMAKE_INSTALL_LIBDIR=lib -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" \
+            -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF "${launcher[@]}"
       - name: Qualify filesystem ownership, watch cancellation and overflow
         run: |
           cmake --build build/linux --target kalandra-filesystem-tests-optimized -j4
@@ -102,6 +117,8 @@ jobs:
           cmake --build build/linux --target native-workgroup-qualification -j4
           ctest --test-dir build/linux --output-on-failure -j4 -R '^frontend-workgroup-'
       - name: Qualify application entries, console I/O and formatting
+        env:
+          KALANDRA_TEST_JOBS: "2"
         run: |
           cmake --build build/linux --target native-io-qualification -j4
           ctest --test-dir build/linux --output-on-failure -j4 -L '^feature-io$' -LE '^feature-gpu$'
@@ -110,16 +127,26 @@ jobs:
           ctest --test-dir build/linux --output-on-failure
           -R '^native-explicit-returns$'
       - name: Qualify iterator contracts and source execution
+        env:
+          KALANDRA_TEST_JOBS: "2"
         run: |
           cmake --build build/linux --target native-iterator-qualification -j4
-          ctest --test-dir build/linux --output-on-failure -j4 \
+          exclude=()
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}" != "true" ]; then
+            exclude=(-E '^native-(generator-source|iterator-fusion-cancellation)-debug$')
+          fi
+          ctest --test-dir build/linux --output-on-failure -j4 "${exclude[@]}" \
             -R '^(frontend-iterator-(contracts|fusion)-|native-((iterators|generator)-source-|iterator-fusion-))'
       - name: Qualify checked recursive calls and signed remainder
+        env:
+          KALANDRA_TEST_JOBS: "2"
         run: |
           cmake --build build/linux --target kalandra-checked-inlining-tests kalandra-cross-target-tests -j4
           ctest --test-dir build/linux --output-on-failure -j4 \
             -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|cross-target-codegen|call-foundation-source|windows-tail-codegen|recursive-scalars|signed-remainder|tail-calls(-software)?|fast-calls)$'
       - name: Verify ordinary direct ABI and resource cleanup
+        env:
+          KALANDRA_TEST_JOBS: "2"
         run: |
           cmake --build build/linux --target kalandra-ordinary-entry-tests kalandra-task-core-optimized -j4
           ctest --test-dir build/linux --output-on-failure -j4 \
@@ -129,8 +156,10 @@ jobs:
           cmake --build build/linux --target kalandra-local-rebinding-tests-debug -j4
           ctest --test-dir build/linux --output-on-failure -R '^native-local-rebinding-frontend-debug$'
       - name: Qualify loop exits, cancellation and bounded structured groups
+        env:
+          KALANDRA_TEST_JOBS: "2"
         run: >-
-          ctest --test-dir build/linux --output-on-failure -j1
+          ctest --test-dir build/linux --output-on-failure -j4
           -R '^native-(loop-control|collect-ownership)-(debug|optimized|sanitized|thread-sanitized)$'
       - name: Qualify CPU tensor transforms
         run: >-

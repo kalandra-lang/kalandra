@@ -27,14 +27,15 @@ prelude = '''from "std/iter" import Range, range as steps
 from "std/io" import println, IoError
 from "std/fmt" import format
 '''
+from ParallelTestRunner import run_parallel
+
 selected = set(args.cases or [])
 executed = set()
+queued_cases = []
 
 
-def run(name, source, expected, fault=False):
-    if selected and name not in selected:
-        return
-    executed.add(name)
+def execute_standalone(spec):
+    name, source, expected, fault = spec
     root = args.output / name
     root.mkdir(exist_ok=True)
     path = root / 'main.k'
@@ -64,6 +65,13 @@ def run(name, source, expected, fault=False):
         else:
             assert result.returncode == 0 and result.stdout == expected.encode() and not stderr, (name, result)
     print('PASS executed:', name, flush=True)
+
+
+def run(name, source, expected, fault=False):
+    if selected and name not in selected:
+        return
+    executed.add(name)
+    queued_cases.append((name, source, expected, fault))
 
 
 def numeric(name, source, expected, arguments=''):
@@ -655,3 +663,64 @@ run('cursor-materialize', array_imports + '''fn main()->unit ! (IoError | TaskEr
 
 if selected:
     assert executed == selected, f'Unknown or unavailable cases for {args.target}: {selected - executed}'
+
+if args.target == 'cpu' and not selected:
+    io_group = []
+    task_group = []
+    standalone_group = []
+    for spec in queued_cases:
+        name, source, expected, fault = spec
+        if not fault and 'fn main()->unit ! IoError:\n' in source:
+            io_group.append(spec)
+        elif not fault and 'fn main()->unit ! (IoError | TaskError):\n' in source:
+            task_group.append(spec)
+        else:
+            standalone_group.append(spec)
+
+    def build_batch(batch_name, effect_sig, group):
+        if not group:
+            return None
+        folder = args.output / batch_name
+        folder.mkdir(exist_ok=True)
+        imports = ['from "std/io" import IoError']
+        dispatches = [f'fn main(args:[String])->unit ! {effect_sig}:']
+        for idx, (name, source, _, _) in enumerate(group):
+            mod = prelude + source.replace(f'fn main()->unit ! {effect_sig}:', f'export fn run_case()->unit ! {effect_sig}:', 1)
+            (folder / f'case_{idx}.k').write_text(mod, encoding='utf-8')
+            imports.append(f'from "./case_{idx}.k" import run_case as run_{idx}')
+            dispatches.append(f'  if args[0] == "{name}":\n    try run_{idx}()\n    return ()')
+        dispatches.append('  return ()\n')
+        main_path = folder / 'main.k'
+        main_path.write_text('\n'.join(imports) + '\n' + '\n'.join(dispatches), encoding='utf-8')
+        exe = folder / ('program.exe' if os.name == 'nt' else 'program')
+        built = subprocess.run([args.compiler, main_path, flag, '-o', exe], capture_output=True, timeout=240)
+        (folder / 'build.log').write_bytes(built.stdout + built.stderr)
+        assert built.returncode == 0, (batch_name, built)
+        return exe
+
+    def run_batched_case(exe, spec):
+        name, _, expected, _ = spec
+        if args.compile_only:
+            print('PASS compiled:', name, flush=True)
+            return
+        for workers in (1, 4):
+            result = subprocess.run([exe, name], capture_output=True, timeout=60,
+                                    env=dict(os.environ, KALANDRA_WORKERS=str(workers)))
+            assert result.returncode == 0 and result.stdout == expected.encode() and not result.stderr, (name, result)
+        print('PASS executed:', name, flush=True)
+
+    exes = dict(run_parallel(
+        [('io-batch', 'IoError', io_group), ('task-batch', '(IoError | TaskError)', task_group)],
+        lambda b: (b[0], build_batch(*b)),
+    ))
+    work = (
+        [(lambda s=s: run_batched_case(exes['io-batch'], s)) for s in io_group]
+        + [(lambda s=s: run_batched_case(exes['task-batch'], s)) for s in task_group]
+        + [(lambda s=s: execute_standalone(s)) for s in standalone_group]
+    )
+    run_parallel(work, lambda fn: fn())
+elif args.target == 'cpu':
+    run_parallel(queued_cases, execute_standalone)
+else:
+    for spec in queued_cases:
+        execute_standalone(spec)

@@ -75,12 +75,33 @@ jobs:
         with:
           path: ${{ runner.temp }}/kalandra-llvm/installation
           key: ${{ steps.llvm-cache.outputs.cache-primary-key }}
+      - name: Cache compiler objects
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci')
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-windows-${{ matrix.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-windows-${{ matrix.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-
       - name: Configure native compiler
-        run: >-
-          cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release
-          -DBUILD_TESTING=OFF -DKALANDRA_BUILD_TEST_OBSERVER=ON -DCMAKE_INSTALL_LIBDIR=lib
-          -DKALANDRA_LLVM_ROOT="$env:KALANDRA_LLVM_ROOT"
-          -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+        run: |
+          $launcher = @()
+          if ('${{ github.event_name }}' -eq 'pull_request' -and '${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}' -ne 'true') {
+            if (-not (Get-Command ccache -ErrorAction SilentlyContinue)) {
+              choco install ccache -y --no-progress
+              if ($LASTEXITCODE -ne 0) { throw 'ccache installation failed' }
+            }
+            $env:CCACHE_DIR = "$env:RUNNER_TEMP/ccache"
+            $env:CCACHE_MAXSIZE = '1G'
+            "CCACHE_DIR=$env:CCACHE_DIR" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            'CCACHE_MAXSIZE=1G' | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            $launcher = @('-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache')
+          }
+          cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_TESTING=OFF -DKALANDRA_BUILD_TEST_OBSERVER=ON -DCMAKE_INSTALL_LIBDIR=lib `
+            -DKALANDRA_LLVM_ROOT="$env:KALANDRA_LLVM_ROOT" `
+            -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF @launcher
+          if ($LASTEXITCODE -ne 0) { throw 'Native compiler configuration failed' }
       - name: Qualify filesystem ownership, watch cancellation and overflow
         run: |
           cmake --build build/windows --target kalandra-task-core-optimized -j4
@@ -169,32 +190,30 @@ jobs:
             if ($sanitizerRuntime.Count -ne 1) { throw 'Expected one pinned Windows sanitizer runtime directory' }
             $env:PATH = "$($sanitizerRuntime[0].FullName);$env:PATH"
           }
-          foreach ($variant in $variants) {
-            foreach ($suite in @('StreamSourceTests', 'ProcessSourceTests', 'TcpSourceTests')) {
-              python "native/tests/$suite.py" --compiler build/windows/native/kalandra.exe --variant $variant
-              if ($LASTEXITCODE -ne 0) { throw "$suite $variant failed" }
-            }
-            foreach ($suite in @('ApplicationSourceTests', 'ConsoleSourceTests', 'FormatSourceTests', 'FileSystemSourceTests', 'ParseSourceTests', 'PathSourceTests', 'EnvironmentSourceTests', 'TimeSourceTests', 'IteratorSourceTests')) {
-              python "native/tests/$suite.py" --compiler build/windows/native/kalandra.exe --variant $variant --output "build/windows/io/$suite-$variant"
-              if ($LASTEXITCODE -ne 0) { throw "$suite $variant failed" }
-            }
-            $runtime = 'build/windows/native/kalandra-native-runtime.lib'
-            if ($variant -eq 'sanitized') { $runtime = 'build/windows/native/kalandra-native-runtime-sanitized.lib' }
-            python native/tests/GeneratorSourceTests.py --compiler build/windows/native/kalandra.exe --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" --runtime $runtime --variant $variant --output "build/windows/io/generators-$variant"
-            if ($LASTEXITCODE -ne 0) { throw "Source generators $variant failed" }
-            python native/tests/IteratorFusionCancellationTests.py --compiler build/windows/native/kalandra.exe --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" --runtime $runtime --variant $variant --output "build/windows/io/iterator-fusion-cancellation-$variant"
-            if ($LASTEXITCODE -ne 0) { throw "Iterator fusion cancellation $variant failed" }
-          }
-          & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/EnvironmentRuntimeTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/environment-tests.exe
+          $clang = "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          & $clang -std=c++23 -O2 -fms-runtime-lib=static native/tests/EnvironmentRuntimeTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/environment-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Environment runtime compilation failed' }
           & build/windows/environment-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Environment runtime qualification failed' }
-          python native/tests/CompilerObserverTests.py --compiler build/windows/native/kalandra.exe --observer build/windows/native/kalandra-test-observer.exe --output build/windows/io/observer
-          if ($LASTEXITCODE -ne 0) { throw 'Numerical observer argument forwarding failed' }
-          python native/lsp/ProtocolTests.py build/windows/native/kalandra-lsp.exe build/windows/io/lsp-protocol
-          if ($LASTEXITCODE -ne 0) { throw 'Language server protocol qualification failed' }
-          python native/lsp/StandardLibraryProtocolTests.py build/windows/native/kalandra-lsp.exe build/windows/io/lsp-standard-library
-          if ($LASTEXITCODE -ne 0) { throw 'Standard library editor qualification failed' }
+          $entries = [System.Collections.Generic.List[object]]::new()
+          foreach ($variant in $variants) {
+            foreach ($suite in @('StreamSourceTests', 'ProcessSourceTests', 'TcpSourceTests')) {
+              $entries.Add(@{ label = "$suite ($variant)"; command = @('python', "native/tests/$suite.py", '--compiler', 'build/windows/native/kalandra.exe', '--variant', $variant) })
+            }
+            foreach ($suite in @('ApplicationSourceTests', 'ConsoleSourceTests', 'FormatSourceTests', 'FileSystemSourceTests', 'ParseSourceTests', 'PathSourceTests', 'EnvironmentSourceTests', 'TimeSourceTests', 'IteratorSourceTests')) {
+              $entries.Add(@{ label = "$suite ($variant)"; command = @('python', "native/tests/$suite.py", '--compiler', 'build/windows/native/kalandra.exe', '--variant', $variant, '--output', "build/windows/io/$suite-$variant") })
+            }
+            $runtime = if ($variant -eq 'sanitized') { 'build/windows/native/kalandra-native-runtime-sanitized.lib' } else { 'build/windows/native/kalandra-native-runtime.lib' }
+            $entries.Add(@{ label = "GeneratorSourceTests ($variant)"; command = @('python', 'native/tests/GeneratorSourceTests.py', '--compiler', 'build/windows/native/kalandra.exe', '--clang', $clang, '--runtime', $runtime, '--variant', $variant, '--output', "build/windows/io/generators-$variant") })
+            $entries.Add(@{ label = "IteratorFusionCancellationTests ($variant)"; command = @('python', 'native/tests/IteratorFusionCancellationTests.py', '--compiler', 'build/windows/native/kalandra.exe', '--clang', $clang, '--runtime', $runtime, '--variant', $variant, '--output', "build/windows/io/iterator-fusion-cancellation-$variant") })
+          }
+          $entries.Add(@{ label = 'CompilerObserverTests'; command = @('python', 'native/tests/CompilerObserverTests.py', '--compiler', 'build/windows/native/kalandra.exe', '--observer', 'build/windows/native/kalandra-test-observer.exe', '--output', 'build/windows/io/observer') })
+          $entries.Add(@{ label = 'LSP ProtocolTests'; command = @('python', 'native/lsp/ProtocolTests.py', 'build/windows/native/kalandra-lsp.exe', 'build/windows/io/lsp-protocol') })
+          $entries.Add(@{ label = 'LSP StandardLibraryProtocolTests'; command = @('python', 'native/lsp/StandardLibraryProtocolTests.py', 'build/windows/native/kalandra-lsp.exe', 'build/windows/io/lsp-standard-library') })
+          New-Item -ItemType Directory -Path build/windows/io -Force | Out-Null
+          $entries | ConvertTo-Json -Depth 5 | Set-Content -Path build/windows/io/suites.json -Encoding utf8
+          python native/tests/RunSuiteBatch.py --manifest build/windows/io/suites.json --jobs 2 --child-jobs 2
+          if ($LASTEXITCODE -ne 0) { throw 'Application entries, console I/O and formatting qualification failed' }
       - name: Qualify iterator fusion argument evaluation and fault sites
         run: |
           python native/tests/IteratorFusionFaultTests.py --compiler build/windows/native/kalandra.exe --output build/windows/iterator-fusion-faults
@@ -227,18 +246,18 @@ jobs:
           --output build/windows/recursive-scalars
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
         run: |
-          python native/tests/CrossToolchainTests.py --compiler build/windows/native/kalandra-test-observer.exe
-          if ($LASTEXITCODE -ne 0) { throw 'Cross-toolchain validation failed' }
-          python native/tests/ArithmeticPolicyTests.py --compiler build/windows/native/kalandra-test-observer.exe --output build/windows/arithmetic-policy
-          if ($LASTEXITCODE -ne 0) { throw 'Arithmetic policy qualification failed' }
-          python native/tests/OrderingFloatTests.py --compiler build/windows/native/kalandra.exe --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" --output build/windows/ordering-float-references
-          if ($LASTEXITCODE -ne 0) { throw 'Representation ordering qualification failed' }
-          python native/tests/OrderingSortTests.py --compiler build/windows/native/kalandra.exe --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" --output build/windows/ordering-sort-references
-          if ($LASTEXITCODE -ne 0) { throw 'Comparator sort qualification failed' }
-          python native/tests/FairBenchmarkTests.py
-          if ($LASTEXITCODE -ne 0) { throw 'Benchmark reference qualification failed' }
-          python native/third_party/mlx-steel/vendor.py
-          if ($LASTEXITCODE -ne 0) { throw 'MIT provenance qualification failed' }
+          $clang = "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          $entries = @(
+            @{ label = 'CrossToolchainTests'; command = @('python', 'native/tests/CrossToolchainTests.py', '--compiler', 'build/windows/native/kalandra-test-observer.exe') },
+            @{ label = 'ArithmeticPolicyTests'; command = @('python', 'native/tests/ArithmeticPolicyTests.py', '--compiler', 'build/windows/native/kalandra-test-observer.exe', '--output', 'build/windows/arithmetic-policy') },
+            @{ label = 'OrderingFloatTests'; command = @('python', 'native/tests/OrderingFloatTests.py', '--compiler', 'build/windows/native/kalandra.exe', '--clang', $clang, '--output', 'build/windows/ordering-float-references') },
+            @{ label = 'OrderingSortTests'; command = @('python', 'native/tests/OrderingSortTests.py', '--compiler', 'build/windows/native/kalandra.exe', '--clang', $clang, '--output', 'build/windows/ordering-sort-references') },
+            @{ label = 'FairBenchmarkTests'; command = @('python', 'native/tests/FairBenchmarkTests.py') },
+            @{ label = 'SteelVendorProvenance'; command = @('python', 'native/third_party/mlx-steel/vendor.py') }
+          )
+          $entries | ConvertTo-Json -Depth 5 | Set-Content -Path build/windows/policy-suites.json -Encoding utf8
+          python native/tests/RunSuiteBatch.py --manifest build/windows/policy-suites.json --jobs 2 --child-jobs 2
+          if ($LASTEXITCODE -ne 0) { throw 'Arithmetic policy or provenance qualification failed' }
       - name: Verify deep internal calls and physical stack safety
         run: >-
           python native/tests/CallFoundationTests.py
@@ -257,22 +276,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $compiler = 'build/windows/native/kalandra-test-observer.exe'
           $clang = "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
-          python native/tests/OrdinarySourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-direct --direct-entry
-          if ($LASTEXITCODE -ne 0) { throw 'Scalar direct ABI qualification failed' }
-          python native/tests/OrdinaryLoopSourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-loop-direct --direct-entry --exhaustive-entry
-          if ($LASTEXITCODE -ne 0) { throw 'Loop direct ABI qualification failed' }
-          python native/tests/OrdinarySourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-types --direct-entry --buffer-entry
-          if ($LASTEXITCODE -ne 0) { throw 'Typed buffer ABI qualification failed' }
-          python native/tests/OrdinaryReductionSourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-reductions
-          if ($LASTEXITCODE -ne 0) { throw 'Reduction folding qualification failed' }
-          python native/tests/OrdinaryIntegerCasesSourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-integer-cases
-          if ($LASTEXITCODE -ne 0) { throw 'Integer recurrence qualification failed' }
-          python native/tests/OrdinaryArrayTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-direct --direct-entry
-          if ($LASTEXITCODE -ne 0) { throw 'Buffer direct ABI qualification failed' }
-          python native/tests/OrdinaryDirectFaultTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-direct-faults
-          if ($LASTEXITCODE -ne 0) { throw 'Scalar failure qualification failed' }
-          python native/tests/OrdinaryBufferFaultTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-faults
-          if ($LASTEXITCODE -ne 0) { throw 'Buffer failure qualification failed' }
+          $entries = @(
+            @{ label = 'OrdinarySourceTests (direct)'; command = @('python', 'native/tests/OrdinarySourceTests.py', '--compiler', $compiler, '--clang', $clang, '--output', 'build/windows/ordinary-direct', '--direct-entry') },
+            @{ label = 'OrdinaryLoopSourceTests'; command = @('python', 'native/tests/OrdinaryLoopSourceTests.py', '--compiler', $compiler, '--clang', $clang, '--output', 'build/windows/ordinary-loop-direct', '--direct-entry', '--exhaustive-entry') },
+            @{ label = 'OrdinarySourceTests (buffer)'; command = @('python', 'native/tests/OrdinarySourceTests.py', '--compiler', $compiler, '--clang', $clang, '--output', 'build/windows/ordinary-buffer-types', '--direct-entry', '--buffer-entry') },
+            @{ label = 'OrdinaryReductionSourceTests'; command = @('python', 'native/tests/OrdinaryReductionSourceTests.py', '--compiler', $compiler, '--clang', $clang, '--output', 'build/windows/ordinary-reductions') },
+            @{ label = 'OrdinaryIntegerCasesSourceTests'; command = @('python', 'native/tests/OrdinaryIntegerCasesSourceTests.py', '--compiler', $compiler, '--clang', $clang, '--output', 'build/windows/ordinary-integer-cases') },
+            @{ label = 'OrdinaryArrayTests'; command = @('python', 'native/tests/OrdinaryArrayTests.py', '--compiler', $compiler, '--clang', $clang, '--output', 'build/windows/ordinary-buffer-direct', '--direct-entry') },
+            @{ label = 'OrdinaryDirectFaultTests'; command = @('python', 'native/tests/OrdinaryDirectFaultTests.py', '--compiler', $compiler, '--clang', $clang, '--output', 'build/windows/ordinary-direct-faults') },
+            @{ label = 'OrdinaryBufferFaultTests'; command = @('python', 'native/tests/OrdinaryBufferFaultTests.py', '--compiler', $compiler, '--clang', $clang, '--output', 'build/windows/ordinary-buffer-faults') }
+          )
+          $entries | ConvertTo-Json -Depth 5 | Set-Content -Path build/windows/ordinary-suites.json -Encoding utf8
+          python native/tests/RunSuiteBatch.py --manifest build/windows/ordinary-suites.json --jobs 2 --child-jobs 2
+          if ($LASTEXITCODE -ne 0) { throw 'Ordinary ABI qualification failed' }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

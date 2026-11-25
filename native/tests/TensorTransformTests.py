@@ -5,6 +5,7 @@ tree. Softmax propagates a four-ULP exp interval through the rounded denominator
 and division; it does not use a fitted absolute tolerance.
 """
 from OrdinaryTestEnvironment import qualified_variants
+from ParallelTestRunner import run_parallel
 import argparse
 import concurrent.futures
 import decimal as dec
@@ -36,24 +37,36 @@ if not args.quick:
     variants += [('debug','-O0',['-O0']),('sanitized','--sanitize',['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer'])]
     if sys.platform!='win32':variants += [('thread-sanitized','--thread-sanitize',['-O1','-g','-fsanitize=thread','-fno-omit-frame-pointer'])]
 variants=qualified_variants(variants,args.compiler)
+windows=sys.platform=='win32'
+obj_ext='.obj' if windows else '.o'
+host_flags=['-fms-runtime-lib=static'] if windows else []
 def run(command,timeout=240):
     p=subprocess.run(list(map(str,command)),text=True,capture_output=True,timeout=timeout)
     assert not p.returncode,(command,p.returncode,p.stdout[-3000:],p.stderr[-3000:])
     return p.stdout
 from TensorTransformReference import to_bits, from_bits, reference
-checks=0;records=[]
-for name,fmt,wire,width in types:
-    if args.gpu and name=='Float64':ops=(0,)
-    else:ops=(0,1,2) if fmt else (0,)
+
+gate_objs={}
+if not args.gpu:
+    for variant,_,cflags in variants:
+        gate_obj=args.output/f'poll-gate-{variant}{obj_ext}'
+        run([args.clang,'-std=c++23','-pthread','-ffp-contract=off',*cflags,*host_flags,'-c',root/'native/tests/TensorTransformPollGate.cpp','-o',gate_obj])
+        gate_objs[variant]=gate_obj
+
+def execute_op(spec):
+    name,fmt,wire,width,op=spec
+    dec.getcontext().prec=110
+    dec.getcontext().traps[dec.InvalidOperation]=False
+    dec.getcontext().traps[dec.DivisionByZero]=False
+    dec.getcontext().traps[dec.Overflow]=False
     language=('f' if name.startswith('Float') else 'u' if name.startswith('UInt') else 'i')+str(width)
-    for op in ops:
-        operation=('transpose','softmaxRows','rmsNormRows')[op]
-        signature=f'fn work(x:Tensor[{language},?,?]'+(f',epsilon:{language}' if op==2 else '')+f')->Tensor[{language},?,?]:\n  return {operation}(x'+(',epsilon' if op==2 else '')+')\n'
-        cpu_source=args.output/f'{name}-{operation}.k';cpu_source.write_text(signature+'fn main()->i64:\n  return 0\n')
-        bundle=args.output/f'{name}-{operation}-bundle'
-        if args.gpu:
-            source=args.output/f'{name}-{operation}-gpu.k'
-            source.write_text(signature+f'''fn main()->Tensor[{language},?,?] ! TaskError:
+    operation=('transpose','softmaxRows','rmsNormRows')[op]
+    signature=f'fn work(x:Tensor[{language},?,?]'+(f',epsilon:{language}' if op==2 else '')+f')->Tensor[{language},?,?]:\n  return {operation}(x'+(',epsilon' if op==2 else '')+')\n'
+    cpu_source=args.output/f'{name}-{operation}.k';cpu_source.write_text(signature+'fn main()->i64:\n  return 0\n')
+    bundle=args.output/f'{name}-{operation}-bundle'
+    if args.gpu:
+        source=args.output/f'{name}-{operation}-gpu.k'
+        source.write_text(signature+f'''fn main()->Tensor[{language},?,?] ! TaskError:
   return try parallel:
     gpu=devices.gpu()
     cpu=devices.cpu()
@@ -62,106 +75,114 @@ for name,fmt,wire,width in types:
     b=try await spawn work(a{',0.00001' if op==2 else ''}) on gpu
     try await transfer(b,cpu)
 ''')
-            run([args.compiler,source,'--target','metal','--arithmetic','hardware','-O2','-o',bundle])
-        for variant,flag,cflags in variants:
-            binary=args.output/f'{name}-{operation}-{variant}'
-            link=[]
-            if args.gpu:
-                task='libkalandra-task-core-optimized.a' if variant=='optimized' else 'libkalandra-native-runtime'+('' if variant=='debug' else '-'+variant)+'.a'
-                link=[args.compiler.parent/'metal'/f'libkalandra-metal-{variant}.a',args.compiler.parent/task,'-framework','Foundation','-framework','Metal','-DGPU']
-            else:
-                ir=binary.with_suffix('.ll')
-                run([args.compiler,cpu_source,'--test-entry','work','--arithmetic','hardware','--emit-llvm',ir,flag,'-o',str(binary)+'-standalone'])
-                runtime=args.compiler.parent/(('' if sys.platform=='win32' else 'lib')+'kalandra-native-runtime'+('-'+variant if 'sanitized' in variant else '')+('.lib' if sys.platform=='win32' else '.a'))
-                link=[ir,runtime]
-            run([args.clang,'-std=c++23','-pthread','-ffp-contract=off','-Wno-override-module',*cflags,*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),'-DELEMENT='+name,'-DOP='+str(op),root/'native/tests/TensorTransformDriver.cpp',*link,'-o',binary])
-            if not args.gpu:
-                # Keep numerical checks on the original LLVM/runtime. A second
-                # executable pauses an observed poll only for concurrent
-                # cancellation, so a late observer timeslice cannot miss the run.
-                gated_ir=binary.with_suffix('.cancel-gate.ll')
-                original_ir=ir.read_text()
-                assert '@kalandra_poll_slow_v1(' in original_ir
-                gated_ir.write_text(original_ir.replace('@kalandra_poll_slow_v1(', '@kalandra_transform_poll_gate_v1('))
-                gated_binary=Path(str(binary)+'-cancel-gate')
-                run([args.clang,'-std=c++23','-pthread','-ffp-contract=off','-Wno-override-module',*cflags,*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),'-DELEMENT='+name,'-DOP='+str(op),root/'native/tests/TensorTransformDriver.cpp',root/'native/tests/TensorTransformPollGate.cpp',gated_ir,runtime,'-o',gated_binary])
-            epsilon=to_bits(0.00001,fmt,wire) if fmt else 0
-            stderr=tempfile.TemporaryFile(mode='w+t')
-            server=subprocess.Popen([str(binary),'--server'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=stderr,text=True)
-            reader=concurrent.futures.ThreadPoolExecutor(max_workers=1)
-            def invoke(values,m,n,layout=0,eps=epsilon,fail=0,cancel=0):
-                path=args.output/'input.bin';path.write_bytes(struct.pack('<'+wire*len(values),*values))
-                command=[m,n,layout,eps,fail,cancel,path,'unused',*([bundle] if args.gpu else [])]
-                if not args.gpu and cancel==2:
-                    return json.loads(run([gated_binary,*command]))
-                server.stdin.write(' '.join(json.dumps(str(x),ensure_ascii=False) for x in command)+'\n');server.stdin.flush()
-                try:line=reader.submit(server.stdout.readline).result(timeout=240)
-                except BaseException:
-                    server.kill();server.wait();raise
-                if not line:
-                    server.wait();stderr.seek(0);raise AssertionError((binary,command,server.returncode,stderr.read()[-4000:]))
-                return json.loads(line)
-            for m,n in [(0,3),(3,0),(1,1),(2,3),(3,7),(2,31),(2,32),(2,33),(2,255),(2,256),(2,257),(1,1025)]:
-                if fmt:values=[to_bits(D(((i*37+11)%101)-50)/13,fmt,wire) for i in range(m*n)]
-                else:values=[((i*0x9e3779b97f4a7c15)^0xa55a0ff00f5aa5)&((1<<width)-1) for i in range(m*n)]
-                expected=reference(values,m,n,op,D.from_float(from_bits(epsilon,fmt,wire)) if fmt else None,fmt,wire,args.gpu)
-                for layout in ((0,1) if args.gpu and op==2 else (0,) if args.gpu else (0,1,2,3)):
-                    got=invoke(values,m,n,layout);assert not got['status'] and not got['cancelled'],got
-                    assert len(got['bits'])==len(expected)
-                    for actual,wanted in zip(got['bits'],expected):
-                        if op==0:assert actual==wanted
-                        else:
-                            number=D.from_float(from_bits(actual,fmt,wire));lo,hi=wanted
-                            assert (number.is_nan() and lo.is_nan()) or (not number.is_nan() and lo<=number<=hi),(name,operation,m,n,actual,wanted)
-                        checks+=1
-            # IEEE payloads/signs are preserved by transpose; row exceptional
-            # cases require NaN propagation and defined infinity handling.
-            if fmt:
-                exponent=(0x7f800000 if width==32 else 0x7ff0000000000000)
-                fraction=23 if width==32 else 52
-                specials=[0,1,1<<(width-1),exponent,exponent|(1<<(width-1)),exponent|1,exponent|12345,exponent|(1<<(fraction-1)),(1<<(width-1))|1,exponent-1,(exponent-1)|(1<<(width-1)),1<<fraction]
-                for values in [specials,[exponent]*7,[exponent|(1<<(width-1))]*7,[0,0,0,0,0,0,0],[exponent,0,exponent,0,0,0,0],[exponent-1,(exponent-1)|(1<<(width-1)),0,1,1<<fraction]]:
-                    expected=reference(values,1,len(values),op,D.from_float(from_bits(epsilon,fmt,wire)),fmt,wire,args.gpu)
-                    got=invoke(values,1,len(values));assert not got['status']
-                    for actual,wanted in zip(got['bits'],expected):
-                        if op==0:assert actual==wanted
-                        else:
-                            number=D.from_float(from_bits(actual,fmt,wire));lo,hi=wanted
-                            assert (number.is_nan() and lo.is_nan()) or (not number.is_nan() and lo<=number<=hi),(name,operation,actual,wanted)
-                            if op==2 and not lo.is_nan():assert actual==to_bits(lo,fmt,wire),(name,operation,actual,lo)
-                        checks+=1
-                if op==2:
-                    for valid in (1,exponent-1):
-                        got=invoke([to_bits(1,fmt,wire)]*6,2,3,eps=valid)
-                        assert not got['status'] and not got['cancelled'] and len(got['bits'])==6,got
-                if op==2:
-                    for invalid in [0,1<<(width-1),exponent,exponent|1,to_bits(-1,fmt,wire)]:
-                        for m,n in [(2,3),(0,3),(3,0)]:
-                            for layout in ((0,1) if args.gpu else (0,)):
-                                got=invoke([to_bits(1,fmt,wire)]*(m*n),m,n,layout,eps=invalid)
-                                assert got['status']==4 and not got['bits'],got
-            else:
-                mask=(1<<width)-1;sign=1<<(width-1)
-                extreme=[0,1,mask,sign,sign-1,sign+1,mask-1,2]
-                got=invoke(extreme,2,4);assert not got['status'] and got['bits']==reference(extreme,2,4,0,None,fmt,wire,args.gpu),got
-            small=[to_bits(1,fmt,wire) if fmt else 1]*21
-            normal=invoke(small,3,7)
-            # GPU stats include pre-injection upload attempts; later no-op
-            # indices legitimately succeed. Every injected failure must clean.
-            for fail in range(1,normal['allocations']+2):
-                got=invoke(small,3,7,fail=fail);assert got['status'] in (0,2),got
-            if args.gpu:
-                for cancellation in (1,2,3,4):
-                    got=invoke(small,3,7,cancel=cancellation)
-                    assert not got['bits'] and (got['cancelled'] or got['status']),got
-            else:
-                got=invoke(small,3,7,cancel=1);assert got['cancelled'] and not got['bits'],got
-                large=[to_bits(1,fmt,wire) if fmt else 1]*(17*65537)
-                got=invoke(large,17,65537,cancel=2);assert got['cancelled'] and not got['bits'],got
-            server.stdin.close();assert server.wait(timeout=30)==0
-            reader.shutdown();stderr.close()
-            records.append(dict(element=name,operation=operation,variant=variant))
-            print(f'{name} {operation} {variant}: numerical/shape/ownership/failure/cancellation passed ({checks} cell checks)',flush=True)
+        run([args.compiler,source,'--target','metal','--arithmetic','hardware','-O2','-o',bundle])
+    local_checks=0
+    local_records=[]
+    for variant,flag,cflags in variants:
+        binary=args.output/f'{name}-{operation}-{variant}'
+        driver_obj=args.output/f'{name}-{operation}-{variant}-driver{obj_ext}'
+        if args.gpu:
+            task='libkalandra-task-core-optimized.a' if variant=='optimized' else 'libkalandra-native-runtime'+('' if variant=='debug' else '-'+variant)+'.a'
+            run([args.clang,'-std=c++23','-pthread','-ffp-contract=off','-Wno-override-module',*cflags,*host_flags,'-DELEMENT='+name,'-DOP='+str(op),'-DGPU',root/'native/tests/TensorTransformDriver.cpp',args.compiler.parent/'metal'/f'libkalandra-metal-{variant}.a',args.compiler.parent/task,'-framework','Foundation','-framework','Metal','-o',binary])
+        else:
+            ir=binary.with_suffix('.ll')
+            run([args.compiler,cpu_source,'--test-entry','work','--arithmetic','hardware','--emit-llvm',ir,flag,'--no-link'])
+            runtime=args.compiler.parent/(('' if windows else 'lib')+'kalandra-native-runtime'+('-'+variant if 'sanitized' in variant else '')+('.lib' if windows else '.a'))
+            run([args.clang,'-std=c++23','-pthread','-ffp-contract=off',*cflags,*host_flags,'-DELEMENT='+name,'-DOP='+str(op),'-c',root/'native/tests/TensorTransformDriver.cpp','-o',driver_obj])
+            run([args.clang,'-pthread','-ffp-contract=off','-Wno-override-module',*cflags,*host_flags,driver_obj,ir,runtime,'-o',binary])
+            gated_ir=binary.with_suffix('.cancel-gate.ll')
+            original_ir=ir.read_text()
+            assert '@kalandra_poll_slow_v1(' in original_ir
+            gated_ir.write_text(original_ir.replace('@kalandra_poll_slow_v1(', '@kalandra_transform_poll_gate_v1('))
+            gated_binary=Path(str(binary)+'-cancel-gate')
+            run([args.clang,'-pthread','-ffp-contract=off','-Wno-override-module',*cflags,*host_flags,driver_obj,gate_objs[variant],gated_ir,runtime,'-o',gated_binary])
+        epsilon=to_bits(0.00001,fmt,wire) if fmt else 0
+        input_path=args.output/f'input-{name}-{operation}-{variant}.bin'
+        stderr=tempfile.TemporaryFile(mode='w+t')
+        server=subprocess.Popen([str(binary),'--server'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=stderr,text=True)
+        reader=concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        def invoke(values,m,n,layout=0,eps=epsilon,fail=0,cancel=0):
+            input_path.write_bytes(struct.pack('<'+wire*len(values),*values))
+            command=[m,n,layout,eps,fail,cancel,input_path,'unused',*([bundle] if args.gpu else [])]
+            if not args.gpu and cancel==2:
+                return json.loads(run([gated_binary,*command]))
+            server.stdin.write(' '.join(json.dumps(str(x),ensure_ascii=False) for x in command)+'\n');server.stdin.flush()
+            try:line=reader.submit(server.stdout.readline).result(timeout=240)
+            except BaseException:
+                server.kill();server.wait();raise
+            if not line:
+                server.wait();stderr.seek(0);raise AssertionError((binary,command,server.returncode,stderr.read()[-4000:]))
+            return json.loads(line)
+        for m,n in [(0,3),(3,0),(1,1),(2,3),(3,7),(2,31),(2,32),(2,33),(2,255),(2,256),(2,257),(1,1025)]:
+            if fmt:values=[to_bits(D(((i*37+11)%101)-50)/13,fmt,wire) for i in range(m*n)]
+            else:values=[((i*0x9e3779b97f4a7c15)^0xa55a0ff00f5aa5)&((1<<width)-1) for i in range(m*n)]
+            expected=reference(values,m,n,op,D.from_float(from_bits(epsilon,fmt,wire)) if fmt else None,fmt,wire,args.gpu)
+            for layout in ((0,1) if args.gpu and op==2 else (0,) if args.gpu else (0,1,2,3)):
+                got=invoke(values,m,n,layout);assert not got['status'] and not got['cancelled'],got
+                assert len(got['bits'])==len(expected)
+                for actual,wanted in zip(got['bits'],expected):
+                    if op==0:assert actual==wanted
+                    else:
+                        number=D.from_float(from_bits(actual,fmt,wire));lo,hi=wanted
+                        assert (number.is_nan() and lo.is_nan()) or (not number.is_nan() and lo<=number<=hi),(name,operation,m,n,actual,wanted)
+                    local_checks+=1
+        if fmt:
+            exponent=(0x7f800000 if width==32 else 0x7ff0000000000000)
+            fraction=23 if width==32 else 52
+            specials=[0,1,1<<(width-1),exponent,exponent|(1<<(width-1)),exponent|1,exponent|12345,exponent|(1<<(fraction-1)),(1<<(width-1))|1,exponent-1,(exponent-1)|(1<<(width-1)),1<<fraction]
+            for values in [specials,[exponent]*7,[exponent|(1<<(width-1))]*7,[0,0,0,0,0,0,0],[exponent,0,exponent,0,0,0,0],[exponent-1,(exponent-1)|(1<<(width-1)),0,1,1<<fraction]]:
+                expected=reference(values,1,len(values),op,D.from_float(from_bits(epsilon,fmt,wire)),fmt,wire,args.gpu)
+                got=invoke(values,1,len(values));assert not got['status']
+                for actual,wanted in zip(got['bits'],expected):
+                    if op==0:assert actual==wanted
+                    else:
+                        number=D.from_float(from_bits(actual,fmt,wire));lo,hi=wanted
+                        assert (number.is_nan() and lo.is_nan()) or (not number.is_nan() and lo<=number<=hi),(name,operation,actual,wanted)
+                        if op==2 and not lo.is_nan():assert actual==to_bits(lo,fmt,wire),(name,operation,actual,lo)
+                    local_checks+=1
+            if op==2:
+                for valid in (1,exponent-1):
+                    got=invoke([to_bits(1,fmt,wire)]*6,2,3,eps=valid)
+                    assert not got['status'] and not got['cancelled'] and len(got['bits'])==6,got
+            if op==2:
+                for invalid in [0,1<<(width-1),exponent,exponent|1,to_bits(-1,fmt,wire)]:
+                    for m,n in [(2,3),(0,3),(3,0)]:
+                        for layout in ((0,1) if args.gpu else (0,)):
+                            got=invoke([to_bits(1,fmt,wire)]*(m*n),m,n,layout,eps=invalid)
+                            assert got['status']==4 and not got['bits'],got
+        else:
+            mask=(1<<width)-1;sign=1<<(width-1)
+            extreme=[0,1,mask,sign,sign-1,sign+1,mask-1,2]
+            got=invoke(extreme,2,4);assert not got['status'] and got['bits']==reference(extreme,2,4,0,None,fmt,wire,args.gpu),got
+        small=[to_bits(1,fmt,wire) if fmt else 1]*21
+        normal=invoke(small,3,7)
+        for fail in range(1,normal['allocations']+2):
+            got=invoke(small,3,7,fail=fail);assert got['status'] in (0,2),got
+        if args.gpu:
+            for cancellation in (1,2,3,4):
+                got=invoke(small,3,7,cancel=cancellation)
+                assert not got['bits'] and (got['cancelled'] or got['status']),got
+        else:
+            got=invoke(small,3,7,cancel=1);assert got['cancelled'] and not got['bits'],got
+            large=[to_bits(1,fmt,wire) if fmt else 1]*(17*65537)
+            got=invoke(large,17,65537,cancel=2);assert got['cancelled'] and not got['bits'],got
+        server.stdin.close();assert server.wait(timeout=30)==0
+        reader.shutdown();stderr.close()
+        input_path.unlink(missing_ok=True)
+        local_records.append(dict(element=name,operation=operation,variant=variant))
+        print(f'{name} {operation} {variant}: numerical/shape/ownership/failure/cancellation passed ({local_checks} cell checks)',flush=True)
+    return local_checks, local_records
+
+specs=[]
+for name,fmt,wire,width in types:
+    ops=(0,) if (args.gpu and name=='Float64') else ((0,1,2) if fmt else (0,))
+    for op in ops:
+        specs.append((name,fmt,wire,width,op))
+
+outcomes=[execute_op(s) for s in specs] if args.gpu else run_parallel(specs, execute_op)
+checks=sum(c for c,_ in outcomes)
+records=[r for _,recs in outcomes for r in recs]
+
 if args.gpu:
     print(run([sys.executable,root/'native/tests/TensorTransformDeviceScalarTests.py','--compiler',args.compiler,'--output',args.output/'source-device-epsilon',*(['--quick'] if args.quick else [])]),flush=True)
 (args.output/'qualification.json').write_text(json.dumps(dict(cell_checks=checks,records=records,source_device_epsilon_passed=args.gpu,contract=__doc__),indent=2)+'\n')

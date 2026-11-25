@@ -53,7 +53,7 @@ for numeric in ('f32', 'f64'):
                 continue
             output = args.output / f'{numeric}-{variant}-{name}'
             ir = output.with_suffix('.ll')
-            run([compiler, path, '--test-entry', name, '--emit-llvm', ir, flag, '-o', str(output) + '-standalone'])
+            run([compiler, path, '--test-entry', name, '--emit-llvm', ir, flag, '--no-link'])
             text = ir.read_text()
             assert 'loop.chunks' in text
             assert not re.search(r'\b(fmul|fadd) contract\b', text)

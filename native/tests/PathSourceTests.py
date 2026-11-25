@@ -31,7 +31,11 @@ def build(name,source,diagnostic=None,with_prelude=True):
     assert not r.returncode,(name,r)
     return executable if a.target=='cpu' else output/executable.name
 
-def run(name,source,expected,expected_status=0):
+from ParallelTestRunner import run_parallel
+
+queued_runs=[]
+def execute_standalone(spec):
+    name,source,expected,expected_status=spec
     if a.target!='cpu':
         source=source.replace('! IoError:','! (IoError | TaskError):').replace('! (IoError | FsError):','! (IoError | FsError | TaskError):')
         source=re.sub(r'(fn main\([^\n]+\n)',r'\1  answer=try parallel:\n    gpu=devices.gpu()\n    try await spawn double(21) on gpu\n  try println(format("{}",answer))\n',source)
@@ -46,6 +50,9 @@ def run(name,source,expected,expected_status=0):
         if a.target=='metal':stderr=b''.join(x for x in stderr.splitlines(keepends=True) if not re.fullmatch(rb'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+ program\[\d+:\d+\] Metal API Validation Enabled\r?\n?',x))
         assert r.returncode==expected_status and r.stdout==expected.encode() and not stderr,(name,workers,r)
     print('PASS: executed',name,flush=True)
+
+def run(name,source,expected,expected_status=0):
+    queued_runs.append((name,source,expected,expected_status))
 
 run('all-functions','''fn main()->unit ! IoError:
   path=join(["data","runs","output.csv"])
@@ -128,8 +135,30 @@ fn main()->unit ! (IoError | FsError):
 ''','path-example.txt:.txt:5\n')
 
 if a.target=='cpu':
-    # No console/parallel use: ordinary nonfallible functions and process status.
-    source='''from "std/path" import join, fileName, isAbsolute
+    batched=[s for s in queued_runs if s[3]==0 and 'fn main()->unit ! IoError:\n' in s[1]]
+    standalone=[s for s in queued_runs if not (s[3]==0 and 'fn main()->unit ! IoError:\n' in s[1])]
+    batch_dir=a.output/'path-batch';batch_dir.mkdir(exist_ok=True)
+    imports=['from "std/io" import IoError']
+    dispatches=['fn main(args:[String])->unit ! IoError:']
+    for idx,(name,source,_,_) in enumerate(batched):
+        (batch_dir/f'case_{idx}.k').write_text(prelude+source.replace('fn main()->unit ! IoError:','export fn run_case()->unit ! IoError:',1),encoding='utf-8')
+        imports.append(f'from "./case_{idx}.k" import run_case as run_{idx}')
+        dispatches.append(f'  if args[0] == "{name}":\n    try run_{idx}()\n    return ()')
+    dispatches.append('  return ()\n')
+    batch_exe=batch_dir/('program.exe' if windows else 'program')
+    main_path=batch_dir/'main.k';main_path.write_text('\n'.join(imports)+'\n'+'\n'.join(dispatches),encoding='utf-8')
+    built=subprocess.run([a.compiler,main_path,flag,'-o',batch_exe],capture_output=True,timeout=240)
+    assert not built.returncode,built
+    def run_batched(spec):
+        name,_,expected,_=spec
+        if a.compile_only:print('PASS: compiled',name,flush=True);return
+        for workers in (1,4):
+            with tempfile.TemporaryDirectory(prefix='path app ',dir=a.output) as work:
+                r=subprocess.run([batch_exe,name],cwd=work,capture_output=True,timeout=60,env=dict(os.environ,KALANDRA_WORKERS=str(workers)))
+            assert r.returncode==0 and r.stdout==expected.encode() and not r.stderr,(name,workers,r)
+        print('PASS: executed',name,flush=True)
+    def run_pure_app():
+        source='''from "std/path" import join, fileName, isAbsolute
 from "std/process" import ExitStatus
 fn main()->ExitStatus:
   name=fileName(join(["a","b.txt"]))
@@ -137,18 +166,26 @@ fn main()->ExitStatus:
     return ExitStatus {code:42}
   return ExitStatus {code:1}
 '''
-    executable=build('pure-application',source,with_prelude=False)
-    if not a.compile_only:
-        r=subprocess.run([executable],capture_output=True,timeout=60)
-        assert r.returncode==42 and not r.stdout and not r.stderr,r
-    for name,source,diagnostic in (
+        executable=build('pure-application',source,with_prelude=False)
+        if not a.compile_only:
+            r=subprocess.run([executable],capture_output=True,timeout=60)
+            assert r.returncode==42 and not r.stdout and not r.stderr,r
+    diags=(
         ('join-scalar','fn main()->unit:\n  text=join("x")\n  return ()\n',b'error[S010]'),
         ('join-numeric','fn main()->unit:\n  text=join([1,2])\n  return ()\n',b'error[S013]'),
         ('wrong-input','fn main()->unit:\n  text=fileName(12)\n  return ()\n',b'error[S013]'),
         ('wrong-result','fn main()->unit:\n  text:i64=isAbsolute("/x")\n  return ()\n',b'error[S010]'),
-        ('private-intrinsic','fn main()->unit:\n  text=__kalandra_path_join(["x"])\n  return ()\n',b'error[S031]')):
-        build(name,source,diagnostic);print('PASS: diagnostic',name,flush=True)
+        ('private-intrinsic','fn main()->unit:\n  text=__kalandra_path_join(["x"])\n  return ()\n',b'error[S031]'))
+    work=(
+        [(lambda s=s:run_batched(s)) for s in batched]
+        + [(lambda s=s:execute_standalone(s)) for s in standalone]
+        + [run_pure_app]
+        + [(lambda d=d:(build(*d), print('PASS: diagnostic',d[0],flush=True))) for d in diags]
+    )
+    run_parallel(work, lambda fn: fn())
 else:
+    for spec in queued_runs:
+        execute_standalone(spec)
     build('device-path','''fn onDevice(n:i64)->bool:
   return isAbsolute("/x")
 fn main()->unit ! (IoError | TaskError):

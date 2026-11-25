@@ -3,6 +3,8 @@ import argparse,json,subprocess,sys
 from pathlib import Path
 from OrdinaryPairChecks import pair_checks
 from OrdinaryTestEnvironment import configure, qualified_variants
+from ParallelTestRunner import run_parallel
+
 p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
 root=Path(__file__).resolve().parents[2]
 windows=sys.platform=='win32'
@@ -13,19 +15,8 @@ def run(args):
  return r.stdout
 variants=[('debug',[],['-O0'],'native-runtime'),('optimized',['-O2'],['-O2'],'task-core-optimized'),('sanitized',['-O2','--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),('thread-sanitized',['-O2','--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]
 variants=qualified_variants(variants,a.compiler)
-results=[]
-for mode,extra,flags,library in variants:
- if windows and mode=='thread-sanitized':continue
- for language,cpp in [('f32','float'),('f64','double')]:
-  for fixture,ac,ao,bc,bo in [('positive',13,7,7,11),('other-positive',5,1,3,2),('cycle',1,0,0,3),('u32-divisor',13,7,65537,0),('wide-divisor',13,7,65538,17),('zero-divisor',13,7,0,0),('negative-divisor',13,7,-7,-11),('overflowing-divisor',13,7,9223372036854775807,11)]:
-   name=mode+'-'+language+'-'+fixture;source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
-   source.write_text(f'fn gcd(a:i64,b:i64)->i64:\n  return if b == 0:\n    a\n  else:\n    gcd(b,a % b)\nfn iterate(x:i64,seed:i64,rounds:i64)->{language}:\n  return if rounds == 0:\n    {language}(x)\n  else:\n    iterate(gcd(x*{ac}+{ao},seed*{bc}+{bo})+seed,seed,rounds-1)\nfn value(seed:i64,rounds:i64)->{language}:\n  return iterate(seed,seed,rounds)\nfn main()->{language}:\n  return {language}(0)\n')
-   run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
-   if mode=='optimized' and fixture in ('positive','other-positive'):assert 'kalandra.ordinary.integer-cases' in ir.read_text(),name
-   if fixture=='positive':
-    for marker in ('kalandra.ordinary.stable-countdown','kalandra.ordinary.integer-single-case','kalandra.ordinary.integer-wide-single'):assert marker in ir.read_text(),(name,marker)
-   if mode=='optimized' and fixture=='negative-divisor':assert 'kalandra.ordinary.integer-cases' not in ir.read_text(),name
-   text=r'''
+
+DRIVER_TEMPLATE=r'''
 #include "RUNTIME"
 #include "FAULT"
 #include <array>
@@ -61,8 +52,6 @@ void test(I seed,I rounds){
 int main(int argc,char**){
  constexpr I lo=std::numeric_limits<I>::min(),hi=std::numeric_limits<I>::max();
  if(argc>1){
-  // Independent integer reference reaches an actual fixed point before
-  // fast-forwarding; no checked implementation is assumed for huge counts.
   for(I seed:std::array<I,3>{0,1,17}){
    I x=seed;bool stable=false;
    for(unsigned k=0;k<1000&&!stable;++k){
@@ -86,12 +75,33 @@ int main(int argc,char**){
  std::printf("%u integer-domain/IEEE/first-fault cases passed\n",cases);
 }
 '''
-   text=text.replace('PAIR_CHECKS',pair_checks('Input','I')).replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp)
-   for key,value in [('AC',ac),('AO',ao),('BC',bc),('BO',bo)]:text=text.replace(key,f'Wide({value}LL)')
-   driver.write_text(text);runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'));host=['-fms-runtime-lib=static'] if windows else ['-pthread']
-   run([a.clang,'-std=c++23','-DTEST_DIRECT',*(['-DSKIP_PAIR'] if windows else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe]);output=run([exe]);print(name,output.strip(),flush=True);results.append(dict(mode=mode,type=language,fixture=fixture,result=output.strip()))
-   if fixture=='positive':
-    huge=subprocess.run([str(exe),'huge'],capture_output=True,text=True,timeout=10)
-    if huge.returncode:raise RuntimeError(name+' huge countdown failed: '+huge.stdout+huge.stderr)
-    results.append(dict(mode=mode,type=language,fixture=fixture,huge_countdown=True,result=huge.stdout.strip()))
+
+FIXTURES=[('positive',13,7,7,11),('other-positive',5,1,3,2),('cycle',1,0,0,3),('u32-divisor',13,7,65537,0),('wide-divisor',13,7,65538,17),('zero-divisor',13,7,0,0),('negative-divisor',13,7,-7,-11),('overflowing-divisor',13,7,9223372036854775807,11)]
+
+def run_task(task):
+ mode,extra,flags,library,language,cpp,fixture,ac,ao,bc,bo=task
+ name=mode+'-'+language+'-'+fixture;source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
+ source.write_text(f'fn gcd(a:i64,b:i64)->i64:\n  return if b == 0:\n    a\n  else:\n    gcd(b,a % b)\nfn iterate(x:i64,seed:i64,rounds:i64)->{language}:\n  return if rounds == 0:\n    {language}(x)\n  else:\n    iterate(gcd(x*{ac}+{ao},seed*{bc}+{bo})+seed,seed,rounds-1)\nfn value(seed:i64,rounds:i64)->{language}:\n  return iterate(seed,seed,rounds)\nfn main()->{language}:\n  return {language}(0)\n')
+ run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'--no-link',*extra])
+ ir_text=ir.read_text()
+ if mode=='optimized' and fixture in ('positive','other-positive'):assert 'kalandra.ordinary.integer-cases' in ir_text,name
+ if fixture=='positive':
+  for marker in ('kalandra.ordinary.stable-countdown','kalandra.ordinary.integer-single-case','kalandra.ordinary.integer-wide-single'):assert marker in ir_text,(name,marker)
+ if mode=='optimized' and fixture=='negative-divisor':assert 'kalandra.ordinary.integer-cases' not in ir_text,name
+ text=DRIVER_TEMPLATE.replace('PAIR_CHECKS',pair_checks('Input','I')).replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp)
+ for key,value in [('AC',ac),('AO',ao),('BC',bc),('BO',bo)]:text=text.replace(key,f'Wide({value}LL)')
+ driver.write_text(text);runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'));host=['-fms-runtime-lib=static'] if windows else ['-pthread']
+ run([a.clang,'-std=c++23','-DTEST_DIRECT',*(['-DSKIP_PAIR'] if windows else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe]);output=run([exe]);print(name,output.strip(),flush=True)
+ chunk=[dict(mode=mode,type=language,fixture=fixture,result=output.strip())]
+ if fixture=='positive':
+  huge=subprocess.run([str(exe),'huge'],capture_output=True,text=True,timeout=10)
+  if huge.returncode:raise RuntimeError(name+' huge countdown failed: '+huge.stdout+huge.stderr)
+  chunk.append(dict(mode=mode,type=language,fixture=fixture,huge_countdown=True,result=huge.stdout.strip()))
+ return chunk
+
+tasks=[(mode,extra,flags,library,language,cpp,fixture,ac,ao,bc,bo)
+       for mode,extra,flags,library in variants if not (windows and mode=='thread-sanitized')
+       for language,cpp in [('f32','float'),('f64','double')]
+       for fixture,ac,ao,bc,bo in FIXTURES]
+results=[record for chunk in run_parallel(tasks, run_task) for record in chunk]
 (a.output/'results.json').write_text(json.dumps(results,indent=2)+'\n')

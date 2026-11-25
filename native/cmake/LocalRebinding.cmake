@@ -40,17 +40,33 @@ if(BUILD_TESTING)
           -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyLocalRebinding.cmake")
       set_tests_properties(native-local-rebinding-${VARIANT} PROPERTIES TIMEOUT 900)
     endif()
-    add_test(NAME native-loop-control-${VARIANT}
+    add_test(NAME native-loop-control-build-${VARIANT}
       COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
-        "-DRUNTIME=${LOCAL_RUNTIME}" "-DVARIANT=${VARIANT}" "-DPYTHON=${Python3_EXECUTABLE}"
+        "-DRUNTIME=${LOCAL_RUNTIME}" "-DVARIANT=${VARIANT}" "-DPYTHON=${Python3_EXECUTABLE}" "-DPHASE=BUILD"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/loop-control-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyLoopControl.cmake")
-    set_tests_properties(native-loop-control-${VARIANT} PROPERTIES TIMEOUT 900 RESOURCE_LOCK scheduler-saturation)
-    add_test(NAME native-collect-ownership-${VARIANT}
+    set_tests_properties(native-loop-control-build-${VARIANT} PROPERTIES TIMEOUT 900
+      FIXTURES_SETUP "loop-control-build-${VARIANT}")
+    add_test(NAME native-loop-control-${VARIANT}
       COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
-        "-DRUNTIME=${LOCAL_RUNTIME}" "-DVARIANT=${VARIANT}"
+        "-DRUNTIME=${LOCAL_RUNTIME}" "-DVARIANT=${VARIANT}" "-DPYTHON=${Python3_EXECUTABLE}" "-DPHASE=RUN"
+        "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/loop-control-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyLoopControl.cmake")
+    set_tests_properties(native-loop-control-${VARIANT} PROPERTIES TIMEOUT 300
+      FIXTURES_REQUIRED "loop-control-build-${VARIANT}" RESOURCE_LOCK scheduler-saturation)
+    add_test(NAME native-collect-ownership-build-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+        "-DRUNTIME=${LOCAL_RUNTIME}" "-DVARIANT=${VARIANT}" "-DPHASE=BUILD"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/collect-ownership-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyCollectOwnership.cmake")
-    set_tests_properties(native-collect-ownership-${VARIANT} PROPERTIES TIMEOUT 600 RESOURCE_LOCK scheduler-saturation)
+    set_tests_properties(native-collect-ownership-build-${VARIANT} PROPERTIES TIMEOUT 600
+      FIXTURES_SETUP "collect-ownership-build-${VARIANT}")
+    add_test(NAME native-collect-ownership-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra-test-observer>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+        "-DRUNTIME=${LOCAL_RUNTIME}" "-DVARIANT=${VARIANT}" "-DPHASE=RUN"
+        "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/collect-ownership-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyCollectOwnership.cmake")
+    set_tests_properties(native-collect-ownership-${VARIANT} PROPERTIES TIMEOUT 300
+      FIXTURES_REQUIRED "collect-ownership-build-${VARIANT}" RESOURCE_LOCK scheduler-saturation)
   endforeach()
 endif()

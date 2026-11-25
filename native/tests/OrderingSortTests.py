@@ -43,7 +43,7 @@ for variant, flag, flags in variants:
     binary = args.output.resolve() / (variant + ('.exe' if sys.platform == 'win32' else ''))
     ir = binary.with_suffix('.ll')
     run([args.compiler, source, '--test-entry', 'run', flag, '--emit-llvm', ir,
-         '-o', str(binary) + '-standalone'])
+         '--no-link'])
     runtime = args.compiler.parent / (('' if sys.platform == 'win32' else 'lib') +
         'kalandra-native-runtime' + ('-' + variant if 'sanitized' in variant else '') +
         ('.lib' if sys.platform == 'win32' else '.a'))

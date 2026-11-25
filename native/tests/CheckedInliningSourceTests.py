@@ -59,7 +59,8 @@ def main():
             binary = a.output / (name + '-' + version)
             ir = binary.with_suffix('.ll')
             run([compiler, path, '--test-entry', 'run', '--arithmetic', a.arithmetic,
-                 '--emit-llvm', ir, flag, '-o', str(binary) + '-standalone'])
+                 '--emit-llvm', ir, flag,
+                 *(['--no-link'] if version == 'current' else ['-o', str(binary) + '-standalone'])])
             text = ir.read_text()
             assert not re.search(r'\b(fadd|fsub|fmul|fdiv)\s+(contract|fast|reassoc)\b', text)
             assert '@llvm.fma.' not in text and '@llvm.fmuladd.' not in text

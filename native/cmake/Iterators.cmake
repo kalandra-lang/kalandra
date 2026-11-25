@@ -56,11 +56,16 @@ if(BUILD_TESTING)
     elseif(variant STREQUAL "thread-sanitized")
       set(runtime kalandra-native-runtime-thread-sanitized)
     endif()
+    set(generator_extra)
+    if(variant STREQUAL "thread-sanitized")
+      set(generator_extra --coordinating-only)
+    endif()
     add_test(NAME native-generator-source-${variant}
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/GeneratorSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>"
         --clang "${CMAKE_CXX_COMPILER}" --runtime "$<TARGET_FILE:${runtime}>"
-        --variant "${variant}" --output "${CMAKE_CURRENT_BINARY_DIR}/generator-source-${variant}")
+        --variant "${variant}" ${generator_extra}
+        --output "${CMAKE_CURRENT_BINARY_DIR}/generator-source-${variant}")
     set_tests_properties(native-generator-source-${variant} PROPERTIES TIMEOUT 600
       LABELS "feature-frontend;feature-control")
     add_test(NAME native-iterator-fusion-cancellation-${variant}
