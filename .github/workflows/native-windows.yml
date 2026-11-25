@@ -1,7 +1,7 @@
 name: Native Windows qualification
 on:
   push:
-    branches: ["native", "develop"]
+    branches: ["native"]
     tags: ["v*"]
     paths:
       [
@@ -33,19 +33,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   cpu:
-    if: matrix.arch == 'x86_64' || github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: windows-2025
-            arch: x86_64
-            msvc: x64
-            artifact: native-windows-assets
-          - runner: windows-11-arm
-            arch: arm64
-            msvc: arm64
-            artifact: native-windows-arm64-assets
+        include: ${{ (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci')) && fromJSON('[{"runner":"windows-2025","arch":"x86_64","msvc":"x64","artifact":"native-windows-assets"}]') || fromJSON('[{"runner":"windows-2025","arch":"x86_64","msvc":"x64","artifact":"native-windows-assets"},{"runner":"windows-11-arm","arch":"arm64","msvc":"arm64","artifact":"native-windows-arm64-assets"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     outputs:

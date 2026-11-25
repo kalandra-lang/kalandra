@@ -18,7 +18,7 @@ on:
       - ".github/scripts/provision_native_platform.py"
       - ".github/workflows/native-vulkan.yml"
   push:
-    branches: [develop, native]
+    branches: [native]
     tags: ["v*"]
     paths:
       - "CMakeLists.txt"
