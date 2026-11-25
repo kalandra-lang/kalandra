@@ -6,10 +6,10 @@
     "#lib/*": "./src/lib/*"
   },
   "scripts": {
-    "dev": "bun --bun vite dev",
-    "build": "bun --bun vite build",
-    "preview": "bun --bun vite preview",
-    "check": "bun --bun svelte-kit sync && bun --bun svelte-check --tsconfig ./tsconfig.json"
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
     "@fontsource-variable/fira-code": "^5.3.0",
