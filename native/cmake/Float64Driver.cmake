@@ -24,6 +24,11 @@ function(COMPILE NAME SOURCE)
   RUN_OK("${COMPILER}" --arithmetic software "${OUTPUT_DIR}/${NAME}.k" -o "${OUTPUT_DIR}/${NAME}"
     --emit-llvm "${OUTPUT_DIR}/${NAME}.ll" --emit-mlir "${OUTPUT_DIR}/${NAME}.mlir" ${EXTRA} ${ARGN})
 endfunction()
+function(COMPILE_IR NAME SOURCE)
+  file(WRITE "${OUTPUT_DIR}/${NAME}.k" "${SOURCE}")
+  RUN_OK("${COMPILER}" --arithmetic software "${OUTPUT_DIR}/${NAME}.k" --no-link
+    --emit-llvm "${OUTPUT_DIR}/${NAME}.ll" --emit-mlir "${OUTPUT_DIR}/${NAME}.mlir" ${EXTRA} ${ARGN})
+endfunction()
 function(EXPECT NAME EXPECTED)
   RUN_OK("${OUTPUT_DIR}/${NAME}")
   if(NOT OUTPUT STREQUAL "${EXPECTED}\n")

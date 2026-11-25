@@ -354,7 +354,7 @@ int main(int argc, char **argv) {
   std::vector<kalandra::ModulePackage> packages;
   std::string emit;
   std::vector<std::string> linkLibraries, systemLinkArgs;
-  bool sanitize = false, threadSanitize = false;
+  bool sanitize = false, threadSanitize = false, noLink = false;
   kalandra::ArithmeticMode arithmetic = kalandra::ArithmeticMode::Hardware;
   bool selectedArithmetic = false;
   bool selectedMatmul = false;
@@ -416,6 +416,8 @@ int main(int argc, char **argv) {
       sanitize = true;
     else if (option == "--thread-sanitize")
       threadSanitize = true;
+    else if (option == "--no-link")
+      noLink = true;
     else if (auto level = kalandra::parseOptimization(option))
       optimization = *level;
     else if (!option.empty() && !option.starts_with('-') && sourcePath.empty())
@@ -472,7 +474,14 @@ int main(int argc, char **argv) {
     return 2;
   }
 #endif
-  if (output.empty()) {
+  if (noLink) {
+    if (!output.empty() || !emit.empty() || !headerPath.empty() ||
+        (mlirPath.empty() && llvmPath.empty())) {
+      progress.diagnostic()
+          << "--no-link requires --emit-llvm or --emit-mlir without -o or --emit\n";
+      return 2;
+    }
+  } else if (output.empty()) {
     progress.diagnostic() << "missing -o executable\n";
     return 2;
   }
@@ -787,7 +796,7 @@ int main(int argc, char **argv) {
     }
     archives.push_back(builtins->string());
   }
-  if (library)
+  if (library || noLink)
     archives.clear();
   for (const auto &archive : archives) {
     std::error_code error;
@@ -810,6 +819,8 @@ int main(int argc, char **argv) {
     progress.diagnostic() << "cannot write LLVM IR\n";
     return 1;
   }
+  if (noLink)
+    return 0;
   // Standalone execution is ordinary. Keep the checked emitted library entry
   // unchanged; only the executable link copy may acquire this context-free main.
   std::string linkerIR = lowered->llvm;

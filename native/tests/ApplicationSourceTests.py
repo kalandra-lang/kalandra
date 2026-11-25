@@ -4,12 +4,17 @@ import os
 import re
 from pathlib import Path
 import subprocess
+
+from ParallelTestRunner import run_parallel
+
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--compiler',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
 p.add_argument('--variant',choices=('debug','optimized','sanitized','thread-sanitized'),required=True)
 a=p.parse_args();a.compiler=a.compiler.resolve();a.output.mkdir(parents=True,exist_ok=True)
 flags={'debug':['-O0'],'optimized':['-O2'],'sanitized':['--sanitize'],'thread-sanitized':['--thread-sanitize']}[a.variant]
+console='from "std/io" import println, IoError\nfrom "std/fmt" import format\n'
+
 def build(name,source):
     directory=a.output/name;directory.mkdir(exist_ok=True)
     path=directory/'main.k';path.write_text(source, encoding='utf-8')
@@ -24,20 +29,19 @@ def run(exe,*args,status=0,out=b'',err=b''):
     assert result.returncode==status and result.stdout==out and result.stderr==err,(exe,result,status,out,err)
     print('PASS:',exe.parent.name,flush=True)
 
-run(build('unit','fn main()->unit:\n  return ()\n'))
-for code in (0,1,42,255):
-    run(build('exit-'+str(code),'from "std/process" import ExitStatus\nfn main()->ExitStatus:\n  return ExitStatus {code:'+str(code)+'}\n'),status=code)
-console='from "std/io" import println, IoError\nfrom "std/fmt" import format\n'
-run(build('arguments',console+'''from "std/process" import ExitStatus
+SOURCES = {
+    'unit': 'fn main()->unit:\n  return ()\n',
+    **{'exit-'+str(code): 'from "std/process" import ExitStatus\nfn main()->ExitStatus:\n  return ExitStatus {code:'+str(code)+'}\n' for code in (0,1,42,255)},
+    'arguments': console+'''from "std/process" import ExitStatus
 fn main(args:[String])->ExitStatus ! IoError:
   try println(format("{}:{}:{}:{}",length(args),args[0],args[1],args[2]))
   return ExitStatus {code:42}
-'''),'é👩‍💻','hello world','',status=42,out='3:é👩‍💻:hello world:\n'.encode())
-run(build('empty-arguments',console+'''fn main(args:[String])->unit ! IoError:
+''',
+    'empty-arguments': console+'''fn main(args:[String])->unit ! IoError:
   try println(format("{}",length(args)))
   return ()
-'''),out=b'0\n')
-run(build('task-arguments',console+'''fn count(args:[String])->i64:
+''',
+    'task-arguments': console+'''fn count(args:[String])->i64:
   return length(args)
 fn main(args:[String])->unit ! (IoError | TaskError):
   size=try parallel:
@@ -45,10 +49,8 @@ fn main(args:[String])->unit ! (IoError | TaskError):
     try await task
   try println(format("{}",size))
   return ()
-'''),'α','β',out=b'2\n')
-# A synthetic application wrapper must not hide an inlined loop from ownership
-# scope planning. Run under an actual structured-task budget for a bounded test.
-loop=build('scoped-loop',console+'''from "std/io" import readLine, Line
+''',
+    'scoped-loop': console+'''from "std/io" import readLine, Line
 fn main()->unit ! (IoError | TaskError):
   return try parallel:
     for i in range(1000):
@@ -59,28 +61,17 @@ fn main()->unit ! (IoError | TaskError):
           if byteLength(text)!=1024:fail IoError.InvalidEncoding
           ()
     ()
-''')
-result=subprocess.run([loop],input=(b'x'*1024+b'\n')*1000,capture_output=True,timeout=60,
-    env=dict(os.environ,KALANDRA_WORKERS='1'))
-assert result.returncode==0 and not result.stdout and not result.stderr,result
-print('PASS: wrapped application loops retire input under the existing task resource budget',flush=True)
-
-sequential=build('sequential-config',console+'''fn main()->unit ! IoError:
+''',
+    'sequential-config': console+'''fn main()->unit ! IoError:
   try println(format("value={}",42))
   return ()
-''')
-result=subprocess.run([sequential],capture_output=True,timeout=15,env=dict(os.environ,KALANDRA_WORKERS='unused'))
-assert result.returncode==0 and result.stdout==b'value=42\n' and not result.stderr,result
-scheduled=build('scheduled-config',console+'''fn main()->unit ! (IoError | TaskError):
+''',
+    'scheduled-config': console+'''fn main()->unit ! (IoError | TaskError):
   return try parallel:
     try println("never")
     ()
-''')
-result=subprocess.run([scheduled],capture_output=True,timeout=15,env=dict(os.environ,KALANDRA_WORKERS='unused'))
-assert result.returncode==1 and not result.stdout and b'AdmissionRejected' in result.stderr,result
-print('PASS: proven sequential I/O omits scheduling; structured tasks retain admission checks',flush=True)
-
-large=build('sequential-line',console+'''from "std/io" import readLine, Line
+''',
+    'sequential-line': console+'''from "std/io" import readLine, Line
 fn main()->unit ! IoError:
   line=try readLine(2000000)
   try match line:
@@ -89,36 +80,61 @@ fn main()->unit ! IoError:
       if byteLength(text)!=1500000:fail IoError.InvalidEncoding
       ()
   return ()
-''')
-result=subprocess.run([large],input=b'x'*1500000+b'\n',capture_output=True,timeout=30)
-assert result.returncode==0 and not result.stdout and not result.stderr,result
-bounded=build('task-line-budget',console+'''from "std/io" import readLine
+''',
+    'task-line-budget': console+'''from "std/io" import readLine
 fn main()->unit ! (IoError | TaskError):
   return try parallel:
     line=try readLine(2000000)
     ()
-''')
-result=subprocess.run([bounded],input=b'x'*1500000+b'\n',capture_output=True,timeout=30)
-assert result.returncode==1 and not result.stdout and b'AllocationFault' in result.stderr,result
-print('PASS: sequential line bound is explicit; actual tasks retain the existing memory budget',flush=True)
-
-error=build('unhandled','error E:\n  Bad\nfn main()->unit ! E:\n  fail E.Bad\n')
-run(build('sequential-tensor-cleanup',console+'''fn main()->unit ! IoError:
+''',
+    'unhandled': 'error E:\n  Bad\nfn main()->unit ! E:\n  fail E.Bad\n',
+    'sequential-tensor-cleanup': console+'''fn main()->unit ! IoError:
   values:Tensor[i32,2]=tensor([20,22])
   converted=f64(values)
   try println(format("{}",i64(reduceSum(converted))))
   return ()
-'''),out=b'42\n')
-result=subprocess.run([error],capture_output=True,timeout=15)
+''',
+    'fault': 'fn divide(value:i64)->i64:\n  return 1/value\nfn main()->unit:\n  value=divide(0)\n  return ()\n',
+    'argument-failures': 'fn main(args:[String])->unit:\n  return ()\n',
+}
+
+exes = dict(run_parallel(SOURCES.items(), lambda item: (item[0], build(item[0], item[1]))))
+
+run(exes['unit'])
+for code in (0,1,42,255):
+    run(exes['exit-'+str(code)],status=code)
+run(exes['arguments'],'é👩‍💻','hello world','',status=42,out='3:é👩‍💻:hello world:\n'.encode())
+run(exes['empty-arguments'],out=b'0\n')
+run(exes['task-arguments'],'α','β',out=b'2\n')
+
+result=subprocess.run([exes['scoped-loop']],input=(b'x'*1024+b'\n')*1000,capture_output=True,timeout=60,
+    env=dict(os.environ,KALANDRA_WORKERS='1'))
+assert result.returncode==0 and not result.stdout and not result.stderr,result
+print('PASS: wrapped application loops retire input under the existing task resource budget',flush=True)
+
+result=subprocess.run([exes['sequential-config']],capture_output=True,timeout=15,env=dict(os.environ,KALANDRA_WORKERS='unused'))
+assert result.returncode==0 and result.stdout==b'value=42\n' and not result.stderr,result
+result=subprocess.run([exes['scheduled-config']],capture_output=True,timeout=15,env=dict(os.environ,KALANDRA_WORKERS='unused'))
+assert result.returncode==1 and not result.stdout and b'AdmissionRejected' in result.stderr,result
+print('PASS: proven sequential I/O omits scheduling; structured tasks retain admission checks',flush=True)
+
+result=subprocess.run([exes['sequential-line']],input=b'x'*1500000+b'\n',capture_output=True,timeout=30)
+assert result.returncode==0 and not result.stdout and not result.stderr,result
+result=subprocess.run([exes['task-line-budget']],input=b'x'*1500000+b'\n',capture_output=True,timeout=30)
+assert result.returncode==1 and not result.stdout and b'AllocationFault' in result.stderr,result
+print('PASS: sequential line bound is explicit; actual tasks retain the existing memory budget',flush=True)
+
+run(exes['sequential-tensor-cleanup'],out=b'42\n')
+result=subprocess.run([exes['unhandled']],capture_output=True,timeout=15)
 assert result.returncode==1 and not result.stdout and result.stderr.replace(b'\r\n',b'\n')==b'E.Bad\n',result
-fault=build('fault','fn divide(value:i64)->i64:\n  return 1/value\nfn main()->unit:\n  value=divide(0)\n  return ()\n')
-result=subprocess.run([fault],capture_output=True,timeout=15)
+result=subprocess.run([exes['fault']],capture_output=True,timeout=15)
 assert result.returncode==1 and not result.stdout and b'ArithmeticFault' in result.stderr,result
 print('PASS: unhandled errors and runtime faults use stderr and status one',flush=True)
-args=build('argument-failures','fn main(args:[String])->unit:\n  return ()\n')
+
+args_exe=exes['argument-failures']
 successes=failures=0
 for ordinal in range(1,25):
-    result=subprocess.run([args,'é','hello',''],capture_output=True,timeout=15,env=dict(os.environ,
+    result=subprocess.run([args_exe,'é','hello',''],capture_output=True,timeout=15,env=dict(os.environ,
         KALANDRA_TEST_FAIL_ALLOC_AT=str(ordinal),KALANDRA_TEST_REPORT_CLEANUP='1'))
     if result.returncode:
         failures+=1
@@ -130,7 +146,7 @@ for ordinal in range(1,25):
 assert successes and failures
 print('PASS: arguments allocate owned text and clean every injected failure',flush=True)
 if os.name!='nt':
-    result=subprocess.run([os.fsencode(args),b'\xff'],capture_output=True,timeout=15)
+    result=subprocess.run([os.fsencode(args_exe),b'\xff'],capture_output=True,timeout=15)
     assert result.returncode==1 and not result.stdout and b'valid Unicode' in result.stderr,result
     print('PASS: malformed command-line text rejected before source main',flush=True)
 if a.variant=='debug':
@@ -144,7 +160,6 @@ if a.variant=='debug':
         exe=directory/('program.exe' if os.name=='nt' else 'program');exe.write_bytes(b'preserved')
         result=subprocess.run(list(map(str,[a.compiler,path,'-o',exe])),capture_output=True,timeout=30)
         assert result.returncode and b'[S081]' in result.stderr and exe.read_bytes()==b'preserved',result
-    # Numerical observation remains explicit and keeps its original output ABI.
     directory=a.output/'observer';directory.mkdir(exist_ok=True)
     path=directory/'main.k';path.write_text('fn main()->i64:\n  return 42\n', encoding='utf-8')
     exe=directory/('program.exe' if os.name=='nt' else 'program')

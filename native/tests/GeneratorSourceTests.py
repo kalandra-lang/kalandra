@@ -4,6 +4,37 @@ import os
 from pathlib import Path
 import subprocess
 
+from GeneratorCases import prefix, cases
+from IteratorFusionCodegen import assert_fused_entry
+from ParallelTestRunner import run_parallel
+
+COORDINATING = frozenset((
+    "fusion-direct-range-adapters",
+    "fusion-direct-callback-capture",
+    "fusion-direct-take-zero-bound",
+    "fusion-static-callback-array-capture",
+    "fusion-region-multiple-scalar-updates",
+    "fusion-f32-rounding-take",
+    "fusion-f64-rounding-take",
+    "fusion-readonly-array-adapters",
+    "fusion-range-adapters",
+    "fusion-take-stops-before-next",
+    "fusion-take-zero-defers-bounds",
+    "deferred-source-expression",
+    "tensor-item-coordinating",
+    "deep-adapter-chain",
+    "adapter-chain",
+    "take-zero-no-advance",
+    "adapter-error-union",
+    "filter-error",
+    "adapter-prefetch-close",
+    "effects-and-close",
+    "owned-buffer-capture",
+    "parallel-across-yield",
+    "prefetch-close-cancels-timer",
+    "recursive-items-coordinating",
+))
+
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument("--compiler", type=Path, required=True)
 p.add_argument("--clang", type=Path, required=True)
@@ -15,10 +46,10 @@ p.add_argument(
     required=True,
 )
 p.add_argument("--case", action="append", dest="selected")
+p.add_argument("--coordinating-only", action="store_true")
 args = p.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 root = Path(__file__).resolve().parent
-from GeneratorCases import prefix, cases
 
 unknown = set(args.selected or ()) - cases.keys()
 if unknown:
@@ -45,20 +76,58 @@ def run(command, directory, name, timeout=180):
     return result
 
 
-for name, (source, expected, output) in cases.items():
-    if args.selected and name not in args.selected:
-        continue
+flags = {
+    "debug": ["-O0"],
+    "optimized": ["-O2"],
+    "sanitized": ["--sanitize"],
+    "thread-sanitized": ["--thread-sanitize"],
+}[args.variant]
+native = {
+    "debug": ["-O0"],
+    "optimized": ["-O2"],
+    "sanitized": [
+        "-O1",
+        "-g",
+        "-fsanitize=address,undefined",
+        "-fno-sanitize-recover=all",
+    ],
+    "thread-sanitized": ["-O1", "-g", "-fsanitize=thread"],
+}[args.variant]
+host_flags = ["-fms-runtime-lib=static"] if os.name == "nt" else ["-pthread"]
+
+selected_items = [
+    (name, spec)
+    for name, spec in cases.items()
+    if (not args.selected or name in args.selected)
+    and (not args.coordinating_only or name in COORDINATING)
+]
+
+driver_obj = args.output / (
+    "GeneratorSourceDriver.obj" if os.name == "nt" else "GeneratorSourceDriver.o"
+)
+run(
+    [
+        args.clang,
+        "-std=c++23",
+        *native,
+        *host_flags,
+        "-c",
+        root / "GeneratorSourceDriver.cpp",
+        "-o",
+        driver_obj,
+    ],
+    args.output,
+    "driver",
+)
+
+
+def execute_case(item):
+    name, (source, expected, output) = item
     directory = args.output / name
     directory.mkdir(exist_ok=True)
     path = directory / "source.k"
     path.write_text(prefix + source)
     ir = directory / "source.ll"
-    flags = {
-        "debug": ["-O0"],
-        "optimized": ["-O2"],
-        "sanitized": ["--sanitize"],
-        "thread-sanitized": ["--thread-sanitize"],
-    }[args.variant]
     run(
         [
             args.compiler,
@@ -68,43 +137,15 @@ for name, (source, expected, output) in cases.items():
             "main",
             "--emit-llvm",
             ir,
-            "-o",
-            directory / "compiled",
+            "--no-link",
         ],
         directory,
         "compile",
     )
     text = ir.read_text()
     if name.startswith(("fusion-", "numeric-items-")):
-        from IteratorFusionCodegen import assert_fused_entry
-
         assert_fused_entry(text, name)
-    coordinating = name in (
-        "fusion-direct-range-adapters",
-        "fusion-direct-callback-capture",
-        "fusion-direct-take-zero-bound",
-        "fusion-static-callback-array-capture",
-        "fusion-region-multiple-scalar-updates",
-        "fusion-f32-rounding-take",
-        "fusion-f64-rounding-take",
-        "fusion-readonly-array-adapters",
-        "fusion-range-adapters",
-        "fusion-take-stops-before-next",
-        "fusion-take-zero-defers-bounds",
-        "deferred-source-expression",
-        "tensor-item-coordinating",
-        "deep-adapter-chain",
-        "adapter-chain",
-        "take-zero-no-advance",
-        "adapter-error-union",
-        "filter-error",
-        "adapter-prefetch-close",
-        "effects-and-close",
-        "owned-buffer-capture",
-        "parallel-across-yield",
-        "prefetch-close-cancels-timer",
-        "recursive-items-coordinating",
-    )
+    coordinating = name in COORDINATING
     factory = (
         "kalandra_generator_task_create_v1"
         if coordinating
@@ -132,25 +173,13 @@ for name, (source, expected, output) in cases.items():
     if not coordinating:
         assert "call void @kalandra_generator_task_create_v1(" not in text, name
     binary = directory / ("program.exe" if os.name == "nt" else "program")
-    native = {
-        "debug": ["-O0"],
-        "optimized": ["-O2"],
-        "sanitized": [
-            "-O1",
-            "-g",
-            "-fsanitize=address,undefined",
-            "-fno-sanitize-recover=all",
-        ],
-        "thread-sanitized": ["-O1", "-g", "-fsanitize=thread"],
-    }[args.variant]
     run(
         [
             args.clang,
-            "-std=c++23",
             *native,
-            *(["-fms-runtime-lib=static"] if os.name == "nt" else ["-pthread"]),
+            *host_flags,
             "-Wno-override-module",
-            root / "GeneratorSourceDriver.cpp",
+            driver_obj,
             ir,
             args.runtime,
             "-o",
@@ -171,3 +200,6 @@ for name, (source, expected, output) in cases.items():
         text = result.stdout.decode().replace("\r\n", "\n")
         assert text == output + "PASS\n" and not result.stderr, result
     print("PASS", name, flush=True)
+
+
+run_parallel(selected_items, execute_case)

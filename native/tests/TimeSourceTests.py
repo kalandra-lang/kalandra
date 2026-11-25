@@ -23,7 +23,12 @@ gpu = args.target != "cpu"
 flag = {"debug": "-O0", "optimized": "-O2", "sanitized": "--sanitize",
         "thread-sanitized": "--thread-sanitize"}[args.variant]
 
-def build(name, source, diagnostic=None):
+from ParallelTestRunner import run_parallel
+
+queued_tasks = []
+
+
+def execute_build(name, source, diagnostic=None):
     root = output / name
     root.mkdir(parents=True, exist_ok=True)
     path = root / "main.k"
@@ -42,7 +47,14 @@ def build(name, source, diagnostic=None):
     return destination / executable.name if gpu else executable
 
 
-def run(name, source, stdout):
+def build(name, source, diagnostic=None):
+    if diagnostic is not None:
+        queued_tasks.append(lambda: execute_build(name, source, diagnostic))
+        return None
+    return execute_build(name, source)
+
+
+def execute_run(name, source, stdout):
     if gpu:
         source = re.sub(r"(fn main\(\)\s*->\s*unit\s*!\s*\()([^)]+)(\):)",
                         lambda m: m[0] if "TaskError" in m[2] else
@@ -52,7 +64,7 @@ def run(name, source, stdout):
                         r'  try println(format("{}",numberFromGpu))' "\n", source)
         source = "fn double(value:i64)->i64:\n  return value*2\n" + source
         stdout = "42\n" + stdout
-    executable = build(name, source)
+    executable = execute_build(name, source)
     if not args.compile_only:
         for workers in ("1", "4"):
             env = dict(os.environ, KALANDRA_WORKERS=workers)
@@ -67,6 +79,10 @@ def run(name, source, stdout):
             assert result.returncode == 0 and result.stdout == stdout.encode() and not stderr, (
                 name, workers, result)
     print("PASS:", "compiled" if args.compile_only else "executed", name, flush=True)
+
+
+def run(name, source, stdout):
+    queued_tasks.append(lambda: execute_run(name, source, stdout))
 
 
 run("time", SOURCE, EXPECTED)
@@ -145,3 +161,9 @@ fn main()->unit ! (TimeError | TaskError | IoError):
   try println(format("{}",recovered))
   return ()
 ''', "-1\n")
+
+if gpu:
+    for fn in queued_tasks:
+        fn()
+else:
+    run_parallel(queued_tasks, lambda fn: fn())

@@ -15,8 +15,11 @@ from "std/io" import println, IoError
 from "std/fmt" import format
 from "std/time" import sleep, milliseconds, TimeError
 '''
+from ParallelTestRunner import run_parallel
 main='fn main()->unit ! (BufferError | FsError | IoError | TimeError | TaskError):\n'
-def run(name,source,expected,fault=None):
+queued_runs=[]
+def execute_run(spec):
+    name,source,expected,fault=spec
     root=a.output/name;root.mkdir(exist_ok=True)
     if a.target!='cpu':
         source='fn twice(n:i64)->i64:\n  return n*2\n'+source
@@ -36,8 +39,6 @@ def run(name,source,expected,fault=None):
         stderr=r.stderr
         if a.target=='metal':stderr=b''.join(x for x in stderr.splitlines(keepends=True) if not re.fullmatch(rb'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+ program\[\d+:\d+\] Metal API Validation Enabled\r?\n?',x))
         if fault:
-            # Mixed GPU supervisors report the typed runtime fault as task
-            # failure kind/code (Fault=1, BoundsFault=5), rather than CPU CLI text.
             diagnosed = fault.encode() in stderr or (fault == 'BoundsFault' and a.target != 'cpu' and
                         re.search(rb'task failed: 1/5(?:\s|$)', stderr) is not None)
             assert r.returncode>0 and r.stdout==expected.encode() and diagnosed,(name,workers,r.returncode,r.stdout,stderr)
@@ -45,6 +46,8 @@ def run(name,source,expected,fault=None):
         else:
             assert r.returncode==0 and r.stdout==expected.encode() and not stderr,(name,workers,r.returncode,r.stdout,stderr)
     print('PASS: executed',name,flush=True)
+def run(name,source,expected,fault=None):
+    queued_runs.append((name,source,expected,fault))
 run('operations',main+'''  b=try byteBuffer(2)
   try append(b,[1,2,3])
   snapshot=toArray(b)
@@ -279,7 +282,14 @@ negative={
  'missing-read-limit':(main+'  b=try byteBuffer()\n  file=try open("bytes.bin",OpenMode.Read)\n  count=try readInto(file,b)\n  return ()\n','S027'),
  'array-extra-read-limit':(main+'  b:[u8]=[0]\n  file=try open("bytes.bin",OpenMode.Read)\n  count=try readInto(file,b,1)\n  return ()\n','S081'),
 }
-for name,case in negative.items():
+if a.target=='cpu':
+    run_parallel(queued_runs, execute_run)
+else:
+    for spec in queued_runs:
+        execute_run(spec)
+
+def check_negative(item):
+    name,case=item
     source,code,*messages=case
     root=a.output/name;root.mkdir(exist_ok=True);path=root/'main.k';path.write_text(prelude+source,encoding='utf-8')
     command=[a.compiler,path,'-O2','-o',root/'unexpected']
@@ -288,3 +298,5 @@ for name,case in negative.items():
     assert r.returncode==1 and ('error['+code+']').encode() in r.stderr,(name,r.returncode,r.stderr)
     assert all(message.encode() in r.stderr for message in messages),(name,r.stderr)
     print('PASS: diagnosed',name,flush=True)
+
+run_parallel(negative.items(), check_negative)

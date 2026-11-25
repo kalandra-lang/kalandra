@@ -30,7 +30,11 @@ def build(name,source,diagnostic=None):
     assert r.returncode==0,(name,r)
     return executable if a.target=='cpu' else output/executable.name
 
-def run(name,source,expected):
+from ParallelTestRunner import run_parallel
+
+queued_runs=[]
+def execute_standalone(spec):
+    name,source,expected=spec
     if a.target!='cpu':
         if name=='tasks-and-captures':
             source=source.replace('  parser=fn()->i64 ! ParseError:\n    return try parseI64(text)\n','').replace('spawn parser()','spawn parseWork(text)')
@@ -48,6 +52,9 @@ def run(name,source,expected):
         if a.target=='metal':stderr=b''.join(x for x in stderr.splitlines(keepends=True) if not re.fullmatch(rb'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+ program\[\d+:\d+\] Metal API Validation Enabled\r?\n?',x))
         assert r.returncode==0 and r.stdout==expected.encode() and not stderr,(name,workers,r)
     print('PASS: executed',name,flush=True)
+
+def run(name,source,expected):
+    queued_runs.append((name,source,expected))
 
 run('all-types','''fn main()->unit ! (ParseError | IoError):
   a:i8=try parseI8("-128")
@@ -144,16 +151,44 @@ fn main()->unit ! (ParseError | IoError | TaskError):
 ''','42\n')
 
 if a.target=='cpu':
-    for name,source,diagnostic in (
-        ('wrong-input','fn main()->i64 ! ParseError:\n  return try parseI64(12)\n','S013'),
-        ('missing-error','fn main()->i64:\n  return parseI64("12")\n','S036'),
-        ('wrong-result','fn main()->u8 ! ParseError:\n  return try parseI64("12")\n','S010'),
-        ('private-intrinsic','fn main()->i64:\n  return __kalandra_parse_i64("12")\n','S031')):
+    batched=[s for s in queued_runs if 'fn main()->unit ! (ParseError | IoError):' in s[1]]
+    standalone=[s for s in queued_runs if 'fn main()->unit ! (ParseError | IoError):' not in s[1]]
+    batch_dir=a.output/'parse-batch';batch_dir.mkdir(exist_ok=True)
+    imports=['from "std/parse" import ParseError','from "std/io" import IoError']
+    dispatches=['fn main(args:[String])->unit ! (ParseError | IoError):']
+    for idx,(name,source,_) in enumerate(batched):
+        (batch_dir/f'case_{idx}.k').write_text(prelude+source.replace('fn main()->unit ! (ParseError | IoError):','export fn run_case()->unit ! (ParseError | IoError):',1),encoding='utf-8')
+        imports.append(f'from "./case_{idx}.k" import run_case as run_{idx}')
+        dispatches.append(f'  if args[0] == "{name}":\n    try run_{idx}()\n    return ()')
+    dispatches.append('  return ()\n')
+    batch_exe=batch_dir/('program.exe' if os.name=='nt' else 'program')
+    main_path=batch_dir/'main.k';main_path.write_text('\n'.join(imports)+'\n'+'\n'.join(dispatches),encoding='utf-8')
+    built=subprocess.run([a.compiler,main_path,flag,'-o',batch_exe],capture_output=True,timeout=240)
+    assert built.returncode==0,built
+    def run_batched(spec):
+        name,_,expected=spec
+        if a.compile_only:print('PASS: compiled',name,flush=True);return
+        for workers in (1,4):
+            r=subprocess.run([batch_exe,name],capture_output=True,timeout=60,env=dict(os.environ,KALANDRA_WORKERS=str(workers)))
+            assert r.returncode==0 and r.stdout==expected.encode() and not r.stderr,(name,workers,r)
+        print('PASS: executed',name,flush=True)
+    def check_diag(spec):
+        name,source,diagnostic=spec
         root=a.output/name;root.mkdir(exist_ok=True);path=root/'main.k';path.write_text(prelude+source)
         r=subprocess.run([a.compiler,path,'-o',root/'bad'],capture_output=True,timeout=120)
         (root/'build.log').write_bytes(r.stdout+r.stderr)
         assert r.returncode and diagnostic.encode() in r.stderr,(name,r)
         print('PASS: diagnostic',name,flush=True)
+    diags=(
+        ('wrong-input','fn main()->i64 ! ParseError:\n  return try parseI64(12)\n','S013'),
+        ('missing-error','fn main()->i64:\n  return parseI64("12")\n','S036'),
+        ('wrong-result','fn main()->u8 ! ParseError:\n  return try parseI64("12")\n','S010'),
+        ('private-intrinsic','fn main()->i64:\n  return __kalandra_parse_i64("12")\n','S031'))
+    work=[(lambda s=s:run_batched(s)) for s in batched]+[(lambda s=s:execute_standalone(s)) for s in standalone]+[(lambda d=d:check_diag(d)) for d in diags]
+    run_parallel(work, lambda fn: fn())
+else:
+    for spec in queued_runs:
+        execute_standalone(spec)
 
 if a.target!='cpu':
     root=a.output/'device-parser';root.mkdir(exist_ok=True)

@@ -1,5 +1,6 @@
 """Independent arithmetic/state checks for recursive returns in all numeric widths and Bool."""
 from OrdinaryTestEnvironment import qualified_variants
+from ParallelTestRunner import run_parallel
 import argparse
 import hashlib
 import json
@@ -28,7 +29,6 @@ compilers = [('current', a.compiler)]
 if a.baseline: compilers.insert(0, ('baseline', a.baseline))
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 frozen = {str(c):sha(c) for _,c in compilers}
-records = []
 env = dict(os.environ)
 if sys.platform == 'win32':
     resources = list(a.clang.resolve().parent.parent.glob('lib/clang/*/lib/windows'))
@@ -37,49 +37,71 @@ def run(command):
     r = subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=240,env=env)
     assert r.returncode == 0, (command,r.returncode,r.stdout[-2000:],r.stderr[-3000:])
     return r.stdout
-for numeric,ctype in types.items():
+
+for numeric in types:
     source = a.output/(numeric+'.k')
     op = '==' if numeric == 'bool' else '+'
     source.write_text(f'fn tree(v:{numeric},n:i64)->{numeric}:\n  return if n==0:v\n  else:tree(v,n-1){op}tree(v,n-1)\nfn main()->{numeric}:\n  return tree('+('true' if numeric=='bool' else '1')+',3)\n')
-    for name,flag,flags in variants:
-        outputs = []
-        for version,compiler in compilers:
-            binary=a.output/(numeric+'-'+name+'-'+version+('.exe' if sys.platform=='win32' else ''));ir=binary.with_suffix('.ll')
-            standalone=binary.with_name(binary.stem+'-standalone'+binary.suffix)
-            run([compiler,source,'--test-entry','tree','--emit-llvm',ir,flag,'-o',standalone])
-            runtime=a.compiler.parent/(('' if sys.platform=='win32' else 'lib')+'kalandra-native-runtime'+('-'+name if 'sanitized' in name else '')+('.lib' if sys.platform=='win32' else '.a'))
-            run([a.clang,'-std=c++23','-Wno-override-module','-ffp-contract=off','-pthread',*flags,
-                 '-DTEST_SCALAR='+ctype,*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),
-                 root/'native/tests/RecursiveScalarRuntimeTests.cpp',ir,runtime,'-o',binary])
-            output=run([binary]);outputs.append(output)
-            records.append(dict(numeric=numeric,variant=name,compiler=version,compiler_sha256=frozen[str(compiler)],
-                                cases=int(output.split()[0]),state_sha256=hashlib.sha256(output.encode()).hexdigest(),
-                                ir_sha256=sha(ir),result=output.strip()))
-        assert len(set(outputs))==1,(numeric,name,outputs)
-    print(numeric+': all build modes match independent references' + (' and baseline state' if a.baseline else ''),flush=True)
+
+def run_tree_task(task):
+    numeric, ctype, name, flag, flags = task
+    source = a.output/(numeric+'.k')
+    outputs = []
+    chunk = []
+    for version, compiler in compilers:
+        binary = a.output/(numeric+'-'+name+'-'+version+('.exe' if sys.platform=='win32' else ''))
+        ir = binary.with_suffix('.ll')
+        out_args = ['--no-link'] if version == 'current' else ['-o', binary.with_name(binary.stem+'-standalone'+binary.suffix)]
+        run([compiler, source, '--test-entry', 'tree', '--emit-llvm', ir, flag, *out_args])
+        runtime = a.compiler.parent/(('' if sys.platform=='win32' else 'lib')+'kalandra-native-runtime'+('-'+name if 'sanitized' in name else '')+('.lib' if sys.platform=='win32' else '.a'))
+        run([a.clang, '-std=c++23', '-Wno-override-module', '-ffp-contract=off', '-pthread', *flags,
+             '-DTEST_SCALAR='+ctype, *(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),
+             root/'native/tests/RecursiveScalarRuntimeTests.cpp', ir, runtime, '-o', binary])
+        output = run([binary])
+        outputs.append(output)
+        chunk.append(dict(numeric=numeric, variant=name, compiler=version, compiler_sha256=frozen[str(compiler)],
+                          cases=int(output.split()[0]), state_sha256=hashlib.sha256(output.encode()).hexdigest(),
+                          ir_sha256=sha(ir), result=output.strip()))
+    assert len(set(outputs)) == 1, (numeric, name, outputs)
+    return chunk
+
+tree_tasks = [(numeric, ctype, name, flag, flags)
+              for numeric, ctype in types.items()
+              for name, flag, flags in variants]
+records = [rec for chunk in run_parallel(tree_tasks, run_tree_task) for rec in chunk]
+for numeric in types:
+    print(numeric+': all build modes match independent references' + (' and baseline state' if a.baseline else ''), flush=True)
+
 # A bit-pattern oracle can miss a C return-extension bug: its own narrowing
 # truncates the incorrect high register bits. Independently promote every
 # narrow value immediately at the foreign call site, in every build mode.
-for numeric in ('i8', 'u8', 'i16', 'u16', 'bool'):
+NARROW = ('i8', 'u8', 'i16', 'u16', 'bool')
+for numeric in NARROW:
     source = a.output / (numeric + '-abi.k')
     source.write_text(f'fn identity(value:{numeric})->{numeric}:\n  return value\nfn main()->i64:\n  return 0\n')
-    for name, flag, flags in variants:
-        binary = a.output / (numeric + '-abi-' + name + '-current' + ('.exe' if sys.platform == 'win32' else ''))
-        ir = binary.with_suffix('.ll')
-        run([a.compiler, source, '--test-entry', 'identity', '--emit-llvm', ir, flag,
-             '-o', binary.with_name(binary.stem + '-standalone' + binary.suffix)])
-        attribute = 'signext' if numeric.startswith('i') else 'zeroext'
-        assert f'define {attribute} i' in ir.read_text(), 'missing narrow C return attribute'
-        runtime = a.compiler.parent / (('' if sys.platform == 'win32' else 'lib') +
-            'kalandra-native-runtime' + ('-' + name if 'sanitized' in name else '') +
-            ('.lib' if sys.platform == 'win32' else '.a'))
-        run([a.clang, '-std=c++23', '-Wno-override-module', '-ffp-contract=off', '-pthread', *flags,
-             '-DTEST_SCALAR=' + types[numeric], *(['-fms-runtime-lib=static'] if sys.platform == 'win32' else []),
-             root / 'native/tests/NarrowBoundaryRuntimeTests.cpp', ir, runtime, '-o', binary])
-        output = run([binary])
-        records.append(dict(numeric=numeric, variant=name + '-abi', compiler='current',
-            compiler_sha256=frozen[str(a.compiler)], cases=int(output.split()[0]),
-            state_sha256=hashlib.sha256(output.encode()).hexdigest(), ir_sha256=sha(ir), result=output.strip()))
+
+def run_abi_task(task):
+    numeric, name, flag, flags = task
+    source = a.output / (numeric + '-abi.k')
+    binary = a.output / (numeric + '-abi-' + name + '-current' + ('.exe' if sys.platform == 'win32' else ''))
+    ir = binary.with_suffix('.ll')
+    run([a.compiler, source, '--test-entry', 'identity', '--emit-llvm', ir, flag, '--no-link'])
+    attribute = 'signext' if numeric.startswith('i') else 'zeroext'
+    assert f'define {attribute} i' in ir.read_text(), 'missing narrow C return attribute'
+    runtime = a.compiler.parent / (('' if sys.platform == 'win32' else 'lib') +
+        'kalandra-native-runtime' + ('-' + name if 'sanitized' in name else '') +
+        ('.lib' if sys.platform == 'win32' else '.a'))
+    run([a.clang, '-std=c++23', '-Wno-override-module', '-ffp-contract=off', '-pthread', *flags,
+         '-DTEST_SCALAR=' + types[numeric], *(['-fms-runtime-lib=static'] if sys.platform == 'win32' else []),
+         root / 'native/tests/NarrowBoundaryRuntimeTests.cpp', ir, runtime, '-o', binary])
+    output = run([binary])
+    return dict(numeric=numeric, variant=name + '-abi', compiler='current',
+        compiler_sha256=frozen[str(a.compiler)], cases=int(output.split()[0]),
+        state_sha256=hashlib.sha256(output.encode()).hexdigest(), ir_sha256=sha(ir), result=output.strip())
+
+abi_tasks = [(numeric, name, flag, flags) for numeric in NARROW for name, flag, flags in variants]
+records.extend(run_parallel(abi_tasks, run_abi_task))
+for numeric in NARROW:
     print(numeric + ': raw C return extension and promoted values passed', flush=True)
 assert all(sha(Path(c))==h for c,h in frozen.items()), 'compiler changed during qualification'
 (a.output/'qualification.json').write_text(json.dumps(records,indent=2)+'\n')

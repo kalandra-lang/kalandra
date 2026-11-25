@@ -401,7 +401,11 @@ fn main() -> i64 ! TaskError:
 
 cases['unit-callee-effects'] = ('fn bump(mut values: [i64]) -> unit:\n  values[0] = values[0] + 20\nfn finish(mut values: [i64]) -> unit:\n  bump(values)\n  values[1] = values[1] + 22\n  return\nfn work() -> i64:\n  values = [0, 0]\n  finish(values)\n  return values[0] + values[1]\nfn main() -> i64:\n  return work()\n', '42\n')
 
-for name, (source, expected) in cases.items():
+from ParallelTestRunner import run_parallel
+
+
+def run_executable_case(item):
+    name, (source, expected) = item
     path = root / (name + '.k')
     path.write_text(source, encoding='utf-8')
     binary = root / (name + '.exe')
@@ -416,9 +420,13 @@ for name, (source, expected) in cases.items():
             assert (result.returncode, result.stdout, result.stderr) == (0, expected, ''), (
                 name, optimization, workers, result)
 
+
+run_parallel(cases.items(), run_executable_case)
+
+
 # Owned callable results and handler-local array snapshots must not publish
 # partial values when allocation fails; every retained owner must settle.
-for captured_case in ('error-carried-closure-task', 'tail-owned-callable', 'handler-array-snapshot'):
+def verify_captured_allocations(captured_case):
     failed_allocations = successful_allocations = 0
     for allocation in range(1, 49):
         environment = dict(os.environ, KALANDRA_WORKERS='4',
@@ -436,6 +444,10 @@ for captured_case in ('error-carried-closure-task', 'tail-owned-callable', 'hand
             assert cleanup and cleanup[1] == '0' and cleanup[2] == cleanup[3], result.stderr
             failed_allocations += 1
     assert failed_allocations and successful_allocations, (failed_allocations, successful_allocations)
+
+
+run_parallel(('error-carried-closure-task', 'tail-owned-callable', 'handler-array-snapshot'),
+             verify_captured_allocations)
 
 uncaught = root / 'uncaught-unit.k'
 uncaught.write_text('''error InputError:
@@ -507,7 +519,8 @@ fn main() -> i64:
 }
 for old in ('int', 'uint', 'float', 'int32', 'uint32', 'float32', 'Bool'):
     rejected['old-' + old] = f'fn main() -> {old}:\n  return 0\n'
-for name, source in rejected.items():
+def run_rejected_case(item):
+    name, source = item
     path = root / (name + '.k')
     path.write_text(source, encoding='utf-8')
     result = subprocess.run([args.checker, str(path)], text=True, encoding='utf-8', capture_output=True, timeout=30)
@@ -522,4 +535,7 @@ for name, source in rejected.items():
         'unit-as-condition': 'S057',
     }[name])
     assert f'error[{expected_code}]' in result.stderr, (name, result.stderr)
+
+
+run_parallel(rejected.items(), run_rejected_case)
 print(f'{len(cases)} executable cases and {len(rejected)} rejected cases passed')

@@ -3,6 +3,8 @@ import argparse,json,subprocess,sys
 from OrdinaryPairChecks import pair_checks
 from pathlib import Path
 from OrdinaryTestEnvironment import configure, qualified_variants
+from ParallelTestRunner import run_parallel
+
 p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--pair-entry',action='store_true');p.add_argument('--direct-entry',action='store_true');p.add_argument('--exhaustive-entry',action='store_true');a=p.parse_args();a.pair_entry|=a.direct_entry;a.output.mkdir(parents=True,exist_ok=True)
 configure(a.clang)
 root=Path(__file__).resolve().parents[2];windows=sys.platform=='win32'
@@ -12,23 +14,8 @@ def run(args):
  return r.stdout
 variants=[('debug',[],['-O0'],'native-runtime'),('optimized',['-O2'],['-O2'],'task-core-optimized'),('sanitized',['-O2','--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),('thread-sanitized',['-O2','--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]
 variants=qualified_variants(variants,a.compiler)
-results=[]
-for mode,extra,flags,library in variants:
- if windows and mode=='thread-sanitized':continue
- for language,cpp in [('f32','float'),('f64','double')]:
-  for fixture in ('finite','scaled','affine','faulting','external','zero'):
-   name=mode+'-'+language+'-'+fixture;source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
-   scale='0' if fixture=='zero' else '0.5' if fixture=='affine' else '1.015625';initial=f'{language}(x)*{language}({0.015625 if fixture=="scaled" else 0.25})' if fixture in ('finite','scaled','affine','faulting') else 'x';parameter='i64' if fixture in ('finite','scaled','affine','faulting') else language;offset=f'{language}(x)*{language}({0.00390625 if fixture=="scaled" else 0.0625})' if fixture in ('scaled','affine') else f'{language}(0.25)'
-   source.write_text(f'fn iterate(x:{language},offset:{language},rounds:i64)->{language}:\n  return if rounds == 0:\n    x\n  else:\n    iterate(x*{language}({scale})+offset,offset,rounds-1)\nfn value(x:{parameter},rounds:i64)->{language}:\n  return iterate({initial},{offset},rounds)\nfn main()->{language}:\n  return {language}(0)\n')
-   if fixture=='faulting':
-    initial=f'{language}(x)*{language}(0.015625)'
-    source.write_text(f'fn iterate(value:{language},seed:i64,rounds:i64)->{language}:\n  return if rounds == 0:\n    value\n  else:\n    iterate(value*{language}(1.015625)+{language}(seed*9223372036854775807)*{language}(0.00390625),seed,rounds-1)\nfn value(x:i64,rounds:i64)->{language}:\n  return iterate({initial},x,rounds)\nfn main()->{language}:\n  return {language}(0)\n')
-   run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra]);assert '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text()
-   if mode=='optimized' and fixture!='faulting':
-    assert 'kalandra.ordinary.countdown' in ir.read_text()
-    if fixture!='faulting':assert ('kalandra.ordinary.scalar-ranges' in ir.read_text() or 'kalandra.ordinary.finite-cases' in ir.read_text())==(fixture in ('finite','scaled','affine','faulting')),name
-    if fixture in ('scaled','affine'):assert 'kalandra.ordinary.scalar-ranges' in ir.read_text(),name
-   text=r'''
+
+DRIVER_TEMPLATE=r'''
 #include "RUNTIME"
 #include "FAULT"
 #include <array>
@@ -80,11 +67,34 @@ int main(){
  std::printf("%u strict recurrence/countdown/fault cases passed\n",cases);
 }
 '''
-   text=text.replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp).replace('INPUT','std::int64_t' if fixture in ('finite','scaled','affine','faulting') else cpp).replace('FINITE','true' if fixture in ('finite','scaled','affine','faulting') else 'false').replace('INITIAL','0.015625' if fixture in ('scaled','faulting') else '0.25').replace('SCALED','true' if fixture in ('scaled','affine') else 'false').replace('OFFSET','0.0625' if fixture=='affine' else '0.00390625').replace('SCALE',scale).replace('EXHAUSTIVE','true' if a.exhaustive_entry else 'false').replace('CHECKED_INTEGER','true' if fixture=='faulting' else 'false')
-   if a.pair_entry:
-    assert '_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(' in ir.read_text(),name
-    text=text.replace('unsigned cases=0;',pair_checks('Input','I')+'\nunsigned cases=0;')
-    text=text.replace('auto expected=_mlir_ciface_kalandra_test_entry(input,rounds,&context);','auto expected=_mlir_ciface_kalandra_test_entry(input,rounds,&context);checkPair(input,rounds,expected,context);')
-   driver.write_text(text);runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'));host=['-fms-runtime-lib=static'] if windows else ['-pthread']
-   run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*(['-DSKIP_PAIR'] if windows else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe]);output=run([exe]);print(name,output.strip(),flush=True);results.append(dict(mode=mode,type=language,fixture=fixture,result=output.strip()))
+
+def run_task(task):
+ mode,extra,flags,library,language,cpp,fixture=task
+ name=mode+'-'+language+'-'+fixture;source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
+ scale='0' if fixture=='zero' else '0.5' if fixture=='affine' else '1.015625';initial=f'{language}(x)*{language}({0.015625 if fixture=="scaled" else 0.25})' if fixture in ('finite','scaled','affine','faulting') else 'x';parameter='i64' if fixture in ('finite','scaled','affine','faulting') else language;offset=f'{language}(x)*{language}({0.00390625 if fixture=="scaled" else 0.0625})' if fixture in ('scaled','affine') else f'{language}(0.25)'
+ source.write_text(f'fn iterate(x:{language},offset:{language},rounds:i64)->{language}:\n  return if rounds == 0:\n    x\n  else:\n    iterate(x*{language}({scale})+offset,offset,rounds-1)\nfn value(x:{parameter},rounds:i64)->{language}:\n  return iterate({initial},{offset},rounds)\nfn main()->{language}:\n  return {language}(0)\n')
+ if fixture=='faulting':
+  initial=f'{language}(x)*{language}(0.015625)'
+  source.write_text(f'fn iterate(value:{language},seed:i64,rounds:i64)->{language}:\n  return if rounds == 0:\n    value\n  else:\n    iterate(value*{language}(1.015625)+{language}(seed*9223372036854775807)*{language}(0.00390625),seed,rounds-1)\nfn value(x:i64,rounds:i64)->{language}:\n  return iterate({initial},x,rounds)\nfn main()->{language}:\n  return {language}(0)\n')
+ run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'--no-link',*extra])
+ ir_text=ir.read_text()
+ assert '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir_text
+ if mode=='optimized' and fixture!='faulting':
+  assert 'kalandra.ordinary.countdown' in ir_text
+  assert ('kalandra.ordinary.scalar-ranges' in ir_text or 'kalandra.ordinary.finite-cases' in ir_text)==(fixture in ('finite','scaled','affine','faulting')),name
+  if fixture in ('scaled','affine'):assert 'kalandra.ordinary.scalar-ranges' in ir_text,name
+ text=DRIVER_TEMPLATE.replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp).replace('INPUT','std::int64_t' if fixture in ('finite','scaled','affine','faulting') else cpp).replace('FINITE','true' if fixture in ('finite','scaled','affine','faulting') else 'false').replace('INITIAL','0.015625' if fixture in ('scaled','faulting') else '0.25').replace('SCALED','true' if fixture in ('scaled','affine') else 'false').replace('OFFSET','0.0625' if fixture=='affine' else '0.00390625').replace('SCALE',scale).replace('EXHAUSTIVE','true' if a.exhaustive_entry else 'false').replace('CHECKED_INTEGER','true' if fixture=='faulting' else 'false')
+ if a.pair_entry:
+  assert '_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(' in ir_text,name
+  text=text.replace('unsigned cases=0;',pair_checks('Input','I')+'\nunsigned cases=0;')
+  text=text.replace('auto expected=_mlir_ciface_kalandra_test_entry(input,rounds,&context);','auto expected=_mlir_ciface_kalandra_test_entry(input,rounds,&context);checkPair(input,rounds,expected,context);')
+ driver.write_text(text);runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'));host=['-fms-runtime-lib=static'] if windows else ['-pthread']
+ run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*(['-DSKIP_PAIR'] if windows else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe]);output=run([exe]);print(name,output.strip(),flush=True)
+ return dict(mode=mode,type=language,fixture=fixture,result=output.strip())
+
+tasks=[(mode,extra,flags,library,language,cpp,fixture)
+       for mode,extra,flags,library in variants if not (windows and mode=='thread-sanitized')
+       for language,cpp in [('f32','float'),('f64','double')]
+       for fixture in ('finite','scaled','affine','faulting','external','zero')]
+results=run_parallel(tasks, run_task)
 (a.output/'results.json').write_text(json.dumps(results,indent=2)+'\n')

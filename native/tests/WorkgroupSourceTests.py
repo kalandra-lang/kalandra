@@ -403,11 +403,14 @@ def main():
                 f"fn test() -> Tensor[{element}{dimensions}]:\n"
                 f"  return dispatch([{shape}], [{group}], fn(item: WorkItem) -> {element}:\n"
                 f"    return {element}(1)\n  )\n", None)
-    results = []
-    for name, (source, expected) in cases.items():
+    from ParallelTestRunner import run_parallel
+    checker_path = str(args.checker.resolve())
+
+    def check_case(item):
+        name, (source, expected) = item
         path = output / (name + ".k")
         path.write_text(source, encoding="utf-8")
-        run = subprocess.run([str(args.checker.resolve()), "--diagnostics=json", str(path)],
+        run = subprocess.run([checker_path, "--diagnostics=json", str(path)],
                              capture_output=True, text=True, timeout=60)
         try:
             report = json.loads(run.stdout)
@@ -420,7 +423,9 @@ def main():
             assert run.returncode == 1 and not report["ok"], (name, report, run.stderr)
             assert any(d["code"] == "S087" and expected in d["message"]
                        for d in report["diagnostics"]), (name, expected, report)
-        results.append({"case": name, "expectedDiagnostic": expected, "passed": True})
+        return {"case": name, "expectedDiagnostic": expected, "passed": True}
+
+    results = run_parallel(cases.items(), check_case)
     (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     print(f"Cooperative source admission: {len(results)} accepted/rejected cases passed")
 

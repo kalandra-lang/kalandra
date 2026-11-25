@@ -58,7 +58,7 @@ fixture = next((name for enabled, name in (
     (args.for_loop, 'IteratorForDispatch.k'),
 ) if enabled), 'IteratorTaskDispatch.k')
 run([args.compiler, root / fixture, *flags, '--test-entry', 'worker',
-     '--emit-llvm', ir, '-o', args.output / ('source.exe' if windows else 'source')], 'compile')
+     '--emit-llvm', ir, '--no-link'], 'compile')
 text = ir.read_text()
 layouts = set(re.findall(r'call i32 @kalandra_generator_next_task_v1\([^\n]*, ptr(?: nonnull)? @([\w.$]+), ptr', text))
 assert len(layouts) == 1, ('missing or ambiguous generated next layout', layouts)

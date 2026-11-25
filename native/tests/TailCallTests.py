@@ -125,7 +125,7 @@ def main():
                 ir = binary.with_suffix('.ll')
                 run([compiler, path, '--test-entry', entry, '--arithmetic', a.arithmetic,
                      '--emit-llvm', ir, flag,
-                     '-o', str(binary) + '-standalone'])
+                     *(['--no-link'] if version == 'current' else ['-o', str(binary) + '-standalone'])])
                 text = ir.read_text()
                 if version == 'current':
                     assert 'tail.unwind' not in text and 'kalandra_recursive_enter_' not in text

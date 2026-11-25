@@ -27,9 +27,12 @@ from "std/io" import println, IoError
 from "std/fmt" import format
 '''
 
-def run(name, source, expected, arguments=(), fault=False):
-    if a.case and name not in a.case:
-        return
+from ParallelTestRunner import run_parallel
+
+queued_runs = []
+
+def execute_run(spec):
+    name, source, expected, arguments, fault = spec
     directory = a.output / name
     directory.mkdir(parents=True, exist_ok=True)
     if a.target != 'cpu':
@@ -72,7 +75,14 @@ def run(name, source, expected, arguments=(), fault=False):
         else:
             assert result.returncode == 0 and result.stdout == expected.encode() and not stderr, (
                 name, workers, result.returncode, result.stdout, stderr)
+    if name == 'owned-file':
+        assert (directory / 'owned.txt').read_bytes() == b'complete\n'
     print('PASS:', name, flush=True)
+
+def run(name, source, expected, arguments=(), fault=False):
+    if a.case and name not in a.case:
+        return
+    queued_runs.append((name, source, expected, arguments, fault))
 
 run('deep-and-mutual', '''fn descend(n:i64)->i64 ! TimeError:
   if n==0:
@@ -138,8 +148,6 @@ fn main(args:[String])->unit ! (FsError | TimeError | IoError | TaskError):
   try println("owned")
   return ()
 ''', 'owned\n', ('owned.txt',))
-if not a.compile_only and (not a.case or 'owned-file' in a.case):
-    assert (a.output / 'owned-file' / 'owned.txt').read_bytes() == b'complete\n'
 
 run('repeated-results', '''fn descend(n:i64)->[i64] ! TimeError:
   if n==0:
@@ -340,3 +348,9 @@ fn main()->unit ! (TimeError | IoError | TaskError):
   try println(format("{}",result))
   return ()
 '''.replace('PLACEMENT', placement), '42\n')
+
+if a.target == 'cpu':
+    run_parallel(queued_runs, execute_run)
+else:
+    for spec in queued_runs:
+        execute_run(spec)

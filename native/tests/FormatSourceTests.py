@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import subprocess
 
+from ParallelTestRunner import run_parallel
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--compiler', type=Path, required=True)
 parser.add_argument('--output', type=Path, required=True)
@@ -194,27 +196,55 @@ rendered = ','.join(f'Display[{ty}].display(a{i})' for i,(ty,_) in enumerate(pri
 cases['display-primitives'] = ('from "std/fmt" import Display\nfn main()->String:\n'+declarations+
                                '  return format("'+'|'.join(['{}']*12)+'",'+rendered+')\n',
                                cases['all-types'][1])
-results=[]
-for name,(source,expected) in cases.items():
-    folder=a.output/name
-    folder.mkdir(exist_ok=True)
-    path=folder/'main.k'
-    path.write_text(source if name=='ordinary-format' else prelude+source, encoding='utf-8')
-    if name=='reexport':
-        (folder/'helper.k').write_text('export from "std/fmt" import format as fmt\n', encoding='utf-8')
-    output=folder/('program.exe' if os.name=='nt' else 'program')
-    command=[a.compiler,path,'--test-entry','main',*flags,'-o',output]
-    built=subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=180, encoding='utf-8')
-    (folder/'build.log').write_text(built.stdout+built.stderr, encoding='utf-8')
-    assert built.returncode==0,(name,built.stdout,built.stderr)
-    for workers in ((1,4) if name=='cpu-task' else (1,)):
-        run=subprocess.run([output],capture_output=True,text=True,encoding='utf-8',timeout=30,
-                           env=dict(os.environ,KALANDRA_WORKERS=str(workers)))
-        record={'case':name,'workers':workers,'compiled':True,'status':run.returncode,'stdout':run.stdout,'stderr':run.stderr}
-        results.append(record)
-        (a.output/'results.json').write_text(json.dumps(results,indent=2)+'\n', encoding='utf-8')
-        assert run.returncode==0 and not run.stderr and run.stdout==expected,(name,record,expected)
-        print('PASS:',name,workers,flush=True)
+
+def build_format_batch(batch_name, batch_items, has_tasks):
+    batch_dir = a.output / batch_name
+    batch_dir.mkdir(exist_ok=True)
+    (batch_dir / 'helper.k').write_text('export from "std/fmt" import format as fmt\n', encoding='utf-8')
+    effect = '(IoError | TaskError)' if has_tasks else 'IoError'
+    imports_lines = ['from "std/io" import println, IoError', 'from "std/fmt" import format']
+    dispatch_lines = [f'fn main(args:[String])->unit ! {effect}:']
+    for index, (name, (source, _)) in enumerate(batch_items):
+        module_text = source if name == 'ordinary-format' else prelude + source
+        assert 'fn main()->' in module_text, name
+        module_text = module_text.replace('fn main()->', 'export fn run_case()->', 1)
+        (batch_dir / f'case_{index}.k').write_text(module_text, encoding='utf-8')
+        imports_lines.append(f'from "./case_{index}.k" import run_case as run_{index}')
+        call_expr = f'try run_{index}()' if has_tasks else f'run_{index}()'
+        printed = f'format("{{}}", {call_expr})' if name == 'large-precision' else call_expr
+        dispatch_lines.append(f'  if args[0] == "{name}":\n    try println({printed})\n    return ()')
+    dispatch_lines.append('  return ()\n')
+    batch_main = batch_dir / 'main.k'
+    batch_main.write_text('\n'.join(imports_lines) + '\n' + '\n'.join(dispatch_lines), encoding='utf-8')
+    batch_exe = batch_dir / ('program.exe' if os.name == 'nt' else 'program')
+    built = subprocess.run(list(map(str, [a.compiler, batch_main, *flags, '-o', batch_exe])),
+                           capture_output=True, text=True, timeout=180, encoding='utf-8')
+    (batch_dir / 'build.log').write_text(built.stdout + built.stderr, encoding='utf-8')
+    assert built.returncode == 0, (batch_name, built.stdout, built.stderr)
+    return batch_exe
+
+seq_items = [(k, v) for k, v in cases.items() if '->String ! TaskError:' not in v[0]]
+task_items = [(k, v) for k, v in cases.items() if '->String ! TaskError:' in v[0]]
+batch_exes = dict(run_parallel(
+    [('seq-batch', seq_items, False), ('task-batch', task_items, True)],
+    lambda b: (b[0], build_format_batch(*b)),
+))
+
+def run_positive(item):
+    name, (source, expected) = item
+    exe = batch_exes['task-batch' if '->String ! TaskError:' in source else 'seq-batch']
+    chunk = []
+    for workers in ((1, 4) if name == 'cpu-task' else (1,)):
+        run = subprocess.run([exe, name], capture_output=True, text=True, encoding='utf-8', timeout=30,
+                             env=dict(os.environ, KALANDRA_WORKERS=str(workers)))
+        record = {'case': name, 'workers': workers, 'compiled': True, 'status': run.returncode, 'stdout': run.stdout, 'stderr': run.stderr}
+        assert run.returncode == 0 and not run.stderr and run.stdout == expected, (name, record, expected)
+        print('PASS:', name, workers, flush=True)
+        chunk.append(record)
+    return chunk
+
+results = [rec for chunk in run_parallel(cases.items(), run_positive) for rec in chunk]
+(a.output / 'results.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
 
 if a.variant=='debug':
     negatives={
@@ -320,7 +350,8 @@ fn main()->String:
   return format("{}",Item {values:values})
 ''','S077'),
     })
-    for name,(source,code) in negatives.items():
+    def check_negative(item):
+        name,(source,code)=item
         folder=a.output/('reject-'+name)
         folder.mkdir(exist_ok=True)
         path=folder/'main.k'
@@ -330,14 +361,14 @@ fn main()->String:
         (folder/'diagnostic.log').write_text(result.stdout+result.stderr, encoding='utf-8')
         assert result.returncode and f'[{code}]' in result.stderr and not output.exists(),(name,result)
         print('PASS: rejected',name,code,flush=True)
+    run_parallel(negatives.items(), check_negative)
 
 if a.clang and a.runtime:
     folder=a.output/'generated-failure';folder.mkdir(exist_ok=True)
     path=folder/'main.k'
     path.write_text(prelude+'fn probe(divisor:i64)->String:\n  return format("{} {}",1,100/divisor)\nfn main()->String:\n  return probe(2)\n', encoding='utf-8')
     llvm=folder/'program.ll'
-    exe=folder/('program.exe' if os.name=='nt' else 'program')
-    result=subprocess.run(list(map(str,[a.compiler,path,'--test-entry','probe','--emit-llvm',llvm,*flags,'-o',exe])),capture_output=True,timeout=180)
+    result=subprocess.run(list(map(str,[a.compiler,path,'--test-entry','probe','--emit-llvm',llvm,*flags,'--no-link'])),capture_output=True,timeout=180)
     assert result.returncode==0,result
     native_flags={'debug':['-O0'],'optimized':['-O2'],'sanitized':['-O1','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'thread-sanitized':['-O1','-fsanitize=thread']}[a.variant]
     driver=folder/('driver.exe' if os.name=='nt' else 'driver')

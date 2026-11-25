@@ -2,6 +2,8 @@
 import argparse,json,os,subprocess,sys
 from pathlib import Path
 from OrdinaryTestEnvironment import configure, qualified_variants
+from ParallelTestRunner import run_parallel
+
 p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--direct-entry',action='store_true');a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True);root=Path(__file__).resolve().parents[2];windows=sys.platform=='win32'
 configure(a.clang)
 def run(cmd,env=None):
@@ -47,6 +49,7 @@ extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_v1(I,I,kalandra::run
 extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(I,I);
 #endif
 std::uint64_t cases=0;
+int fixture_kind=0;
 void test(I seed,I rounds,bool independent) {
  using namespace kalandra::runtime;
  Invocation context;
@@ -64,22 +67,24 @@ void test(I seed,I rounds,bool independent) {
 #endif
  if(independent && !failed) {
   I expected=0;
-  if(FIXTURE>=10) {
-   std::array<I,128> values{};for(I i=0;i<FIXTURE-10;++i)values[i]=seed+i;
-   for(I n=0;n<rounds;++n)for(I i=0;i<FIXTURE-10;++i)values[i]=(values[i]*13+7)%1000003;
-   for(I i=0;i<FIXTURE-10;++i)expected+=values[i];
-  } else if(FIXTURE==0) {
+  if(fixture_kind>=10) {
+   std::array<I,128> values{};for(I i=0;i<fixture_kind-10;++i)values[i]=seed+i;
+   for(I n=0;n<rounds;++n)for(I i=0;i<fixture_kind-10;++i)values[i]=(values[i]*13+7)%1000003;
+   for(I i=0;i<fixture_kind-10;++i)expected+=values[i];
+  } else if(fixture_kind==0) {
    std::array<I,8> values{};for(I i=0;i<8;++i)values[i]=seed+i;
    for(I n=0;n<rounds;++n)for(auto &x:values)x=(x*13+7)%1000003;
    for(auto x:values)expected+=x;
-  } else if(FIXTURE==1)expected=16*seed+24+rounds;
-  else if(FIXTURE==2)expected=10*seed+45+rounds;
+  } else if(fixture_kind==1)expected=16*seed+24+rounds;
+  else if(fixture_kind==2)expected=10*seed+45+rounds;
   else {expected=seed;for(I i=0;i<rounds;++i)expected=(expected*13+seed+7)%1000003;}
   if(value!=double(expected))std::abort();
  }
  context.settle();if(context.live() || context.allocations()!=context.releases())std::abort();++cases;
 }
-int main(){
+int main(int argc,char **argv){
+ if(argc!=2)std::abort();
+ fixture_kind=std::atoi(argv[1]);
  for(I seed:std::array<I,9>{-31,-1,0,1,17,31,65535,65536,1000004})
   for(I rounds:std::array<I,6>{0,1,2,16,64,257})test(seed,rounds,true);
  for(I seed:std::array<I,4>{std::numeric_limits<I>::min(),std::numeric_limits<I>::max(),std::numeric_limits<I>::max()/13,std::numeric_limits<I>::min()/13})
@@ -88,18 +93,37 @@ int main(){
 }
 '''
 driver=driver.replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h'))
+driver_cpp=a.output/'driver.cpp'
+driver_cpp.write_text(driver)
 variants=[('debug',[],['-O0'],'native-runtime'),('optimized',['-O2'],['-O2'],'task-core-optimized'),('sanitized',['-O2','--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),('thread-sanitized',['-O2','--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]
-variants=qualified_variants(variants,a.compiler)
-results=[]
-for mode,extra,flags,library in variants:
- if windows and mode=='thread-sanitized':continue
- for name,(text,entry,kind) in fixtures.items():
-  stem=mode+'-'+name;src=a.output/(stem+'.k');ir=a.output/(stem+'.ll');cpp=a.output/(stem+'.cpp');exe=a.output/(stem+('.exe' if windows else ''));src.write_text(text)
-  run([a.compiler,src,'--test-entry',entry,'--emit-llvm',ir,'-o',a.output/(stem+'-standalone'),*extra]);assert '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text(),stem
-  if a.direct_entry:assert '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir.read_text(),stem
-  cpp.write_text(driver.replace('FIXTURE',str(kind)))
-  runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'))
-  run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*flags,'-ffp-contract=off','-Wno-override-module',*(['-fms-runtime-lib=static'] if windows else ['-pthread']),cpp,ir,runtime,'-o',exe])
-  for fail in (0,1,2,3,4,5,7,20):
-   env=dict(os.environ,KALANDRA_TEST_FAIL_ALLOC_AT=str(fail));out=run([exe],env);print(mode,name,fail,out.strip(),flush=True);results.append(dict(mode=mode,fixture=name,allocation_failure=fail,result=out.strip()))
+variants=[v for v in qualified_variants(variants,a.compiler) if not (windows and v[0]=='thread-sanitized')]
+host_flags=['-fms-runtime-lib=static'] if windows else ['-pthread']
+obj_ext='.obj' if windows else '.o'
+
+def compile_driver(v):
+ mode,_,flags,_=v
+ obj=a.output/(f'driver-{mode}{obj_ext}')
+ run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*flags,'-ffp-contract=off',*host_flags,'-c',driver_cpp,'-o',obj])
+ return mode,obj
+
+driver_objs=dict(run_parallel(variants, compile_driver))
+
+def run_fixture(task):
+ mode,extra,flags,library,name,text,entry,kind=task
+ stem=mode+'-'+name;src=a.output/(stem+'.k');ir=a.output/(stem+'.ll');exe=a.output/(stem+('.exe' if windows else ''));src.write_text(text)
+ run([a.compiler,src,'--test-entry',entry,'--emit-llvm',ir,'--no-link',*extra])
+ ir_text=ir.read_text()
+ assert '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir_text,stem
+ if a.direct_entry:assert '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir_text,stem
+ runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'))
+ run([a.clang,*flags,'-ffp-contract=off','-Wno-override-module',*host_flags,driver_objs[mode],ir,runtime,'-o',exe])
+ chunk=[]
+ for fail in (0,1,2,3,4,5,7,20):
+  env=dict(os.environ,KALANDRA_TEST_FAIL_ALLOC_AT=str(fail));out=run([exe,str(kind)],env);print(mode,name,fail,out.strip(),flush=True);chunk.append(dict(mode=mode,fixture=name,allocation_failure=fail,result=out.strip()))
+ return chunk
+
+tasks=[(mode,extra,flags,library,name,text,entry,kind)
+       for mode,extra,flags,library in variants
+       for name,(text,entry,kind) in fixtures.items()]
+results=[record for chunk in run_parallel(tasks, run_fixture) for record in chunk]
 (a.output/'results.json').write_text(json.dumps(results,indent=2)+'\n')

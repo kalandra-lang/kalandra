@@ -43,7 +43,7 @@ def main():
             ir = binary.with_suffix('.ll')
             policy = 'hardware-with-software-fallback' if variant == 'sanitized' else 'hardware'
             run([a.compiler, path, '--test-entry', 'convert', '--arithmetic', policy, flag,
-                 '--emit-llvm', ir, '-o', str(binary) + '-standalone'])
+                 '--emit-llvm', ir, '--no-link'])
             text = '\n'.join(line for line in ir.read_text().splitlines()
                              if not line.startswith('target datalayout'))
             operation = 'fpext' if source == 'f32' else 'uitofp' if source.startswith('u') else 'sitofp'
@@ -64,7 +64,7 @@ def main():
                 binary = a.output / name
                 ir = binary.with_suffix('.ll')
                 run([a.compiler, path, '--test-entry', 'convert', flag, '--emit-llvm', ir,
-                     '-o', str(binary) + '-standalone'])
+                     '--no-link'])
                 run([a.clang, '-std=c++23', '-Wno-override-module', '-ffp-contract=off', '-pthread',
                      *flags, '-DTOTAL_HARDWARE_CAST', f'-DSOURCE_TYPE={types.index(source)}',
                      f'-DDESTINATION_TYPE={types.index(destination)}', f'-DTENSOR_RANK={rank}',

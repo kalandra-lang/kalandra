@@ -4,6 +4,9 @@ import os
 from pathlib import Path
 import subprocess
 
+from IteratorFusionCodegen import assert_fused_entry
+from ParallelTestRunner import run_parallel
+
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument("--compiler", type=Path, required=True)
 p.add_argument("--clang", type=Path, required=True)
@@ -28,14 +31,54 @@ native_flags = {
     "sanitized": ["-O1", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"],
     "thread-sanitized": ["-O1", "-fsanitize=thread"],
 }[args.variant]
+host_flags = ["-fms-runtime-lib=static"] if os.name == "nt" else ["-pthread"]
+environment = dict(os.environ)
+if os.name == "nt":
+    resources = list(
+        args.clang.resolve().parent.parent.glob("lib/clang/*/lib/windows")
+    )
+    environment["PATH"] = (
+        os.pathsep.join(map(str, resources))
+        + os.pathsep
+        + environment.get("PATH", "")
+    )
 
-for mode, creation in {
+driver_obj = args.output / (
+    "driver.obj" if os.name == "nt" else "driver.o"
+)
+driver_res = subprocess.run(
+    list(
+        map(
+            str,
+            [
+                args.clang,
+                "-std=c++23",
+                *native_flags,
+                *host_flags,
+                "-c",
+                Path(__file__).with_name("IteratorFusionCancellationDriver.cpp"),
+                "-o",
+                driver_obj,
+            ],
+        )
+    ),
+    capture_output=True,
+    timeout=60,
+    env=environment,
+)
+assert driver_res.returncode == 0, (driver_res.stdout, driver_res.stderr)
+
+MODES = {
     "source": "while true:\n    yield 1\n",
     "adapters": "mapped(filter(iter(steps(9223372036854775807)),fn(x:i64)->bool:return x%2==0),fn(x:i64)->i64:return x%97)\n",
     "region": "for i in range(9223372036854775807):\n    yield i%97\n",
     "control-source": "while true:\n    yield 1\n",
     "direct-factory": "",
-}.items():
+}
+
+
+def execute_mode(item):
+    mode, creation = item
     directory = args.output / mode
     directory.mkdir(exist_ok=True)
     source, ir, binary = (
@@ -76,16 +119,14 @@ for mode, creation in {
             "run",
             "--emit-llvm",
             ir,
-            "-o",
-            directory / "standalone.exe",
+            "--no-link",
         ],
         [
             args.clang,
-            "-std=c++23",
             *native_flags,
-            "-pthread",
+            *host_flags,
             "-Wno-override-module",
-            Path(__file__).with_name("IteratorFusionCancellationDriver.cpp"),
+            driver_obj,
             ir,
             args.runtime,
             "-o",
@@ -93,16 +134,6 @@ for mode, creation in {
         ],
         [binary],
     ]
-    environment = dict(os.environ)
-    if os.name == "nt":
-        resources = list(
-            args.clang.resolve().parent.parent.glob("lib/clang/*/lib/windows")
-        )
-        environment["PATH"] = (
-            os.pathsep.join(map(str, resources))
-            + os.pathsep
-            + environment.get("PATH", "")
-        )
     for index, command in enumerate(commands):
         result = subprocess.run(
             list(map(str, command)), capture_output=True, timeout=60, env=environment
@@ -116,7 +147,8 @@ for mode, creation in {
             result.stderr,
         )
         if index == 0:
-            from IteratorFusionCodegen import assert_fused_entry
-
             assert_fused_entry(ir.read_text(), mode)
-    print("PASS", mode, args.variant)
+    print("PASS", mode, args.variant, flush=True)
+
+
+run_parallel(MODES.items(), execute_mode)

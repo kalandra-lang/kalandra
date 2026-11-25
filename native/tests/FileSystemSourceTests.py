@@ -37,9 +37,12 @@ def build(name, source, diagnostic=None):
     assert result.returncode == 0, (name,result)
     return executable if a.target == 'cpu' else output/executable.name
 
-def run(name, source, expected, contents=None):
-    if a.cases and name not in a.cases:
-        return
+from ParallelTestRunner import run_parallel
+
+queued_runs = []
+
+def execute_run(spec):
+    name, source, expected, contents = spec
     if a.target != 'cpu':
         source = source.replace('! (FsError | IoError):', '! (FsError | IoError | TaskError):')
         source = re.sub(r'(fn main\(args:\[String\]\)->unit ! [^\n]+:\n)', r'\1  answer=try parallel:\n    gpu=devices.gpu()\n    try await spawn double(21) on gpu\n  try println(format("{}",answer))\n', source)
@@ -64,6 +67,11 @@ def run(name, source, expected, contents=None):
         assert result.returncode == 0 and result.stdout == expected and not stderr,(name,workers,result)
         if contents is not None: assert data.read_bytes() == contents,(name,data.read_bytes())
     print('PASS: executed',name,flush=True)
+
+def run(name, source, expected, contents=None):
+    if a.cases and name not in a.cases:
+        return
+    queued_runs.append((name, source, expected, contents))
 
 if not a.cases or 'recursive-directories' in a.cases:
     from RecursiveFilesystemTests import exercise
@@ -338,6 +346,12 @@ fn main(args:[String])->unit ! (FsError | IoError | TaskError):
   return ()
 ''',b'',b'A')
 
+if a.target == 'cpu':
+    run_parallel(queued_runs, execute_run)
+else:
+    for spec in queued_runs:
+        execute_run(spec)
+
 if a.target=='cpu':
     negatives = {
         'move':('fn main()->unit ! FsError:\n  f=try open("x",OpenMode.Read)\n  other=f\n  try close(f)\n  return ()\n','was moved'),
@@ -377,4 +391,4 @@ fn main()->unit:
   return ()
 ''', "can't move a borrowed"),
     })
-    for name,(source,diagnostic) in negatives.items(): build(name,source,diagnostic)
+    run_parallel(negatives.items(), lambda item: build(item[0], item[1][0], item[1][1]))

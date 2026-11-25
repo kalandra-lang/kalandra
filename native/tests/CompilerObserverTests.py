@@ -17,6 +17,13 @@ for flags in ([],['--test-entry','total']):
     assert result.returncode==0 and not result.stderr,result
     result=subprocess.run([exe],capture_output=True,timeout=15)
     assert result.returncode==0 and not result.stderr and result.stdout.replace(b'\r\n',b'\n')==b'42\n',result
+ir_only=a.output/'ir-only.ll'
+result=subprocess.run(list(map(str,[a.observer,path,'--no-link','--emit-llvm',ir_only])),capture_output=True,timeout=60)
+assert result.returncode==0 and not result.stderr and ir_only.is_file() and b'_mlir_ciface_kalandra_test_entry' in ir_only.read_bytes(),result
+missing_out=subprocess.run(list(map(str,[a.compiler,path])),capture_output=True,timeout=30)
+assert missing_out.returncode==2 and b'missing -o executable' in missing_out.stderr,missing_out
+bad_no_link=subprocess.run(list(map(str,[a.compiler,path,'--no-link'])),capture_output=True,timeout=30)
+assert bad_no_link.returncode==2 and b'--no-link requires' in bad_no_link.stderr,bad_no_link
 version=subprocess.run([a.compiler,'--version'],capture_output=True,timeout=15)
 observed=subprocess.run([a.observer,'--version'],capture_output=True,timeout=15)
 assert version.returncode==observed.returncode==0 and version.stdout==observed.stdout and not observed.stderr
