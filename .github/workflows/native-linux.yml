@@ -43,8 +43,6 @@ jobs:
     timeout-minutes: 60
     env:
       ZERO_AR_DATE: "1"
-      CCACHE_DIR: ${{ runner.temp }}/ccache
-      CCACHE_MAXSIZE: 1G
     steps:
       - uses: actions/checkout@v4
       - name: Reserve disk space for the LLVM SDK
@@ -91,6 +89,8 @@ jobs:
         run: |
           launcher=()
           if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}" != "true" ]; then
+            export CCACHE_DIR="$RUNNER_TEMP/ccache" CCACHE_MAXSIZE=1G
+            printf 'CCACHE_DIR=%s\nCCACHE_MAXSIZE=1G\n' "$CCACHE_DIR" >> "$GITHUB_ENV"
             launcher=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
           fi
           cmake -S . -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \

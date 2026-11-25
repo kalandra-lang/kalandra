@@ -39,9 +39,6 @@ jobs:
         include: ${{ (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci')) && fromJSON('[{"runner":"windows-2025","arch":"x86_64","msvc":"x64","artifact":"native-windows-assets"}]') || fromJSON('[{"runner":"windows-2025","arch":"x86_64","msvc":"x64","artifact":"native-windows-assets"},{"runner":"windows-11-arm","arch":"arm64","msvc":"arm64","artifact":"native-windows-arm64-assets"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
-    env:
-      CCACHE_DIR: ${{ runner.temp }}/ccache
-      CCACHE_MAXSIZE: 1G
     outputs:
       archive-ready: ${{ steps.archive.outputs.artifact-id != '' }}
     steps:
@@ -94,6 +91,10 @@ jobs:
               choco install ccache -y --no-progress
               if ($LASTEXITCODE -ne 0) { throw 'ccache installation failed' }
             }
+            $env:CCACHE_DIR = "$env:RUNNER_TEMP/ccache"
+            $env:CCACHE_MAXSIZE = '1G'
+            "CCACHE_DIR=$env:CCACHE_DIR" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            'CCACHE_MAXSIZE=1G' | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
             $launcher = @('-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache')
           }
           cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release `
