@@ -451,6 +451,12 @@
   "release-notes": [
     {
       "kind": "cpu",
+      "expected": "8"
+    }
+  ],
+  "release-0-99-3": [
+    {
+      "kind": "cpu",
       "expected": "20"
     }
   ],

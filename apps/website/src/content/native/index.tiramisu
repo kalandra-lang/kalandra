@@ -20,9 +20,10 @@ Return here when you need an exact rule or a function signature. The language re
 list {
   link { url = "/docs/language-reference", "Language reference — types, expressions, mutation and execution" },
   link { url = "/docs/library", "Built-in functions — alphabetical index" },
-  link { url = "/docs/filesystem", "Files — owned handles and buffered byte/text I/O" },
+  link { url = "/docs/gpu-kernels", "std/gpu — cooperative dispatch, workgroups and shared scratch" },
+  link { url = "/docs/filesystem", "Files — owned handles, trees, watching and buffered I/O" },
   link { url = "/docs/options", "std/option — present and absent values" },
-  link { url = "/docs/iteration", "std/iter — reusable integer ranges" },
+  link { url = "/docs/iteration", "std/iter — reusable integer ranges and cursors" },
   link { url = "/docs/subprocesses", "std/process — launch programs, pipe bytes and wait for exit" },
   link { url = "/docs/networking", "std/net — TCP connections, listeners and split streams" },
   link { url = "/docs/streams", "std/stream — copy bytes between readers and writers" },
@@ -58,7 +59,7 @@ list {
   link { url = "/docs/packages", "Install and update source dependencies" },
   link { url = "/docs/cross-compilation", "Build for another operating system or CPU architecture" },
   link { url = "/docs/troubleshooting", "Resolve common errors and setup problems" },
-  link { url = "/docs/release-notes", "Release notes — what changed in Kalandra 0.99.3" }
+  link { url = "/docs/release-notes", "Release notes — what changed in Kalandra 0.99.4" }
 }
 
 h2 { "A first program" }

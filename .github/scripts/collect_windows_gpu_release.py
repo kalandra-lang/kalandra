@@ -18,7 +18,7 @@ def collect(runtime_archive, destination, architecture, rehearsal=False):
     run, artifact = qualified_artifact(repository, commit, rehearsal,
                                        platform='windows-'+architecture)
     names = {backend: f'kalandra-native-{backend}-standalone-windows-{architecture}.tar.gz'
-             for backend in ('cuda', 'vulkan')}
+             for backend in ('cuda', 'vulkan', 'gpu')}
     receipts = []
     with tempfile.TemporaryDirectory(prefix='windows gpu release ') as folder:
         root = Path(folder)
@@ -37,10 +37,10 @@ def collect(runtime_archive, destination, architecture, rehearsal=False):
                     if path.name in {*names.values(), *(name+'.sha256' for name in names.values())}:
                         output = path.name
                         maximum = 1024 if output.endswith('.sha256') else 2*1024**3
-                    elif path.name == 'qualification.json' and path.parent.name in ('installed-cuda', 'installed-vulkan'):
+                    elif path.name == 'qualification.json' and path.parent.name in ('installed-cuda', 'installed-vulkan', 'installed-gpu'):
                         output = path.parent.name+'.json'
                         maximum = 65536
-                    elif (path.parts[0] in ('installed-cuda', 'installed-vulkan') and
+                    elif (path.parts[0] in ('installed-cuda', 'installed-vulkan', 'installed-gpu') and
                           ((len(path.parts) == 2 and path.name == 'compile-jobs.json') or
                            (len(path.parts) == 3 and path.parts[1] == 'compile-logs' and path.suffix == '.log'))):
                         # Hosted qualification retains diagnostics alongside the
@@ -56,7 +56,7 @@ def collect(runtime_archive, destination, architecture, rehearsal=False):
                     with package.open(member) as source, (root/output).open('xb') as target:
                         shutil.copyfileobj(source, target)
         expected = {*names.values(), *(name+'.sha256' for name in names.values()),
-                    'installed-cuda.json', 'installed-vulkan.json'}
+                    'installed-cuda.json', 'installed-vulkan.json', 'installed-gpu.json'}
         if seen != expected:
             raise RuntimeError('Incomplete Windows GPU artifact')
         for backend, name in names.items():
@@ -64,12 +64,13 @@ def collect(runtime_archive, destination, architecture, rehearsal=False):
             if (root/(name+'.sha256')).read_text().split() != [digest(archive), name]:
                 raise RuntimeError('Windows GPU artifact checksum mismatch')
             report = json.loads((root/f'installed-{backend}.json').read_text())
+            expected_builds = 51 if backend == 'cuda' else (15 if backend == 'vulkan' else 3)
             if (report.get('backend') != backend or report.get('architecture') != architecture or
                     report.get('archiveSHA256') != digest(archive) or
                     report.get('installedCompiler') is not True or report.get('cpuExecution') is not True or
                     report.get('gpuExecution') is not False or report.get('performanceQualified') is not False or
                     report.get('bundledTargets') is not False or
-                    report.get('gpuSourceBuilds') != (51 if backend == 'cuda' else 15)):
+                    report.get('gpuSourceBuilds') != expected_builds):
                 raise RuntimeError('Windows GPU qualification report mismatch')
         for backend, name in names.items():
             first, repeated = root/('first-'+backend), root/('repeated-'+backend)

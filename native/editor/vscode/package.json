@@ -2,7 +2,7 @@
   "name": "kalandra-native",
   "displayName": "Kalandra Native",
   "description": "Native Kalandra language support for .k files.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "publisher": "kalandra-lang",
   "license": "Apache-2.0",

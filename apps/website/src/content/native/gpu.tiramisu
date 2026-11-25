@@ -60,7 +60,7 @@ The output is an application directory containing program and its metallib resou
 
 h2 { "Ship one application for CUDA and Vulkan" }
 
-For Linux or Windows, use a compiler built with both backends. A single build produces one application directory for the build machine’s operating system and CPU architecture. When building the compiler from source, enable both backend runtimes and the CUDA source compiler. The CMake target native-gpu-standalone-package produces the combined compiler package. Choose a new application output directory and distribute its entire contents together.
+For Linux or Windows, choose the combined GPU compiler archive (kalandra-native-gpu-standalone-linux-x86_64.tar.gz, or the experimental Windows x86_64 or arm64 equivalents) from GitHub Releases, or build native-gpu-standalone-package from source with both backend runtimes and the CUDA source compiler enabled. A single build produces one application directory for the build machine’s operating system and CPU architecture. Choose a new application output directory and distribute its entire contents together.
 
 codeblock { language = bash, """kalandra main.k --target cuda,vulkan -O2 -o app
 ./app/program

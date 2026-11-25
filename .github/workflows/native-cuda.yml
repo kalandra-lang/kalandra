@@ -130,16 +130,21 @@ jobs:
         run: python3 native/cuda-source/qualification/command.py --compiler build/cuda/native/kalandra-test-observer
       - name: Qualify relocated package and missing-resource guards
         if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
-        run: >-
-          python3 native/cuda-source/qualification/installed.py
-          --archive build/cuda/native-cuda-standalone/kalandra-native-cuda-standalone-linux-x86_64.tar.gz
-          --root build/cuda-installed
+        run: |
+          python3 native/cuda-source/qualification/installed.py \
+            --archive build/cuda/native-cuda-standalone/kalandra-native-cuda-standalone-linux-x86_64.tar.gz \
+            --root build/cuda-installed
+          python3 native/gpu-bundle/installed.py \
+            --archive build/cuda/native-gpu-standalone/kalandra-native-gpu-standalone-linux-x86_64.tar.gz \
+            --root build/gpu-installed
       - name: Verify reproducible archive from the frozen build
         if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
         run: |
           cp build/cuda/native-cuda-standalone/*.tar.gz.sha256 "$RUNNER_TEMP/cuda-first.sha256"
-          cmake --build build/cuda --parallel 4 --target native-cuda-standalone-package
+          cp build/cuda/native-gpu-standalone/*.tar.gz.sha256 "$RUNNER_TEMP/gpu-first.sha256"
+          cmake --build build/cuda --parallel 4 --target native-cuda-standalone-package native-gpu-standalone-package
           cmp "$RUNNER_TEMP/cuda-first.sha256" build/cuda/native-cuda-standalone/*.tar.gz.sha256
+          cmp "$RUNNER_TEMP/gpu-first.sha256" build/cuda/native-gpu-standalone/*.tar.gz.sha256
       # Hosted machines have no qualified GPU. Execute these exact downloaded
       # archives on physical hardware separately; never call a CPU substitute CUDA.
       - uses: actions/upload-artifact@v4
@@ -147,6 +152,13 @@ jobs:
         with:
           name: native-cuda-package-linux-x86_64
           path: build/cuda/native-cuda-standalone/*.tar.gz*
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
+        with:
+          name: native-gpu-package-linux-x86_64
+          path: build/cuda/native-gpu-standalone/*.tar.gz*
           if-no-files-found: error
           retention-days: 7
       - name: Preserve an explicitly unqualified archive for failure diagnosis

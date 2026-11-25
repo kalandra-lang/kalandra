@@ -7,8 +7,8 @@ h2 { "Choose a package" }
 table {
   row = ["Build computer", "CPU architectures", "GPU packages", "System baseline"],
   row = ["macOS", "ARM64 (Apple silicon)", "Metal", "macOS 26 or newer"],
-  row = ["Linux", "x86-64 and ARM64", "CUDA or Vulkan on x86-64", "glibc 2.39 or newer; Ubuntu 24.04 baseline"],
-  row = ["Windows", "x86-64 and ARM64", "CUDA or Vulkan (experimental)", "Windows 11"]
+  row = ["Linux", "x86-64 and ARM64", "Combined CUDA+Vulkan, CUDA, or Vulkan on x86-64", "glibc 2.39 or newer; Ubuntu 24.04 baseline"],
+  row = ["Windows", "x86-64 and ARM64", "Combined CUDA+Vulkan, CUDA, or Vulkan (experimental)", "Windows 11"]
 }
 
 Download packages from GitHub Releases, in the release's Assets section. The GPU backend is part of the package: passing --target cuda to a CPU-only compiler does not add CUDA support. An editor-only package provides checking, formatting and the language server, but cannot compile applications.
@@ -27,7 +27,7 @@ list {
   code { "kalandra-native-cpu-standalone-windows-arm64.tar.gz" }
 }
 
-CUDA and Vulkan archives replace cpu in the name with cuda or vulkan. Linux GPU archives target x86-64; experimental Windows GPU archives are available for both x86-64 and ARM64. Compiler availability on Windows ARM64 does not establish NVIDIA ARM64 driver support. Read the backend requirements below before choosing a GPU package.
+CUDA, Vulkan and combined CUDA+Vulkan archives replace cpu in the name with cuda, vulkan or gpu. Choose gpu when you want one compiler installation that supports --target cuda, --target vulkan and --target cuda,vulkan. Linux GPU archives target x86-64; experimental Windows GPU archives are available for both x86-64 and ARM64. Compiler availability on Windows ARM64 does not establish NVIDIA ARM64 driver support. Read the backend requirements below before choosing a GPU package.
 
 h2 { "Install the toolchain" }
 
@@ -49,7 +49,7 @@ h3 { "macOS" }
 Use macOS 26 or newer on Apple silicon. Native application compilation requires the Apple SDK and system linker. For Metal compilation, install Xcode 26.2 and its Metal Toolchain component, compiler version 32023.864. Open Xcode once to finish setup, select it in Xcode Settings → Locations → Command Line Tools, and install Metal Toolchain from Settings → Components. The compiler checks the component's signature and version; an arbitrary newer Metal compiler is not interchangeable with the pinned one.
 
 list {
-  link { url = "https://github.com/kalandra-lang/kalandra/blob/v0.99.3/native/metal-proof/toolchain.json", "Exact Metal toolchain requirements" }
+  link { url = "https://github.com/kalandra-lang/kalandra/blob/v0.99.4/native/metal-proof/toolchain.json", "Exact Metal toolchain requirements" }
 }
 
 h3 { "Linux" }
@@ -111,7 +111,7 @@ ctest --preset native
 The tools are created under build/native/native. GPU builds have additional dependencies and opt-in configuration. Follow the source-build guide for your backend rather than substituting an arbitrary toolchain version.
 
 list {
-  link { url = "https://github.com/kalandra-lang/kalandra/blob/v0.99.3/native/README.md", "Native source-build instructions" },
+  link { url = "https://github.com/kalandra-lang/kalandra/blob/v0.99.4/native/README.md", "Native source-build instructions" },
   link { url = "/docs/contributing", "Build and test a contribution" },
   link { url = "/docs/cross-compilation", "Compile for another CPU platform" }
 }
