@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { cn } from "$lib/utils.js";
+  import { cn } from "#lib/utils.ts";
   import { fly, fade } from "svelte/transition";
   import type { Snippet } from "svelte";
 

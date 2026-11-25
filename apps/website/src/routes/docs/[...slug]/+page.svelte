@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { DocsLayout, DocPage, PrevNextNav } from "$lib/components";
-  import OpenDropdown from "$lib/components/OpenDropdown.svelte";
-  import config from "$lib/tiramisu.config";
-  import { socialImage } from "$lib/social";
+  import { DocsLayout, DocPage, PrevNextNav } from "#lib/components/index.ts";
+  import OpenDropdown from "#lib/components/OpenDropdown.svelte";
+  import config from "#lib/tiramisu.config.ts";
+  import { socialImage } from "#lib/social.ts";
   import { resolveConfig, getOpenLinks } from "@tiramisu-docs/kit";
   import type { LocaleConfig } from "@tiramisu-docs/kit";
 

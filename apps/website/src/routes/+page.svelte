@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import type { PageData } from "./$types";
-  import ExecutionField from "$lib/components/ExecutionField.svelte";
-  import { socialImage } from "$lib/social";
+  import ExecutionField from "#lib/components/ExecutionField.svelte";
+  import { socialImage } from "#lib/social.ts";
   let { data }: { data: PageData } = $props();
   let selected = $state(0);
   let copied = $state(false);
