@@ -1,6 +1,6 @@
 import { generateSitemap } from "@tiramisu-docs/kit/seo";
 import { docs, locales } from "virtual:tiramisu-docs";
-import config from "$lib/tiramisu.config";
+import config from "#lib/tiramisu.config.ts";
 import { resolveConfig } from "@tiramisu-docs/kit";
 
 export const prerender = true;

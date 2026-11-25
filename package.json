@@ -18,19 +18,25 @@
     "typecheck": "bun --bun tsc -p tsconfig.json && bun run --filter @kalandra/website check",
     "test": "bun test",
     "test:native": "ctest --preset native",
-    "format": "bun --bun prettier --write apps/website/src scripts tests apps/website/*.{json,js,ts} package.json tsconfig*.json .github/workflows/check.yml",
-    "format:check": "bun --bun prettier --check apps/website/src scripts tests apps/website/*.{json,js,ts} package.json tsconfig*.json .github/workflows/check.yml",
+    "format": "bun --bun prettier --write apps/website/src scripts tests apps/website/*.{json,ts} package.json tsconfig*.json .github/workflows/check.yml",
+    "format:check": "bun --bun prettier --check apps/website/src scripts tests apps/website/*.{json,ts} package.json tsconfig*.json .github/workflows/check.yml",
     "check": "bun run format:check && bun run typecheck && bun test && bun run build",
     "verify:docs": "bun run build:website && bun scripts/verify-docs.ts"
   },
   "devDependencies": {
     "@tiramisu-docs/core": "0.1.3",
     "@types/bun": "1.3.12",
-    "prettier": "^3.6.2",
-    "prettier-plugin-svelte": "^3.4.0",
+    "prettier": "^3.10.1",
+    "prettier-plugin-svelte": "^3.5.2",
     "typescript": "^5.9.3"
   },
   "patchedDependencies": {
     "@tiramisu-docs/core@0.1.3": "patches/@tiramisu-docs%2Fcore@0.1.3.patch"
+  },
+  "overrides": {
+    "@sveltejs/kit": "^3.4.0",
+    "dompurify": "^3.5.0",
+    "katex": "^0.19.1",
+    "lodash-es": "^4.18.1"
   }
 }
