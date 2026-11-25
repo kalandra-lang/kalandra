@@ -217,7 +217,7 @@ std::optional<FunctionId> specializeFunction(FunctionId declaration, GenericBind
     key += "[" + genericTypeKey(found->second) + "]";
   }
   if (auto found = functionSpecializations_.find(key); found != functionSpecializations_.end())
-    return found->second;
+    return signatures_[found->second] ? std::optional<FunctionId>(found->second) : std::nullopt;
   {
     GenericScope scope(*this, std::make_shared<const GenericBindings>(bindings),
                        proofOwnerForFunction(declaration));

@@ -13,7 +13,8 @@ void require(bool condition, const std::string &message) {
     throw std::runtime_error(message);
 }
 CheckResult analyze(std::string source, SemanticLimits limits = {}) {
-  if (source.find("yield ") != std::string::npos || source.find("std/ops") != std::string::npos) {
+  if (source.find("yield ") != std::string::npos || source.find("std/ops") != std::string::npos ||
+      source.find("std/fmt") != std::string::npos || source.find("std/cmp") != std::string::npos) {
     const SourceOverlay overlay{"generics.k", std::move(source)};
     auto loaded = loadModules(overlay.path, {}, {}, {}, {&overlay, 1});
     require(bool(loaded), "cannot load generator generic fixture");
@@ -744,6 +745,37 @@ int main(int argc, char **argv) {
                                     [](const auto &d) { return d.code == "S082"; }),
             "specialization limit did not fail closed");
 
+    bad("partial signature diagnostics still populate all five trait dispatch paths",
+        "from \"std/fmt\" import Display, format\n"
+        "from \"std/cmp\" import Equal\n"
+        "from \"std/ops\" import Add\n"
+        "type Meter:\n  value:i64\n"
+        "trait Measure:\n  type Output\n  fn size(value:Self)->Self.Output\n"
+        "impl Measure for Meter:\n  type Output=i64\n  fn size(value:Self)->i64:\n    return value.value\n"
+        "impl Display for Meter:\n  fn display(value:Self)->String:\n    return format(\"{}\",value.value)\n"
+        "impl Equal for Meter:\n  fn equal(left:Self,right:Self)->bool:\n    return left.value==right.value\n"
+        "impl Add[Meter] for Meter:\n  type Output=Meter\n  fn add(left:Self,right:Meter)->Meter:\n    return Meter {value:left.value+right.value}\n"
+        "fn readSize[M:Measure](item:M)->M.Output:\n  return Measure.size(item)\n"
+        "fn brokenSignature()->unit ! MissingError:\n  return ()\n"
+        "fn main()->i64:\n"
+        "  a=Meter {value:20}\n"
+        "  b=Meter {value:22}\n"
+        "  sum=a+b\n"
+        "  same=sum==Meter {value:42}\n"
+        "  text=format(\"{}\",sum)\n"
+        "  fnPtr=Measure[Meter].size\n"
+        "  if same:\n"
+        "    return readSize(sum)+fnPtr(a)+length(text)\n"
+        "  return 0\n",
+        "S072");
+    bad("repeated specialization of a broken generic signature fails cleanly",
+        "fn brokenGeneric[T](value:T)->UnknownResult:\n  return value\n"
+        "fn main()->i64:\n"
+        "  a=brokenGeneric(1)\n"
+        "  b=brokenGeneric(1)\n"
+        "  return 0\n",
+        "S003");
+
     const auto root = std::filesystem::absolute(argv[1]);
     std::filesystem::create_directories(root);
     const auto write = [&](const char *name, const std::string &text) {
@@ -775,6 +807,28 @@ int main(int argc, char **argv) {
     require(!orphan.ok() && std::ranges::any_of(orphan.diagnostics,
                                                 [](const auto &d) { return d.code == "S083"; }),
             "foreign trait/type implementation accepted");
+    write("iter_sub.k", "from \"std/iter\" import Iterable, Iterator, iter, range\n"
+                        "type Countdown:\n  stop:i64\n"
+                        "impl Iterable for Countdown:\n"
+                        "  type Item=i64\n  type Error=never\n"
+                        "  fn iterator(values:Self)->Iterator[i64,never]:\n"
+                        "    return iter(range(values.stop,0,-1))\n"
+                        "fn begin[S:Iterable](values:S)->Iterator[S.Item,S.Error]:\n"
+                        "  return iter(values)\n"
+                        "export fn sub()->unit:\n"
+                        "  c=begin(Countdown {stop:3})\n"
+                        "  return ()\n");
+    write("iter_main.k", "from \"./iter_sub.k\" import sub\n"
+                         "fn main()->unit ! IoError:\n"
+                         "  sub()\n"
+                         "  return ()\n");
+    loaded = loadModules((root / "iter_main.k").string());
+    require(bool(loaded), "partial-signature module load");
+    auto partialSig = check(std::move(*loaded));
+    require(!partialSig.ok() && !partialSig.module &&
+                std::ranges::any_of(partialSig.diagnostics,
+                                    [](const auto &d) { return d.code == "S072"; }),
+            "cross-module partial signature did not report S072 cleanly");
     std::cout << "PASS module identities and implementation coherence\n";
   } catch (const std::exception &error) {
     std::cerr << "FAIL " << error.what() << '\n';

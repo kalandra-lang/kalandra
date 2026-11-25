@@ -122,7 +122,9 @@ std::optional<std::size_t> specializeRecord(std::size_t declaration, GenericBind
   }
   label += "]";
   if (auto found = recordSpecializations_.find(key); found != recordSpecializations_.end())
-    return found->second;
+    return recordStates_[found->second] == State::Failed
+               ? std::nullopt
+               : std::optional<std::size_t>(found->second);
   {
     auto owner = std::make_shared<GenericProofOwner>();
     owner->parameters = original.generics;
