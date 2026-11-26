@@ -20,7 +20,12 @@ class RejectionTests(unittest.TestCase):
         self.tool = self.prefix / "bin/kalandra-check"
         self.original = digest(checker)
         shutil.copy2(checker, self.tool)
-        self.load = next(load for load in inspect(checker)[0] if "libLLVM" in load)
+        self.llvm_loads = [
+            load for load in inspect(checker)[0]
+            if not load.startswith(("/usr/lib/", "/System/Library/"))
+            and Path(load).is_file() and Path(load).resolve().is_relative_to(llvm)
+        ]
+        self.load = next(load for load in self.llvm_loads if "libLLVM" in load)
 
     def tearDown(self):
         self.assertEqual(digest(checker), self.original, "modified the original build binary")
@@ -56,9 +61,13 @@ class RejectionTests(unittest.TestCase):
             library = fake / folder / "collision.dylib"
             library.parent.mkdir()
             shutil.copy2(checker, library)
+            for load in self.llvm_loads:
+                run("/usr/bin/install_name_tool", "-change", load, "/usr/lib/libSystem.B.dylib", library)
             libraries.append(library)
-        run("/usr/bin/install_name_tool", "-change", self.load, libraries[0],
-            "-change", "/usr/lib/libc++.1.dylib", libraries[1], self.tool)
+        for load in self.llvm_loads:
+            target = libraries[0] if load == self.load else "/usr/lib/libSystem.B.dylib"
+            run("/usr/bin/install_name_tool", "-change", load, target, self.tool)
+        run("/usr/bin/install_name_tool", "-change", "/usr/lib/libc++.1.dylib", libraries[1], self.tool)
         with self.assertRaisesRegex(RuntimeError, "basename collision"):
             bundle(self.prefix, fake)
 
